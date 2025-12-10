@@ -1,0 +1,5 @@
+{
+  "name": "TaskMaster",
+  "description": "A comprehensive task management system with Kanban boards, calendar views, and recurring tasks, integrated with Firebase.",
+  "requestFramePermissions": []
+}
