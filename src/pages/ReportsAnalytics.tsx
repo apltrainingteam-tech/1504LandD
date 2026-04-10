@@ -1,7 +1,18 @@
-import React, { useState, useMemo, Fragment } from 'react';
-import { Table, Calendar, GraduationCap, AlertTriangle, ChevronRight, ChevronDown, Trophy, Zap } from 'lucide-react';
+import React, { useState, useMemo, useEffect, Fragment } from 'react';
+import { 
+  Table, 
+  Calendar, 
+  GraduationCap, 
+  AlertTriangle, 
+  ChevronRight, 
+  ChevronDown, 
+  Trophy, 
+  Zap,
+  ShieldCheck,
+  CheckCircle2
+} from 'lucide-react';
 import { Employee } from '../types/employee';
-import { Attendance, TrainingScore, TrainingNomination, Demographics } from '../types/attendance';
+import { Attendance, TrainingScore, TrainingNomination, Demographics, TrainingType, EligibilityRule } from '../types/attendance';
 import { ViewByOption, GroupedData } from '../types/reports';
 import { 
   buildUnifiedDataset, 
@@ -10,8 +21,11 @@ import {
   calcIP, 
   calcAP, 
   calcMIP,
+  getGapData,
   getPrimaryMetric 
 } from '../services/reportService';
+import { getEligibleEmployees, EligibilityResult } from '../services/eligibilityService';
+import { getCollection } from '../services/firestoreService';
 import { Filters } from '../components/Filters';
 import { KPIBox } from '../components/KPIBox';
 import { flagScore, flagClass, flagLabel } from '../utils/scoreNormalizer';
@@ -28,17 +42,31 @@ interface ReportsAnalyticsProps {
 export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({ 
   employees, attendance, scores, nominations, demographics 
 }) => {
-  const [tab, setTab] = useState('IP');
+  const [tab, setTab] = useState<TrainingType | any>('IP');
   const [viewBy, setViewBy] = useState<ViewByOption | any>('Team');
   const [subView, setSubView] = useState<'grouped' | 'timeseries' | 'trainer' | 'gap'>('grouped');
   const [expanded, setExpanded] = useState(new Set<string>());
+  const [rules, setRules] = useState<EligibilityRule[]>([]);
+
+  useEffect(() => {
+    getCollection('eligibility_rules').then(data => setRules(data as EligibilityRule[]));
+  }, []);
+
+  const eligibilityResults = useMemo(() => {
+    const rule = rules.find(r => r.trainingType === tab);
+    return getEligibleEmployees(tab, rule, employees, attendance, nominations);
+  }, [tab, rules, employees, attendance, nominations]);
+
+  const gapMetrics = useMemo(() => {
+    return getGapData(tab, eligibilityResults, attendance);
+  }, [tab, eligibilityResults, attendance]);
 
   const unified = useMemo(() => {
     const att = attendance.filter(a => a.trainingType === tab);
     const scs = scores.filter(s => s.trainingType === tab);
     const noms = nominations.filter(n => n.trainingType === tab);
-    return buildUnifiedDataset(employees, att, scs, noms);
-  }, [employees, attendance, scores, nominations, tab]);
+    return buildUnifiedDataset(employees, att, scs, noms, eligibilityResults);
+  }, [employees, attendance, scores, nominations, tab, eligibilityResults]);
 
   const groups = useMemo(() => {
     const noms = nominations.filter(n => n.trainingType === tab);
@@ -81,7 +109,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
       </div>
 
       <Filters 
-        options={['IP', 'AP', 'MIP']} 
+        options={['IP', 'AP', 'MIP', 'Capsule', 'Pre_AP']} 
         activeOption={tab} 
         onChange={setTab}
         viewByOptions={['Month', 'Cluster', 'Team']}
@@ -90,35 +118,35 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
       />
 
       <div className="dashboard-grid">
-        {tab === 'IP' && (
+        {subView === 'gap' ? (
           <Fragment>
-            <KPIBox title="Total Scored" value={gIP.total} icon={Zap} />
-            <KPIBox title="Grade Distribution" value={`${gIP.high} / ${gIP.medium} / ${gIP.low}`} subValue="High / Med / Low" />
-            <KPIBox 
-              title="Weighted Average" 
-              value={gIP.weighted.toFixed(2)} 
-              color="var(--warning)"
-              badge={<span className={`badge ${flagClass(flagScore(gIP.weighted))}`}>{flagLabel(flagScore(gIP.weighted))}</span>} 
-            />
+            <KPIBox title="Eligible Cohort" value={gapMetrics.eligibleCount} icon={ShieldCheck} />
+            <KPIBox title="Trained Volume" value={gapMetrics.trainedCount} color="var(--success)" icon={CheckCircle2} />
+            <KPIBox title="Training Gap" value={gapMetrics.gapCount} color="var(--danger)" icon={AlertTriangle} subValue={`${((gapMetrics.gapCount / (gapMetrics.eligibleCount || 1)) * 100).toFixed(1)}% untrained`} />
           </Fragment>
-        )}
-        {tab === 'AP' && (
+        ) : (
           <Fragment>
-            <KPIBox title="Conversion Path" value={`${gAP.attended} / ${gAP.notified}`} subValue="Attended / Notified" />
-            <KPIBox title="Conversion %" value={`${gAP.conversion.toFixed(1)}%`} icon={Zap} />
-            <KPIBox 
-              title="Composite Score" 
-              value={gAP.composite.toFixed(2)} 
-              color="var(--success)"
-              badge={<span className={`badge ${flagClass(flagScore(gAP.composite))}`}>{flagLabel(flagScore(gAP.composite))}</span>} 
-            />
-          </Fragment>
-        )}
-        {tab === 'MIP' && (
-          <Fragment>
-            <KPIBox title="Attendance" value={gMIP.count} icon={Zap} />
-            <KPIBox title="Avg Science" value={gMIP.avgSci.toFixed(2)} color="var(--accent-primary)" badge={<span className={`badge ${flagClass(flagScore(gMIP.avgSci))}`}>Sci</span>} />
-            <KPIBox title="Avg Skill" value={gMIP.avgSkl.toFixed(2)} color="var(--accent-secondary)" badge={<span className={`badge ${flagClass(flagScore(gMIP.avgSkl))}`}>Skl</span>} />
+            {tab === 'IP' && (
+              <Fragment>
+                <KPIBox title="Total Scored" value={gIP.total} icon={Zap} />
+                <KPIBox title="Grade Distribution" value={`${gIP.high} / ${gIP.medium} / ${gIP.low}`} subValue="High / Med / Low" />
+                <KPIBox title="Weighted Average" value={gIP.weighted.toFixed(2)} color="var(--warning)" badge={<span className={`badge ${flagClass(flagScore(gIP.weighted))}`}>{flagLabel(flagScore(gIP.weighted))}</span>} />
+              </Fragment>
+            )}
+            {tab === 'AP' && (
+              <Fragment>
+                <KPIBox title="Conversion Path" value={`${gAP.attended} / ${gAP.notified}`} subValue="Attended / Notified" />
+                <KPIBox title="Conversion %" value={`${gAP.conversion.toFixed(1)}%`} icon={Zap} />
+                <KPIBox title="Composite Score" value={gAP.composite.toFixed(2)} color="var(--success)" badge={<span className={`badge ${flagClass(flagScore(gAP.composite))}`}>{flagLabel(flagScore(gAP.composite))}</span>} />
+              </Fragment>
+            )}
+            {['MIP', 'Capsule', 'Pre_AP'].includes(tab) && (
+              <Fragment>
+                <KPIBox title="Attendance" value={gMIP.count} icon={Zap} />
+                <KPIBox title="Avg Science" value={gMIP.avgSci.toFixed(2)} color="var(--accent-primary)" badge={<span className={`badge ${flagClass(flagScore(gMIP.avgSci))}`}>Sci</span>} />
+                <KPIBox title="Avg Skill" value={gMIP.avgSkl.toFixed(2)} color="var(--accent-secondary)" badge={<span className={`badge ${flagClass(flagScore(gMIP.avgSkl))}`}>Skl</span>} />
+              </Fragment>
+            )}
           </Fragment>
         )}
       </div>
@@ -168,7 +196,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
                           </Fragment>
                         );
                       })()}
-                      {tab === 'MIP' && (() => {
+                      {['MIP', 'Capsule', 'Pre_AP'].includes(tab) && (() => {
                         const m = calcMIP(g.records);
                         const avg = (m.avgSci + m.avgSkl) / 2;
                         return (
@@ -196,7 +224,32 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
         </Fragment>
       )}
 
-      {subView !== 'grouped' && (
+      {subView === 'gap' && (
+        <div className="mt-8">
+          <h3 className="mb-4">Gap Analysis: Eligible but Not Trained</h3>
+          <DataTable headers={['Employee ID', 'Name', 'Team', 'Cluster', 'Status', 'Reason (if ineligible)']}>
+            {eligibilityResults.length === 0 ? (
+              <tr><td colSpan={6} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-secondary)' }}>No eligibility data found. Configure rules in Demographics.</td></tr>
+            ) : eligibilityResults.map((er, i) => {
+              const hasAttended = attendance.some(a => a.employeeId === er.employeeId && a.trainingType === tab && a.attendanceStatus === 'Present');
+              if (hasAttended || !er.eligibilityStatus) return null;
+              
+              return (
+                <tr key={i}>
+                  <td style={{ fontWeight: 600 }}>{er.employeeId}</td>
+                  <td>{er.name}</td>
+                  <td>{er.team}</td>
+                  <td>{er.cluster}</td>
+                  <td><span className="badge badge-danger">Untrained Gap</span></td>
+                  <td className="text-muted" style={{ fontSize: '11px' }}>{er.reasonIfNotEligible || '—'}</td>
+                </tr>
+              );
+            })}
+          </DataTable>
+        </div>
+      )}
+
+      {(subView === 'timeseries' || subView === 'trainer') && (
         <div className="glass-panel" style={{ padding: '60px', textAlign: 'center' }}>
           <AlertTriangle size={48} color="var(--warning)" style={{ marginBottom: '16px' }} />
           <h3>Module Under Migration</h3>

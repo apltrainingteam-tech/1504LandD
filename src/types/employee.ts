@@ -9,4 +9,6 @@ export interface Employee {
   hq: string;
   state: string;
   status: 'Active' | 'Inactive';
+  designation: string;
+  joiningDate: string; // ISO date format yyyy-mm-dd
 }

@@ -1,6 +1,6 @@
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from './services/firestoreService';
-import { mockEmployees, mockAttendance, mockScores, mockNominations, mockDemographics } from '../api.mock';
+import { mockEmployees, mockAttendance, mockScores, mockNominations, mockDemographics } from './api.mock';
 
 export const seedDatabase = async () => {
     console.log("Seeding started...");

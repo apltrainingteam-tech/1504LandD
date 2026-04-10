@@ -1,4 +1,4 @@
-export type TrainingType = 'IP' | 'AP' | 'MIP' | 'Refresher' | 'Capsule' | 'Pre_AP' | 'GTG';
+export type TrainingType = 'IP' | 'AP' | 'MIP' | 'Refresher' | 'Capsule' | 'Pre_AP' | 'GTG' | 'HO' | 'RTM';
 
 export interface Attendance {
   id: string;
@@ -40,4 +40,38 @@ export interface Demographics {
   eligibilityStatus: string;
   trainingType: TrainingType;
   lastUpdated: string; // ISO date string
+}
+
+export interface TeamClusterMapping {
+  id: string;
+  team: string;
+  cluster: string;
+}
+
+export interface Trainer {
+  id: string;
+  trainerName: string;
+  trainingTypes: TrainingType[];
+}
+
+export interface EligibilityRule {
+  id: string; // usually the trainingType
+  trainingType: TrainingType;
+  designation: {
+    mode: 'ALL' | 'INCLUDE' | 'EXCLUDE';
+    values: string[];
+  };
+  previousTraining: {
+    mode: 'ALL' | 'INCLUDE' | 'NONE';
+    values: TrainingType[];
+  };
+  aplExperience: {
+    mode: 'ALL' | 'RANGE';
+    min: number;
+    max: number;
+  };
+  specialConditions: {
+    noAPInNext90Days: boolean;
+    preAPOnlyIfInvited: boolean;
+  };
 }
