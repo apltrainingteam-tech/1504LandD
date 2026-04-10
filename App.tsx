@@ -23,7 +23,7 @@ import { Demographics } from './src/pages/Demographics';
 
 // Services & Types
 import { getCollection } from './src/services/firestoreService';
-import { seedDatabase } from './src/seed';
+import { seedDatabase, seedMasterData } from './src/seed';
 import { Employee } from './src/types/employee';
 import { Attendance, TrainingScore, TrainingNomination, Demographics as DemoType } from './src/types/attendance';
 
@@ -33,6 +33,7 @@ const App = () => {
   const [view, setView] = useState<ViewMode>('reports');
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [seeding, setSeeding] = useState(false);
 
   // Global State
   const [emps, setEmps] = useState<Employee[]>([]);
@@ -40,6 +41,16 @@ const App = () => {
   const [scs, setScs] = useState<TrainingScore[]>([]);
   const [noms, setNoms] = useState<TrainingNomination[]>([]);
   const [demos, setDemos] = useState<DemoType[]>([]);
+
+  const handleSeed = async () => {
+    if (!confirm('Seed database with Master Data?')) return;
+    setSeeding(true);
+    const success = await seedMasterData();
+    if (success) {
+      setRefreshKey(k => k + 1);
+    }
+    setSeeding(false);
+  };
 
   const loadAll = async () => {
     setLoading(true);
@@ -121,8 +132,14 @@ const App = () => {
             <ShieldCheck size={20} /> Eligibility
           </button>
 
-          <button className="nav-item w-full" onClick={async () => { if (confirm('Seed database with initial mock data?')) { await seedDatabase(); setRefreshKey(k => k + 1); } }} style={{ marginTop: '24px', opacity: 0.7 }}>
-            <Database size={20} /> Seed Database
+          <button
+            className="nav-item w-full"
+            onClick={handleSeed}
+            disabled={seeding}
+            style={{ marginTop: '24px', opacity: seeding ? 0.5 : 0.7 }}
+          >
+            <Database size={20} className={seeding ? "animate-spin" : ""} />
+            {seeding ? "Seeding..." : "Seed Database"}
           </button>
         </nav>
 

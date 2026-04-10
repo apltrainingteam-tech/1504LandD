@@ -8,17 +8,18 @@ import {
   writeBatch, 
   doc, 
   setDoc,
+  deleteDoc,
   DocumentData
 } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+  apiKey: "AIzaSyBoSFLhMQCd6vN7L9lO2MvkqBiHnhJCqHk",
+  authDomain: "pharmaintel-9b60c.firebaseapp.com",
+  projectId: "pharmaintel-9b60c",
+  storageBucket: "pharmaintel-9b60c.firebasestorage.app",
+  messagingSenderId: "97794894089",
+  appId: "1:97794894089:web:019d24130cdbfdc0f30bd8",
+  measurementId: "G-Z3V8M55HS7"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -47,4 +48,10 @@ export const addBatch = async (colName: string, items: any[]): Promise<void> => 
 export const upsertDoc = async (colName: string, id: string, data: any): Promise<void> => {
   const dRef = doc(db, colName, id);
   await setDoc(dRef, data, { merge: true });
+};
+
+export const deleteDocument = async (colName: string, id: string): Promise<void> => {
+  if (!id) throw new Error("Missing document ID");
+  const dRef = doc(db, colName, id);
+  await deleteDoc(dRef);
 };

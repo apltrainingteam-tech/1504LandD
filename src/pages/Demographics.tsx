@@ -11,7 +11,7 @@ import {
   ChevronRight,
   UserPlus
 } from 'lucide-react';
-import { getCollection, upsertDoc } from '../services/firestoreService';
+import { getCollection, upsertDoc, deleteDocument } from '../services/firestoreService';
 import { 
   TeamClusterMapping, 
   Trainer, 
@@ -26,6 +26,7 @@ const TRAINER_TYPES: TrainingType[] = ['HO', 'RTM'];
 export const Demographics = () => {
   const [tab, setTab] = useState<'mapping' | 'trainers' | 'rules'>('mapping');
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   // Section A: Cluster Mapping State
   const [mapping, setMapping] = useState<TeamClusterMapping[]>([]);
@@ -67,20 +68,58 @@ export const Demographics = () => {
 
   // --- Handlers: Mapping ---
   const saveMapping = async () => {
-    if (!newTeam || !newCluster) return;
-    const id = newTeam.replace(/\s+/g, '_');
-    await upsertDoc('team_cluster_mapping', id, { id, team: newTeam, cluster: newCluster });
-    setNewTeam(''); setNewCluster('');
-    loadData();
+    // 1. Normalize Inputs
+    const team = newTeam.trim().toUpperCase();
+    const cluster = newCluster.trim().toUpperCase();
+
+    if (!team || !cluster) {
+      alert('Please enter both Team Name and Cluster');
+      return;
+    }
+
+    // 3. Prevent Duplicate Teams
+    const exists = mapping.some(m => m.team.toUpperCase() === team);
+    if (exists) {
+      alert('This team already exists. Edit instead of adding duplicate.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      // 2. Use STABLE ID
+      const id = team.replace(/\s+/g, '_');
+      
+      // 4. Save CLEAN Data
+      await upsertDoc('team_cluster_mapping', id, { id, team, cluster });
+      
+      alert('Mapping added successfully!');
+      setNewTeam(''); setNewCluster('');
+      await loadData();
+    } catch (err: any) {
+      alert('Error saving mapping: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   // --- Handlers: Trainers ---
   const saveTrainer = async () => {
-    if (!newTrainer.name) return;
-    const id = newTrainer.name.replace(/\s+/g, '_');
-    await upsertDoc('trainers', id, { id, trainerName: newTrainer.name, trainingTypes: newTrainer.types });
-    setNewTrainer({ name: '', types: [] });
-    loadData();
+    if (!newTrainer.name) {
+      alert('Please enter a Trainer Name');
+      return;
+    }
+    setSaving(true);
+    try {
+      const id = newTrainer.name.replace(/\s+/g, '_');
+      await upsertDoc('trainers', id, { id, trainerName: newTrainer.name, trainingTypes: newTrainer.types });
+      alert('Trainer registered successfully!');
+      setNewTrainer({ name: '', types: [] });
+      await loadData();
+    } catch (err: any) {
+      alert('Error saving trainer: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const toggleTrainerType = (type: TrainingType) => {
@@ -107,9 +146,36 @@ export const Demographics = () => {
 
   const saveRule = async () => {
     if (!editingRule) return;
-    await upsertDoc('eligibility_rules', editingRule.id, editingRule);
-    alert('Rule saved successfully');
-    loadData();
+    setSaving(true);
+    try {
+      await upsertDoc('eligibility_rules', editingRule.id, editingRule);
+      alert('Eligibility rule for ' + activeRuleType + ' saved successfully!');
+      await loadData();
+    } catch (err: any) {
+      alert('Error saving rule: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (col: string, id: string, name: string) => {
+    // 5. Fix Delete Robustness
+    if (!id) {
+      alert('Invalid ID. Cannot delete.');
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
+    setSaving(true);
+    try {
+      await deleteDocument(col, id);
+      alert(`Deleted ${name} successfully`);
+      await loadData();
+    } catch (err: any) {
+      alert('Delete failed: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -139,7 +205,13 @@ export const Demographics = () => {
               <label>Cluster</label>
               <input value={newCluster} onChange={e => setNewCluster(e.target.value)} className="form-input" placeholder="e.g. North Zone" />
             </div>
-            <button className="btn btn-primary w-full mt-4" onClick={saveMapping}><Plus size={18} /> Add Mapping</button>
+            <button 
+              className="btn btn-primary w-full mt-4" 
+              onClick={saveMapping}
+              disabled={saving}
+            >
+              {saving ? 'Saving...' : <><Plus size={18} /> Add Mapping</>}
+            </button>
           </div>
           <div className="md:col-span-2">
             <DataTable headers={['Team', 'Cluster', 'Action']}>
@@ -147,7 +219,15 @@ export const Demographics = () => {
                 <tr key={m.id}>
                   <td style={{ fontWeight: 600 }}>{m.team}</td>
                   <td><span className="badge badge-info">{m.cluster}</span></td>
-                  <td><button className="btn btn-secondary p-2"><Trash2 size={16} /></button></td>
+                  <td>
+                    <button 
+                      className="btn btn-secondary p-2" 
+                      onClick={() => handleDelete('team_cluster_mapping', m.id, m.team)}
+                      disabled={saving}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </td>
                 </tr>
               ))}
             </DataTable>
@@ -177,7 +257,13 @@ export const Demographics = () => {
                 ))}
               </div>
             </div>
-            <button className="btn btn-primary w-full mt-4" onClick={saveTrainer}><Plus size={18} /> Save Trainer</button>
+            <button 
+              className="btn btn-primary w-full mt-4" 
+              onClick={saveTrainer}
+              disabled={saving}
+            >
+              {saving ? 'Saving...' : <><Plus size={18} /> Save Trainer</>}
+            </button>
           </div>
           <div className="md:col-span-2">
             <DataTable headers={['Trainer', 'Training Capabilities', 'Action']}>
@@ -189,7 +275,15 @@ export const Demographics = () => {
                       {tr.trainingTypes.map(t => <span key={t} className="badge badge-info">{t}</span>)}
                     </div>
                   </td>
-                  <td><button className="btn btn-secondary p-2"><Trash2 size={16} /></button></td>
+                  <td>
+                    <button 
+                      className="btn btn-secondary p-2" 
+                      onClick={() => handleDelete('trainers', tr.id, tr.trainerName)}
+                      disabled={saving}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </td>
                 </tr>
               ))}
             </DataTable>
@@ -215,7 +309,13 @@ export const Demographics = () => {
           <div className="md:col-span-3 glass-panel p-8">
             <div className="flex-between mb-8">
               <h3>Rule Engine: {activeRuleType}</h3>
-              <button className="btn btn-primary" onClick={saveRule}><Save size={18} /> Persistence Policy</button>
+              <button 
+                className="btn btn-primary" 
+                onClick={saveRule}
+                disabled={saving}
+              >
+                {saving ? 'Saving...' : <><Save size={18} /> Persistence Policy</>}
+              </button>
             </div>
 
             <div className="rule-section mb-6">
