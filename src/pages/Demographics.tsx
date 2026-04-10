@@ -1,25 +1,312 @@
-import React from 'react';
-import { ShieldCheck } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  Users, 
+  MapPin, 
+  ShieldCheck, 
+  Plus, 
+  Trash2, 
+  Save, 
+  AlertCircle, 
+  Check, 
+  ChevronRight,
+  UserPlus
+} from 'lucide-react';
+import { getCollection, upsertDoc } from '../services/firestoreService';
+import { 
+  TeamClusterMapping, 
+  Trainer, 
+  EligibilityRule, 
+  TrainingType 
+} from '../types/attendance';
+import { DataTable } from '../components/DataTable';
 
-export const Demographics = () => (
-  <div style={{ textAlign: 'center', padding: '100px 20px' }} className="animate-fade-in">
-    <div style={{ 
-      background: 'var(--bg-card)', 
-      width: '80px', 
-      height: '80px', 
-      borderRadius: '50%', 
-      display: 'flex', 
-      alignItems: 'center', 
-      justifyContent: 'center', 
-      margin: '0 auto 24px',
-      color: 'var(--accent-primary)'
-    }}>
-      <ShieldCheck size={40} />
+const TRAINING_TYPES: TrainingType[] = ['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'Pre_AP', 'GTG'];
+const TRAINER_TYPES: TrainingType[] = ['HO', 'RTM'];
+
+export const Demographics = () => {
+  const [tab, setTab] = useState<'mapping' | 'trainers' | 'rules'>('mapping');
+  const [loading, setLoading] = useState(false);
+
+  // Section A: Cluster Mapping State
+  const [mapping, setMapping] = useState<TeamClusterMapping[]>([]);
+  const [newTeam, setNewTeam] = useState('');
+  const [newCluster, setNewCluster] = useState('');
+
+  // Section B: Trainer State
+  const [trainers, setTrainers] = useState<Trainer[]>([]);
+  const [newTrainer, setNewTrainer] = useState({ name: '', types: [] as TrainingType[] });
+
+  // Section C: Rules State
+  const [rules, setRules] = useState<EligibilityRule[]>([]);
+  const [activeRuleType, setActiveRuleType] = useState<TrainingType>('IP');
+  const [editingRule, setEditingRule] = useState<EligibilityRule | null>(null);
+
+  useEffect(() => {
+    loadData();
+  }, [tab]);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      if (tab === 'mapping') {
+        const data = await getCollection('team_cluster_mapping');
+        setMapping(data as TeamClusterMapping[]);
+      } else if (tab === 'trainers') {
+        const data = await getCollection('trainers');
+        setTrainers(data as Trainer[]);
+      } else if (tab === 'rules') {
+        const data = await getCollection('eligibility_rules');
+        setRules(data as EligibilityRule[]);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- Handlers: Mapping ---
+  const saveMapping = async () => {
+    if (!newTeam || !newCluster) return;
+    const id = newTeam.replace(/\s+/g, '_');
+    await upsertDoc('team_cluster_mapping', id, { id, team: newTeam, cluster: newCluster });
+    setNewTeam(''); setNewCluster('');
+    loadData();
+  };
+
+  // --- Handlers: Trainers ---
+  const saveTrainer = async () => {
+    if (!newTrainer.name) return;
+    const id = newTrainer.name.replace(/\s+/g, '_');
+    await upsertDoc('trainers', id, { id, trainerName: newTrainer.name, trainingTypes: newTrainer.types });
+    setNewTrainer({ name: '', types: [] });
+    loadData();
+  };
+
+  const toggleTrainerType = (type: TrainingType) => {
+    const next = newTrainer.types.includes(type)
+      ? newTrainer.types.filter(t => t !== type)
+      : [...newTrainer.types, type];
+    setNewTrainer({ ...newTrainer, types: next });
+  };
+
+  // --- Handlers: Rules ---
+  useEffect(() => {
+    if (tab === 'rules') {
+      const existing = rules.find(r => r.trainingType === activeRuleType);
+      setEditingRule(existing || {
+        id: activeRuleType,
+        trainingType: activeRuleType,
+        designation: { mode: 'ALL', values: [] },
+        previousTraining: { mode: 'ALL', values: [] },
+        aplExperience: { mode: 'ALL', min: 0, max: 10 },
+        specialConditions: { noAPInNext90Days: false, preAPOnlyIfInvited: false }
+      });
+    }
+  }, [activeRuleType, rules, tab]);
+
+  const saveRule = async () => {
+    if (!editingRule) return;
+    await upsertDoc('eligibility_rules', editingRule.id, editingRule);
+    alert('Rule saved successfully');
+    loadData();
+  };
+
+  return (
+    <div className="animate-fade-in">
+      <div className="header">
+        <div>
+          <h2 style={{ fontSize: '24px' }}>Demographics & Eligibility Console</h2>
+          <p className="text-muted">Dynamic rule management for training intelligence</p>
+        </div>
+      </div>
+
+      <div className="flex-center mb-8" style={{ background: 'var(--bg-card)', padding: '8px', borderRadius: '14px', width: 'fit-content' }}>
+        <button className={`nav-item ${tab === 'mapping' ? 'active' : ''}`} onClick={() => setTab('mapping')}><MapPin size={18} /> Cluster Mapping</button>
+        <button className={`nav-item ${tab === 'trainers' ? 'active' : ''}`} onClick={() => setTab('trainers')}><UserPlus size={18} /> Trainer Master</button>
+        <button className={`nav-item ${tab === 'rules' ? 'active' : ''}`} onClick={() => setTab('rules')}><ShieldCheck size={18} /> Eligibility Builder</button>
+      </div>
+
+      {tab === 'mapping' && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="md:col-span-1 glass-panel p-6">
+            <h3 className="mb-4">Advisory: Team Mapping</h3>
+            <div className="form-group">
+              <label>Team Name</label>
+              <input value={newTeam} onChange={e => setNewTeam(e.target.value)} className="form-input" placeholder="e.g. Gamma Squad" />
+            </div>
+            <div className="form-group">
+              <label>Cluster</label>
+              <input value={newCluster} onChange={e => setNewCluster(e.target.value)} className="form-input" placeholder="e.g. North Zone" />
+            </div>
+            <button className="btn btn-primary w-full mt-4" onClick={saveMapping}><Plus size={18} /> Add Mapping</button>
+          </div>
+          <div className="md:col-span-2">
+            <DataTable headers={['Team', 'Cluster', 'Action']}>
+              {mapping.map(m => (
+                <tr key={m.id}>
+                  <td style={{ fontWeight: 600 }}>{m.team}</td>
+                  <td><span className="badge badge-info">{m.cluster}</span></td>
+                  <td><button className="btn btn-secondary p-2"><Trash2 size={16} /></button></td>
+                </tr>
+              ))}
+            </DataTable>
+          </div>
+        </div>
+      )}
+
+      {tab === 'trainers' && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="md:col-span-1 glass-panel p-6">
+            <h3 className="mb-4">Register Trainer</h3>
+            <div className="form-group">
+              <label>Trainer Name</label>
+              <input value={newTrainer.name} onChange={e => setNewTrainer({ ...newTrainer, name: e.target.value })} className="form-input" />
+            </div>
+            <div className="form-group">
+              <label>Authorized Types</label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {TRAINER_TYPES.map(t => (
+                  <button 
+                    key={t} 
+                    className={`badge ${newTrainer.types.includes(t) ? 'badge-primary' : 'badge-secondary'} cursor-pointer`}
+                    onClick={() => toggleTrainerType(t)}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button className="btn btn-primary w-full mt-4" onClick={saveTrainer}><Plus size={18} /> Save Trainer</button>
+          </div>
+          <div className="md:col-span-2">
+            <DataTable headers={['Trainer', 'Training Capabilities', 'Action']}>
+              {trainers.map(tr => (
+                <tr key={tr.id}>
+                  <td style={{ fontWeight: 600 }}>{tr.trainerName}</td>
+                  <td>
+                    <div className="flex flex-wrap gap-2">
+                      {tr.trainingTypes.map(t => <span key={t} className="badge badge-info">{t}</span>)}
+                    </div>
+                  </td>
+                  <td><button className="btn btn-secondary p-2"><Trash2 size={16} /></button></td>
+                </tr>
+              ))}
+            </DataTable>
+          </div>
+        </div>
+      )}
+
+      {tab === 'rules' && editingRule && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          <div className="md:col-span-1">
+            <div className="glass-panel p-2">
+              {TRAINING_TYPES.map(t => (
+                <button 
+                  key={t} 
+                  className={`nav-item w-full flex-between ${activeRuleType === t ? 'active' : ''}`}
+                  onClick={() => setActiveRuleType(t)}
+                >
+                  {t} <ChevronRight size={14} />
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="md:col-span-3 glass-panel p-8">
+            <div className="flex-between mb-8">
+              <h3>Rule Engine: {activeRuleType}</h3>
+              <button className="btn btn-primary" onClick={saveRule}><Save size={18} /> Persistence Policy</button>
+            </div>
+
+            <div className="rule-section mb-6">
+              <h4>1. Designation Filter</h4>
+              <div className="flex gap-4 mt-3">
+                {['ALL', 'INCLUDE', 'EXCLUDE'].map(m => (
+                  <button 
+                    key={m} 
+                    className={`btn ${editingRule.designation.mode === m ? 'btn-primary' : 'btn-secondary'}`}
+                    onClick={() => setEditingRule({ ...editingRule, designation: { ...editingRule.designation, mode: m as any } })}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+              {editingRule.designation.mode !== 'ALL' && (
+                <input 
+                  className="form-input mt-4" 
+                  placeholder="Enter designations separated by comma..." 
+                  value={editingRule.designation.values.join(', ')}
+                  onChange={e => setEditingRule({ ...editingRule, designation: { ...editingRule.designation, values: e.target.value.split(',').map(v => v.trim()) } })}
+                />
+              )}
+            </div>
+
+            <div className="rule-section mb-6">
+              <h4>2. Prerequisite Trainings</h4>
+              <div className="flex flex-wrap gap-2 mt-3">
+                {TRAINING_TYPES.map(t => (
+                  <button 
+                    key={t}
+                    disabled={editingRule.previousTraining.mode === 'ALL'}
+                    className={`badge ${editingRule.previousTraining.values.includes(t) ? 'badge-primary' : 'badge-secondary'} cursor-pointer`}
+                    onClick={() => {
+                      const next = editingRule.previousTraining.values.includes(t)
+                        ? editingRule.previousTraining.values.filter(x => x !== t)
+                        : [...editingRule.previousTraining.values, t];
+                      setEditingRule({ ...editingRule, previousTraining: { ...editingRule.previousTraining, values: next } });
+                    }}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    checked={editingRule.previousTraining.mode === 'ALL'} 
+                    onChange={e => setEditingRule({ ...editingRule, previousTraining: { ...editingRule.previousTraining, mode: e.target.checked ? 'ALL' : 'INCLUDE' } })}
+                  /> No Prerequisite (Universal)
+                </label>
+              </div>
+            </div>
+
+            <div className="rule-section mb-6">
+              <h4>3. APL Experience Bracket</h4>
+              <div className="flex gap-8 mt-3">
+                <div className="form-group flex-1">
+                  <label>Min Years</label>
+                  <input type="number" className="form-input" value={editingRule.aplExperience.min} onChange={e => setEditingRule({ ...editingRule, aplExperience: { ...editingRule.aplExperience, min: parseInt(e.target.value) } })} />
+                </div>
+                <div className="form-group flex-1">
+                  <label>Max Years</label>
+                  <input type="number" className="form-input" value={editingRule.aplExperience.max} onChange={e => setEditingRule({ ...editingRule, aplExperience: { ...editingRule.aplExperience, max: parseInt(e.target.value) } })} />
+                </div>
+              </div>
+            </div>
+
+            <div className="rule-section">
+              <h4>4. Constraint Logic (Special)</h4>
+              <div className="flex flex-col gap-4 mt-3">
+                <label className="flex items-center gap-3 glass-panel p-4 cursor-pointer" style={{ borderColor: editingRule.specialConditions.noAPInNext90Days ? 'var(--accent-primary)' : 'var(--border-color)' }}>
+                  <input type="checkbox" checked={editingRule.specialConditions.noAPInNext90Days} onChange={e => setEditingRule({ ...editingRule, specialConditions: { ...editingRule.specialConditions, noAPInNext90Days: e.target.checked } })} />
+                  <div>
+                    <div style={{ fontWeight: 600 }}>Capsule Lock</div>
+                    <div className="text-muted" style={{ fontSize: '12px' }}>Ineligible if any AP training is scheduled within the next 90 days.</div>
+                  </div>
+                </label>
+                <label className="flex items-center gap-3 glass-panel p-4 cursor-pointer" style={{ borderColor: editingRule.specialConditions.preAPOnlyIfInvited ? 'var(--accent-primary)' : 'var(--border-color)' }}>
+                  <input type="checkbox" checked={editingRule.specialConditions.preAPOnlyIfInvited} onChange={e => setEditingRule({ ...editingRule, specialConditions: { ...editingRule.specialConditions, preAPOnlyIfInvited: e.target.checked } })} />
+                  <div>
+                    <div style={{ fontWeight: 600 }}>Invitation Only (Pre-AP)</div>
+                    <div className="text-muted" style={{ fontSize: '12px' }}>Ineligible unless the employee exists in the active nominations pool for AP.</div>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-    <h2 style={{ fontSize: '28px', marginBottom: '12px' }}>Eligibility Engine</h2>
-    <p className="text-muted" style={{ maxWidth: '400px', margin: '0 auto' }}>Automated eligibility status tracking based on tenure and training cycles.</p>
-    <div className="glass-panel mt-8" style={{ display: 'inline-block', padding: '12px 24px' }}>
-      <span style={{ fontSize: '13px', fontWeight: 600 }}>Syncing with Firestore Collection...</span>
-    </div>
-  </div>
-);
+  );
+};

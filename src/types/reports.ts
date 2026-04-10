@@ -6,6 +6,8 @@ export interface UnifiedRecord {
   attendance: Attendance;
   score: TrainingScore | null;
   nomination: TrainingNomination | null;
+  eligibilityStatus?: boolean;
+  eligibilityReason?: string;
 }
 
 export interface GroupedData {

@@ -1,6 +1,7 @@
 import { Employee } from '../types/employee';
-import { Attendance, TrainingScore, TrainingNomination, Demographics } from '../types/attendance';
+import { Attendance, TrainingScore, TrainingNomination, Demographics, TrainingType } from '../types/attendance';
 import { UnifiedRecord, GroupedData, ViewByOption } from '../types/reports';
+import { EligibilityResult } from './eligibilityService';
 
 const safe = (v: any): number => (typeof v === 'number' && !isNaN(v)) ? v : 0;
 
@@ -8,7 +9,8 @@ export function buildUnifiedDataset(
   emps: Employee[],
   att: Attendance[],
   scs: TrainingScore[],
-  noms: TrainingNomination[]
+  noms: TrainingNomination[],
+  eligibilityResults: EligibilityResult[] = []
 ): UnifiedRecord[] {
   return att.map(a => {
     const emp = emps.find(e => e.id === a.employeeId) || {
@@ -21,11 +23,22 @@ export function buildUnifiedDataset(
       state: '-',
       status: 'Inactive' as const,
       aadhaarNumber: '-',
-      mobileNumber: '-'
+      mobileNumber: '-',
+      designation: '-',
+      joiningDate: ''
     };
     const sc = scs.find(s => s.employeeId === a.employeeId && s.trainingType === a.trainingType && s.dateStr === a.attendanceDate) || null;
     const nm = noms.find(n => n.employeeId === a.employeeId && n.trainingType === a.trainingType) || null;
-    return { employee: emp, attendance: a, score: sc, nomination: nm };
+    const el = eligibilityResults.find(e => e.employeeId === a.employeeId);
+    
+    return { 
+      employee: emp as Employee, 
+      attendance: a, 
+      score: sc, 
+      nomination: nm,
+      eligibilityStatus: el?.eligibilityStatus,
+      eligibilityReason: el?.reasonIfNotEligible
+    };
   });
 }
 
@@ -48,7 +61,7 @@ export function groupData(
   });
 
   (noms || []).forEach(n => {
-    const e = emps.find(x => x.id === n.employeeId);
+    const e = emps.find(x => x.employeeId === n.employeeId || x.id === n.employeeId);
     let k = 'Unknown';
     if (by === 'Month') k = (n.nominationDate || '').substring(0, 7) || 'Unknown';
     else if (by === 'Team') k = e?.team || 'Unknown';
@@ -122,6 +135,33 @@ export function calcMIP(recs: UnifiedRecord[]) {
     count: p.length,
     avgSci: cS > 0 ? sS / cS : 0,
     avgSkl: cK > 0 ? sK / cK : 0
+  };
+}
+
+/**
+ * GAP ANALYSIS LOGIC
+ * Identifies employees who are eligible but have NO attendance record for the type.
+ */
+export function getGapData(
+  type: TrainingType,
+  eligibilityResults: EligibilityResult[],
+  attendance: Attendance[]
+) {
+  const trainedIds = new Set(
+    attendance
+      .filter(a => a.trainingType === type && a.attendanceStatus === 'Present')
+      .map(a => a.employeeId)
+  );
+
+  const eligibleButNotTrained = eligibilityResults.filter(
+    er => er.eligibilityStatus && !trainedIds.has(er.employeeId)
+  );
+
+  return {
+    eligibleCount: eligibilityResults.filter(er => er.eligibilityStatus).length,
+    trainedCount: trainedIds.size,
+    gapCount: eligibleButNotTrained.length,
+    gapList: eligibleButNotTrained
   };
 }
 
