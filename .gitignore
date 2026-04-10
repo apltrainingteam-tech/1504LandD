@@ -8,6 +8,7 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+node-v24.14.1-win-x64/
 dist
 dist-ssr
 *.local
