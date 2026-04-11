@@ -93,3 +93,23 @@ export const upsertDoc = async (
     timeout
   ]);
 };
+
+// 🔹 DELETE RECORDS (BY FIELD VALUES)
+export const deleteRecordsByQuery = async (
+  path: string,
+  field: string,
+  values: string[]
+): Promise<number> => {
+  const all = await getCollection(path);
+  const targets = all.filter(item => values.includes(item[field]));
+  
+  if (targets.length === 0) return 0;
+
+  const updates: any = {};
+  targets.forEach(item => {
+    updates[`${path}/${item.id}`] = null;
+  });
+
+  await update(ref(db), updates);
+  return targets.length;
+};

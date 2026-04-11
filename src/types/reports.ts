@@ -55,13 +55,52 @@ export interface ReportFilter {
 }
 
 export const SCORE_SCHEMAS: Record<string, string[]> = {
-  IP:        ['Score'],
-  AP:        ['Knowledge', 'BSE', 'Grasping', 'Detailing', 'Situation Handling', 'English', 'Local Language', 'Involvement', 'Effort', 'Confidence'],
-  MIP:       ['Science Score', 'Skill Score'],
+  IP: ['Percent', 'T Score', 'Score'],
+  AP: ['Knowledge', 'BSE', 'Grasping', 'Detailing', 'Situation Handling', 'English', 'Local Language', 'Involvement', 'Effort', 'Confidence'],
+  MIP: ['Science Score', 'Skill Score'],
   Refresher: ['Knowledge', 'Situation Handling', 'Presentation'],
-  Capsule:   ['Score'],
-  Pre_AP:    ['Knowledge', 'BSE', 'Grasping'],
-  GTG:       ['Score'],
-  HO:        ['Score'],
-  RTM:       ['Score'],
+  Capsule: ['Score'],
+  Pre_AP: ['Knowledge', 'BSE', 'Grasping'],
+  GTG: ['Score'],
+  HO: ['Score'],
+  RTM: ['Score'],
 };
+
+export interface IPRecord {
+  employeeId: string;
+  team: string;
+  cluster: string;
+  month: string;
+  score: number;
+  bucket: 'HIGH' | 'MEDIUM' | 'LOW';
+}
+
+export interface IPHeritageMapCell {
+  high: number;
+  medium: number;
+  low: number;
+  total: number;
+}
+
+export interface IPMonthMapNode {
+  total: number;
+  high: number;
+  medium: number;
+  low: number;
+  months: Record<string, IPHeritageMapCell>;
+}
+
+export interface IPAggregates {
+  clusterMonthMap: Record<string, IPMonthMapNode>;
+  teamMonthMap: Record<string, Record<string, IPMonthMapNode>>;
+  globalKPIs: {
+    totalCandidates: number;
+    highPct: number;
+    medPct: number;
+    lowPct: number;
+    weightedScore: number;
+    bestTeam: string;
+    worstTeam: string;
+  };
+  penaltyEnabled: boolean;
+}

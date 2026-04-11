@@ -82,7 +82,7 @@ export const Notified: React.FC<NotifiedProps> = ({ employees, attendance, nomin
     return {
       notifiedCount,
       attendedCount,
-      conversion: notifiedCount > 0 ? (attendedCount / notifiedCount) * 100 : 0,
+      attendance: notifiedCount > 0 ? (attendedCount / notifiedCount) * 100 : 0,
       defaulterCount: defaulters.length,
       defaulters: defaulters.sort((a, b) => b.count - a.count),
       drilldown: drilldown.sort((a, b) => b.count - a.count)
@@ -272,7 +272,7 @@ export const Notified: React.FC<NotifiedProps> = ({ employees, attendance, nomin
         <div className="dashboard-grid">
           <KPIBox title="Total Notified (Unique)" value={stats.notifiedCount} icon={Users} color="var(--accent-primary)" />
           <KPIBox title="Total Attended" value={stats.attendedCount} icon={CheckCircle} color="var(--success)" />
-          <KPIBox title="Conversion %" value={`${stats.conversion.toFixed(1)}%`} icon={BarChart2} color="var(--accent-secondary)" />
+          <KPIBox title="Attendance %" value={`${stats.attendance.toFixed(1)}%`} icon={BarChart2} color="var(--accent-secondary)" />
           <KPIBox title="Defaulters (>=3 strikes)" value={stats.defaulterCount} icon={AlertCircle} color="var(--danger)" />
         </div>
       )}

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, Fragment } from 'react';
 import {
   Table, Calendar, GraduationCap, AlertTriangle, ChevronRight, ChevronDown,
-  Trophy, Zap, ShieldCheck, CheckCircle2, ChartNetwork, Download, Filter, X
+  Trophy, Zap, ShieldCheck, CheckCircle2, ChartNetwork, Download, Filter, X, ListOrdered
 } from 'lucide-react';
 import { Employee } from '../types/employee';
 import { Attendance, TrainingScore, TrainingNomination, Demographics, TrainingType, EligibilityRule } from '../types/attendance';
@@ -12,6 +12,7 @@ import {
   buildTimeSeries, calcTrainerStats, buildDrilldown,
   getGapData, getPrimaryMetric, applyFilters, exportToCSV
 } from '../services/reportService';
+import { buildIPAggregates, FISCAL_YEARS, getFiscalMonths, getCurrentFY } from '../services/ipIntelligenceService';
 import { getEligibleEmployees, EligibilityResult } from '../services/eligibilityService';
 import { getCollection } from '../services/firestoreService';
 import { KPIBox } from '../components/KPIBox';
@@ -31,18 +32,20 @@ interface ReportsAnalyticsProps {
   demographics: Demographics[];
 }
 
-type SubView = 'grouped' | 'timeseries' | 'trainer' | 'drilldown' | 'gap';
+type SubView = 'grouped' | 'timeseries' | 'trainer' | 'drilldown' | 'gap' | 'ip_matrix' | 'ip_cluster_rank' | 'ip_team_rank';
 
 export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
   employees, attendance, scores, nominations, demographics
 }) => {
   const [tab, setTab] = useState<string>('IP');
   const [viewBy, setViewBy] = useState<ViewByOption>('Team');
-  const [subView, setSubView] = useState<SubView>('grouped');
+  const [subView, setSubView] = useState<SubView>('ip_matrix');
   const [expanded, setExpanded] = useState(new Set<string>());
   const [rules, setRules] = useState<EligibilityRule[]>([]);
+  const [clusterMapping, setClusterMapping] = useState<Record<string, string>>({});
   const [tsMode, setTsMode] = useState<'score' | 'count'>('score');
   const [showFilters, setShowFilters] = useState(false);
+  const [selectedFY, setSelectedFY] = useState<string>(getCurrentFY());
 
   // Filter state
   const [filter, setFilter] = useState<ReportFilter>({
@@ -51,11 +54,55 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
 
   useEffect(() => {
     getCollection('eligibility_rules').then(data => setRules(data as EligibilityRule[]));
+    getCollection('team_cluster_mapping').then(data => {
+      const map: Record<string, string> = {};
+      (data as any[]).forEach(d => { 
+        if(d.team && d.cluster) {
+          map[normalizeText(d.team)] = normalizeText(d.cluster);
+        }
+      });
+      setClusterMapping(map);
+    });
   }, []);
+
+  // --- BUCKET HELPERS ---
+  const formatCell = (data: any) => {
+    if (!data || data.total === 0) return '-';
+    return `${data.high}/${data.medium}/${data.low}`;
+  };
+
+  const getPercent = (part: number, total: number) => {
+    if (!total) return 0;
+    return Math.round((part / total) * 100);
+  };
+
+  const formatMonthLabel = (month: string) => {
+    const m = month.split('-')[1];
+    const MONTH_LABELS: Record<string, string> = {
+      '04': 'Apr', '05': 'May', '06': 'Jun', '07': 'Jul', '08': 'Aug', '09': 'Sep',
+      '10': 'Oct', '11': 'Nov', '12': 'Dec', '01': 'Jan', '02': 'Feb', '03': 'Mar'
+    };
+    return MONTH_LABELS[m] || month;
+  };
+
+  const MONTHS = useMemo(() => getFiscalMonths(selectedFY), [selectedFY]);
+
+  // Force IP default view on tab change
+  useEffect(() => {
+    if (tab === 'IP') {
+      if (!['ip_matrix', 'gap', 'timeseries', 'trainer'].includes(subView)) {
+        setSubView('ip_matrix');
+      }
+    } else {
+      if (['ip_matrix'].includes(subView)) {
+        setSubView('grouped');
+      }
+    }
+  }, [tab, subView]);
 
   // Dynamic options for filter dropdowns
   const allTeams = useMemo(() => [...new Set(employees.map(e => e.team).filter(Boolean))].sort(), [employees]);
-  const allClusters = useMemo(() => [...new Set(employees.map(e => e.state).filter(Boolean))].sort(), [employees]);
+  const allClusters = useMemo(() => [...new Set(employees.map(e => clusterMapping[e.team] || e.state).filter(Boolean))].sort(), [employees, clusterMapping]);
   const allTrainers = useMemo(() => [...new Set(attendance.map(a => a.trainerId).filter(Boolean))].sort(), [attendance]);
 
   // Build filtered base dataset for current tab
@@ -65,10 +112,25 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
     const noms = nominations.filter(n => n.trainingType === tab);
     const rule = rules.find(r => r.trainingType === tab);
     const eligResults = getEligibleEmployees(tab as TrainingType, rule, employees, attendance, nominations);
-    return buildUnifiedDataset(employees, att, scs, noms, eligResults);
-  }, [tab, attendance, scores, nominations, employees, rules]);
+    return buildUnifiedDataset(employees, att, scs, noms, eligResults).map(r => {
+      if (r.employee) {
+        r.employee = { ...r.employee, state: clusterMapping[r.employee.team] || r.employee.state };
+      }
+      return r;
+    });
+  }, [tab, attendance, scores, nominations, employees, rules, clusterMapping]);
 
   const unified = useMemo(() => applyFilters(rawUnified, filter), [rawUnified, filter]);
+  
+  // -- IP Engine --
+  const ipData = useMemo(() => {
+    // Filter records to only include those within the selected Fiscal Year months
+    const filteredRecords = unified.filter(r => {
+      const m = r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7);
+      return MONTHS.includes(m);
+    });
+    return buildIPAggregates(filteredRecords);
+  }, [unified, MONTHS]);
 
   const eligibilityResults = useMemo(() => {
     const rule = rules.find(r => r.trainingType === tab);
@@ -95,7 +157,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
 
   const timeSeries = useMemo(() => buildTimeSeries(groups, months, tab, tsMode), [groups, months, tab, tsMode]);
 
-  // KPI computations
+  // KPI computations (Legacy)
   const gIP = useMemo(() => calcIP(unified), [unified]);
   const gAP = useMemo(() => calcAP(unified, tabNoms), [unified, tabNoms]);
   const gMIP = useMemo(() => calcMIP(unified), [unified]);
@@ -128,11 +190,11 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
     exportToCSV(rows, `${tab}_report_${new Date().toISOString().slice(0, 10)}.csv`);
   };
 
-  const headers = [
+  const genericHeaders = [
     '#', '', viewBy,
-    ...(tab === 'IP' ? ['Total', 'High', 'Med', 'Low', 'Weighted', 'Flag'] : []),
-    ...(tab === 'AP' ? ['Notified', 'Attended', 'Conv%', 'Composite', 'Defaulters', 'Flag'] : []),
+    ...(tab === 'AP' ? ['Notified', 'Attended', 'Att%', 'Composite', 'Defaulters', 'Flag'] : []),
     ...(tab === 'MIP' ? ['Count', 'Avg Sci', 'Avg Skl', 'Flag'] : []),
+    ...(tab === 'IP' ? ['Count', 'Avg T Score / %', 'Flag'] : []),
     ...(['Refresher', 'GTG', 'HO', 'RTM'].includes(tab) ? ['Count', 'Avg Score', 'Flag'] : []),
     ...(['Capsule', 'Pre_AP'].includes(tab) ? ['Count', 'Avg Score', 'Flag'] : []),
   ];
@@ -146,10 +208,22 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
           <p className="text-muted">High-fidelity training analytics and rankings</p>
         </div>
         <div className="flex-center" style={{ gap: '8px' }}>
-          <button className={`btn ${subView === 'grouped' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('grouped')} title="Rankings"><Table size={16} /></button>
-          <button className={`btn ${subView === 'timeseries' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('timeseries')} title="Time Series"><Calendar size={16} /></button>
-          <button className={`btn ${subView === 'trainer' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('trainer')} title="Trainer Analytics"><GraduationCap size={16} /></button>
-          <button className={`btn ${subView === 'drilldown' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('drilldown')} title="Drill-Down"><ChartNetwork size={16} /></button>
+          {tab === 'IP' ? (
+            <Fragment>
+              <button className={`btn ${subView === 'ip_matrix' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('ip_matrix')} title="Matrix View"><Table size={16} /></button>
+              <button className={`btn ${subView === 'timeseries' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('timeseries')} title="Time Series"><Calendar size={16} /></button>
+              <button className={`btn ${subView === 'trainer' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('trainer')} title="Trainer Analytics"><GraduationCap size={16} /></button>
+            </Fragment>
+          ) : (
+            <Fragment>
+              <button className={`btn ${subView === 'grouped' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('grouped')} title="Rankings"><Table size={16} /></button>
+              <button className={`btn ${subView === 'timeseries' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('timeseries')} title="Time Series"><Calendar size={16} /></button>
+              {tab !== 'AP' && (
+                <button className={`btn ${subView === 'trainer' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('trainer')} title="Trainer Analytics"><GraduationCap size={16} /></button>
+              )}
+              <button className={`btn ${subView === 'drilldown' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('drilldown')} title="Drill-Down"><ChartNetwork size={16} /></button>
+            </Fragment>
+          )}
           <button className={`btn ${subView === 'gap' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('gap')} title="Gap Analysis" style={{ color: subView === 'gap' ? '#fff' : 'var(--danger)' }}><AlertTriangle size={16} /></button>
           <div style={{ width: '1px', height: '28px', background: 'var(--border-color)', margin: '0 4px' }} />
           <button className={`btn btn-secondary ${hasActiveFilter ? 'active' : ''}`} onClick={() => setShowFilters(f => !f)} title="Filters" style={{ position: 'relative' }}>
@@ -169,11 +243,13 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
 
       {/* View By + Filter Bar */}
       <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: '8px', padding: '3px' }}>
-          {(['Team', 'Cluster', 'Month'] as ViewByOption[]).map(v => (
-            <button key={v} onClick={() => setViewBy(v)} style={{ padding: '5px 14px', borderRadius: '6px', background: viewBy === v ? 'var(--accent-primary)' : 'transparent', color: viewBy === v ? '#fff' : 'var(--text-secondary)', border: 'none', fontWeight: 600, cursor: 'pointer', fontSize: '13px' }}>{v}</button>
-          ))}
-        </div>
+        {tab !== 'IP' && (
+          <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: '8px', padding: '3px' }}>
+            {(['Team', 'Cluster', 'Month'] as ViewByOption[]).map(v => (
+              <button key={v} onClick={() => setViewBy(v)} style={{ padding: '5px 14px', borderRadius: '6px', background: viewBy === v ? 'var(--accent-primary)' : 'transparent', color: viewBy === v ? '#fff' : 'var(--text-secondary)', border: 'none', fontWeight: 600, cursor: 'pointer', fontSize: '13px' }}>{v}</button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Filter Panel */}
@@ -197,6 +273,14 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
           <button className="btn btn-secondary" onClick={() => setFilter({ monthFrom: '', monthTo: '', teams: [], clusters: [], trainer: '' })} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <X size={14} /> Clear Filters
           </button>
+          {tab === 'IP' && (
+            <div style={{ marginLeft: 'auto' }}>
+              <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Fiscal Year</label>
+              <select className="form-input" value={selectedFY} onChange={e => setSelectedFY(e.target.value)} style={{ width: '120px' }}>
+                {FISCAL_YEARS.map(fy => <option key={fy} value={fy}>{fy}</option>)}
+              </select>
+            </div>
+          )}
           {hasActiveFilter && <span className="badge badge-primary" style={{ alignSelf: 'center' }}>Filters Active — {unified.length} records</span>}
         </div>
       )}
@@ -213,15 +297,19 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
           <Fragment>
             {tab === 'IP' && (
               <Fragment>
-                <KPIBox title="Total Scored" value={gIP.total} icon={Zap} />
-                <KPIBox title="Grade Distribution" value={`${gIP.high} / ${gIP.medium} / ${gIP.low}`} subValue="High / Med / Low" />
-                <KPIBox title="Weighted Average" value={gIP.weighted.toFixed(2)} color="var(--warning)" badge={<span className={`badge ${flagClass(flagScore(gIP.weighted))}`}>{flagLabel(flagScore(gIP.weighted))}</span>} />
+                <KPIBox title="Total Candidates" value={ipData.globalKPIs.totalCandidates} icon={Zap} />
+                <KPIBox title="High %" value={`${ipData.globalKPIs.highPct.toFixed(1)}%`} color="var(--success)" />
+                <KPIBox title="Medium %" value={`${ipData.globalKPIs.medPct.toFixed(1)}%`} color="var(--warning)" />
+                <KPIBox title="Low %" value={`${ipData.globalKPIs.lowPct.toFixed(1)}%`} color="var(--danger)" />
+                <KPIBox title="Weighted T Score / %" value={ipData.globalKPIs.weightedScore.toFixed(2)} color="var(--accent-primary)" badge={<span className={`badge ${flagClass(flagScore(ipData.globalKPIs.weightedScore))}`}>{flagLabel(flagScore(ipData.globalKPIs.weightedScore))}</span>} />
+                <KPIBox title="Best Team" value={ipData.globalKPIs.bestTeam} icon={Trophy} color="var(--success)" />
+                <KPIBox title="Worst Team" value={ipData.globalKPIs.worstTeam} icon={AlertTriangle} color="var(--danger)" />
               </Fragment>
             )}
             {tab === 'AP' && (
               <Fragment>
-                <KPIBox title="Conversion Path" value={`${gAP.attended} / ${gAP.notified}`} subValue="Attended / Notified" />
-                <KPIBox title="Conversion %" value={`${gAP.conversion.toFixed(1)}%`} icon={Zap} />
+                <KPIBox title="Attendance Path" value={`${gAP.attended} / ${gAP.notified}`} subValue="Attended / Notified" />
+                <KPIBox title="Attendance %" value={`${gAP.attendance.toFixed(1)}%`} icon={Zap} />
                 <KPIBox title="Composite Score" value={gAP.composite.toFixed(2)} color="var(--success)" badge={<span className={`badge ${flagClass(flagScore(gAP.composite))}`}>{flagLabel(flagScore(gAP.composite))}</span>} />
                 <KPIBox title="Defaulters (≥3 strikes)" value={gAP.defaulterCount} color="var(--danger)" icon={AlertTriangle} />
               </Fragment>
@@ -250,7 +338,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
               <Fragment>
                 <KPIBox title="Nominated" value={gPreAP.notified} icon={Zap} />
                 <KPIBox title="Attended" value={gPreAP.attended} color="var(--success)" icon={CheckCircle2} />
-                <KPIBox title="Conversion %" value={`${gPreAP.conversion.toFixed(1)}%`} color="var(--accent-primary)" />
+                <KPIBox title="Attendance %" value={`${gPreAP.attendance.toFixed(1)}%`} color="var(--accent-primary)" />
               </Fragment>
             )}
           </Fragment>
@@ -258,7 +346,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
       </div>
 
       {/* Top / Bottom 3 */}
-      {subView === 'grouped' && ranked.length > 3 && (
+      {subView === 'grouped' && tab !== 'IP' && ranked.length > 3 && (
         <div className="dashboard-grid" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: '24px' }}>
           <div className="glass-panel" style={{ padding: '20px', borderLeft: '4px solid var(--success)' }}>
             <div className="flex-center mb-4" style={{ color: 'var(--success)' }}><Trophy size={18} /><span style={{ fontWeight: 700, fontSize: '13px', textTransform: 'uppercase' }}>Top Performance</span></div>
@@ -271,10 +359,111 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
         </div>
       )}
 
-      {/* GROUPED RANKINGS */}
-      {subView === 'grouped' && (
+      {/* --- IP SPECIFIC VIEWS --- */}
+      {subView === 'ip_matrix' && (
         <div className="glass-panel" style={{ overflow: 'hidden' }}>
-          <DataTable headers={headers}>
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <h3 style={{ margin: 0, fontSize: '18px' }}>Cluster → Team → Month Matrix Engine</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Fiscal Year:</label>
+              <select 
+                className="form-select" 
+                value={selectedFY} 
+                onChange={e => setSelectedFY(e.target.value)}
+                style={{ width: '120px', padding: '4px 8px', fontSize: '13px' }}
+              >
+                {FISCAL_YEARS.map(fy => <option key={fy} value={fy}>{fy}</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="data-table" style={{ width: '100%' }}>
+              <thead>
+                <tr>
+                  <th style={{ width: '40px' }}></th>
+                  <th>Cluster / Team</th>
+                  <th style={{ textAlign: 'center' }}>Total</th>
+                  <th style={{ textAlign: 'center' }}>High %</th>
+                  <th style={{ textAlign: 'center' }}>Med %</th>
+                  <th style={{ textAlign: 'center' }}>Low %</th>
+                  {MONTHS.map(mo => <th key={mo} style={{ textAlign: 'center', minWidth: '60px' }}>{formatMonthLabel(mo)}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {Object.keys(ipData.clusterMonthMap).map(clusterName => {
+                  const clusterData = ipData.clusterMonthMap[clusterName];
+                  const isOpen = expanded.has(clusterName);
+                  const hPct = getPercent(clusterData.high, clusterData.total);
+                  const mPct = getPercent(clusterData.medium, clusterData.total);
+                  const lPct = getPercent(clusterData.low, clusterData.total);
+
+                  const getRowStyle = (hp: number, lp: number) => {
+                    if (hp > 70) return { background: 'rgba(16, 185, 129, 0.1)' };
+                    if (lp > 30) return { background: 'rgba(239, 68, 68, 0.1)' };
+                    return {};
+                  };
+
+                  return (
+                    <Fragment key={clusterName}>
+                      <tr onClick={() => toggleExpand(clusterName)} style={{ cursor: 'pointer', ...getRowStyle(hPct, lPct) }}>
+                        <td>{isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</td>
+                        <td style={{ fontWeight: 700 }}>{clusterName}</td>
+                        <td style={{ textAlign: 'center', fontWeight: 600 }}>{clusterData.total}</td>
+                        <td style={{ textAlign: 'center' }} className={hPct > 70 ? 'text-success' : ''}>{hPct}%</td>
+                        <td style={{ textAlign: 'center' }} className={mPct > 50 ? 'text-warning' : ''}>{mPct}%</td>
+                        <td style={{ textAlign: 'center' }} className={lPct > 30 ? 'text-danger' : ''}>{lPct}%</td>
+                        {MONTHS.map(mo => {
+                          const cell = clusterData.months[mo];
+                          const txt = formatCell(cell);
+                          let cellStyle = { textAlign: 'center', fontWeight: 600 } as any;
+                          if (cell && cell.total > 0) {
+                            if (cell.low > cell.high) cellStyle.color = 'var(--danger)';
+                            else if (cell.high > cell.low) cellStyle.color = 'var(--success)';
+                          }
+                          return <td key={mo} style={cellStyle}>{txt}</td>;
+                        })}
+                      </tr>
+
+                      {isOpen && Object.keys(ipData.teamMonthMap[clusterName] || {}).map(teamName => {
+                        const teamData = ipData.teamMonthMap[clusterName][teamName];
+                        const thPct = getPercent(teamData.high, teamData.total);
+                        const tmPct = getPercent(teamData.medium, teamData.total);
+                        const tlPct = getPercent(teamData.low, teamData.total);
+
+                        return (
+                          <tr key={teamName} style={{ ...getRowStyle(thPct, tlPct), fontSize: '13px' }}>
+                            <td></td>
+                            <td style={{ paddingLeft: '24px' }}>↳ {teamName}</td>
+                            <td style={{ textAlign: 'center', fontWeight: 600 }}>{teamData.total}</td>
+                            <td style={{ textAlign: 'center' }} className={thPct > 70 ? 'text-success' : ''}>{thPct}%</td>
+                            <td style={{ textAlign: 'center' }} className={tmPct > 50 ? 'text-warning' : ''}>{tmPct}%</td>
+                            <td style={{ textAlign: 'center' }} className={tlPct > 30 ? 'text-danger' : ''}>{tlPct}%</td>
+                            {MONTHS.map(mo => {
+                              const cell = teamData.months[mo];
+                              const txt = formatCell(cell);
+                              let cellStyle = { textAlign: 'center' } as any;
+                              if (cell && cell.total > 0) {
+                                if (cell.low > cell.high) cellStyle.color = 'var(--danger)';
+                                else if (cell.high > cell.low) cellStyle.color = 'var(--success)';
+                              }
+                              return <td key={mo} style={cellStyle}>{txt}</td>;
+                            })}
+                          </tr>
+                        );
+                      })}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* GROUPED RANKINGS FOR OTHER TABS */}
+      {subView === 'grouped' && tab !== 'IP' && (
+        <div className="glass-panel" style={{ overflow: 'hidden' }}>
+          <DataTable headers={genericHeaders}>
             {ranked.map(g => {
               const isOpen = expanded.has(g.key);
               return (
@@ -283,18 +472,10 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
                     <td style={{ fontWeight: 700, color: 'var(--accent-primary)' }}>{g.rank}</td>
                     <td>{isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</td>
                     <td style={{ fontWeight: 600 }}>{g.key}</td>
-                    {tab === 'IP' && (() => {
-                      const m = calcIP(g.records);
-                      return <Fragment>
-                        <td>{m.total}</td><td>{m.high}</td><td>{m.medium}</td><td>{m.low}</td>
-                        <td style={{ fontWeight: 700, color: 'var(--warning)' }}>{m.weighted.toFixed(2)}</td>
-                        <td><span className={`badge ${flagClass(flagScore(m.weighted))}`}>{flagLabel(flagScore(m.weighted))}</span></td>
-                      </Fragment>;
-                    })()}
                     {tab === 'AP' && (() => {
                       const m = calcAP(g.records, g.nominations);
                       return <Fragment>
-                        <td>{m.notified}</td><td>{m.attended}</td><td>{m.conversion.toFixed(1)}%</td>
+                        <td>{m.notified}</td><td>{m.attended}</td><td>{m.attendance.toFixed(1)}%</td>
                         <td style={{ fontWeight: 700 }}>{m.composite.toFixed(2)}</td>
                         <td style={{ color: 'var(--danger)', fontWeight: 600 }}>{m.defaulterCount}</td>
                         <td><span className={`badge ${flagClass(flagScore(m.composite))}`}>{flagLabel(flagScore(m.composite))}</span></td>
@@ -321,7 +502,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
                   {isOpen && g.records.map((r, ri) => (
                     <tr key={ri} style={{ background: 'rgba(255,255,255,0.02)', fontSize: '12px' }}>
                       <td /><td />
-                      <td colSpan={headers.length - 2} className="text-muted">
+                      <td colSpan={genericHeaders.length - 2} className="text-muted">
                         <strong>{r.employee.name}</strong> ({r.employee.employeeId}) · {r.attendance.attendanceDate} · {r.attendance.attendanceStatus}
                       </td>
                     </tr>
@@ -347,12 +528,12 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
           <div style={{ padding: '20px', borderBottom: '1px solid var(--border-color)' }}>
             <h3 style={{ margin: 0 }}>Trainer Performance Analytics — {tab}</h3>
           </div>
-          <TrainerTable stats={trainerStats} />
+          <TrainerTable stats={trainerStats} tab={tab} />
         </div>
       )}
 
       {/* DRILL-DOWN */}
-      {subView === 'drilldown' && (
+      {subView === 'drilldown' && tab !== 'IP' && (
         <div className="glass-panel" style={{ padding: '24px' }}>
           <h3 style={{ marginBottom: '16px' }}>Drill-Down: Cluster → Team → Employee</h3>
           <DrilldownPanel nodes={drilldownNodes} tab={tab} />

@@ -11,7 +11,8 @@ import {
   ShieldCheck,
   Database,
   RefreshCw,
-  Mail
+  Mail,
+  Trash2
 } from 'lucide-react';
 import './index.css';
 
@@ -24,7 +25,7 @@ import { Demographics } from './src/pages/Demographics';
 import { Notified } from './src/pages/Notified';
 
 // Services & Types
-import { getCollection } from './src/services/firestoreService';
+import { getCollection, deleteRecordsByQuery } from './src/services/firestoreService';
 import { seedDatabase, seedMasterData } from './src/seed';
 import { Employee } from './src/types/employee';
 import { Attendance, TrainingScore, TrainingNomination, Demographics as DemoType } from './src/types/attendance';
@@ -36,6 +37,7 @@ const App = () => {
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isSeeding, setIsSeeding] = useState(false);
+  const [isCleaning, setIsCleaning] = useState(false);
 
   // Global State
   const [emps, setEmps] = useState<Employee[]>([]);
@@ -69,6 +71,28 @@ const App = () => {
   useEffect(() => {
     loadAll();
   }, [refreshKey]);
+
+  const handlePurge = async () => {
+    if (!window.confirm("This will PERMANENTLY delete all records for 'Team A' and 'Unknown' categories. Proceed?")) return;
+    setIsCleaning(true);
+    try {
+      const dummyValues = ['Team A', 'Unknown', '—', 'Unknown Team', 'Unmapped'];
+      
+      const counts = await Promise.all([
+        deleteRecordsByQuery('attendance', 'team', dummyValues),
+        deleteRecordsByQuery('training_scores', 'team', dummyValues),
+        deleteRecordsByQuery('employees', 'team', dummyValues)
+      ]);
+
+      const totalDeleted = counts.reduce((a, b) => a + b, 0);
+      alert(`Cleanup Complete! ${totalDeleted} dummy records purged from live database.`);
+      setRefreshKey(k => k + 1);
+    } catch (e) {
+      alert('Cleanup failed: ' + (e as any).message);
+    } finally {
+      setIsCleaning(false);
+    }
+  };
 
   const renderView = () => {
     if (loading) {
@@ -149,6 +173,16 @@ const App = () => {
           >
             {isSeeding ? <RefreshCw className="animate-spin" size={20} /> : <Database size={20} />} 
             {isSeeding ? "Seeding Data..." : "Seed Database"}
+          </button>
+
+          <button 
+            className="nav-item w-full" 
+            onClick={handlePurge}
+            style={{ marginTop: '8px', color: 'var(--danger)', opacity: isCleaning ? 0.3 : 0.7 }}
+            disabled={isCleaning}
+          >
+            {isCleaning ? <RefreshCw className="animate-spin" size={20} /> : <Trash2 size={20} />} 
+            {isCleaning ? "Cleaning..." : "Clean Dummy Data"}
           </button>
         </nav>
 

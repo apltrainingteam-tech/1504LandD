@@ -23,8 +23,8 @@ export function buildUnifiedDataset(
     const emp = emps.find(e => e.id === a.employeeId || e.employeeId === a.employeeId) || {
       id: a.employeeId,
       employeeId: a.employeeId,
-      name: a.name || 'Unknown',
-      team: a.team || 'Unknown',
+      name: a.name || '—',
+      team: a.team || '—',
       state: a.state || '-',
       hq: a.hq || '-',
       designation: a.designation || '-',
@@ -72,10 +72,10 @@ export function groupData(
   const m = new Map<string, GroupedData>();
 
   ds.forEach(r => {
-    let k = 'Unknown';
-    if (by === 'Month') k = r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7) || 'Unknown';
-    else if (by === 'Team') k = r.employee.team || 'Unknown';
-    else k = r.employee.state || 'Unknown';
+    let k = '—';
+    if (by === 'Month') k = r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7) || '—';
+    else if (by === 'Team') k = r.employee.team || '—';
+    else k = r.employee.state || '—';
 
     if (!m.has(k)) m.set(k, { key: k, records: [], nominations: [], metric: 0 });
     m.get(k)!.records.push(r);
@@ -83,10 +83,10 @@ export function groupData(
 
   (noms || []).forEach(n => {
     const e = emps.find(x => x.employeeId === n.employeeId || x.id === n.employeeId);
-    let k = 'Unknown';
-    if (by === 'Month') k = (n.notificationDate || '').substring(0, 7) || 'Unknown';
-    else if (by === 'Team') k = e?.team || 'Unknown';
-    else k = e?.state || 'Unknown';
+    let k = '—';
+    if (by === 'Month') k = (n.notificationDate || '').substring(0, 7) || '—';
+    else if (by === 'Team') k = e?.team || '—';
+    else k = e?.state || '—';
 
     if (!m.has(k)) m.set(k, { key: k, records: [], nominations: [], metric: 0 });
     m.get(k)!.nominations.push(n);
@@ -138,7 +138,7 @@ export function calcAP(recs: UnifiedRecord[], noms: TrainingNomination[]) {
   return {
     notified: notifiedIds.size,
     attended: present.length,
-    conversion: notifiedIds.size > 0 ? (present.length / notifiedIds.size) * 100 : 0,
+    attendance: notifiedIds.size > 0 ? (present.length / notifiedIds.size) * 100 : 0,
     composite: scoredCount > 0 ? scoreSum / scoredCount : 0,
     defaulterCount
   };
@@ -202,7 +202,7 @@ export function calcPreAP(recs: UnifiedRecord[], noms: TrainingNomination[]) {
   return {
     notified: nominatedIds.size,
     attended: present.length,
-    conversion: nominatedIds.size > 0 ? (present.length / nominatedIds.size) * 100 : 0,
+    attendance: nominatedIds.size > 0 ? (present.length / nominatedIds.size) * 100 : 0,
     avgScore: scoredCount > 0 ? scoreSum / scoredCount : 0
   };
 }
@@ -251,10 +251,10 @@ export function buildTimeSeries(
 export function calcTrainerStats(ds: UnifiedRecord[]): TrainerStat[] {
   const m = new Map<string, { sessions: Set<string>; trainees: Set<string>; total: number; totalAtt: number; scoreSum: number; scoreCount: number }>();
   ds.forEach(r => {
-    const tid = r.attendance.trainerId || 'Unknown';
+    const tid = r.attendance.trainerId || '—';
     if (!m.has(tid)) m.set(tid, { sessions: new Set(), trainees: new Set(), total: 0, totalAtt: 0, scoreSum: 0, scoreCount: 0 });
     const entry = m.get(tid)!;
-    const sessionKey = r.attendance.attendanceDate || 'unknown';
+    const sessionKey = r.attendance.attendanceDate || '—';
     entry.sessions.add(sessionKey);
     entry.trainees.add(r.attendance.employeeId);
     entry.total++;
@@ -277,8 +277,8 @@ export function calcTrainerStats(ds: UnifiedRecord[]): TrainerStat[] {
 export function buildDrilldown(ds: UnifiedRecord[], tab: string): DrilldownNode[] {
   const clusterMap = new Map<string, Map<string, UnifiedRecord[]>>();
   ds.forEach(r => {
-    const cluster = r.employee.state || 'Unknown';
-    const team = r.employee.team || 'Unknown';
+    const cluster = r.employee.state || '—';
+    const team = r.employee.team || '—';
     if (!clusterMap.has(cluster)) clusterMap.set(cluster, new Map());
     const teamMap = clusterMap.get(cluster)!;
     if (!teamMap.has(team)) teamMap.set(team, []);

@@ -1,4 +1,6 @@
 // Standard Column Map (any Excel header → standard key)
+import { normalizeText } from './textNormalizer';
+
 export const ALIAS_MAP: Record<string, string> = {
   'aadhaar number': 'aadhaarNumber',
   'aadhaar': 'aadhaarNumber',
@@ -59,11 +61,14 @@ export const ALIAS_MAP: Record<string, string> = {
   'present/absent': 'attendanceStatus',
   'attendance': 'attendanceStatus',
   // Score columns
-  'score': 'score',
-  'test score': 'score',
-  'detailing / percent': 'score',
-  'detailing percent': 'score',
-  'ip score': 'score',
+  'score': 'Score',
+  'test score': 'T Score',
+  'detailing / percent': 'Percent',
+  'detailing percent': 'Percent',
+  'percent': 'Percent',
+  't score': 'T Score',
+  'test score %': 'Percent',
+  'ip score': 'Percent',
   'knowledge': 'knowledge',
   'bse': 'bse',
   'grasping': 'grasping',
@@ -94,13 +99,7 @@ export const getValue = (row: any, key: string) => {
 };
 
 export const toCamel = (str: any) => {
-  if (!str) return '';
-  return String(str)
-    .trim()
-    .toLowerCase()
-    .split(' ')
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
+  return normalizeText(str);
 };
 
 export const detectTrainingType = (cols: string[]) => {

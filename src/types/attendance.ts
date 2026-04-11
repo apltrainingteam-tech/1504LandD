@@ -5,7 +5,7 @@ export interface Attendance {
   employeeId: string;
   trainingType: TrainingType;
   attendanceDate: string; // ISO date string (yyyy-mm-dd)
-  attendanceStatus: 'Present' | 'Absent' | 'Unknown';
+  attendanceStatus: 'Present' | 'Absent';
   trainerId?: string;
   month?: string; // Derived e.g. "2026-04"
   aadhaarNumber?: string;

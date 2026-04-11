@@ -3,6 +3,7 @@ import { ALIAS_MAP, detectTrainingType, toCamel } from '../utils/columnMapper';
 import { parseAnyDate } from '../utils/dateParser';
 import { normalizeScore } from '../utils/scoreNormalizer';
 import { SCORE_SCHEMAS } from '../types/reports';
+import { normalizeText } from '../utils/textNormalizer';
 
 import { Employee } from '../types/employee';
 
@@ -52,11 +53,11 @@ export const parseEmployeeMasterExcel = (file: File): Promise<{ rows: ParsedRow[
             employeeId: String(m.employeeId || '').trim(),
             aadhaarNumber: String(m.aadhaarNumber || '').trim(),
             mobileNumber: String(m.mobileNumber || '').trim(),
-            name: toCamel(m.name),
-            designation: String(m.designation || '').trim(),
-            team: String(m.team || '').trim().toUpperCase(),
-            hq: toCamel(m.hq),
-            state: String(m.state || '').trim().toUpperCase(),
+            name: normalizeText(m.name),
+            designation: normalizeText(m.designation),
+            team: normalizeText(m.team),
+            hq: normalizeText(m.hq),
+            state: normalizeText(m.state),
             doj: parsedDoj || '',
             aplExperience: aplExp,
             pastExperience: pastExp,
@@ -119,11 +120,11 @@ export const parseNominationExcel = (file: File, trainingType: string, masterEmp
             employeeId: rawEmpId,
             aadhaarNumber: masterData ? masterData.aadhaarNumber : String(m.aadhaarNumber || '').trim(),
             mobileNumber: masterData ? masterData.mobileNumber : String(m.mobileNumber || '').trim(),
-            name: masterData ? masterData.name : toCamel(m.name),
-            designation: masterData ? masterData.designation : toCamel(m.designation),
-            team: masterData ? masterData.team : toCamel(m.team),
-            hq: masterData ? masterData.hq : toCamel(m.hq),
-            state: masterData ? masterData.state : toCamel(m.state),
+            name: masterData ? masterData.name : normalizeText(m.name),
+            designation: masterData ? masterData.designation : normalizeText(m.designation),
+            team: masterData ? masterData.team : normalizeText(m.team),
+            hq: masterData ? masterData.hq : normalizeText(m.hq),
+            state: masterData ? masterData.state : normalizeText(m.state),
             trainingType,
             notificationDate: parsedDate || '',
             month: parsedDate ? parsedDate.substring(0, 7) : '',
@@ -191,13 +192,13 @@ export const parseExcelFile = (file: File, forcedType?: string, masterEmployees:
             employeeId: rawEmpId,
             aadhaarNumber: masterData ? masterData.aadhaarNumber : String(m.aadhaarNumber || '').trim(),
             mobileNumber: masterData ? masterData.mobileNumber : String(m.mobileNumber || '').trim(),
-            name: masterData ? masterData.name : toCamel(m.name),
-            designation: masterData ? masterData.designation : toCamel(m.designation),
-            team: masterData ? masterData.team : toCamel(m.team),
-            cluster: masterData ? masterData.state : toCamel(m.cluster), // Fallback map
-            hq: masterData ? masterData.hq : toCamel(m.hq),
-            state: masterData ? masterData.state : toCamel(m.state),
-            trainerId: String(m.trainerId || '').trim(),
+            name: masterData ? masterData.name : normalizeText(m.name),
+            designation: masterData ? masterData.designation : normalizeText(m.designation),
+            team: masterData ? masterData.team : normalizeText(m.team),
+            cluster: masterData ? masterData.state : normalizeText(m.cluster), // Fallback map
+            hq: masterData ? masterData.hq : normalizeText(m.hq),
+            state: masterData ? masterData.state : normalizeText(m.state),
+            trainerId: normalizeText(m.trainerId),
             attendanceDate: null,
             attendanceStatus: 'Present',
             month: null,

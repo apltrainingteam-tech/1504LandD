@@ -208,7 +208,7 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
           Data Standards
         </h4>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-          {['Aadhaar Number', 'Employee ID', 'Mobile Number', 'Name', 'Trainer', 'Team', 'Designation', 'HQ', 'State', 'Attendance Date', 'Attendance Status', 'Scores'].map(tag => (
+          {['Aadhaar Number', 'Employee ID', 'Mobile Number', 'Name', 'Trainer', 'Team', 'Designation', 'HQ', 'State', 'Attendance Date', 'Attendance Status', 'Scores', 'Percent', 'T Score'].map(tag => (
             <span key={tag} className="badge badge-info">{tag}</span>
           ))}
         </div>

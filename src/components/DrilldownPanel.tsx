@@ -83,8 +83,9 @@ export const DrilldownPanel: React.FC<DrilldownPanelProps> = ({ nodes, tab }) =>
                         <span style={{ flex: 1 }}>{r.employee.name}</span>
                         <span className="text-muted" style={{ fontSize: '11px' }}>{r.attendance.attendanceDate}</span>
                         {r.score?.scores && (
-                          <span style={{ fontSize: '12px', fontWeight: 600 }}>
-                            {Object.values(r.score.scores).filter(v => v != null)[0]?.toFixed(1) ?? '—'}
+                          <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent-primary)' }}>
+                            {tab === 'IP' ? 'T Score / %: ' : 'Score: '}
+                            {(Object.values(r.score.scores).filter(v => v != null)[0] as number | undefined)?.toFixed(1) ?? '—'}
                           </span>
                         )}
                       </div>

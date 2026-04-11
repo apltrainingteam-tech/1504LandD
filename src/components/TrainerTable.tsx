@@ -5,6 +5,7 @@ import { ChevronUp, ChevronDown } from 'lucide-react';
 
 interface TrainerTableProps {
   stats: TrainerStat[];
+  tab?: string;
 }
 
 type SortKey = 'trainerId' | 'trainingsConducted' | 'totalTrainees' | 'avgScore' | 'attendancePct';
@@ -48,7 +49,7 @@ export const TrainerTable: React.FC<TrainerTableProps> = ({ stats }) => {
             {th('Trainer ID / Name', 'trainerId')}
             {th('Sessions', 'trainingsConducted')}
             {th('Trainees', 'totalTrainees')}
-            {th('Avg Score', 'avgScore')}
+            {th(tab === 'IP' ? 'Avg T Score / %' : 'Avg Score', 'avgScore')}
             {th('Attendance %', 'attendancePct')}
             <th style={{ padding: '12px 16px', background: 'var(--bg-card)' }}>Flag</th>
           </tr>
