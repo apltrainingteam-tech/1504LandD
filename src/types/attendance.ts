@@ -10,7 +10,7 @@ export interface Attendance {
   month?: string; // Derived e.g. "2026-04"
   aadhaarNumber?: string;
   mobileNumber?: string;
-  employeeName?: string;
+  name?: string;
   team?: string;
   designation?: string;
   cluster?: string;

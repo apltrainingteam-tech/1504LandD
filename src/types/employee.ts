@@ -1,14 +1,21 @@
 export interface Employee {
-  id: string; // Document ID
-  aadhaarNumber: string;
+  id: string; // Document ID (usually same as employeeId)
   employeeId: string;
+  aadhaarNumber: string;
   mobileNumber: string;
-  employeeName: string;
-  cluster: string;
+  name: string;
+  designation: string;
   team: string;
   hq: string;
   state: string;
+  doj: string; 
+  aplExperience: number;
+  pastExperience: number;
+  totalExperience: number; 
+  age: number;
+  dob: string; 
+  email: string;
+  basicQualification: string;
   status: 'Active' | 'Inactive';
-  designation: string;
-  joiningDate: string; // ISO date format yyyy-mm-dd
+  lastUpdatedAt?: number;
 }

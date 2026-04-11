@@ -17,7 +17,7 @@ export const uploadAttendanceBatch = async (
       employeeId: d.employeeId,
       aadhaarNumber: d.aadhaarNumber,
       mobileNumber: d.mobileNumber,
-      employeeName: d.employeeName,
+      name: d.name,
       trainingType,
       attendanceDate: d.attendanceDate,
       attendanceStatus: d.attendanceStatus,

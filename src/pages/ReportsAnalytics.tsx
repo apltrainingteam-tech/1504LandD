@@ -212,7 +212,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
                       <tr key={ri} style={{ background: 'rgba(255,255,255,0.02)', fontSize: '12px' }}>
                         <td></td><td></td>
                         <td colSpan={headers.length - 2} className="text-muted">
-                          <strong>{r.employee.employeeName}</strong> ({r.employee.employeeId}) · {r.attendance.attendanceDate} · Status: {r.attendance.attendanceStatus}
+                          <strong>{r.employee.name}</strong> ({r.employee.employeeId}) · {r.attendance.attendanceDate} · Status: {r.attendance.attendanceStatus}
                         </td>
                       </tr>
                     ))}

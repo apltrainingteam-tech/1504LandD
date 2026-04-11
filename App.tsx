@@ -81,8 +81,8 @@ const App = () => {
     switch (view) {
       case 'reports': return <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} />;
       case 'trainings': return <TrainingsViewer employees={emps} attendance={att} scores={scs} />;
-      case 'attendance': return <AttendanceUpload onUploadComplete={() => setRefreshKey(k => k + 1)} />;
-      case 'employees': return <Employees />;
+      case 'attendance': return <AttendanceUpload onUploadComplete={() => setRefreshKey(k => k + 1)} masterEmployees={emps} />;
+      case 'employees': return <Employees employees={emps} onUploadComplete={() => setRefreshKey(k => k + 1)} />;
       case 'demographics': return <Demographics />;
       default: return <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} />;
     }
@@ -115,7 +115,7 @@ const App = () => {
           </button>
 
           <button className={`nav-item w-full ${view === 'employees' ? 'active' : ''}`} onClick={() => setView('employees')}>
-            <Users size={20} /> Field Roster
+            <Users size={20} /> Employee Master
           </button>
 
           <button className={`nav-item w-full ${view === 'demographics' ? 'active' : ''}`} onClick={() => setView('demographics')}>

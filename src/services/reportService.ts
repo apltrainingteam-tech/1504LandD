@@ -16,7 +16,7 @@ export function buildUnifiedDataset(
     const emp = emps.find(e => e.id === a.employeeId) || {
       id: a.employeeId,
       employeeId: a.employeeId,
-      employeeName: 'Unknown',
+      name: 'Unknown',
       team: 'Unknown',
       cluster: 'Unknown',
       hq: '-',

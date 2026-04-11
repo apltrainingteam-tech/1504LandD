@@ -49,7 +49,7 @@ export const UploadPreview: React.FC<UploadPreviewProps> = ({ rows, trainingType
           <td style={{ fontSize: '12px' }}>{r.data.aadhaarNumber || <span style={{ opacity: 0.3 }}>—</span>}</td>
           <td style={{ fontWeight: 600 }}>{r.data.employeeId || <span style={{ opacity: 0.3 }}>—</span>}</td>
           <td style={{ fontSize: '12px' }}>{r.data.mobileNumber || <span style={{ opacity: 0.3 }}>—</span>}</td>
-          <td>{r.data.employeeName || <span style={{ opacity: 0.3 }}>—</span>}</td>
+          <td>{r.data.name || <span style={{ opacity: 0.3 }}>—</span>}</td>
           <td style={{ fontSize: '12px' }}>{r.data.trainerId || '—'}</td>
           <td style={{ fontSize: '12px' }}>{r.data.team || '—'}</td>
           <td style={{ fontSize: '12px' }}>{r.data.hq || '—'}</td>

@@ -29,7 +29,7 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
     if (!search) return unified;
     const s = search.toLowerCase();
     return unified.filter(r => 
-      r.employee.employeeName.toLowerCase().includes(s) || 
+      r.employee.name.toLowerCase().includes(s) || 
       r.employee.employeeId.toLowerCase().includes(s) ||
       (r.employee.aadhaarNumber || '').includes(s)
     );
@@ -79,7 +79,7 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
               <td style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{r.employee.aadhaarNumber || '—'}</td>
               <td style={{ fontWeight: 600 }}>{r.employee.employeeId}</td>
               <td style={{ fontSize: '12px' }}>{r.employee.mobileNumber || '—'}</td>
-              <td>{r.employee.employeeName}</td>
+              <td>{r.employee.name}</td>
               <td style={{ fontSize: '12px' }}>{r.attendance.trainerId || '—'}</td>
               <td style={{ fontSize: '12px' }}>{r.employee.team}</td>
               <td style={{ fontSize: '12px' }}>{r.employee.hq || '—'}</td>

@@ -28,9 +28,9 @@ export const getEligibleEmployees = (
   if (!rule) {
     return employees.map(e => ({
       employeeId: e.employeeId,
-      name: e.employeeName,
+      name: e.name,
       team: e.team,
-      cluster: e.cluster,
+      cluster: '', // Cluster not in Master by default
       eligibilityStatus: true
     }));
   }
@@ -88,16 +88,13 @@ export const getEligibleEmployees = (
 
     // 3. APL Experience (Tenure) Check
     if (isEligible && rule.aplExperience.mode === 'RANGE') {
-      if (!emp.joiningDate) {
+      if (emp.aplExperience === undefined) {
         isEligible = false;
-        reason = 'Joining date missing';
+        reason = 'APL Experience missing';
       } else {
-        const joinDate = new Date(emp.joiningDate);
-        const diffTime = Math.abs(now.getTime() - joinDate.getTime());
-        const expYears = diffTime / (1000 * 60 * 60 * 24 * 365.25);
-        if (expYears < rule.aplExperience.min || expYears > rule.aplExperience.max) {
+        if (emp.aplExperience < rule.aplExperience.min || emp.aplExperience > rule.aplExperience.max) {
           isEligible = false;
-          reason = `Experience (${expYears.toFixed(1)} years) outside range ${rule.aplExperience.min}-${rule.aplExperience.max}`;
+          reason = `Experience (${emp.aplExperience} years) outside range ${rule.aplExperience.min}-${rule.aplExperience.max}`;
         }
       }
     }
@@ -129,9 +126,9 @@ export const getEligibleEmployees = (
 
     return {
       employeeId: emp.employeeId,
-      name: emp.employeeName,
+      name: emp.name,
       team: emp.team,
-      cluster: emp.cluster,
+      cluster: '',
       eligibilityStatus: isEligible,
       reasonIfNotEligible: reason
     };

@@ -29,6 +29,14 @@ export const getCollection = async (path: string): Promise<any[]> => {
   if (!snapshot.exists()) return [];
 
   const data = snapshot.val();
+  
+  // Firebase can sometimes return a sparse array if document IDs are numeric!
+  if (Array.isArray(data)) {
+    return data.map((value, idx) => {
+      if (!value) return null;
+      return { id: String(idx), ...(value as object) };
+    }).filter(Boolean) as any[];
+  }
 
   return Object.entries(data).map(([id, value]) => ({
     id,
@@ -61,6 +69,11 @@ export const addBatch = async (path: string, items: any[]): Promise<void> => {
   await update(ref(db), updates);
 };
 
+
+// 🔹 CLEAR ENTIRE COLLECTION
+export const clearCollection = async (path: string): Promise<void> => {
+  await set(ref(db, path), null);
+};
 
 // 🔹 UPSERT (CORE FUNCTION)
 export const upsertDoc = async (

@@ -4,13 +4,16 @@ import { parseExcelFile, ParsedRow } from '../services/parsingService';
 import { uploadAttendanceBatch } from '../services/attendanceService';
 import { UploadPreview } from '../components/UploadPreview';
 
+import { Employee } from '../types/employee';
+
 interface AttendanceUploadProps {
   onUploadComplete?: () => void;
+  masterEmployees: Employee[];
 }
 
 const TRAINING_TYPES = ['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'Pre_AP', 'GTG', 'HO', 'RTM'];
 
-export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComplete }) => {
+export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComplete, masterEmployees }) => {
   const [step, setStep] = useState<'upload' | 'preview' | 'done'>('upload');
   const [dragOver, setDragOver] = useState(false);
   const [fileName, setFileName] = useState('');
@@ -25,7 +28,7 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
   const processFile = async (file: File) => {
     setFileName(file.name);
     try {
-      const { rows: processed, trainingType: finalType } = await parseExcelFile(file, selectedUploadType);
+      const { rows: processed, trainingType: finalType } = await parseExcelFile(file, selectedUploadType, masterEmployees);
       setTrainingType(finalType);
       setAutoDetected(true);
       setRows(processed);
