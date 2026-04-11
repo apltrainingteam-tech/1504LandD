@@ -8,21 +8,25 @@ interface AttendanceUploadProps {
   onUploadComplete?: () => void;
 }
 
+const TRAINING_TYPES = ['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'Pre_AP', 'GTG', 'HO', 'RTM'];
+
 export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComplete }) => {
   const [step, setStep] = useState<'upload' | 'preview' | 'done'>('upload');
   const [dragOver, setDragOver] = useState(false);
   const [fileName, setFileName] = useState('');
+  const [selectedUploadType, setSelectedUploadType] = useState(TRAINING_TYPES[0]);
   const [trainingType, setTrainingType] = useState('IP');
   const [autoDetected, setAutoDetected] = useState(false);
   const [rows, setRows] = useState<ParsedRow[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [result, setResult] = useState<{ attCount: number, scoreCount: number } | null>(null);
 
   const processFile = async (file: File) => {
     setFileName(file.name);
     try {
-      const { rows: processed, trainingType: detected } = await parseExcelFile(file);
-      setTrainingType(detected);
+      const { rows: processed, trainingType: finalType } = await parseExcelFile(file, selectedUploadType);
+      setTrainingType(finalType);
       setAutoDetected(true);
       setRows(processed);
       setStep('preview');
@@ -44,16 +48,21 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
 
   const doUpload = async () => {
     setUploading(true);
+    setUploadProgress(0);
     try {
       const uploadable = rows.filter(r => r.status !== 'error');
-      const res = await uploadAttendanceBatch(uploadable, trainingType);
+      const total = uploadable.length;
+      
+      const res = await uploadAttendanceBatch(uploadable, trainingType, (count) => {
+        setUploadProgress(Math.round((count / total) * 100));
+      });
+      
       setResult(res);
       setStep('done');
       onUploadComplete?.();
     } catch (err: any) {
       alert('Upload failed: ' + err.message);
-    } finally {
-      setUploading(false);
+      setUploading(false); // Stop progress naturally handled here on failure
     }
   };
 
@@ -105,9 +114,7 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
               onChange={e => setTrainingType(e.target.value)}
               style={{ width: 'auto' }}
             >
-              <option value="IP">IP</option>
-              <option value="AP">AP</option>
-              <option value="MIP">MIP</option>
+              {TRAINING_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
             <button className="btn btn-secondary" onClick={reset}>Cancel</button>
           </div>
@@ -132,17 +139,23 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
           <UploadPreview rows={rows} trainingType={trainingType} />
         </div>
 
-        <div className="flex-center">
+        <div className="flex-center w-full max-w-md mx-auto flex-col gap-2">
           <button 
-            className="btn btn-primary" 
+            className="btn btn-primary w-full" 
             onClick={doUpload} 
             disabled={uploading || uploadableCount === 0}
-            style={{ padding: '12px 32px' }}
+            style={{ padding: '14px 32px', position: 'relative', overflow: 'hidden' }}
           >
-            {uploading ? 'Processing…' : `Accept & Sync ${uploadableCount} Rows`}
+            {uploading ? (
+               <>
+                 <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${uploadProgress}%`, background: 'rgba(255,255,255,0.3)', transition: 'width 0.2s', zIndex: 0 }} />
+                 <span style={{ position: 'relative', zIndex: 1, fontWeight: 700 }}>Uploading... {uploadProgress}%</span>
+               </>
+            ) : `Accept & Sync ${uploadableCount} Rows`}
           </button>
-          <button className="btn btn-secondary" onClick={reset}>Discard & Reject</button>
-          {errCount > 0 && <span className="text-muted" style={{ fontSize: '13px' }}>{errCount} rows with errors will be skipped</span>}
+          
+          <button className="btn btn-secondary w-full" onClick={reset} disabled={uploading}>Discard & Reject</button>
+          {errCount > 0 && <span className="text-muted text-center mt-2" style={{ fontSize: '13px' }}>{errCount} rows with errors will be skipped</span>}
         </div>
       </div>
     );
@@ -155,6 +168,21 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
           <h2 style={{ fontSize: '24px' }}>Attendance Portal</h2>
           <p className="text-muted">Automated field training ingestion engine</p>
         </div>
+      </div>
+
+      <div className="flex-center mb-6 mt-4 gap-4" style={{ background: 'var(--bg-card)', padding: '16px', borderRadius: '14px', border: '1px solid var(--border-color)' }}>
+        <label style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Target Training Type:</label>
+        <select 
+          className="form-select glass-panel" 
+          style={{ width: '250px', cursor: 'pointer', fontWeight: 600, color: 'var(--accent-primary)' }}
+          value={selectedUploadType}
+          onChange={e => {
+             setSelectedUploadType(e.target.value);
+             setTrainingType(e.target.value);
+          }}
+        >
+          {TRAINING_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
       </div>
 
       <div 

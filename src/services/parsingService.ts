@@ -11,7 +11,7 @@ export interface ParsedRow {
   rowNum: number;
 }
 
-export const parseExcelFile = (file: File): Promise<{ rows: ParsedRow[], trainingType: string }> => {
+export const parseExcelFile = (file: File, forcedType?: string): Promise<{ rows: ParsedRow[], trainingType: string }> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (ev) => {
@@ -26,7 +26,7 @@ export const parseExcelFile = (file: File): Promise<{ rows: ParsedRow[], trainin
         }
 
         const rawCols = Object.keys(json[0]);
-        const trainingType = detectTrainingType(rawCols);
+        const trainingType = forcedType || detectTrainingType(rawCols);
         const scoreSchema = SCORE_SCHEMAS[trainingType] || [];
 
         // Build mapping for this file

@@ -65,10 +65,24 @@ export const getEligibleEmployees = (
           .filter(a => a.employeeId === emp.id && a.attendanceStatus === 'Present')
           .map(a => a.trainingType)
       );
-      const missing = rule.previousTraining.values.filter(t => !completedTrainings.has(t));
+      
+      const missing = rule.previousTraining.values.filter((req: any) => {
+        // If specific designations are configured for this prerequisite
+        if (req.designations && req.designations.length > 0) {
+           // If the current employee's designation is NOT in the requirement list, 
+           // they are naturally exempt from this specific prerequisite training.
+           if (!req.designations.includes(emp.designation || '')) {
+             return false; 
+           }
+        }
+        
+        // The prerequisite applies to them. Do they have it?
+        return !completedTrainings.has(req.type);
+      });
+      
       if (missing.length > 0) {
         isEligible = false;
-        reason = `Missing required trainings: ${missing.join(', ')}`;
+        reason = `Missing required trainings: ${missing.map((m: any) => m.type).join(', ')}`;
       }
     }
 

@@ -63,7 +63,7 @@ export interface EligibilityRule {
   };
   previousTraining: {
     mode: 'ALL' | 'INCLUDE' | 'NONE';
-    values: TrainingType[];
+    values: Array<{ type: TrainingType; designations: string[] }>;
   };
   aplExperience: {
     mode: 'ALL' | 'RANGE';
