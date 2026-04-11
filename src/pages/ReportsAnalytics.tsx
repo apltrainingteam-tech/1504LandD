@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, Fragment } from 'react';
 import {
   Table, Calendar, GraduationCap, AlertTriangle, ChevronRight, ChevronDown,
-  Trophy, Zap, ShieldCheck, CheckCircle2, Network, Download, Filter, X
+  Trophy, Zap, ShieldCheck, CheckCircle2, ChartNetwork, Download, Filter, X
 } from 'lucide-react';
 import { Employee } from '../types/employee';
 import { Attendance, TrainingScore, TrainingNomination, Demographics, TrainingType, EligibilityRule } from '../types/attendance';
@@ -149,7 +149,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
           <button className={`btn ${subView === 'grouped' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('grouped')} title="Rankings"><Table size={16} /></button>
           <button className={`btn ${subView === 'timeseries' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('timeseries')} title="Time Series"><Calendar size={16} /></button>
           <button className={`btn ${subView === 'trainer' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('trainer')} title="Trainer Analytics"><GraduationCap size={16} /></button>
-          <button className={`btn ${subView === 'drilldown' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('drilldown')} title="Drill-Down"><Network size={16} /></button>
+          <button className={`btn ${subView === 'drilldown' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('drilldown')} title="Drill-Down"><ChartNetwork size={16} /></button>
           <button className={`btn ${subView === 'gap' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('gap')} title="Gap Analysis" style={{ color: subView === 'gap' ? '#fff' : 'var(--danger)' }}><AlertTriangle size={16} /></button>
           <div style={{ width: '1px', height: '28px', background: 'var(--border-color)', margin: '0 4px' }} />
           <button className={`btn btn-secondary ${hasActiveFilter ? 'active' : ''}`} onClick={() => setShowFilters(f => !f)} title="Filters" style={{ position: 'relative' }}>

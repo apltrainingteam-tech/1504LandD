@@ -24,15 +24,15 @@ export const TrainerTable: React.FC<TrainerTableProps> = ({ stats }) => {
     return sortDir === 'asc' ? (va as number) - (vb as number) : (vb as number) - (va as number);
   });
 
-  const SortIcon = ({ key }: { key: SortKey }) =>
-    sortKey === key ? (sortDir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />) : null;
+  const SortIcon = ({ colKey }: { colKey: SortKey }) =>
+    sortKey === colKey ? (sortDir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />) : null;
 
   const th = (label: string, key: SortKey) => (
     <th
       onClick={() => handleSort(key)}
       style={{ padding: '12px 16px', textAlign: 'left', cursor: 'pointer', userSelect: 'none', background: sortKey === key ? 'rgba(99,102,241,0.08)' : 'var(--bg-card)' }}
     >
-      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>{label}<SortIcon key={key} /></span>
+      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>{label}<SortIcon colKey={key} /></span>
     </th>
   );
 

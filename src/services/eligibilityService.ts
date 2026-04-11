@@ -45,13 +45,13 @@ export const getEligibleEmployees = (
 
     // 1. Designation Check
     const des = (emp.designation || '').toUpperCase();
-    const ruleDesValues = rule.designation.values.map(v => v.toUpperCase());
-    if (rule.designation.mode === 'INCLUDE') {
-      if (!ruleDesValues.includes(des)) {
+    const ruleDesValues = (rule.designation?.values || []).map(v => v.toUpperCase());
+    if (rule.designation?.mode === 'INCLUDE') {
+      if (ruleDesValues.length > 0 && !ruleDesValues.includes(des)) {
         isEligible = false;
         reason = `Designation ${des} not in eligible list`;
       }
-    } else if (rule.designation.mode === 'EXCLUDE') {
+    } else if (rule.designation?.mode === 'EXCLUDE') {
       if (ruleDesValues.includes(des)) {
         isEligible = false;
         reason = `Designation ${des} is explicitly excluded`;
@@ -59,24 +59,18 @@ export const getEligibleEmployees = (
     }
 
     // 2. Previous Training Check
-    if (isEligible && rule.previousTraining.mode === 'INCLUDE') {
+    if (isEligible && rule.previousTraining?.mode === 'INCLUDE') {
       const completedTrainings = new Set(
         attendance
           .filter(a => a.employeeId === emp.id && a.attendanceStatus === 'Present')
           .map(a => a.trainingType)
       );
       
-      const missing = rule.previousTraining.values.filter((req: any) => {
+      const missing = (rule.previousTraining.values || []).filter((req: any) => {
         // If specific designations are configured for this prerequisite
         if (req.designations && req.designations.length > 0) {
-           // If the current employee's designation is NOT in the requirement list, 
-           // they are naturally exempt from this specific prerequisite training.
-           if (!req.designations.includes(emp.designation || '')) {
-             return false; 
-           }
+           if (!req.designations.includes(emp.designation || '')) return false; 
         }
-        
-        // The prerequisite applies to them. Do they have it?
         return !completedTrainings.has(req.type);
       });
       
@@ -87,12 +81,12 @@ export const getEligibleEmployees = (
     }
 
     // 3. APL Experience (Tenure) Check
-    if (isEligible && rule.aplExperience.mode === 'RANGE') {
+    if (isEligible && rule.aplExperience?.mode === 'RANGE') {
       if (emp.aplExperience === undefined) {
         isEligible = false;
         reason = 'APL Experience missing';
       } else {
-        if (emp.aplExperience < rule.aplExperience.min || emp.aplExperience > rule.aplExperience.max) {
+        if (emp.aplExperience < (rule.aplExperience.min ?? 0) || emp.aplExperience > (rule.aplExperience.max ?? 999)) {
           isEligible = false;
           reason = `Experience (${emp.aplExperience} years) outside range ${rule.aplExperience.min}-${rule.aplExperience.max}`;
         }
@@ -100,7 +94,7 @@ export const getEligibleEmployees = (
     }
 
     // 4. Special Rules
-    if (isEligible) {
+    if (isEligible && rule.specialConditions) {
       // Capsule Logic
       if (rule.specialConditions.noAPInNext90Days) {
         const hasFutureAP = attendance.some(a => {
