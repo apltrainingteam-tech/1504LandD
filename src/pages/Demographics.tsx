@@ -67,7 +67,10 @@ export const Demographics = () => {
 
   // --- Handlers: Mapping ---
   const saveMapping = async () => {
-    if (!newTeam || !newCluster) return;
+    if (!newTeam || !newCluster) {
+      alert("Please enter both Team Name and Cluster before adding.");
+      return;
+    }
     const id = newTeam.replace(/\s+/g, '_');
     await upsertDoc('team_cluster_mapping', id, { id, team: newTeam, cluster: newCluster });
     setNewTeam(''); setNewCluster('');

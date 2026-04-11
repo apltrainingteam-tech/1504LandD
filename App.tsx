@@ -23,7 +23,7 @@ import { Demographics } from './src/pages/Demographics';
 
 // Services & Types
 import { getCollection } from './src/services/firestoreService';
-import { seedDatabase } from './src/seed';
+import { seedDatabase, seedMasterData } from './src/seed';
 import { Employee } from './src/types/employee';
 import { Attendance, TrainingScore, TrainingNomination, Demographics as DemoType } from './src/types/attendance';
 
@@ -33,6 +33,7 @@ const App = () => {
   const [view, setView] = useState<ViewMode>('reports');
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isSeeding, setIsSeeding] = useState(false);
 
   // Global State
   const [emps, setEmps] = useState<Employee[]>([]);
@@ -121,8 +122,26 @@ const App = () => {
             <ShieldCheck size={20} /> Eligibility
           </button>
 
-          <button className="nav-item w-full" onClick={async () => { if (confirm('Seed database with initial mock data?')) { await seedDatabase(); setRefreshKey(k => k + 1); } }} style={{ marginTop: '24px', opacity: 0.7 }}>
-            <Database size={20} /> Seed Database
+          <button 
+            className="nav-item w-full" 
+            onClick={async () => { 
+               setIsSeeding(true); 
+               try {
+                 await seedMasterData();
+                 await seedDatabase();
+                 alert('Database completely seeded with Mock & Master Data!');
+                 setRefreshKey(k => k + 1); 
+               } catch (e) {
+                 alert('Seeding encountered an error');
+               } finally {
+                 setIsSeeding(false);
+               }
+            }} 
+            style={{ marginTop: '24px', opacity: isSeeding ? 0.3 : 0.7 }}
+            disabled={isSeeding}
+          >
+            {isSeeding ? <RefreshCw className="animate-spin" size={20} /> : <Database size={20} />} 
+            {isSeeding ? "Seeding Data..." : "Seed Database"}
           </button>
         </nav>
 

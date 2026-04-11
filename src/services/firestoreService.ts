@@ -1,50 +1,82 @@
 import { initializeApp } from 'firebase/app';
-import { 
-  getFirestore,
-  collection, 
-  getDocs, 
-  query, 
-  where, 
-  writeBatch, 
-  doc, 
-  setDoc,
-  DocumentData
-} from 'firebase/firestore';
+import {
+  getDatabase,
+  ref,
+  get,
+  set,
+  push,
+  update
+} from 'firebase/database';
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+  apiKey: "AIzaSyBoSFLhMQCd6vN7L9lO2MvkqBiHnhJCqHk",
+  authDomain: "pharmaintel-9b60c.firebaseapp.com",
+  projectId: "pharmaintel-9b60c",
+  storageBucket: "pharmaintel-9b60c.firebasestorage.app",
+  messagingSenderId: "97794894089",
+  appId: "1:97794894089:web:019d24130cdbfdc0f30bd8",
+  databaseURL: "https://pharmaintel-9b60c-default-rtdb.firebaseio.com/",
+  measurementId: "G-Z3V8M55HS7"
 };
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
+export const db = getDatabase(app);
 
-export const getCollection = async (colName: string): Promise<DocumentData[]> => {
-  const snapshot = await getDocs(collection(db, colName));
-  return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+
+// 🔹 GET ENTIRE COLLECTION (NODE)
+export const getCollection = async (path: string): Promise<any[]> => {
+  const snapshot = await get(ref(db, path));
+  if (!snapshot.exists()) return [];
+
+  const data = snapshot.val();
+
+  return Object.entries(data).map(([id, value]) => ({
+    id,
+    ...(value as object)
+  }));
 };
 
-export const queryByField = async (colName: string, field: string, value: any): Promise<DocumentData[]> => {
-  const q = query(collection(db, colName), where(field, "==", value));
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+
+// 🔹 QUERY (CLIENT-SIDE FILTER)
+export const queryByField = async (
+  path: string,
+  field: string,
+  value: any
+): Promise<any[]> => {
+  const all = await getCollection(path);
+  return all.filter(item => item[field] === value);
 };
 
-export const addBatch = async (colName: string, items: any[]): Promise<void> => {
-  const batch = writeBatch(db);
+
+// 🔹 BATCH WRITE (SIMULATED)
+export const addBatch = async (path: string, items: any[]): Promise<void> => {
+  const updates: any = {};
+
   items.forEach(item => {
-    const dRef = doc(collection(db, colName), item.id);
-    batch.set(dRef, item);
+    let id = item.id || push(ref(db, path)).key;
+    if (typeof id === 'string') id = id.replace(/[.#$\[\]]/g, '_');
+    updates[`${path}/${id}`] = item;
   });
-  await batch.commit();
+
+  await update(ref(db), updates);
 };
 
-export const upsertDoc = async (colName: string, id: string, data: any): Promise<void> => {
-  const dRef = doc(db, colName, id);
-  await setDoc(dRef, data, { merge: true });
+
+// 🔹 UPSERT (CORE FUNCTION)
+export const upsertDoc = async (
+  path: string,
+  id: string,
+  data: any
+): Promise<void> => {
+
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error("RTDB connection timed out. Check API key / network.")), 10000)
+  );
+
+  const safeId = typeof id === 'string' ? id.replace(/[.#$\[\]]/g, '_') : id;
+
+  await Promise.race([
+    update(ref(db, `${path}/${safeId}`), data), // merge behavior
+    timeout
+  ]);
 };
