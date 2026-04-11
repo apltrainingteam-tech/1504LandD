@@ -20,8 +20,48 @@ export interface GroupedData {
 
 export type ViewByOption = 'Month' | 'Cluster' | 'Team';
 
+// Time-series pivot: one row per team/cluster, one column per month
+export interface TimeSeriesRow {
+  label: string; // team or cluster name
+  cells: Record<string, number | null>; // YYYY-MM -> value
+}
+
+// Trainer performance stats
+export interface TrainerStat {
+  trainerId: string;
+  trainingsConducted: number;
+  totalTrainees: number;
+  avgScore: number;
+  attendancePct: number;
+}
+
+// Drill-down node (Cluster -> Team -> Employee)
+export interface DrilldownNode {
+  key: string;
+  label: string;
+  metric: number;
+  count: number;
+  children?: DrilldownNode[];
+  records?: UnifiedRecord[];
+}
+
+// Report filter state
+export interface ReportFilter {
+  monthFrom: string;  // YYYY-MM, empty = no lower bound
+  monthTo: string;    // YYYY-MM, empty = no upper bound
+  teams: string[];    // empty = all
+  clusters: string[]; // empty = all
+  trainer: string;    // empty = all
+}
+
 export const SCORE_SCHEMAS: Record<string, string[]> = {
-  IP: ['Score'],
-  AP: ['Knowledge', 'BSE', 'Grasping', 'Detailing', 'Situation Handling', 'English', 'Local Language', 'Involvement', 'Effort', 'Confidence'],
-  MIP: ['Science Score', 'Skill Score']
+  IP:        ['Score'],
+  AP:        ['Knowledge', 'BSE', 'Grasping', 'Detailing', 'Situation Handling', 'English', 'Local Language', 'Involvement', 'Effort', 'Confidence'],
+  MIP:       ['Science Score', 'Skill Score'],
+  Refresher: ['Knowledge', 'Situation Handling', 'Presentation'],
+  Capsule:   ['Score'],
+  Pre_AP:    ['Knowledge', 'BSE', 'Grasping'],
+  GTG:       ['Score'],
+  HO:        ['Score'],
+  RTM:       ['Score'],
 };

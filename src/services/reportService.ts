@@ -1,10 +1,17 @@
 import { Employee } from '../types/employee';
-import { Attendance, TrainingScore, TrainingNomination, Demographics, TrainingType } from '../types/attendance';
-import { UnifiedRecord, GroupedData, ViewByOption } from '../types/reports';
+import { Attendance, TrainingScore, TrainingNomination } from '../types/attendance';
+import { UnifiedRecord, GroupedData, ViewByOption, TimeSeriesRow, TrainerStat, DrilldownNode, ReportFilter, SCORE_SCHEMAS } from '../types/reports';
 import { EligibilityResult } from './eligibilityService';
 
 const safe = (v: any): number => (typeof v === 'number' && !isNaN(v)) ? v : 0;
 
+const avgScores = (scores: Record<string, number | null> | undefined): number => {
+  if (!scores) return 0;
+  const vals = Object.values(scores).filter((v): v is number => v !== null && !isNaN(v as number));
+  return vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+};
+
+// ─── UNIFIED DATASET BUILDER ───────────────────────────────────────────────
 export function buildUnifiedDataset(
   emps: Employee[],
   att: Attendance[],
@@ -30,11 +37,11 @@ export function buildUnifiedDataset(
     const sc = scs.find(s => s.employeeId === a.employeeId && s.trainingType === a.trainingType && s.dateStr === a.attendanceDate) || null;
     const nm = noms.find(n => n.employeeId === a.employeeId && n.trainingType === a.trainingType) || null;
     const el = eligibilityResults.find(e => e.employeeId === a.employeeId);
-    
-    return { 
-      employee: emp as Employee, 
-      attendance: a, 
-      score: sc, 
+
+    return {
+      employee: emp as Employee,
+      attendance: a,
+      score: sc,
       nomination: nm,
       eligibilityStatus: el?.eligibilityStatus,
       eligibilityReason: el?.reasonIfNotEligible
@@ -42,6 +49,20 @@ export function buildUnifiedDataset(
   });
 }
 
+// ─── FILTER ENGINE ─────────────────────────────────────────────────────────
+export function applyFilters(ds: UnifiedRecord[], filter: ReportFilter): UnifiedRecord[] {
+  return ds.filter(r => {
+    const month = r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7);
+    if (filter.monthFrom && month < filter.monthFrom) return false;
+    if (filter.monthTo && month > filter.monthTo) return false;
+    if (filter.teams.length > 0 && !filter.teams.includes(r.employee.team)) return false;
+    if (filter.clusters.length > 0 && !filter.clusters.includes(r.employee.state)) return false;
+    if (filter.trainer && r.attendance.trainerId !== filter.trainer) return false;
+    return true;
+  });
+}
+
+// ─── GROUPING ENGINE ───────────────────────────────────────────────────────
 export function groupData(
   ds: UnifiedRecord[],
   by: ViewByOption,
@@ -54,7 +75,7 @@ export function groupData(
     let k = 'Unknown';
     if (by === 'Month') k = r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7) || 'Unknown';
     else if (by === 'Team') k = r.employee.team || 'Unknown';
-    else k = r.employee.cluster || 'Unknown';
+    else k = r.employee.state || 'Unknown';
 
     if (!m.has(k)) m.set(k, { key: k, records: [], nominations: [], metric: 0 });
     m.get(k)!.records.push(r);
@@ -65,7 +86,7 @@ export function groupData(
     let k = 'Unknown';
     if (by === 'Month') k = (n.notificationDate || '').substring(0, 7) || 'Unknown';
     else if (by === 'Team') k = e?.team || 'Unknown';
-    else k = e?.cluster || 'Unknown';
+    else k = e?.state || 'Unknown';
 
     if (!m.has(k)) m.set(k, { key: k, records: [], nominations: [], metric: 0 });
     m.get(k)!.nominations.push(n);
@@ -74,63 +95,56 @@ export function groupData(
   return Array.from(m.values());
 }
 
-// IP Metrics
+// ─── IP ENGINE ─────────────────────────────────────────────────────────────
 export function calcIP(recs: UnifiedRecord[]) {
   const p = recs.filter(r => r.attendance.attendanceStatus === 'Present');
-  let h = 0, m = 0, l = 0;
+  let h = 0, med = 0, l = 0;
   p.forEach(r => {
     const s = r.score?.scores?.['Score'];
     if (s != null) {
       if (s >= 75) h++;
-      else if (s >= 50) m++;
+      else if (s >= 50) med++;
       else l++;
     } else l++;
   });
-  const t = h + m + l;
+  const t = h + med + l;
   return {
     total: t,
     high: h,
-    medium: m,
+    medium: med,
     low: l,
-    weighted: t > 0 ? ((h * 95) + (m * 82.5) + (l * 62.5)) / t : 0,
+    weighted: t > 0 ? ((h * 95) + (med * 82.5) + (l * 62.5)) / t : 0,
     highPct: t > 0 ? (h / t) * 100 : 0
   };
 }
 
-// AP Metrics
+// ─── AP ENGINE ─────────────────────────────────────────────────────────────
 export function calcAP(recs: UnifiedRecord[], noms: TrainingNomination[]) {
-  const att = recs.filter(r => r.attendance.attendanceStatus === 'Present').length;
-  const attendedIds = new Set(recs.filter(r => r.attendance.attendanceStatus === 'Present').map(r => r.attendance.employeeId));
-  const not = new Set((noms || []).map(n => n.employeeId)).size;
-  let s = 0, c = 0;
-  recs.filter(r => r.attendance.attendanceStatus === 'Present').forEach(r => {
-    if (r.score?.scores) {
-      const ks = Object.keys(r.score.scores);
-      if (ks.length) {
-        s += ks.reduce((a, k) => a + safe(r.score.scores[k]), 0) / ks.length;
-        c++;
-      }
-    }
+  const present = recs.filter(r => r.attendance.attendanceStatus === 'Present');
+  const attendedIds = new Set(present.map(r => r.attendance.employeeId));
+  const notifiedIds = new Set((noms || []).map(n => n.employeeId));
+  let scoreSum = 0, scoredCount = 0;
+  present.forEach(r => {
+    const avg = avgScores(r.score?.scores);
+    if (avg > 0) { scoreSum += avg; scoredCount++; }
   });
 
-  // Defaulter logic: employees with >= 3 nominations and 0 attendance
+  // Defaulters: >= 3 nominations, 0 attendance
   const nomCountMap = new Map<string, number>();
-  (noms || []).forEach(n => { nomCountMap.set(n.employeeId, (nomCountMap.get(n.employeeId) || 0) + 1); });
+  (noms || []).forEach(n => nomCountMap.set(n.employeeId, (nomCountMap.get(n.employeeId) || 0) + 1));
   let defaulterCount = 0;
-  nomCountMap.forEach((count, empId) => {
-    if (count >= 3 && !attendedIds.has(empId)) defaulterCount++;
-  });
+  nomCountMap.forEach((count, empId) => { if (count >= 3 && !attendedIds.has(empId)) defaulterCount++; });
 
   return {
-    notified: not,
-    attended: att,
-    conversion: not > 0 ? (att / not) * 100 : 0,
-    composite: c > 0 ? s / c : 0,
+    notified: notifiedIds.size,
+    attended: present.length,
+    conversion: notifiedIds.size > 0 ? (present.length / notifiedIds.size) * 100 : 0,
+    composite: scoredCount > 0 ? scoreSum / scoredCount : 0,
     defaulterCount
   };
 }
 
-// MIP Metrics
+// ─── MIP ENGINE ────────────────────────────────────────────────────────────
 export function calcMIP(recs: UnifiedRecord[]) {
   const p = recs.filter(r => r.attendance.attendanceStatus === 'Present');
   let sS = 0, cS = 0, sK = 0, cK = 0;
@@ -142,19 +156,157 @@ export function calcMIP(recs: UnifiedRecord[]) {
       if (sk != null) { sK += safe(sk); cK++; }
     }
   });
+  return { count: p.length, avgSci: cS > 0 ? sS / cS : 0, avgSkl: cK > 0 ? sK / cK : 0 };
+}
+
+// ─── REFRESHER ENGINE ──────────────────────────────────────────────────────
+export function calcRefresher(recs: UnifiedRecord[]) {
+  const p = recs.filter(r => r.attendance.attendanceStatus === 'Present');
+  const schema = ['Knowledge', 'Situation Handling', 'Presentation'];
+  const totals: Record<string, { sum: number; count: number }> = {};
+  schema.forEach(k => { totals[k] = { sum: 0, count: 0 }; });
+  p.forEach(r => {
+    schema.forEach(k => {
+      const v = r.score?.scores?.[k];
+      if (v != null && !isNaN(v as number)) { totals[k].sum += v as number; totals[k].count++; }
+    });
+  });
+  const avgs: Record<string, number> = {};
+  schema.forEach(k => { avgs[k] = totals[k].count > 0 ? totals[k].sum / totals[k].count : 0; });
+  const overallAvg = schema.reduce((a, k) => a + avgs[k], 0) / schema.length;
+  return { count: p.length, avgs, overallAvg };
+}
+
+// ─── CAPSULE ENGINE ────────────────────────────────────────────────────────
+export function calcCapsule(recs: UnifiedRecord[]) {
+  const p = recs.filter(r => r.attendance.attendanceStatus === 'Present');
+  let scoreSum = 0, scoredCount = 0;
+  p.forEach(r => {
+    const v = r.score?.scores?.['Score'];
+    if (v != null) { scoreSum += safe(v); scoredCount++; }
+  });
+  return { count: p.length, avgScore: scoredCount > 0 ? scoreSum / scoredCount : 0 };
+}
+
+// ─── PRE-AP ENGINE ─────────────────────────────────────────────────────────
+export function calcPreAP(recs: UnifiedRecord[], noms: TrainingNomination[]) {
+  const nominatedIds = new Set((noms || []).map(n => n.employeeId));
+  // Only include records for nominated employees
+  const nominatedRecs = recs.filter(r => nominatedIds.has(r.employee.employeeId));
+  const present = nominatedRecs.filter(r => r.attendance.attendanceStatus === 'Present');
+  let scoreSum = 0, scoredCount = 0;
+  present.forEach(r => {
+    const avg = avgScores(r.score?.scores);
+    if (avg > 0) { scoreSum += avg; scoredCount++; }
+  });
   return {
-    count: p.length,
-    avgSci: cS > 0 ? sS / cS : 0,
-    avgSkl: cK > 0 ? sK / cK : 0
+    notified: nominatedIds.size,
+    attended: present.length,
+    conversion: nominatedIds.size > 0 ? (present.length / nominatedIds.size) * 100 : 0,
+    avgScore: scoredCount > 0 ? scoreSum / scoredCount : 0
   };
 }
 
-/**
- * GAP ANALYSIS LOGIC
- * Identifies employees who are eligible but have NO attendance record for the type.
- */
+// ─── GENERIC SCORE ENGINE (for GTG, HO, RTM) ──────────────────────────────
+export function calcGeneric(recs: UnifiedRecord[]) {
+  const p = recs.filter(r => r.attendance.attendanceStatus === 'Present');
+  let scoreSum = 0, scoredCount = 0;
+  p.forEach(r => {
+    const v = r.score?.scores?.['Score'];
+    if (v != null) { scoreSum += safe(v); scoredCount++; }
+  });
+  return { count: p.length, avgScore: scoredCount > 0 ? scoreSum / scoredCount : 0 };
+}
+
+// ─── TIME SERIES BUILDER ───────────────────────────────────────────────────
+export function buildTimeSeries(
+  groups: GroupedData[],
+  months: string[],
+  tab: string,
+  mode: 'count' | 'score' = 'score'
+): TimeSeriesRow[] {
+  return groups.map(g => {
+    const cells: Record<string, number | null> = {};
+    months.forEach(mo => {
+      const monthRecs = g.records.filter(r => {
+        const m = r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7);
+        return m === mo;
+      });
+      if (monthRecs.length === 0) { cells[mo] = null; return; }
+      if (mode === 'count') {
+        cells[mo] = monthRecs.filter(r => r.attendance.attendanceStatus === 'Present').length;
+      } else {
+        if (tab === 'IP') cells[mo] = calcIP(monthRecs).weighted;
+        else if (tab === 'AP') cells[mo] = calcAP(monthRecs, g.nominations).composite;
+        else if (tab === 'MIP') { const m = calcMIP(monthRecs); cells[mo] = (m.avgSci + m.avgSkl) / 2; }
+        else if (tab === 'Refresher') cells[mo] = calcRefresher(monthRecs).overallAvg;
+        else cells[mo] = calcCapsule(monthRecs).avgScore;
+      }
+    });
+    return { label: g.key, cells };
+  });
+}
+
+// ─── TRAINER STATS ENGINE ──────────────────────────────────────────────────
+export function calcTrainerStats(ds: UnifiedRecord[]): TrainerStat[] {
+  const m = new Map<string, { sessions: Set<string>; trainees: Set<string>; total: number; totalAtt: number; scoreSum: number; scoreCount: number }>();
+  ds.forEach(r => {
+    const tid = r.attendance.trainerId || 'Unknown';
+    if (!m.has(tid)) m.set(tid, { sessions: new Set(), trainees: new Set(), total: 0, totalAtt: 0, scoreSum: 0, scoreCount: 0 });
+    const entry = m.get(tid)!;
+    const sessionKey = r.attendance.attendanceDate || 'unknown';
+    entry.sessions.add(sessionKey);
+    entry.trainees.add(r.attendance.employeeId);
+    entry.total++;
+    if (r.attendance.attendanceStatus === 'Present') {
+      entry.totalAtt++;
+      const avg = avgScores(r.score?.scores);
+      if (avg > 0) { entry.scoreSum += avg; entry.scoreCount++; }
+    }
+  });
+  return Array.from(m.entries()).map(([tid, e]) => ({
+    trainerId: tid,
+    trainingsConducted: e.sessions.size,
+    totalTrainees: e.trainees.size,
+    avgScore: e.scoreCount > 0 ? e.scoreSum / e.scoreCount : 0,
+    attendancePct: e.total > 0 ? (e.totalAtt / e.total) * 100 : 0
+  })).sort((a, b) => b.avgScore - a.avgScore);
+}
+
+// ─── DRILL-DOWN BUILDER ────────────────────────────────────────────────────
+export function buildDrilldown(ds: UnifiedRecord[], tab: string): DrilldownNode[] {
+  const clusterMap = new Map<string, Map<string, UnifiedRecord[]>>();
+  ds.forEach(r => {
+    const cluster = r.employee.state || 'Unknown';
+    const team = r.employee.team || 'Unknown';
+    if (!clusterMap.has(cluster)) clusterMap.set(cluster, new Map());
+    const teamMap = clusterMap.get(cluster)!;
+    if (!teamMap.has(team)) teamMap.set(team, []);
+    teamMap.get(team)!.push(r);
+  });
+
+  return Array.from(clusterMap.entries()).map(([cluster, teamMap]) => {
+    const children: DrilldownNode[] = Array.from(teamMap.entries()).map(([team, recs]) => ({
+      key: `${cluster}_${team}`,
+      label: team,
+      metric: getPrimaryMetricRaw(recs, tab),
+      count: recs.filter(r => r.attendance.attendanceStatus === 'Present').length,
+      records: recs
+    }));
+    const allRecs = children.flatMap(c => c.records || []);
+    return {
+      key: cluster,
+      label: cluster,
+      metric: getPrimaryMetricRaw(allRecs, tab),
+      count: allRecs.filter(r => r.attendance.attendanceStatus === 'Present').length,
+      children
+    };
+  }).sort((a, b) => b.metric - a.metric);
+}
+
+// ─── GAP ANALYSIS ─────────────────────────────────────────────────────────
 export function getGapData(
-  type: TrainingType,
+  type: string,
   eligibilityResults: EligibilityResult[],
   attendance: Attendance[]
 ) {
@@ -163,11 +315,9 @@ export function getGapData(
       .filter(a => a.trainingType === type && a.attendanceStatus === 'Present')
       .map(a => a.employeeId)
   );
-
   const eligibleButNotTrained = eligibilityResults.filter(
     er => er.eligibilityStatus && !trainedIds.has(er.employeeId)
   );
-
   return {
     eligibleCount: eligibilityResults.filter(er => er.eligibilityStatus).length,
     trainedCount: trainedIds.size,
@@ -176,11 +326,41 @@ export function getGapData(
   };
 }
 
-export function getPrimaryMetric(recs: UnifiedRecord[], tab: string, noms: TrainingNomination[]): number {
+// ─── EXPORT TO CSV ─────────────────────────────────────────────────────────
+export function exportToCSV(rows: Record<string, any>[], filename: string = 'report.csv') {
+  if (rows.length === 0) return;
+  const headers = Object.keys(rows[0]);
+  const csvContent = [
+    headers.join(','),
+    ...rows.map(r => headers.map(h => {
+      const val = r[h] ?? '';
+      const str = String(val).replace(/"/g, '""');
+      return str.includes(',') || str.includes('"') || str.includes('\n') ? `"${str}"` : str;
+    }).join(','))
+  ].join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+// ─── HELPERS ───────────────────────────────────────────────────────────────
+export function getPrimaryMetricRaw(recs: UnifiedRecord[], tab: string): number {
   if (tab === 'IP') return calcIP(recs).weighted;
+  if (tab === 'AP') return calcAP(recs, []).composite;
+  if (tab === 'MIP') { const m = calcMIP(recs); return (m.avgSci + m.avgSkl) / 2; }
+  if (tab === 'Refresher') return calcRefresher(recs).overallAvg;
+  return calcCapsule(recs).avgScore;
+}
+
+export function getPrimaryMetric(recs: UnifiedRecord[], tab: string, noms: TrainingNomination[]): number {
   if (tab === 'AP') return calcAP(recs, noms).composite;
-  const m = calcMIP(recs);
-  return (m.avgSci + m.avgSkl) / 2;
+  return getPrimaryMetricRaw(recs, tab);
 }
 
 export function rankGroups(groups: GroupedData[], tab: string): GroupedData[] {
