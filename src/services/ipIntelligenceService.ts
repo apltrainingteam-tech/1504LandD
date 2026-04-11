@@ -1,5 +1,6 @@
 import { UnifiedRecord } from '../types/reports';
-import { IPRecord, IPAggregates, IPMonthMapNode, IPHeritageMapCell } from '../types/reports';
+import { IPRecord, IPAggregates, IPMonthMapNode, IPHeritageMapCell, IPMonthlyTeamRank, IPMonthlyRankMatrix } from '../types/reports';
+
 import { TEAM_CLUSTER_MAP } from './clusterMap';
 import { normalizeText } from '../utils/textNormalizer';
 
@@ -168,9 +169,148 @@ export function buildIPAggregates(ds: UnifiedRecord[]): IPAggregates {
       medPct: mPct,
       lowPct: lPct,
       weightedScore: gScore,
-      bestTeam: '—', 
-      worstTeam: '—',
+      bestTeam: Object.keys(teamMonthMap).length > 0 
+        ? Object.entries(teamMonthMap).reduce((best, [cluster, teams]) => {
+            const teamScores = Object.entries(teams).map(([name, data]) => ({ name, score: calculateWeightedScore(data.high, data.medium, data.low, data.total) }));
+            const localBest = teamScores.sort((a, b) => b.score - a.score)[0];
+            return !best || localBest.score > best.score ? localBest : best;
+          }, null as any)?.name || '—' 
+        : '—', 
+      worstTeam: Object.keys(teamMonthMap).length > 0 
+        ? Object.entries(teamMonthMap).reduce((worst, [cluster, teams]) => {
+            const teamScores = Object.entries(teams).map(([name, data]) => ({ name, score: calculateWeightedScore(data.high, data.medium, data.low, data.total) }));
+            const localWorst = teamScores.sort((a, b) => a.score - b.score)[0];
+            return !worst || localWorst.score < worst.score ? localWorst : worst;
+          }, null as any)?.name || '—' 
+        : '—',
     },
     penaltyEnabled: IP_CONFIG.penaltyEnabled
   };
+}
+
+// ─── RANKING CONFIG ───────────────────────────────────────────────
+export const IP_RANK_CONFIG = {
+  bucketA: 90,    // ≥90
+  bucketB: 75,    // 75–89
+  bucketC: 50,    // 50–74
+  weightA: 95,
+  weightB: 82.5,
+  weightC: 62.5,
+  penaltyD: 25,   // <50
+};
+
+// Competition ranking: same score → same rank, next rank skips
+function applyRanking(list: IPMonthlyTeamRank[], rankField: 'overallRank' | 'clusterRank'): void {
+  list.sort((a, b) => b.score - a.score);
+  let rank = 1;
+  for (let i = 0; i < list.length; i++) {
+    if (i > 0 && list[i].score < list[i - 1].score) {
+      rank = i + 1;
+    }
+    list[i][rankField] = rank;
+  }
+}
+
+export function buildIPMonthlyTeamRanks(ds: UnifiedRecord[], fyMonths?: string[]): IPMonthlyRankMatrix {
+  const DUMMY_TEAMS = new Set(['Team A', 'Unknown', '—', 'Unknown Team', 'Unmapped']);
+
+
+  // ── STEP 1: Dedup — one record per employee per month ──
+  const dedupMap = new Map<string, UnifiedRecord>();
+  ds.forEach(r => {
+    if (r.attendance.attendanceStatus !== 'Present') return;
+
+    const month = r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7);
+    if (!month) return;
+
+    // FY filter BEFORE aggregation
+    if (fyMonths && fyMonths.length > 0 && !fyMonths.includes(month)) return;
+
+    const key = `${r.employee.employeeId}_${month}`;
+    dedupMap.set(key, r);
+  });
+
+  // ── STEP 2: Build month→team bucket map ──
+  const monthTeamMap: Record<string, IPMonthlyTeamRank> = {};
+
+  dedupMap.forEach(r => {
+    const month = r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7);
+    const team = normalizeText(r.employee.team);
+
+    if (!team || DUMMY_TEAMS.has(team)) return;
+
+    const cluster = TEAM_CLUSTER_MAP[team];
+    if (!cluster) {
+      console.warn('[IP Rank] Unmapped team:', team);
+      return;
+    }
+
+    // Score: prefer Score → Percent → T Score
+    const rawScore = Number(
+      r.score?.scores?.['Score'] ??
+      r.score?.scores?.['Percent'] ??
+      r.score?.scores?.['T Score'] ??
+      0
+    );
+
+    const key = `${month}__${team}`;
+    if (!monthTeamMap[key]) {
+      monthTeamMap[key] = { team, cluster, month, total: 0, a90: 0, b75: 0, c50: 0, dBelow50: 0, score: 0, clusterRank: 0, overallRank: 0 };
+    }
+
+    const t = monthTeamMap[key];
+    t.total++;
+    if (rawScore >= IP_RANK_CONFIG.bucketA)      t.a90++;
+    else if (rawScore >= IP_RANK_CONFIG.bucketB) t.b75++;
+    else if (rawScore >= IP_RANK_CONFIG.bucketC) t.c50++;
+    else                                          t.dBelow50++;
+  });
+
+  // ── STEP 3: Calculate weighted score per team-month ──
+  const monthlyList: IPMonthlyTeamRank[] = Object.values(monthTeamMap).map(t => ({
+    ...t,
+    score: t.total === 0
+      ? 0
+      : Math.round(
+          (t.a90   * IP_RANK_CONFIG.weightA +
+           t.b75   * IP_RANK_CONFIG.weightB +
+           t.c50   * IP_RANK_CONFIG.weightC -
+           t.dBelow50 * IP_RANK_CONFIG.penaltyD) / t.total
+        )
+  }));
+
+  // ── STEP 4: Group by month → apply competition ranking independently ──
+  const monthGroups: Record<string, IPMonthlyTeamRank[]> = {};
+  monthlyList.forEach(t => {
+    if (!monthGroups[t.month]) monthGroups[t.month] = [];
+    monthGroups[t.month].push(t);
+  });
+
+  Object.values(monthGroups).forEach(group => {
+    // Overall ranking across all teams in this month
+    applyRanking(group, 'overallRank');
+
+    // Cluster ranking within each cluster in this month
+    const clusterBuckets: Record<string, IPMonthlyTeamRank[]> = {};
+    group.forEach(t => {
+      if (!clusterBuckets[t.cluster]) clusterBuckets[t.cluster] = [];
+      clusterBuckets[t.cluster].push(t);
+    });
+    Object.values(clusterBuckets).forEach(g => applyRanking(g, 'clusterRank'));
+  });
+
+  // ── STEP 5: Transform into matrix output ──
+  const matrix: IPMonthlyRankMatrix = { teams: {} };
+  monthlyList.forEach(t => {
+    if (!matrix.teams[t.team]) {
+      matrix.teams[t.team] = { cluster: t.cluster, months: {} };
+    }
+    matrix.teams[t.team].months[t.month] = {
+      score: t.score,
+      rank: t.overallRank,
+      clusterRank: t.clusterRank,
+    };
+  });
+
+  return matrix;
 }

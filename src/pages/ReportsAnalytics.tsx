@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, Fragment } from 'react';
 import {
   Table, Calendar, GraduationCap, AlertTriangle, ChevronRight, ChevronDown,
-  Trophy, Zap, ShieldCheck, CheckCircle2, ChartNetwork, Download, Filter, X, ListOrdered
+  Trophy, Zap, ShieldCheck, CheckCircle2, ChartNetwork, Download, Filter, X, ListOrdered, BarChart3
 } from 'lucide-react';
 import { Employee } from '../types/employee';
 import { Attendance, TrainingScore, TrainingNomination, Demographics, TrainingType, EligibilityRule } from '../types/attendance';
@@ -12,7 +12,7 @@ import {
   buildTimeSeries, calcTrainerStats, buildDrilldown,
   getGapData, getPrimaryMetric, applyFilters, exportToCSV
 } from '../services/reportService';
-import { buildIPAggregates, FISCAL_YEARS, getFiscalMonths, getCurrentFY } from '../services/ipIntelligenceService';
+import { buildIPAggregates, FISCAL_YEARS, getFiscalMonths, getCurrentFY, buildIPMonthlyTeamRanks } from '../services/ipIntelligenceService';
 import { getEligibleEmployees, EligibilityResult } from '../services/eligibilityService';
 import { getCollection } from '../services/firestoreService';
 import { KPIBox } from '../components/KPIBox';
@@ -90,7 +90,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
   // Force IP default view on tab change
   useEffect(() => {
     if (tab === 'IP') {
-      if (!['ip_matrix', 'gap', 'timeseries', 'trainer'].includes(subView)) {
+      if (!['ip_matrix', 'gap', 'timeseries', 'trainer', 'ip_team_rank'].includes(subView)) {
         setSubView('ip_matrix');
       }
     } else {
@@ -131,6 +131,13 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
     });
     return buildIPAggregates(filteredRecords);
   }, [unified, MONTHS]);
+
+  const ipRankData = useMemo(() => {
+    // Pass MONTHS directly — engine applies FY filter internally
+    return buildIPMonthlyTeamRanks(unified, MONTHS);
+  }, [unified, MONTHS]);
+
+
 
   const eligibilityResults = useMemo(() => {
     const rule = rules.find(r => r.trainingType === tab);
@@ -211,7 +218,9 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
           {tab === 'IP' ? (
             <Fragment>
               <button className={`btn ${subView === 'ip_matrix' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('ip_matrix')} title="Matrix View"><Table size={16} /></button>
+              <button className={`btn ${subView === 'ip_team_rank' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('ip_team_rank')} title="Team Rank Matrix"><Trophy size={16} /></button>
               <button className={`btn ${subView === 'timeseries' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('timeseries')} title="Time Series"><Calendar size={16} /></button>
+
               <button className={`btn ${subView === 'trainer' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('trainer')} title="Trainer Analytics"><GraduationCap size={16} /></button>
             </Fragment>
           ) : (
@@ -513,6 +522,177 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
           </DataTable>
         </div>
       )}
+
+      {/* --- IP TEAM RANK MATRIX --- */}
+      {subView === 'ip_team_rank' && (() => {
+        // ── Derive cluster→teams structure from ipRankData ──
+        const clusterTeams: Record<string, string[]> = {};
+        Object.entries(ipRankData.teams).forEach(([team, entry]) => {
+          if (!clusterTeams[entry.cluster]) clusterTeams[entry.cluster] = [];
+          clusterTeams[entry.cluster].push(team);
+        });
+        Object.values(clusterTeams).forEach(teams => teams.sort());
+
+        // Re-usable cell renderer
+        const renderRankCell = (monthData: any, useClusterRank: boolean, mo: string, maxRankInGroup: number) => {
+          if (!monthData) return <td key={mo} style={{ textAlign: 'center', borderLeft: '1px solid rgba(255,255,255,0.05)', color: 'var(--text-secondary)', padding: '10px 6px' }}>—</td>;
+
+          const displayRank = useClusterRank ? monthData.clusterRank : monthData.rank;
+          const isTop1 = displayRank === 1;
+          const isTop3 = displayRank <= 3;
+          const isBottom = displayRank === maxRankInGroup && maxRankInGroup > 3;
+
+          const cellStyle: any = {
+            textAlign: 'center',
+            borderLeft: '1px solid rgba(255,255,255,0.05)',
+            padding: '10px 6px',
+            cursor: 'default',
+            transition: 'background 0.15s',
+            ...(isTop1 ? { background: 'rgba(16, 185, 129, 0.18)', color: 'var(--success)', fontWeight: 800 }
+              : isTop3 ? { background: 'rgba(245, 158, 11, 0.12)', color: 'var(--warning)', fontWeight: 700 }
+              : isBottom ? { background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', fontWeight: 600 }
+              : {})
+          };
+
+          return (
+            <td key={mo} style={cellStyle}
+              title={`Cluster Rank: ${monthData.clusterRank}\nOverall Rank: ${monthData.rank}\nScore: ${monthData.score}`}
+            >
+              <div style={{ fontSize: '14px' }}>#{displayRank}</div>
+              <div style={{ fontSize: '10px', opacity: 0.6, marginTop: '1px' }}>({monthData.score})</div>
+            </td>
+          );
+        };
+
+        return (
+          <div className="glass-panel animate-fade-in" style={{ overflow: 'hidden', borderTop: '4px solid var(--accent-primary)' }}>
+            {/* Header */}
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.02)', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>IP Team Rankings</h3>
+                <p className="text-muted" style={{ fontSize: '12px', marginTop: '4px' }}>Formula: (95·A + 82.5·B + 62.5·C − 25·D) / Total · Competition Ranking · FY {selectedFY}</p>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <span className="badge badge-info" style={{ fontWeight: 700 }}>FY {selectedFY}</span>
+              </div>
+            </div>
+
+            {/* ── TABLE 1: CLUSTER-WISE DRILL-DOWN ── */}
+            <div style={{ padding: '14px 20px 6px', borderBottom: '1px solid var(--border-color)', background: 'rgba(99,102,241,0.04)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                <Trophy size={16} color="var(--accent-primary)" />
+                <span style={{ fontWeight: 700, fontSize: '14px', color: 'var(--accent-primary)' }}>TABLE 1 — Cluster-wise Ranking</span>
+                <span className="text-muted" style={{ fontSize: '11px' }}>Rank is within cluster only</span>
+              </div>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: 'rgba(0,0,0,0.1)' }}>
+                    <th style={{ width: '28px', padding: '10px 8px' }}></th>
+                    <th style={{ textAlign: 'left', padding: '10px 14px', minWidth: '180px' }}>Cluster / Team</th>
+                    {MONTHS.map(mo => (
+                      <th key={mo} style={{ textAlign: 'center', minWidth: '90px', borderLeft: '1px solid rgba(255,255,255,0.05)', fontSize: '12px' }}>{formatMonthLabel(mo)}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.keys(clusterTeams).sort().map(cluster => {
+                    const isOpen = expanded.has(`rank_${cluster}`);
+                    const teams = clusterTeams[cluster];
+                    return (
+                      <Fragment key={cluster}>
+                        {/* Cluster header row */}
+                        <tr
+                          onClick={() => toggleExpand(`rank_${cluster}`)}
+                          style={{ cursor: 'pointer', background: 'rgba(99,102,241,0.06)', borderBottom: '1px solid var(--border-color)' }}
+                        >
+                          <td style={{ textAlign: 'center', padding: '10px 8px' }}>
+                            {isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                          </td>
+                          <td style={{ fontWeight: 700, padding: '10px 14px', letterSpacing: '0.3px' }}>{cluster}</td>
+                          {MONTHS.map(mo => {
+                            // Find best performing team in this cluster for this month
+                            let bestScore = -Infinity;
+                            let summary = '—';
+                            teams.forEach(t => {
+                              const d = ipRankData.teams[t]?.months[mo];
+                              if (d && d.score > bestScore) {
+                                bestScore = d.score;
+                                summary = `Top: ${t} (${d.score})`;
+                              }
+                            });
+                            return (
+                              <td key={mo} style={{ textAlign: 'center', borderLeft: '1px solid rgba(255,255,255,0.05)', fontSize: '9px', color: 'var(--text-secondary)', padding: '10px 4px', lineHeight: 1.2 }}>
+                                {summary}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                        {/* Expanded: team rows with CLUSTER rank */}
+                        {isOpen && teams.map(teamName => {
+                          const entry = ipRankData.teams[teamName];
+                          return (
+                            <tr key={teamName} style={{ borderBottom: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.01)', fontSize: '13px' }}>
+                              <td></td>
+                              <td style={{ paddingLeft: '28px', padding: '10px 14px 10px 28px', fontWeight: 500 }}>↳ {teamName}</td>
+                              {MONTHS.map(mo => {
+                                // Find max cluster rank for this month to detect "Bottom"
+                                const maxClusterRank = Math.max(...teams.map(t => ipRankData.teams[t]?.months[mo]?.clusterRank || 0));
+                                return renderRankCell(entry.months[mo], true, mo, maxClusterRank);
+                              })}
+                            </tr>
+                          );
+                        })}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* ── TABLE 2: OVERALL NATIONAL RANKING ── */}
+            <div style={{ padding: '14px 20px 6px', borderTop: '2px solid var(--border-color)', background: 'rgba(16,185,129,0.04)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                <BarChart3 size={16} color="var(--success)" />
+                <span style={{ fontWeight: 700, fontSize: '14px', color: 'var(--success)' }}>TABLE 2 — Overall National Ranking</span>
+                <span className="text-muted" style={{ fontSize: '11px' }}>Rank across all teams</span>
+              </div>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: 'rgba(0,0,0,0.1)' }}>
+                    <th style={{ textAlign: 'left', padding: '10px 20px', minWidth: '160px' }}>Team</th>
+                    <th style={{ textAlign: 'left', minWidth: '120px' }}>Cluster</th>
+                    {MONTHS.map(mo => (
+                      <th key={mo} style={{ textAlign: 'center', minWidth: '90px', borderLeft: '1px solid rgba(255,255,255,0.05)', fontSize: '12px' }}>{formatMonthLabel(mo)}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.keys(ipRankData.teams).sort().map(teamName => {
+                    const entry = ipRankData.teams[teamName];
+                    const allTeamsCount = Object.keys(ipRankData.teams).length;
+                    return (
+                      <tr key={teamName} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                        <td style={{ padding: '10px 20px', fontWeight: 600 }}>{teamName}</td>
+                        <td><span className="badge badge-secondary" style={{ fontSize: '11px' }}>{entry.cluster}</span></td>
+                        {MONTHS.map(mo => {
+                          // Find max overall rank for this month to detect "Bottom"
+                          const maxOverallRank = Math.max(...Object.values(ipRankData.teams).map(t => t.months[mo]?.rank || 0));
+                          return renderRankCell(entry.months[mo], false, mo, maxOverallRank);
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
+
 
       {/* TIME SERIES */}
       {subView === 'timeseries' && (

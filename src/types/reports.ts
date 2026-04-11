@@ -104,3 +104,29 @@ export interface IPAggregates {
   };
   penaltyEnabled: boolean;
 }
+
+export interface IPMonthlyTeamRank {
+  team: string;
+  cluster: string;
+  month: string; // YYYY-MM
+  total: number;
+  a90: number;
+  b75: number;
+  c50: number;
+  dBelow50: number;
+  score: number;
+  clusterRank: number;
+  overallRank: number;
+}
+
+export interface IPMonthlyRankMatrix {
+  teams: Record<string, {
+    cluster: string;
+    months: Record<string, {
+      score: number;
+      rank: number;
+      clusterRank: number;
+    }>;
+  }>;
+}
+
