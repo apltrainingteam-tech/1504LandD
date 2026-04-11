@@ -13,19 +13,19 @@ export function buildUnifiedDataset(
   eligibilityResults: EligibilityResult[] = []
 ): UnifiedRecord[] {
   return att.map(a => {
-    const emp = emps.find(e => e.id === a.employeeId) || {
+    const emp = emps.find(e => e.id === a.employeeId || e.employeeId === a.employeeId) || {
       id: a.employeeId,
       employeeId: a.employeeId,
-      name: 'Unknown',
-      team: 'Unknown',
-      cluster: 'Unknown',
-      hq: '-',
-      state: '-',
-      status: 'Inactive' as const,
-      aadhaarNumber: '-',
-      mobileNumber: '-',
-      designation: '-',
-      joiningDate: ''
+      name: a.name || 'Unknown',
+      team: a.team || 'Unknown',
+      state: a.state || '-',
+      hq: a.hq || '-',
+      designation: a.designation || '-',
+      aadhaarNumber: a.aadhaarNumber || '-',
+      mobileNumber: a.mobileNumber || '-',
+      doj: '', dob: '', email: '', basicQualification: '',
+      aplExperience: 0, pastExperience: 0, totalExperience: 0, age: 0,
+      status: 'Active' as const,
     };
     const sc = scs.find(s => s.employeeId === a.employeeId && s.trainingType === a.trainingType && s.dateStr === a.attendanceDate) || null;
     const nm = noms.find(n => n.employeeId === a.employeeId && n.trainingType === a.trainingType) || null;
@@ -63,7 +63,7 @@ export function groupData(
   (noms || []).forEach(n => {
     const e = emps.find(x => x.employeeId === n.employeeId || x.id === n.employeeId);
     let k = 'Unknown';
-    if (by === 'Month') k = (n.nominationDate || '').substring(0, 7) || 'Unknown';
+    if (by === 'Month') k = (n.notificationDate || '').substring(0, 7) || 'Unknown';
     else if (by === 'Team') k = e?.team || 'Unknown';
     else k = e?.cluster || 'Unknown';
 
@@ -100,6 +100,7 @@ export function calcIP(recs: UnifiedRecord[]) {
 // AP Metrics
 export function calcAP(recs: UnifiedRecord[], noms: TrainingNomination[]) {
   const att = recs.filter(r => r.attendance.attendanceStatus === 'Present').length;
+  const attendedIds = new Set(recs.filter(r => r.attendance.attendanceStatus === 'Present').map(r => r.attendance.employeeId));
   const not = new Set((noms || []).map(n => n.employeeId)).size;
   let s = 0, c = 0;
   recs.filter(r => r.attendance.attendanceStatus === 'Present').forEach(r => {
@@ -111,11 +112,21 @@ export function calcAP(recs: UnifiedRecord[], noms: TrainingNomination[]) {
       }
     }
   });
+
+  // Defaulter logic: employees with >= 3 nominations and 0 attendance
+  const nomCountMap = new Map<string, number>();
+  (noms || []).forEach(n => { nomCountMap.set(n.employeeId, (nomCountMap.get(n.employeeId) || 0) + 1); });
+  let defaulterCount = 0;
+  nomCountMap.forEach((count, empId) => {
+    if (count >= 3 && !attendedIds.has(empId)) defaulterCount++;
+  });
+
   return {
     notified: not,
     attended: att,
     conversion: not > 0 ? (att / not) * 100 : 0,
-    composite: c > 0 ? s / c : 0
+    composite: c > 0 ? s / c : 0,
+    defaulterCount
   };
 }
 

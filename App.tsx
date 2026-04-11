@@ -10,7 +10,8 @@ import {
   Bell,
   ShieldCheck,
   Database,
-  RefreshCw
+  RefreshCw,
+  Mail
 } from 'lucide-react';
 import './index.css';
 
@@ -20,6 +21,7 @@ import { TrainingsViewer } from './src/pages/TrainingsViewer';
 import { AttendanceUpload } from './src/pages/AttendanceUpload';
 import { Employees } from './src/pages/Employees';
 import { Demographics } from './src/pages/Demographics';
+import { Notified } from './src/pages/Notified';
 
 // Services & Types
 import { getCollection } from './src/services/firestoreService';
@@ -27,7 +29,7 @@ import { seedDatabase, seedMasterData } from './src/seed';
 import { Employee } from './src/types/employee';
 import { Attendance, TrainingScore, TrainingNomination, Demographics as DemoType } from './src/types/attendance';
 
-type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports';
+type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'notified';
 
 const App = () => {
   const [view, setView] = useState<ViewMode>('reports');
@@ -82,6 +84,7 @@ const App = () => {
       case 'reports': return <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} />;
       case 'trainings': return <TrainingsViewer employees={emps} attendance={att} scores={scs} />;
       case 'attendance': return <AttendanceUpload onUploadComplete={() => setRefreshKey(k => k + 1)} masterEmployees={emps} />;
+      case 'notified': return <Notified employees={emps} attendance={att} nominations={noms} onUploadComplete={() => setRefreshKey(k => k + 1)} />;
       case 'employees': return <Employees employees={emps} onUploadComplete={() => setRefreshKey(k => k + 1)} />;
       case 'demographics': return <Demographics />;
       default: return <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} />;
@@ -112,6 +115,10 @@ const App = () => {
 
           <button className={`nav-item w-full ${view === 'trainings' ? 'active' : ''}`} onClick={() => setView('trainings')}>
             <FileText size={20} /> Trainings Viewer
+          </button>
+
+          <button className={`nav-item w-full ${view === 'notified' ? 'active' : ''}`} onClick={() => setView('notified')}>
+            <Mail size={20} /> Notified
           </button>
 
           <button className={`nav-item w-full ${view === 'employees' ? 'active' : ''}`} onClick={() => setView('employees')}>

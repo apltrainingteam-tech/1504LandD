@@ -27,11 +27,22 @@ export interface TrainingScore {
 }
 
 export interface TrainingNomination {
-  id: string;
+  id: string; // autoId
   employeeId: string;
-  trainingType: TrainingType;
-  nominationDate: string;
-  status: 'Notified' | 'Pending';
+  aadhaarNumber: string;
+  mobileNumber: string;
+  name: string;
+  designation: string;
+  team: string;
+  hq: string;
+  state: string;
+
+  trainingType: string; 
+  notificationDate: string; // YYYY-MM-DD
+  month: string; // YYYY-MM
+  
+  notificationCount?: number; 
+  createdAt?: number;
 }
 
 export interface Demographics {

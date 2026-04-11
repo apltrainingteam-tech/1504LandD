@@ -49,6 +49,7 @@ export const ALIAS_MAP: Record<string, string> = {
   'headquarters': 'hq',
   'head quarter': 'hq',
   'state': 'state',
+  'notification date': 'notificationDate',
   'attendance date': 'attendanceDate',
   'date': 'attendanceDate',
   'training date': 'attendanceDate',

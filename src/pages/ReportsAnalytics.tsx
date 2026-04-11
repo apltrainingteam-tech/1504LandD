@@ -138,6 +138,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
                 <KPIBox title="Conversion Path" value={`${gAP.attended} / ${gAP.notified}`} subValue="Attended / Notified" />
                 <KPIBox title="Conversion %" value={`${gAP.conversion.toFixed(1)}%`} icon={Zap} />
                 <KPIBox title="Composite Score" value={gAP.composite.toFixed(2)} color="var(--success)" badge={<span className={`badge ${flagClass(flagScore(gAP.composite))}`}>{flagLabel(flagScore(gAP.composite))}</span>} />
+                <KPIBox title="Defaulters (≥3 No-shows)" value={gAP.defaulterCount} color="var(--danger)" icon={AlertTriangle} />
               </Fragment>
             )}
             {['MIP', 'Capsule', 'Pre_AP'].includes(tab) && (
