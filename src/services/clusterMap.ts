@@ -27,9 +27,16 @@ export const TEAM_CLUSTER_MAP: Record<string, string> = {
 
   // Nephro
   Nephro: 'Nephro',
+  'Ajanta Nephro': 'Nephro',
 
   // Dental
   Dental: 'Dental',
+  'Ajanta Dental': 'Dental',
+
+  // Metabolics / DTF
+  'Ajanta Metabolics': 'Metabolics',
+  'Diabetes Task Force': 'DTF',
+  DTF: 'DTF',
 
   // Gynaec
   Valensia: 'Gynaec'

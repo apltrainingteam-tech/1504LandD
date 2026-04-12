@@ -1,15 +1,46 @@
-import { upsertDoc } from './firestoreService';
+import { upsertDoc, clearCollection, getCollection } from './firestoreService';
 
 export const uploadAttendanceBatch = async (
   uploadableRows: any[], 
   trainingType: string,
+  mode: 'replace' | 'append',
   onProgress?: (count: number) => void
 ) => {
   let attCount = 0;
   let scoreCount = 0;
+  let skippedCount = 0;
+
+  if (mode === 'replace') {
+    await clearCollection('attendance');
+    await clearCollection('training_scores');
+  }
+
+  const existingKeys = new Set<string>();
+  if (mode === 'append') {
+    const existingAtt = await getCollection('attendance');
+    existingAtt.forEach(a => {
+      if (a.employeeId && a.attendanceDate && a.trainingType) {
+        existingKeys.add(`${a.employeeId}_${a.attendanceDate}_${a.trainingType}`);
+      }
+    });
+  }
+
+  // To display accurate progress relative to the processed list
+  let processedCount = 0;
 
   for (const row of uploadableRows) {
     const d = row.data;
+    
+    if (mode === 'append') {
+      const key = `${d.employeeId}_${d.attendanceDate}_${trainingType}`;
+      if (existingKeys.has(key)) {
+        skippedCount++;
+        processedCount++;
+        if (onProgress) onProgress(processedCount);
+        continue;
+      }
+    }
+
     const attId = `${d.employeeId || 'UNK'}_${trainingType}_${d.attendanceDate}_${Date.now()}`;
     
     await upsertDoc('attendance', attId, {
@@ -44,8 +75,9 @@ export const uploadAttendanceBatch = async (
       scoreCount++;
     }
 
-    if (onProgress) onProgress(attCount);
+    processedCount++;
+    if (onProgress) onProgress(processedCount);
   }
 
-  return { attCount, scoreCount };
+  return { attCount, scoreCount, skippedCount };
 };

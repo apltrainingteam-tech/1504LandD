@@ -14,7 +14,7 @@ interface AttendanceUploadProps {
 const TRAINING_TYPES = ['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'Pre_AP', 'GTG', 'HO', 'RTM'];
 
 export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComplete, masterEmployees }) => {
-  const [step, setStep] = useState<'upload' | 'preview' | 'done'>('upload');
+  const [step, setStep] = useState<'upload' | 'mode_select' | 'preview' | 'done'>('upload');
   const [dragOver, setDragOver] = useState(false);
   const [fileName, setFileName] = useState('');
   const [selectedUploadType, setSelectedUploadType] = useState(TRAINING_TYPES[0]);
@@ -23,7 +23,9 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
   const [rows, setRows] = useState<ParsedRow[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [result, setResult] = useState<{ attCount: number, scoreCount: number } | null>(null);
+  const [result, setResult] = useState<{ attCount: number, scoreCount: number, skippedCount?: number } | null>(null);
+  const [uploadMode, setUploadMode] = useState<'append' | 'replace'>('append');
+  const [confirmReplace, setConfirmReplace] = useState(false);
 
   const processFile = async (file: File) => {
     setFileName(file.name);
@@ -32,7 +34,9 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
       setTrainingType(finalType);
       setAutoDetected(true);
       setRows(processed);
-      setStep('preview');
+      setStep('mode_select');
+      setUploadMode('append');
+      setConfirmReplace(false);
     } catch (err: any) {
       alert('Parse failed: ' + err.message);
       console.error(err);
@@ -56,7 +60,7 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
       const uploadable = rows.filter(r => r.status !== 'error');
       const total = uploadable.length;
       
-      const res = await uploadAttendanceBatch(uploadable, trainingType, (count) => {
+      const res = await uploadAttendanceBatch(uploadable, trainingType, uploadMode, (count) => {
         setUploadProgress(Math.round((count / total) * 100));
       });
       
@@ -75,6 +79,8 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
     setFileName('');
     setResult(null);
     setAutoDetected(false);
+    setUploadMode('append');
+    setConfirmReplace(false);
   };
 
   if (step === 'done' && result) {
@@ -86,7 +92,10 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
         <h2 style={{ fontSize: '32px', marginBottom: '16px' }}>Upload Successful</h2>
         <div className="glass-panel" style={{ maxWidth: '400px', margin: '0 auto 32px', padding: '24px' }}>
           <p className="text-muted" style={{ marginBottom: '12px' }}>{result.attCount} Attendance records synced</p>
-          <p className="text-muted">{result.scoreCount} Score records synced</p>
+          <p className="text-muted" style={{ marginBottom: result.skippedCount !== undefined ? '12px' : '0' }}>{result.scoreCount} Score records synced</p>
+          {result.skippedCount !== undefined && result.skippedCount > 0 && (
+            <p style={{ color: 'var(--warning)', fontWeight: 600 }}>{result.skippedCount} Duplicate records skipped</p>
+          )}
         </div>
         <button className="btn btn-primary" onClick={reset}>
           <Upload size={18} /> Upload Another File
@@ -154,11 +163,84 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
                  <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${uploadProgress}%`, background: 'rgba(255,255,255,0.3)', transition: 'width 0.2s', zIndex: 0 }} />
                  <span style={{ position: 'relative', zIndex: 1, fontWeight: 700 }}>Uploading... {uploadProgress}%</span>
                </>
-            ) : `Accept & Sync ${uploadableCount} Rows`}
+            ) : `Accept & Sync ${uploadableCount} Rows (${uploadMode.toUpperCase()})`}
           </button>
           
           <button className="btn btn-secondary w-full" onClick={reset} disabled={uploading}>Discard & Reject</button>
           {errCount > 0 && <span className="text-muted text-center mt-2" style={{ fontSize: '13px' }}>{errCount} rows with errors will be skipped</span>}
+        </div>
+      </div>
+    );
+  }
+
+  if (step === 'mode_select') {
+    return (
+      <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '40px' }}>
+        <h2 style={{ fontSize: '28px', marginBottom: '8px' }}>Select Upload Mode</h2>
+        <p className="text-muted" style={{ marginBottom: '32px' }}>How would you like to handle the incoming data?</p>
+
+        <div className="dashboard-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '24px', maxWidth: '700px', width: '100%' }}>
+          <div 
+            className={`glass-panel ${uploadMode === 'append' ? 'active-mode' : ''}`}
+            style={{ padding: '24px', cursor: 'pointer', border: uploadMode === 'append' ? '2px solid var(--accent-primary)' : '2px solid transparent', transition: 'all 0.2s' }}
+            onClick={() => setUploadMode('append')}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+              <div style={{ padding: '10px', borderRadius: '50%', background: 'rgba(99,102,241,0.1)', color: 'var(--accent-primary)' }}>
+                <CheckCircle size={24} />
+              </div>
+              <h3 style={{ fontSize: '18px', margin: 0 }}>Append Data</h3>
+            </div>
+            <p className="text-muted" style={{ fontSize: '14px', lineHeight: '1.5' }}>
+              Adds new records to the database. Identifies duplicates using <strong>Employee ID + Date + Type</strong> and automatically skips them to prevent double-counting.
+            </p>
+          </div>
+
+          <div 
+            className={`glass-panel ${uploadMode === 'replace' ? 'active-mode' : ''}`}
+            style={{ padding: '24px', cursor: 'pointer', border: uploadMode === 'replace' ? '2px solid var(--danger)' : '2px solid transparent', transition: 'all 0.2s' }}
+            onClick={() => {
+              setUploadMode('replace');
+              setConfirmReplace(false);
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+              <div style={{ padding: '10px', borderRadius: '50%', background: 'rgba(239,68,68,0.1)', color: 'var(--danger)' }}>
+                <AlertTriangle size={24} />
+              </div>
+              <h3 style={{ fontSize: '18px', margin: 0 }}>Replace All</h3>
+            </div>
+            <p className="text-muted" style={{ fontSize: '14px', lineHeight: '1.5' }}>
+              <strong>Destructive action.</strong> Deletes ALL existing attendance and score records system-wide before uploading the new dataset. Use for full resets.
+            </p>
+          </div>
+        </div>
+
+        {uploadMode === 'replace' && (
+          <div className="glass-panel mt-6" style={{ background: 'rgba(239,68,68,0.05)', borderColor: 'var(--danger)', padding: '16px 24px', maxWidth: '700px', width: '100%', display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <input 
+              type="checkbox" 
+              id="confirm-replace" 
+              checked={confirmReplace} 
+              onChange={e => setConfirmReplace(e.target.checked)}
+              style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+            />
+            <label htmlFor="confirm-replace" style={{ cursor: 'pointer', fontWeight: 600, color: 'var(--danger)' }}>
+              I understand this will PERMANENTLY erase all existing attendance data.
+            </label>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: '16px', marginTop: '32px' }}>
+          <button className="btn btn-secondary" onClick={reset} style={{ padding: '12px 24px' }}>Cancel</button>
+          <button 
+            className={`btn ${uploadMode === 'replace' ? 'btn-danger' : 'btn-primary'}`} 
+            onClick={() => setStep('preview')} 
+            disabled={uploadMode === 'replace' && !confirmReplace}
+            style={{ padding: '12px 32px' }}
+          >
+            Continue to Preview
+          </button>
         </div>
       </div>
     );

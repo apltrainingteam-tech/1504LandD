@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, Fragment } from 'react';
 import {
   Table, Calendar, GraduationCap, AlertTriangle, ChevronRight, ChevronDown,
-  Trophy, Zap, ShieldCheck, CheckCircle2, ChartNetwork, Download, Filter, X, ListOrdered, BarChart3
+  Trophy, Zap, ShieldCheck, CheckCircle2, ChartNetwork, Download, Filter, X, ListOrdered, BarChart3, TrendingUp, AlertCircle
 } from 'lucide-react';
 import { Employee } from '../types/employee';
 import { Attendance, TrainingScore, TrainingNomination, Demographics, TrainingType, EligibilityRule } from '../types/attendance';
@@ -13,14 +13,19 @@ import {
   getGapData, getPrimaryMetric, applyFilters, exportToCSV
 } from '../services/reportService';
 import { buildIPAggregates, FISCAL_YEARS, getFiscalMonths, getCurrentFY, buildIPMonthlyTeamRanks } from '../services/ipIntelligenceService';
+import { buildEmployeeTimelines, buildAPMonthlyMatrix, filterTimelines } from '../services/apIntelligenceService';
+import { getAPPerformanceAggregates } from '../services/apPerformanceService';
 import { getEligibleEmployees, EligibilityResult } from '../services/eligibilityService';
+
 import { getCollection } from '../services/firestoreService';
 import { KPIBox } from '../components/KPIBox';
 import { DataTable } from '../components/DataTable';
 import { TimeSeriesTable } from '../components/TimeSeriesTable';
 import { TrainerTable } from '../components/TrainerTable';
 import { DrilldownPanel } from '../components/DrilldownPanel';
+import { APPerformanceMatrix } from '../components/APPerformanceMatrix';
 import { flagScore, flagClass, flagLabel } from '../utils/scoreNormalizer';
+import { normalizeText } from '../utils/textNormalizer';
 
 const ALL_TRAINING_TYPES = ['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'Pre_AP'];
 
@@ -32,7 +37,7 @@ interface ReportsAnalyticsProps {
   demographics: Demographics[];
 }
 
-type SubView = 'grouped' | 'timeseries' | 'trainer' | 'drilldown' | 'gap' | 'ip_matrix' | 'ip_cluster_rank' | 'ip_team_rank';
+type SubView = 'grouped' | 'timeseries' | 'trainer' | 'drilldown' | 'gap' | 'ip_matrix' | 'ip_cluster_rank' | 'ip_team_rank' | 'ap_performance';
 
 export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
   employees, attendance, scores, nominations, demographics
@@ -56,8 +61,8 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
     getCollection('eligibility_rules').then(data => setRules(data as EligibilityRule[]));
     getCollection('team_cluster_mapping').then(data => {
       const map: Record<string, string> = {};
-      (data as any[]).forEach(d => { 
-        if(d.team && d.cluster) {
+      (data as any[]).forEach(d => {
+        if (d.team && d.cluster) {
           map[normalizeText(d.team)] = normalizeText(d.cluster);
         }
       });
@@ -87,14 +92,18 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
 
   const MONTHS = useMemo(() => getFiscalMonths(selectedFY), [selectedFY]);
 
-  // Force IP default view on tab change
+  // Force IP/AP default view on tab change
   useEffect(() => {
     if (tab === 'IP') {
       if (!['ip_matrix', 'gap', 'timeseries', 'trainer', 'ip_team_rank'].includes(subView)) {
         setSubView('ip_matrix');
       }
+    } else if (tab === 'AP') {
+      if (!['ap_performance', 'grouped', 'gap', 'timeseries', 'trainer', 'drilldown'].includes(subView)) {
+        setSubView('ap_performance');
+      }
     } else {
-      if (['ip_matrix'].includes(subView)) {
+      if (['ip_matrix', 'ap_performance'].includes(subView)) {
         setSubView('grouped');
       }
     }
@@ -121,7 +130,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
   }, [tab, attendance, scores, nominations, employees, rules, clusterMapping]);
 
   const unified = useMemo(() => applyFilters(rawUnified, filter), [rawUnified, filter]);
-  
+
   // -- IP Engine --
   const ipData = useMemo(() => {
     // Filter records to only include those within the selected Fiscal Year months
@@ -137,6 +146,28 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
     return buildIPMonthlyTeamRanks(unified, MONTHS);
   }, [unified, MONTHS]);
 
+  // -- AP Engine --
+  const rawTimelines = useMemo(() => {
+    return buildEmployeeTimelines(
+      attendance.filter(a => a.trainingType === 'AP'),
+      nominations.filter(n => n.trainingType === 'AP')
+    );
+  }, [attendance, nominations]);
+
+  const filteredTimelines = useMemo(() => {
+    if (tab !== 'AP') return new Map();
+    return filterTimelines(rawTimelines, { trainer: filter.trainer, validMonths: MONTHS });
+  }, [rawTimelines, tab, filter.trainer, MONTHS]);
+
+  const apData = useMemo(() => {
+    if (tab !== 'AP') return null;
+    return buildAPMonthlyMatrix(filteredTimelines, MONTHS);
+  }, [tab, filteredTimelines, MONTHS]);
+
+  const apPerfData = useMemo(() => {
+    if (tab !== 'AP') return null;
+    return getAPPerformanceAggregates(filteredTimelines, MONTHS);
+  }, [tab, filteredTimelines, MONTHS]);
 
 
   const eligibilityResults = useMemo(() => {
@@ -225,7 +256,10 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
             </Fragment>
           ) : (
             <Fragment>
-              <button className={`btn ${subView === 'grouped' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('grouped')} title="Rankings"><Table size={16} /></button>
+              <button className={`btn ${subView === 'grouped' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('grouped')} title={tab === 'AP' ? "Attendance Funnel" : "Rankings"}><Table size={16} /></button>
+              {tab === 'AP' && (
+                <button className={`btn ${subView === 'ap_performance' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('ap_performance')} title="Performance Analytics"><TrendingUp size={16} /></button>
+              )}
               <button className={`btn ${subView === 'timeseries' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('timeseries')} title="Time Series"><Calendar size={16} /></button>
               {tab !== 'AP' && (
                 <button className={`btn ${subView === 'trainer' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('trainer')} title="Trainer Analytics"><GraduationCap size={16} /></button>
@@ -235,6 +269,16 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
           )}
           <button className={`btn ${subView === 'gap' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('gap')} title="Gap Analysis" style={{ color: subView === 'gap' ? '#fff' : 'var(--danger)' }}><AlertTriangle size={16} /></button>
           <div style={{ width: '1px', height: '28px', background: 'var(--border-color)', margin: '0 4px' }} />
+          
+          {(tab === 'IP' || tab === 'AP') && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '8px' }}>
+              <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Fiscal Year</label>
+              <select className="form-select glass-panel" value={selectedFY} onChange={e => setSelectedFY(e.target.value)} style={{ padding: '6px 12px', fontSize: '13px', border: '1px solid var(--border-color)', borderRadius: '8px', background: 'transparent' }}>
+                {FISCAL_YEARS.map(fy => <option key={fy} value={fy}>{fy}</option>)}
+              </select>
+            </div>
+          )}
+
           <button className={`btn btn-secondary ${hasActiveFilter ? 'active' : ''}`} onClick={() => setShowFilters(f => !f)} title="Filters" style={{ position: 'relative' }}>
             <Filter size={16} />
             {hasActiveFilter && <span style={{ position: 'absolute', top: '4px', right: '4px', width: '8px', height: '8px', background: 'var(--accent-primary)', borderRadius: '50%' }} />}
@@ -252,7 +296,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
 
       {/* View By + Filter Bar */}
       <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
-        {tab !== 'IP' && (
+        {tab !== 'IP' && tab !== 'AP' && (
           <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: '8px', padding: '3px' }}>
             {(['Team', 'Cluster', 'Month'] as ViewByOption[]).map(v => (
               <button key={v} onClick={() => setViewBy(v)} style={{ padding: '5px 14px', borderRadius: '6px', background: viewBy === v ? 'var(--accent-primary)' : 'transparent', color: viewBy === v ? '#fff' : 'var(--text-secondary)', border: 'none', fontWeight: 600, cursor: 'pointer', fontSize: '13px' }}>{v}</button>
@@ -264,14 +308,18 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
       {/* Filter Panel */}
       {showFilters && (
         <div className="glass-panel" style={{ padding: '20px', marginBottom: '20px', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          <div>
-            <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>From Month</label>
-            <input type="month" className="form-input" value={filter.monthFrom} onChange={e => setFilter(f => ({ ...f, monthFrom: e.target.value }))} style={{ width: '150px' }} />
-          </div>
-          <div>
-            <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>To Month</label>
-            <input type="month" className="form-input" value={filter.monthTo} onChange={e => setFilter(f => ({ ...f, monthTo: e.target.value }))} style={{ width: '150px' }} />
-          </div>
+          {tab !== 'AP' && (
+            <Fragment>
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>From Month</label>
+                <input type="month" className="form-input" value={filter.monthFrom} onChange={e => setFilter(f => ({ ...f, monthFrom: e.target.value }))} style={{ width: '150px' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>To Month</label>
+                <input type="month" className="form-input" value={filter.monthTo} onChange={e => setFilter(f => ({ ...f, monthTo: e.target.value }))} style={{ width: '150px' }} />
+              </div>
+            </Fragment>
+          )}
           <div>
             <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Trainer</label>
             <select className="form-input" value={filter.trainer} onChange={e => setFilter(f => ({ ...f, trainer: e.target.value }))} style={{ width: '180px' }}>
@@ -282,15 +330,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
           <button className="btn btn-secondary" onClick={() => setFilter({ monthFrom: '', monthTo: '', teams: [], clusters: [], trainer: '' })} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <X size={14} /> Clear Filters
           </button>
-          {tab === 'IP' && (
-            <div style={{ marginLeft: 'auto' }}>
-              <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Fiscal Year</label>
-              <select className="form-input" value={selectedFY} onChange={e => setSelectedFY(e.target.value)} style={{ width: '120px' }}>
-                {FISCAL_YEARS.map(fy => <option key={fy} value={fy}>{fy}</option>)}
-              </select>
-            </div>
-          )}
-          {hasActiveFilter && <span className="badge badge-primary" style={{ alignSelf: 'center' }}>Filters Active — {unified.length} records</span>}
+          {tab !== 'AP' && hasActiveFilter && <span className="badge badge-primary" style={{ alignSelf: 'center', marginLeft: 'auto' }}>Filters Active — {unified.length} records</span>}
         </div>
       )}
 
@@ -315,12 +355,22 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
                 <KPIBox title="Worst Team" value={ipData.globalKPIs.worstTeam} icon={AlertTriangle} color="var(--danger)" />
               </Fragment>
             )}
-            {tab === 'AP' && (
+            {tab === 'AP' && subView === 'grouped' && apData && (
               <Fragment>
-                <KPIBox title="Attendance Path" value={`${gAP.attended} / ${gAP.notified}`} subValue="Attended / Notified" />
-                <KPIBox title="Attendance %" value={`${gAP.attendance.toFixed(1)}%`} icon={Zap} />
-                <KPIBox title="Composite Score" value={gAP.composite.toFixed(2)} color="var(--success)" badge={<span className={`badge ${flagClass(flagScore(gAP.composite))}`}>{flagLabel(flagScore(gAP.composite))}</span>} />
-                <KPIBox title="Defaulters (≥3 strikes)" value={gAP.defaulterCount} color="var(--danger)" icon={AlertTriangle} />
+                <KPIBox title="Total Notified (FY)" value={apData.globalKPIs.totalEmployeesNotified} icon={Zap} />
+                <KPIBox title="Total Attended (FY)" value={apData.globalKPIs.totalEmployeesAttended} color="var(--success)" icon={CheckCircle2} />
+                <KPIBox title="Attendance %" value={`${apData.globalKPIs.attendancePercent.toFixed(1)}%`} color="var(--accent-primary)" />
+                <KPIBox title="Composite Score" value={apData.globalKPIs.compositeScore.toFixed(2)} color="var(--success)" badge={apData.globalKPIs.compositeScore > 0 ? <span className={`badge ${flagClass(flagScore(apData.globalKPIs.compositeScore))}`}>{flagLabel(flagScore(apData.globalKPIs.compositeScore))}</span> : undefined} />
+                <KPIBox title="Defaulters (≥3 strikes)" value={apData.globalKPIs.defaulters} color="var(--danger)" icon={AlertTriangle} />
+              </Fragment>
+            )}
+            {tab === 'AP' && subView === 'ap_performance' && apPerfData && (
+              <Fragment>
+                <KPIBox title="Total Attended" value={apPerfData.globalKPIs.totalAttended} icon={Zap} />
+                <KPIBox title="Total Candidates" value={apPerfData.globalKPIs.uniqueCandidates} color="var(--accent-primary)" />
+                <KPIBox title="Avg Knowledge" value={apPerfData.globalKPIs.avgKnowledge.toFixed(1)} color="var(--success)" badge={apPerfData.globalKPIs.avgKnowledge > 0 ? <span className={`badge ${flagClass(flagScore(apPerfData.globalKPIs.avgKnowledge))}`}>K</span> : undefined} />
+                <KPIBox title="Avg BSE" value={apPerfData.globalKPIs.avgBSE.toFixed(1)} color="var(--warning)" badge={apPerfData.globalKPIs.avgBSE > 0 ? <span className={`badge ${flagClass(flagScore(apPerfData.globalKPIs.avgBSE))}`}>B</span> : undefined} />
+                <KPIBox title="Weakest Parameter" value={apPerfData.globalKPIs.lowestParameter} color="var(--danger)" icon={AlertCircle} />
               </Fragment>
             )}
             {tab === 'MIP' && (
@@ -355,7 +405,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
       </div>
 
       {/* Top / Bottom 3 */}
-      {subView === 'grouped' && tab !== 'IP' && ranked.length > 3 && (
+      {subView === 'grouped' && tab !== 'IP' && tab !== 'AP' && ranked.length > 3 && (
         <div className="dashboard-grid" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: '24px' }}>
           <div className="glass-panel" style={{ padding: '20px', borderLeft: '4px solid var(--success)' }}>
             <div className="flex-center mb-4" style={{ color: 'var(--success)' }}><Trophy size={18} /><span style={{ fontWeight: 700, fontSize: '13px', textTransform: 'uppercase' }}>Top Performance</span></div>
@@ -373,17 +423,6 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
         <div className="glass-panel" style={{ overflow: 'hidden' }}>
           <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <h3 style={{ margin: 0, fontSize: '18px' }}>Cluster → Team → Month Matrix Engine</h3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Fiscal Year:</label>
-              <select 
-                className="form-select" 
-                value={selectedFY} 
-                onChange={e => setSelectedFY(e.target.value)}
-                style={{ width: '120px', padding: '4px 8px', fontSize: '13px' }}
-              >
-                {FISCAL_YEARS.map(fy => <option key={fy} value={fy}>{fy}</option>)}
-              </select>
-            </div>
           </div>
           <div style={{ overflowX: 'auto' }}>
             <table className="data-table" style={{ width: '100%' }}>
@@ -469,8 +508,96 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
         </div>
       )}
 
+      {/* --- AP EVENT FUNNEL MATRIX --- */}
+      {subView === 'grouped' && tab === 'AP' && apData && (
+        <div className="glass-panel" style={{ overflow: 'hidden' }}>
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <h3 style={{ margin: 0, fontSize: '18px' }}>AP Notified vs Attended Matrix</h3>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="data-table" style={{ width: '100%', minWidth: '1000px' }}>
+              <thead>
+                <tr>
+                  <th style={{ width: '40px' }}></th>
+                  <th style={{ minWidth: '160px' }}>Cluster / Team</th>
+                  <th style={{ textAlign: 'center' }}>Total Notified</th>
+                  <th style={{ textAlign: 'center' }}>Total Attended</th>
+                  {MONTHS.map(mo => <th key={mo} style={{ textAlign: 'center', minWidth: '90px' }}>{formatMonthLabel(mo)}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {Object.keys(apData.clusterMonthMap).sort().map(clusterName => {
+                  const clusterData = apData.clusterMonthMap[clusterName];
+                  const isOpen = expanded.has(clusterName);
+
+                  return (
+                    <Fragment key={clusterName}>
+                      <tr onClick={() => toggleExpand(clusterName)} style={{ cursor: 'pointer', background: 'rgba(99,102,241,0.04)' }}>
+                        <td>{isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</td>
+                        <td style={{ fontWeight: 700 }}>{clusterName}</td>
+                        <td style={{ textAlign: 'center', fontWeight: 600 }}>{clusterData.totalNotified}</td>
+                        <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--success)' }}>{clusterData.totalAttended}</td>
+                        {MONTHS.map(mo => {
+                          const cell = clusterData.months[mo];
+                          if (!cell || (!cell.notified && !cell.attended)) return <td key={mo} style={{ textAlign: 'center', opacity: 0.3 }}>—</td>;
+                          const pct = cell.notified > 0 ? Math.round((cell.attended / cell.notified) * 100) : 0;
+                          const isWarning = cell.attended > cell.notified;
+                          const isPerfect = pct === 100 && cell.notified > 0;
+                          
+                          return (
+                            <td key={mo} style={{ textAlign: 'center', background: isWarning ? 'rgba(239, 68, 68, 0.1)' : isPerfect ? 'rgba(16, 185, 129, 0.1)' : 'transparent' }}>
+                              <div style={{ fontWeight: 600, color: isWarning ? 'var(--danger)' : 'inherit' }}>{cell.attended} / {cell.notified}</div>
+                              {cell.notified > 0 && <div style={{ fontSize: '10px', opacity: 0.7 }}>({pct}%)</div>}
+                            </td>
+                          );
+                        })}
+                      </tr>
+
+                      {isOpen && Object.keys(apData.teamMonthMap[clusterName] || {}).sort().map(teamName => {
+                        const teamData = apData.teamMonthMap[clusterName][teamName];
+                        return (
+                          <tr key={teamName} style={{ fontSize: '13px' }}>
+                            <td></td>
+                            <td style={{ paddingLeft: '24px' }}>↳ {teamName}</td>
+                            <td style={{ textAlign: 'center', fontWeight: 600 }}>{teamData.totalNotified}</td>
+                            <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--success)' }}>{teamData.totalAttended}</td>
+                            {MONTHS.map(mo => {
+                              const cell = teamData.months[mo];
+                              if (!cell || (!cell.notified && !cell.attended)) return <td key={mo} style={{ textAlign: 'center', opacity: 0.3 }}>—</td>;
+                              const pct = cell.notified > 0 ? Math.round((cell.attended / cell.notified) * 100) : 0;
+                              const isWarning = cell.attended > cell.notified;
+                              const isPerfect = pct === 100 && cell.notified > 0;
+                              
+                              return (
+                                <td key={mo} style={{ textAlign: 'center', background: isWarning ? 'rgba(239, 68, 68, 0.1)' : isPerfect ? 'rgba(16, 185, 129, 0.1)' : 'transparent' }}>
+                                  <div style={{ fontWeight: 600, color: isWarning ? 'var(--danger)' : 'inherit' }}>{cell.attended} / {cell.notified}</div>
+                                  {cell.notified > 0 && <div style={{ fontSize: '10px', opacity: 0.7 }}>({pct}%)</div>}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* --- AP PERFORMANCE MATRIX --- */}
+      {subView === 'ap_performance' && tab === 'AP' && apPerfData && (
+        <APPerformanceMatrix 
+          data={apPerfData} 
+          fyMonths={MONTHS} 
+          timelines={filteredTimelines} 
+        />
+      )}
+
       {/* GROUPED RANKINGS FOR OTHER TABS */}
-      {subView === 'grouped' && tab !== 'IP' && (
+      {subView === 'grouped' && tab !== 'IP' && tab !== 'AP' && (
         <div className="glass-panel" style={{ overflow: 'hidden' }}>
           <DataTable headers={genericHeaders}>
             {ranked.map(g => {
@@ -481,15 +608,6 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
                     <td style={{ fontWeight: 700, color: 'var(--accent-primary)' }}>{g.rank}</td>
                     <td>{isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</td>
                     <td style={{ fontWeight: 600 }}>{g.key}</td>
-                    {tab === 'AP' && (() => {
-                      const m = calcAP(g.records, g.nominations);
-                      return <Fragment>
-                        <td>{m.notified}</td><td>{m.attended}</td><td>{m.attendance.toFixed(1)}%</td>
-                        <td style={{ fontWeight: 700 }}>{m.composite.toFixed(2)}</td>
-                        <td style={{ color: 'var(--danger)', fontWeight: 600 }}>{m.defaulterCount}</td>
-                        <td><span className={`badge ${flagClass(flagScore(m.composite))}`}>{flagLabel(flagScore(m.composite))}</span></td>
-                      </Fragment>;
-                    })()}
                     {tab === 'MIP' && (() => {
                       const m = calcMIP(g.records);
                       const avg = (m.avgSci + m.avgSkl) / 2;
@@ -550,8 +668,8 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
             transition: 'background 0.15s',
             ...(isTop1 ? { background: 'rgba(16, 185, 129, 0.18)', color: 'var(--success)', fontWeight: 800 }
               : isTop3 ? { background: 'rgba(245, 158, 11, 0.12)', color: 'var(--warning)', fontWeight: 700 }
-              : isBottom ? { background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', fontWeight: 600 }
-              : {})
+                : isBottom ? { background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', fontWeight: 600 }
+                  : {})
           };
 
           return (
