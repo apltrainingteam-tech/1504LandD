@@ -12,27 +12,31 @@ import {
   Database,
   RefreshCw,
   Mail,
-  Trash2
+  Trash2,
+  Sun,
+  Moon
 } from 'lucide-react';
+import { useTheme } from './context/ThemeContext';
 import './index.css';
 
-// Modular Pages
-import { ReportsAnalytics } from './src/pages/ReportsAnalytics';
-import { TrainingsViewer } from './src/pages/TrainingsViewer';
-import { AttendanceUpload } from './src/pages/AttendanceUpload';
-import { Employees } from './src/pages/Employees';
-import { Demographics } from './src/pages/Demographics';
-import { Notified } from './src/pages/Notified';
+// Feature Pages
+import { ReportsAnalytics } from './features/dashboard/ReportsAnalytics';
+import { TrainingsViewer } from './features/viewer/TrainingsViewer';
+import { AttendanceUpload } from './features/uploads/AttendanceUpload';
+import { Employees } from './features/employees/Employees';
+import { Demographics } from './features/eligibility/Demographics';
+import { Notified } from './features/notifications/Notified';
 
 // Services & Types
-import { getCollection, deleteRecordsByQuery } from './src/services/firestoreService';
-import { seedDatabase, seedMasterData } from './src/seed';
-import { Employee } from './src/types/employee';
-import { Attendance, TrainingScore, TrainingNomination, Demographics as DemoType } from './src/types/attendance';
+import { getCollection, deleteRecordsByQuery } from './services/firestoreService';
+import { seedDatabase, seedMasterData } from './seed';
+import { Employee } from './types/employee';
+import { Attendance, TrainingScore, TrainingNomination, Demographics as DemoType } from './types/attendance';
 
 type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'notified';
 
 const App = () => {
+  const { theme, toggleTheme } = useTheme();
   const [view, setView] = useState<ViewMode>('reports');
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -206,6 +210,14 @@ const App = () => {
             <input type="text" className="form-input" placeholder="Search system globally..." style={{ paddingLeft: '48px', background: 'var(--bg-card)', border: 'none', borderRadius: '24px' }} />
           </div>
           <div className="flex-center">
+            <button 
+              className="btn btn-secondary" 
+              onClick={toggleTheme}
+              style={{ width: '40px', height: '40px', padding: 0, borderRadius: '50%' }}
+              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            >
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
             <button className="btn btn-secondary" style={{ width: '40px', height: '40px', padding: 0, borderRadius: '50%' }}>
               <Bell size={18} />
             </button>

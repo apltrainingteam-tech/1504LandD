@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { UploadCloud, CheckCircle, X, Check, AlertTriangle, XCircle, Upload } from 'lucide-react';
-import { parseExcelFile, ParsedRow } from '../services/parsingService';
-import { uploadAttendanceBatch } from '../services/attendanceService';
-import { UploadPreview } from '../components/UploadPreview';
+import { UploadCloud, CheckCircle, X, Check, AlertTriangle, XCircle, Upload, Info } from 'lucide-react';
+import { parseExcelFile, ParsedRow } from '../../services/parsingService';
+import { uploadAttendanceBatch } from '../../services/attendanceService';
+import { UploadPreview } from '../../components/UploadPreview';
+import { getSchema } from '../../services/trainingSchemas';
 
-import { Employee } from '../types/employee';
+import { Employee } from '../../types/employee';
 
 interface AttendanceUploadProps {
   onUploadComplete?: () => void;
@@ -285,18 +286,42 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
         <input id="file-input" type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={handleFileInput} />
       </div>
 
+      {/* DATA STANDARDS — Dynamic based on selected training type */}
       <div className="glass-panel mt-8" style={{ padding: '24px' }}>
-        <h4 style={{ fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '16px', letterSpacing: '1px' }}>
-          Data Standards
+        <h4 style={{ fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '16px', letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Info size={14} /> Data Standards · {selectedUploadType}
         </h4>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-          {['Aadhaar Number', 'Employee ID', 'Mobile Number', 'Name', 'Trainer', 'Team', 'Designation', 'HQ', 'State', 'Attendance Date', 'Attendance Status', 'Scores', 'Percent', 'T Score'].map(tag => (
-            <span key={tag} className="badge badge-info">{tag}</span>
-          ))}
+
+        {/* Required base fields */}
+        <div style={{ marginBottom: '14px' }}>
+          <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: 600 }}>Required Fields</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+            {['Aadhaar Number', 'Employee ID', 'Mobile Number', 'Name', 'Trainer', 'Team', 'Designation', 'HQ', 'State', 'Attendance Date', 'Attendance Status'].map(tag => (
+              <span key={tag} className="badge badge-info">{tag}</span>
+            ))}
+          </div>
         </div>
-        <p className="text-muted" style={{ fontSize: '13px', marginTop: '16px' }}>
-          Our intelligence layer automatically maps headers, parses disparate date formats, and normalizes scoring data. 
-          Rows with missing dates will be rejected, while missing identity markers will trigger warnings.
+
+        {/* Schema-driven score fields for this training type */}
+        {(() => {
+          const schema = getSchema(selectedUploadType);
+          const scoreLabels = Object.values(schema.scoreLabels);
+          if (scoreLabels.length === 0) return null;
+          return (
+            <div style={{ marginBottom: '14px' }}>
+              <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: 600 }}>Score Fields</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {scoreLabels.map(label => (
+                  <span key={label} className="badge" style={{ background: 'rgba(99,102,241,0.15)', color: 'var(--accent-primary)', border: '1px solid rgba(99,102,241,0.3)' }}>{label}</span>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+
+        <p className="text-muted" style={{ fontSize: '13px', marginTop: '12px' }}>
+          Our intelligence layer automatically maps headers, parses disparate date formats, and normalizes scoring data.
+          Rows with missing dates will be rejected. Missing identity markers or scores will trigger warnings.
         </p>
       </div>
     </div>

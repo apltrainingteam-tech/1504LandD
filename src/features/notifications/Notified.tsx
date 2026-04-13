@@ -1,11 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { Mail, UploadCloud, AlertCircle, FileText, CheckCircle, AlertTriangle, XCircle, Users, BarChart2 } from 'lucide-react';
-import { ParsedRow, parseNominationExcel } from '../services/parsingService';
-import { addBatch } from '../services/firestoreService';
-import { Employee } from '../types/employee';
-import { Attendance, TrainingNomination, TrainingType } from '../types/attendance';
-import { DataTable } from '../components/DataTable';
-import { KPIBox } from '../components/KPIBox';
+import { ParsedRow, parseNominationExcel } from '../../services/parsingService';
+import { addBatch } from '../../services/firestoreService';
+import { Employee } from '../../types/employee';
+import { Attendance, TrainingNomination, TrainingType } from '../../types/attendance';
+import { DataTable } from '../../components/DataTable';
+import { KPIBox } from '../../components/KPIBox';
 
 interface NotifiedProps {
   employees: Employee[];

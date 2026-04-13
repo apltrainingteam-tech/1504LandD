@@ -1,13 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { Search, Filter } from 'lucide-react';
-import { Employee } from '../types/employee';
-import { Attendance, TrainingScore } from '../types/attendance';
-import { SCORE_SCHEMAS } from '../types/reports';
-import { buildUnifiedDataset } from '../services/reportService';
-import { DataTable } from '../components/DataTable';
-import { Filters } from '../components/Filters';
-import { formatDateForDisplay } from '../utils/dateParser';
-import { displayScore } from '../utils/scoreNormalizer';
+import { Employee } from '../../types/employee';
+import { Attendance, TrainingScore } from '../../types/attendance';
+import { SCORE_SCHEMAS } from '../../types/reports';
+import { buildUnifiedDataset } from '../../services/reportService';
+import { DataTable } from '../../components/DataTable';
+import { Filters } from '../../components/Filters';
+import { formatDateForDisplay } from '../../utils/dateParser';
+import { displayScore } from '../../utils/scoreNormalizer';
 
 interface TrainingsViewerProps {
   employees: Employee[];

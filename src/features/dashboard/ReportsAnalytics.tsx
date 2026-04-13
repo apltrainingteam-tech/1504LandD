@@ -3,31 +3,45 @@ import {
   Table, Calendar, GraduationCap, AlertTriangle, ChevronRight, ChevronDown,
   Trophy, Zap, ShieldCheck, CheckCircle2, ChartNetwork, Download, Filter, X, ListOrdered, BarChart3, TrendingUp, AlertCircle
 } from 'lucide-react';
-import { Employee } from '../types/employee';
-import { Attendance, TrainingScore, TrainingNomination, Demographics, TrainingType, EligibilityRule } from '../types/attendance';
-import { ViewByOption, GroupedData, ReportFilter } from '../types/reports';
+import { Employee } from '../../types/employee';
+import { Attendance, TrainingScore, TrainingNomination, Demographics, TrainingType, EligibilityRule } from '../../types/attendance';
+import { ViewByOption, GroupedData, ReportFilter } from '../../types/reports';
 import {
   buildUnifiedDataset, groupData, rankGroups,
   calcIP, calcAP, calcMIP, calcRefresher, calcCapsule, calcPreAP, calcGeneric,
   buildTimeSeries, calcTrainerStats, buildDrilldown,
   getGapData, getPrimaryMetric, applyFilters, exportToCSV
-} from '../services/reportService';
-import { buildIPAggregates, FISCAL_YEARS, getFiscalMonths, getCurrentFY, buildIPMonthlyTeamRanks } from '../services/ipIntelligenceService';
-import { buildEmployeeTimelines, buildAPMonthlyMatrix, filterTimelines } from '../services/apIntelligenceService';
-import { getAPPerformanceAggregates } from '../services/apPerformanceService';
-import { getEligibleEmployees, EligibilityResult } from '../services/eligibilityService';
+} from '../../services/reportService';
+import { buildIPAggregates, FISCAL_YEARS, getFiscalMonths, getCurrentFY, buildIPMonthlyTeamRanks } from '../../services/ipIntelligenceService';
+import { buildEmployeeTimelines, buildAPMonthlyMatrix, filterTimelines } from '../../services/apIntelligenceService';
+import { getAPPerformanceAggregates } from '../../services/apPerformanceService';
+import { buildMIPAttendanceMatrix } from '../../services/mipAttendanceService';
+import { getMIPPerformanceAggregates } from '../../services/mipPerformanceService';
+import { buildRefresherAttendanceMatrix } from '../../services/refresherAttendanceService';
+import { getRefresherPerformanceAggregates } from '../../services/refresherPerformanceService';
+import { buildCapsuleAttendanceMatrix } from '../../services/capsuleAttendanceService';
+import { getCapsulePerformanceAggregates } from '../../services/capsulePerformanceService';
+import { getEligibleEmployees, EligibilityResult } from '../../services/eligibilityService';
 
-import { getCollection } from '../services/firestoreService';
-import { KPIBox } from '../components/KPIBox';
-import { DataTable } from '../components/DataTable';
-import { TimeSeriesTable } from '../components/TimeSeriesTable';
-import { TrainerTable } from '../components/TrainerTable';
-import { DrilldownPanel } from '../components/DrilldownPanel';
-import { APPerformanceMatrix } from '../components/APPerformanceMatrix';
-import { flagScore, flagClass, flagLabel } from '../utils/scoreNormalizer';
-import { normalizeText } from '../utils/textNormalizer';
+import { getCollection } from '../../services/firestoreService';
+import { KPIBox } from '../../components/KPIBox';
+import { DataTable } from '../../components/DataTable';
+import { TimeSeriesTable } from '../../components/TimeSeriesTable';
+import { TrainerTable } from '../../components/TrainerTable';
+import { DrilldownPanel } from '../../components/DrilldownPanel';
+import { APPerformanceMatrix } from '../../components/APPerformanceMatrix';
+import { MIPAttendanceMatrix, MIPPerformanceMatrix } from '../../components/MIPDualMatrix';
+import { RefresherAttendanceMatrix, RefresherPerformanceMatrix } from '../../components/RefresherDualMatrix';
+import { CapsuleAttendanceMatrix, CapsulePerformanceMatrix } from '../../components/CapsuleDualMatrix';
+import { flagScore, flagClass, flagLabel } from '../../utils/scoreNormalizer';
+import { normalizeText } from '../../utils/textNormalizer';
 
 const ALL_TRAINING_TYPES = ['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'Pre_AP'];
+
+const FY_OPTIONS = Array.from({ length: 21 }, (_, i) => {
+  const start = 2020 + i;
+  return `${start}-${(start + 1).toString().slice(2)}`;
+});
 
 interface ReportsAnalyticsProps {
   employees: Employee[];
@@ -37,7 +51,7 @@ interface ReportsAnalyticsProps {
   demographics: Demographics[];
 }
 
-type SubView = 'grouped' | 'timeseries' | 'trainer' | 'drilldown' | 'gap' | 'ip_matrix' | 'ip_cluster_rank' | 'ip_team_rank' | 'ap_performance';
+type SubView = 'grouped' | 'timeseries' | 'trainer' | 'drilldown' | 'gap' | 'ip_matrix' | 'ip_cluster_rank' | 'ip_team_rank' | 'ap_performance' | 'mip_attendance' | 'mip_performance' | 'refresher_attendance' | 'refresher_performance' | 'capsule_attendance' | 'capsule_performance';
 
 export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
   employees, attendance, scores, nominations, demographics
@@ -48,9 +62,16 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
   const [expanded, setExpanded] = useState(new Set<string>());
   const [rules, setRules] = useState<EligibilityRule[]>([]);
   const [clusterMapping, setClusterMapping] = useState<Record<string, string>>({});
-  const [tsMode, setTsMode] = useState<'score' | 'count'>('score');
+  const [selectedFYs, setSelectedFYs] = useState<Record<string, string>>({
+    IP: FY_OPTIONS[5], // Default to 2025-26
+    AP: FY_OPTIONS[5],
+    MIP: FY_OPTIONS[5],
+    Refresher: FY_OPTIONS[5],
+    Capsule: FY_OPTIONS[5],
+    Pre_AP: FY_OPTIONS[5]
+  });
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedFY, setSelectedFY] = useState<string>(getCurrentFY());
+  const [tsMode, setTsMode] = useState<'score' | 'count'>('score');
 
   // Filter state
   const [filter, setFilter] = useState<ReportFilter>({
@@ -90,9 +111,9 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
     return MONTH_LABELS[m] || month;
   };
 
-  const MONTHS = useMemo(() => getFiscalMonths(selectedFY), [selectedFY]);
+  const MONTHS = useMemo(() => getFiscalMonths(selectedFYs[tab]), [selectedFYs, tab]);
 
-  // Force IP/AP default view on tab change
+  // Force default view on tab change
   useEffect(() => {
     if (tab === 'IP') {
       if (!['ip_matrix', 'gap', 'timeseries', 'trainer', 'ip_team_rank'].includes(subView)) {
@@ -102,8 +123,20 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
       if (!['ap_performance', 'grouped', 'gap', 'timeseries', 'trainer', 'drilldown'].includes(subView)) {
         setSubView('ap_performance');
       }
+    } else if (tab === 'MIP') {
+      if (!['mip_attendance', 'mip_performance', 'timeseries', 'trainer', 'drilldown', 'gap'].includes(subView)) {
+        setSubView('mip_performance');
+      }
+    } else if (tab === 'Refresher') {
+      if (!['refresher_attendance', 'refresher_performance', 'timeseries', 'trainer', 'drilldown', 'gap'].includes(subView)) {
+        setSubView('refresher_attendance');
+      }
+    } else if (tab === 'Capsule') {
+      if (!['capsule_attendance', 'capsule_performance', 'timeseries', 'trainer', 'drilldown', 'gap'].includes(subView)) {
+        setSubView('capsule_attendance');
+      }
     } else {
-      if (['ip_matrix', 'ap_performance'].includes(subView)) {
+      if (['ip_matrix', 'ap_performance', 'mip_attendance', 'mip_performance', 'refresher_attendance', 'refresher_performance', 'capsule_attendance', 'capsule_performance'].includes(subView)) {
         setSubView('grouped');
       }
     }
@@ -129,7 +162,17 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
     });
   }, [tab, attendance, scores, nominations, employees, rules, clusterMapping]);
 
-  const unified = useMemo(() => applyFilters(rawUnified, filter), [rawUnified, filter]);
+  const unified = useMemo(() => {
+    let ds = applyFilters(rawUnified, filter);
+    // Apply Fiscal Year filter (MONTHS) to unified dataset for relevant training types
+    if (['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'Pre_AP'].includes(tab)) {
+      ds = ds.filter(r => {
+        const m = r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7);
+        return MONTHS.includes(m);
+      });
+    }
+    return ds;
+  }, [rawUnified, filter, tab, MONTHS]);
 
   // -- IP Engine --
   const ipData = useMemo(() => {
@@ -146,19 +189,25 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
     return buildIPMonthlyTeamRanks(unified, MONTHS);
   }, [unified, MONTHS]);
 
-  // -- AP Engine --
+  // -- Universal Event Timelines (AP, MIP, Refresher, Capsule) --
   const rawTimelines = useMemo(() => {
-    return buildEmployeeTimelines(
-      attendance.filter(a => a.trainingType === 'AP'),
-      nominations.filter(n => n.trainingType === 'AP')
-    );
-  }, [attendance, nominations]);
+    if (tab === 'AP' || tab === 'MIP' || tab === 'Refresher' || tab === 'Capsule') {
+      return buildEmployeeTimelines(
+        attendance.filter(a => a.trainingType === tab),
+        nominations.filter(n => n.trainingType === tab),
+        tab,
+        scores.filter(s => s.trainingType === tab)
+      );
+    }
+    return new Map();
+  }, [attendance, nominations, scores, tab]);
 
   const filteredTimelines = useMemo(() => {
-    if (tab !== 'AP') return new Map();
+    if (tab !== 'AP' && tab !== 'MIP' && tab !== 'Refresher' && tab !== 'Capsule') return new Map();
     return filterTimelines(rawTimelines, { trainer: filter.trainer, validMonths: MONTHS });
   }, [rawTimelines, tab, filter.trainer, MONTHS]);
 
+  // -- AP Engine --
   const apData = useMemo(() => {
     if (tab !== 'AP') return null;
     return buildAPMonthlyMatrix(filteredTimelines, MONTHS);
@@ -169,6 +218,39 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
     return getAPPerformanceAggregates(filteredTimelines, MONTHS);
   }, [tab, filteredTimelines, MONTHS]);
 
+
+  // -- MIP Engine --
+  const mipAttendanceData = useMemo(() => {
+    if (tab !== 'MIP') return null;
+    return buildMIPAttendanceMatrix(filteredTimelines, MONTHS);
+  }, [tab, filteredTimelines, MONTHS]);
+
+  const mipPerfData = useMemo(() => {
+    if (tab !== 'MIP') return null;
+    return getMIPPerformanceAggregates(filteredTimelines, MONTHS);
+  }, [tab, filteredTimelines, MONTHS]);
+
+  // -- Refresher Engine --
+  const refresherAttData = useMemo(() => {
+    if (tab !== 'Refresher') return null;
+    return buildRefresherAttendanceMatrix(filteredTimelines, MONTHS);
+  }, [tab, filteredTimelines, MONTHS]);
+
+  const refresherPerfData = useMemo(() => {
+    if (tab !== 'Refresher') return null;
+    return getRefresherPerformanceAggregates(filteredTimelines, MONTHS);
+  }, [tab, filteredTimelines, MONTHS]);
+
+  // -- Capsule Engine --
+  const capsuleAttData = useMemo(() => {
+    if (tab !== 'Capsule') return null;
+    return buildCapsuleAttendanceMatrix(filteredTimelines, MONTHS);
+  }, [tab, filteredTimelines, MONTHS]);
+
+  const capsulePerfData = useMemo(() => {
+    if (tab !== 'Capsule') return null;
+    return getCapsulePerformanceAggregates(filteredTimelines, MONTHS);
+  }, [tab, filteredTimelines, MONTHS]);
 
   const eligibilityResults = useMemo(() => {
     const rule = rules.find(r => r.trainingType === tab);
@@ -254,6 +336,21 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
 
               <button className={`btn ${subView === 'trainer' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('trainer')} title="Trainer Analytics"><GraduationCap size={16} /></button>
             </Fragment>
+          ) : tab === 'MIP' ? (
+            <Fragment>
+              <button className={`btn ${subView === 'mip_attendance' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('mip_attendance')} title="Attendance Funnel"><Table size={16} /></button>
+              <button className={`btn ${subView === 'mip_performance' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('mip_performance')} title="Performance Analytics"><TrendingUp size={16} /></button>
+            </Fragment>
+          ) : tab === 'Refresher' ? (
+            <Fragment>
+              <button className={`btn ${subView === 'refresher_attendance' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('refresher_attendance')} title="Attendance Matrix"><Table size={16} /></button>
+              <button className={`btn ${subView === 'refresher_performance' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('refresher_performance')} title="Performance Analytics"><TrendingUp size={16} /></button>
+            </Fragment>
+          ) : tab === 'Capsule' ? (
+            <Fragment>
+              <button className={`btn ${subView === 'capsule_attendance' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('capsule_attendance')} title="Attendance Matrix"><Table size={16} /></button>
+              <button className={`btn ${subView === 'capsule_performance' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('capsule_performance')} title="Performance Analytics"><TrendingUp size={16} /></button>
+            </Fragment>
           ) : (
             <Fragment>
               <button className={`btn ${subView === 'grouped' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('grouped')} title={tab === 'AP' ? "Attendance Funnel" : "Rankings"}><Table size={16} /></button>
@@ -270,11 +367,23 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
           <button className={`btn ${subView === 'gap' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('gap')} title="Gap Analysis" style={{ color: subView === 'gap' ? '#fff' : 'var(--danger)' }}><AlertTriangle size={16} /></button>
           <div style={{ width: '1px', height: '28px', background: 'var(--border-color)', margin: '0 4px' }} />
           
-          {(tab === 'IP' || tab === 'AP') && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '8px' }}>
-              <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Fiscal Year</label>
-              <select className="form-select glass-panel" value={selectedFY} onChange={e => setSelectedFY(e.target.value)} style={{ padding: '6px 12px', fontSize: '13px', border: '1px solid var(--border-color)', borderRadius: '8px', background: 'transparent' }}>
-                {FISCAL_YEARS.map(fy => <option key={fy} value={fy}>{fy}</option>)}
+          {(['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'Pre_AP'].includes(tab)) && (
+            <div className="fy-selector" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '8px' }}>
+              <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-secondary)' }}>FISCAL YEAR</label>
+              <select 
+                className="form-select glass-panel" 
+                value={selectedFYs[tab]} 
+                onChange={(e) =>
+                  setSelectedFYs(prev => ({
+                    ...prev,
+                    [tab]: e.target.value
+                  }))
+                }
+                style={{ padding: '6px 12px', fontSize: '13px', border: '1px solid var(--border-color)', borderRadius: '8px', background: 'transparent' }}
+              >
+                {FY_OPTIONS.map(fy => (
+                  <option key={fy} value={fy}>{fy}</option>
+                ))}
               </select>
             </div>
           )}
@@ -296,7 +405,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
 
       {/* View By + Filter Bar */}
       <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
-        {tab !== 'IP' && tab !== 'AP' && (
+        {(['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'Pre_AP'].every(t => tab !== t)) && (
           <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: '8px', padding: '3px' }}>
             {(['Team', 'Cluster', 'Month'] as ViewByOption[]).map(v => (
               <button key={v} onClick={() => setViewBy(v)} style={{ padding: '5px 14px', borderRadius: '6px', background: viewBy === v ? 'var(--accent-primary)' : 'transparent', color: viewBy === v ? '#fff' : 'var(--text-secondary)', border: 'none', fontWeight: 600, cursor: 'pointer', fontSize: '13px' }}>{v}</button>
@@ -308,7 +417,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
       {/* Filter Panel */}
       {showFilters && (
         <div className="glass-panel" style={{ padding: '20px', marginBottom: '20px', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          {tab !== 'AP' && (
+          {(['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'Pre_AP'].every(t => tab !== t)) && (
             <Fragment>
               <div>
                 <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>From Month</label>
@@ -330,7 +439,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
           <button className="btn btn-secondary" onClick={() => setFilter({ monthFrom: '', monthTo: '', teams: [], clusters: [], trainer: '' })} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <X size={14} /> Clear Filters
           </button>
-          {tab !== 'AP' && hasActiveFilter && <span className="badge badge-primary" style={{ alignSelf: 'center', marginLeft: 'auto' }}>Filters Active — {unified.length} records</span>}
+          {(['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'Pre_AP'].every(t => tab !== t)) && hasActiveFilter && <span className="badge badge-primary" style={{ alignSelf: 'center', marginLeft: 'auto' }}>Filters Active — {unified.length} records</span>}
         </div>
       )}
 
@@ -373,24 +482,48 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
                 <KPIBox title="Weakest Parameter" value={apPerfData.globalKPIs.lowestParameter} color="var(--danger)" icon={AlertCircle} />
               </Fragment>
             )}
-            {tab === 'MIP' && (
+            {tab === 'MIP' && subView === 'mip_attendance' && mipAttendanceData && (
               <Fragment>
-                <KPIBox title="Attendance" value={gMIP.count} icon={Zap} />
-                <KPIBox title="Avg Science" value={gMIP.avgSci.toFixed(2)} color="var(--accent-primary)" badge={<span className={`badge ${flagClass(flagScore(gMIP.avgSci))}`}>Sci</span>} />
-                <KPIBox title="Avg Skill" value={gMIP.avgSkl.toFixed(2)} color="var(--accent-secondary)" badge={<span className={`badge ${flagClass(flagScore(gMIP.avgSkl))}`}>Skl</span>} />
+                <KPIBox title="Total Notified (FY)" value={mipAttendanceData.globalKPIs.totalNotified} icon={Zap} />
+                <KPIBox title="Total Attended (FY)" value={mipAttendanceData.globalKPIs.totalAttended} color="var(--success)" icon={CheckCircle2} />
+                <KPIBox title="Attendance %" value={`${mipAttendanceData.globalKPIs.attendancePercent.toFixed(1)}%`} color="var(--accent-primary)" />
               </Fragment>
             )}
-            {tab === 'Refresher' && (
+            {tab === 'MIP' && subView === 'mip_performance' && mipPerfData && (
               <Fragment>
-                <KPIBox title="Attendance" value={gRef.count} icon={Zap} />
-                <KPIBox title="Avg Knowledge" value={gRef.avgs['Knowledge']?.toFixed(2) ?? '—'} color="var(--accent-primary)" />
-                <KPIBox title="Overall Avg" value={gRef.overallAvg.toFixed(2)} color="var(--warning)" badge={<span className={`badge ${flagClass(flagScore(gRef.overallAvg))}`}>{flagLabel(flagScore(gRef.overallAvg))}</span>} />
+                <KPIBox title="Total Attended" value={mipPerfData.globalKPIs.totalAttended} icon={Zap} />
+                <KPIBox title="Avg Science" value={mipPerfData.globalKPIs.avgScience.toFixed(1)} color="var(--success)" badge={mipPerfData.globalKPIs.avgScience > 0 ? <span className={`badge ${flagClass(flagScore(mipPerfData.globalKPIs.avgScience))}`}>Sci</span> : undefined} />
+                <KPIBox title="Avg Skill" value={mipPerfData.globalKPIs.avgSkill.toFixed(1)} color="var(--warning)" badge={mipPerfData.globalKPIs.avgSkill > 0 ? <span className={`badge ${flagClass(flagScore(mipPerfData.globalKPIs.avgSkill))}`}>Skl</span> : undefined} />
+                <KPIBox title="High Performers" value={`${mipPerfData.globalKPIs.highPerformersPct.toFixed(1)}%`} color="var(--accent-primary)" icon={Trophy} />
               </Fragment>
             )}
-            {tab === 'Capsule' && (
+            {tab === 'Refresher' && subView === 'refresher_attendance' && refresherAttData && (
               <Fragment>
-                <KPIBox title="Attendance" value={gCap.count} icon={Zap} />
-                <KPIBox title="Avg Score" value={gCap.avgScore.toFixed(2)} color="var(--accent-primary)" badge={<span className={`badge ${flagClass(flagScore(gCap.avgScore))}`}>{flagLabel(flagScore(gCap.avgScore))}</span>} />
+                <KPIBox title="Total Notified (FY)" value={refresherAttData.globalKPIs.totalNotified} icon={Zap} />
+                <KPIBox title="Total Attended (FY)" value={refresherAttData.globalKPIs.totalAttended} color="var(--success)" icon={CheckCircle2} />
+                <KPIBox title="Attendance %" value={`${refresherAttData.globalKPIs.attendancePercent.toFixed(1)}%`} color="var(--accent-primary)" />
+              </Fragment>
+            )}
+            {tab === 'Refresher' && subView === 'refresher_performance' && refresherPerfData && (
+              <Fragment>
+                <KPIBox title="Total Attended" value={refresherPerfData.globalKPIs.totalAttended} icon={Zap} />
+                <KPIBox title="Avg Science" value={refresherPerfData.globalKPIs.avgScience.toFixed(1)} color="var(--success)" badge={refresherPerfData.globalKPIs.avgScience > 0 ? <span className={`badge ${flagClass(flagScore(refresherPerfData.globalKPIs.avgScience))}`}>Sci</span> : undefined} />
+                <KPIBox title="Avg Skill" value={refresherPerfData.globalKPIs.avgSkill.toFixed(1)} color="var(--warning)" badge={refresherPerfData.globalKPIs.avgSkill > 0 ? <span className={`badge ${flagClass(flagScore(refresherPerfData.globalKPIs.avgSkill))}`}>Skl</span> : undefined} />
+                <KPIBox title="High Performers" value={`${refresherPerfData.globalKPIs.highPerformersPct.toFixed(1)}%`} color="var(--accent-primary)" icon={Trophy} />
+              </Fragment>
+            )}
+            {tab === 'Capsule' && subView === 'capsule_attendance' && capsuleAttData && (
+              <Fragment>
+                <KPIBox title="Total Notified (FY)" value={capsuleAttData.globalKPIs.totalNotified} icon={Zap} />
+                <KPIBox title="Total Attended (FY)" value={capsuleAttData.globalKPIs.totalAttended} color="var(--success)" icon={CheckCircle2} />
+                <KPIBox title="Attendance %" value={`${capsuleAttData.globalKPIs.attendancePercent.toFixed(1)}%`} color="var(--accent-primary)" />
+              </Fragment>
+            )}
+            {tab === 'Capsule' && subView === 'capsule_performance' && capsulePerfData && (
+              <Fragment>
+                <KPIBox title="Total Attended" value={capsulePerfData.globalKPIs.totalAttended} icon={Zap} />
+                <KPIBox title="Avg Score" value={capsulePerfData.globalKPIs.avgScore.toFixed(1)} color="var(--success)" badge={capsulePerfData.globalKPIs.avgScore > 0 ? <span className={`badge ${flagClass(flagScore(capsulePerfData.globalKPIs.avgScore))}`}>Score</span> : undefined} />
+                <KPIBox title="High Performers" value={`${capsulePerfData.globalKPIs.highPerformersPct.toFixed(1)}%`} color="var(--accent-primary)" icon={Trophy} />
               </Fragment>
             )}
             {tab === 'Pre_AP' && (
@@ -596,8 +729,32 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
         />
       )}
 
+      {/* --- MIP MATRICES --- */}
+      {subView === 'mip_attendance' && tab === 'MIP' && mipAttendanceData && (
+        <MIPAttendanceMatrix data={mipAttendanceData} fyMonths={MONTHS} timelines={filteredTimelines} />
+      )}
+      {subView === 'mip_performance' && tab === 'MIP' && mipPerfData && (
+        <MIPPerformanceMatrix data={mipPerfData} fyMonths={MONTHS} timelines={filteredTimelines} />
+      )}
+
+      {/* --- REFRESHER MATRICES --- */}
+      {subView === 'refresher_attendance' && tab === 'Refresher' && refresherAttData && (
+        <RefresherAttendanceMatrix data={refresherAttData} fyMonths={MONTHS} timelines={filteredTimelines} />
+      )}
+      {subView === 'refresher_performance' && tab === 'Refresher' && refresherPerfData && (
+        <RefresherPerformanceMatrix data={refresherPerfData} fyMonths={MONTHS} timelines={filteredTimelines} />
+      )}
+
+      {/* --- CAPSULE MATRICES --- */}
+      {subView === 'capsule_attendance' && tab === 'Capsule' && capsuleAttData && (
+        <CapsuleAttendanceMatrix data={capsuleAttData} fyMonths={MONTHS} timelines={filteredTimelines} />
+      )}
+      {subView === 'capsule_performance' && tab === 'Capsule' && capsulePerfData && (
+        <CapsulePerformanceMatrix data={capsulePerfData} fyMonths={MONTHS} timelines={filteredTimelines} />
+      )}
+
       {/* GROUPED RANKINGS FOR OTHER TABS */}
-      {subView === 'grouped' && tab !== 'IP' && tab !== 'AP' && (
+      {subView === 'grouped' && tab !== 'IP' && tab !== 'AP' && tab !== 'MIP' && tab !== 'Refresher' && tab !== 'Capsule' && (
         <div className="glass-panel" style={{ overflow: 'hidden' }}>
           <DataTable headers={genericHeaders}>
             {ranked.map(g => {
@@ -831,7 +988,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
       )}
 
       {/* DRILL-DOWN */}
-      {subView === 'drilldown' && tab !== 'IP' && (
+      {subView === 'drilldown' && tab !== 'IP' && tab !== 'MIP' && tab !== 'Refresher' && tab !== 'Capsule' && (
         <div className="glass-panel" style={{ padding: '24px' }}>
           <h3 style={{ marginBottom: '16px' }}>Drill-Down: Cluster → Team → Employee</h3>
           <DrilldownPanel nodes={drilldownNodes} tab={tab} />

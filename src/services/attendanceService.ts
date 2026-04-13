@@ -1,5 +1,14 @@
 import { upsertDoc, clearCollection, getCollection } from './firestoreService';
 
+/** Strip undefined fields — Firestore rejects documents with undefined values. */
+function stripUndefined(obj: Record<string, any>): Record<string, any> {
+  const clean: Record<string, any> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v !== undefined) clean[k] = v;
+  }
+  return clean;
+}
+
 export const uploadAttendanceBatch = async (
   uploadableRows: any[], 
   trainingType: string,
@@ -43,35 +52,35 @@ export const uploadAttendanceBatch = async (
 
     const attId = `${d.employeeId || 'UNK'}_${trainingType}_${d.attendanceDate}_${Date.now()}`;
     
-    await upsertDoc('attendance', attId, {
+    await upsertDoc('attendance', attId, stripUndefined({
       id: attId,
       employeeId: d.employeeId,
-      aadhaarNumber: d.aadhaarNumber,
-      mobileNumber: d.mobileNumber,
-      name: d.name,
+      aadhaarNumber: d.aadhaarNumber || '',
+      mobileNumber: d.mobileNumber || '',
+      name: d.name || '',
       trainingType,
       attendanceDate: d.attendanceDate,
       attendanceStatus: d.attendanceStatus,
       month: d.month || '',
-      trainerId: d.trainerId,
-      team: d.team,
-      designation: d.designation,
-      cluster: d.cluster,
-      hq: d.hq,
-      state: d.state
-    });
+      trainerId: d.trainerId || '',
+      team: d.team || '',
+      designation: d.designation || '',
+      cluster: d.cluster || '',
+      hq: d.hq || '',
+      state: d.state || ''
+    }));
     
     attCount++;
 
     if (d._hasScores && d.attendanceDate) {
       const scoreId = `${d.employeeId || 'UNK'}_${trainingType}_${d.attendanceDate}`;
-      await upsertDoc('training_scores', scoreId, {
+      await upsertDoc('training_scores', scoreId, stripUndefined({
         id: scoreId,
         employeeId: d.employeeId,
         trainingType,
         dateStr: d.attendanceDate,
         scores: d._scores
-      });
+      }));
       scoreCount++;
     }
 

@@ -1,5 +1,6 @@
 import { Employee } from './employee';
 import { Attendance, TrainingScore, TrainingNomination } from './attendance';
+export { TRAINING_SCHEMAS, getSchema } from '../services/trainingSchemas';
 
 export interface UnifiedRecord {
   employee: Employee;
@@ -54,16 +55,18 @@ export interface ReportFilter {
   trainer: string;    // empty = all
 }
 
+// Legacy alias kept for any remaining consumers — prefer getSchema() from trainingSchemas.ts
+// Maps trainingType → array of score field camelCase keys
 export const SCORE_SCHEMAS: Record<string, string[]> = {
-  IP: ['Percent', 'T Score', 'Score'],
-  AP: ['Knowledge', 'BSE', 'Grasping', 'Detailing', 'Situation Handling', 'English', 'Local Language', 'Involvement', 'Effort', 'Confidence'],
-  MIP: ['Science Score', 'Skill Score'],
-  Refresher: ['Knowledge', 'Situation Handling', 'Presentation'],
-  Capsule: ['Score'],
-  Pre_AP: ['Knowledge', 'BSE', 'Grasping'],
-  GTG: ['Score'],
-  HO: ['Score'],
-  RTM: ['Score'],
+  IP: ['percent', 'tScore'],
+  AP: ['knowledge', 'grasping', 'detailing', 'situationHandling', 'english', 'localLanguage', 'involvement', 'effort', 'confidence'],
+  MIP: ['scienceScore', 'skillScore'],
+  Refresher: ['scienceScore', 'skillScore', 'knowledge', 'situationHandling', 'presentation'],
+  Capsule: ['score'],
+  Pre_AP: ['knowledge', 'grasping'],
+  GTG: ['score'],
+  HO: ['score'],
+  RTM: ['score'],
 };
 
 export interface IPRecord {

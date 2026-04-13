@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Users, UploadCloud, CheckCircle, X, Check, AlertTriangle, XCircle, Upload, Search, Database } from 'lucide-react';
-import { parseEmployeeMasterExcel, ParsedRow } from '../services/parsingService';
-import { clearCollection, addBatch } from '../services/firestoreService';
-import { Employee } from '../types/employee';
+import { parseEmployeeMasterExcel, ParsedRow } from '../../services/parsingService';
+import { clearCollection, addBatch } from '../../services/firestoreService';
+import { Employee } from '../../types/employee';
 
 interface EmployeesProps {
   employees?: Employee[];

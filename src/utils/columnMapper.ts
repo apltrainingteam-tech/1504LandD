@@ -105,6 +105,6 @@ export const toCamel = (str: any) => {
 export const detectTrainingType = (cols: string[]) => {
   const lc = cols.map((c) => (ALIAS_MAP[c.toLowerCase().trim()] || c.toLowerCase()));
   if (lc.some((c) => c === 'scienceScore' || c === 'skillScore')) return 'MIP';
-  if (lc.some((c) => c === 'knowledge' || c === 'bse' || c === 'grasping' || c === 'confidence')) return 'AP';
+  if (lc.some((c) => c === 'knowledge' || c === 'BSE' || c === 'grasping' || c === 'confidence')) return 'AP';
   return 'IP';
 };

@@ -12,15 +12,15 @@ import {
   UserPlus,
   ChevronDown
 } from 'lucide-react';
-import { getCollection, upsertDoc } from '../services/firestoreService';
-import { DESIGNATIONS } from '../seed/masterData';
+import { getCollection, upsertDoc } from '../../services/firestoreService';
+import { DESIGNATIONS } from '../../seed/masterData';
 import { 
   TeamClusterMapping, 
   Trainer, 
   EligibilityRule, 
   TrainingType 
-} from '../types/attendance';
-import { DataTable } from '../components/DataTable';
+} from '../../types/attendance';
+import { DataTable } from '../../components/DataTable';
 
 const TRAINING_TYPES: TrainingType[] = ['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'Pre_AP', 'GTG'];
 const TRAINER_TYPES: TrainingType[] = ['HO', 'RTM'];

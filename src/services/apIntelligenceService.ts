@@ -1,4 +1,4 @@
-import { Attendance, TrainingNomination } from '../types/attendance';
+import { Attendance, TrainingNomination, TrainingScore } from '../types/attendance';
 import { TEAM_CLUSTER_MAP } from './clusterMap';
 import { normalizeText } from '../utils/textNormalizer';
 
@@ -14,7 +14,9 @@ export type EmployeeEventTimeline = {
 
 export function buildEmployeeTimelines(
   attendances: Attendance[],
-  nominations: TrainingNomination[]
+  nominations: TrainingNomination[],
+  targetType: string = 'AP',
+  scores: TrainingScore[] = []
 ): Map<string, EmployeeEventTimeline> {
   const map = new Map<string, EmployeeEventTimeline>();
   const getTimeline = (empId: string, empName: string, teamRaw: string | undefined): EmployeeEventTimeline => {
@@ -27,7 +29,7 @@ export function buildEmployeeTimelines(
   };
 
   nominations.forEach(n => {
-    if (n.trainingType !== 'AP') return;
+    if (n.trainingType !== targetType) return;
     const t = getTimeline(n.employeeId, n.name, n.team);
     t.notifications.push({
       date: n.notificationDate || '',
@@ -36,18 +38,24 @@ export function buildEmployeeTimelines(
   });
 
   attendances.forEach(a => {
-    if (a.trainingType !== 'AP') return;
+    if (a.trainingType !== targetType) return;
     // We expect attendance records with joined master data to have the employee name, 
     // but the pure Attendance interface might not directly guarantee it without joining.
     // However, in ReportsAnalytics, attendance array is often just raw records.
     // Wait, the Attendance interface actually has `name`? Let me assume `a.name` exists or fallback.
     const t = getTimeline(a.employeeId, (a as any).name || 'Unknown', a.team);
+    // Join scores: match by employeeId + trainingType + date
+    const sc = scores.find(s =>
+      s.employeeId === a.employeeId &&
+      s.trainingType === a.trainingType &&
+      s.dateStr === a.attendanceDate
+    );
     t.attendances.push({
       date: a.attendanceDate || '',
       month: a.month || (a.attendanceDate ? a.attendanceDate.substring(0, 7) : ''),
       status: a.attendanceStatus,
       trainerId: a.trainerId,
-      scores: a.scores || {}
+      scores: sc?.scores || {}
     });
   });
 
