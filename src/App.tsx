@@ -10,30 +10,38 @@ import {
   Bell,
   ShieldCheck,
   Database,
-  RefreshCw
+  RefreshCw,
+  Mail,
+  Trash2,
+  Sun,
+  Moon
 } from 'lucide-react';
+import { useTheme } from './context/ThemeContext';
 import './index.css';
 
-// Modular Pages
-import { ReportsAnalytics } from './src/pages/ReportsAnalytics';
-import { TrainingsViewer } from './src/pages/TrainingsViewer';
-import { AttendanceUpload } from './src/pages/AttendanceUpload';
-import { Employees } from './src/pages/Employees';
-import { Demographics } from './src/pages/Demographics';
+// Feature Pages
+import { ReportsAnalytics } from './features/dashboard/ReportsAnalytics';
+import { TrainingsViewer } from './features/viewer/TrainingsViewer';
+import { AttendanceUpload } from './features/uploads/AttendanceUpload';
+import { Employees } from './features/employees/Employees';
+import { Demographics } from './features/eligibility/Demographics';
+import { Notified } from './features/notifications/Notified';
 
 // Services & Types
-import { getCollection } from './src/services/firestoreService';
-import { seedDatabase, seedMasterData } from './src/seed';
-import { Employee } from './src/types/employee';
-import { Attendance, TrainingScore, TrainingNomination, Demographics as DemoType } from './src/types/attendance';
+import { getCollection, deleteRecordsByQuery } from './services/firestoreService';
+import { seedDatabase, seedMasterData } from './seed';
+import { Employee } from './types/employee';
+import { Attendance, TrainingScore, TrainingNomination, Demographics as DemoType } from './types/attendance';
 
-type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports';
+type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'notified';
 
 const App = () => {
+  const { theme, toggleTheme } = useTheme();
   const [view, setView] = useState<ViewMode>('reports');
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [seeding, setSeeding] = useState(false);
+  const [isSeeding, setIsSeeding] = useState(false);
+  const [isCleaning, setIsCleaning] = useState(false);
 
   // Global State
   const [emps, setEmps] = useState<Employee[]>([]);
@@ -44,12 +52,12 @@ const App = () => {
 
   const handleSeed = async () => {
     if (!confirm('Seed database with Master Data?')) return;
-    setSeeding(true);
+    setIsSeeding(true);
     const success = await seedMasterData();
     if (success) {
       setRefreshKey(k => k + 1);
     }
-    setSeeding(false);
+    setIsSeeding(false);
   };
 
   const loadAll = async () => {
@@ -78,6 +86,28 @@ const App = () => {
     loadAll();
   }, [refreshKey]);
 
+  const handlePurge = async () => {
+    if (!window.confirm("This will PERMANENTLY delete all records for 'Team A' and 'Unknown' categories. Proceed?")) return;
+    setIsCleaning(true);
+    try {
+      const dummyValues = ['Team A', 'Unknown', '—', 'Unknown Team', 'Unmapped'];
+      
+      const counts = await Promise.all([
+        deleteRecordsByQuery('attendance', 'team', dummyValues),
+        deleteRecordsByQuery('training_scores', 'team', dummyValues),
+        deleteRecordsByQuery('employees', 'team', dummyValues)
+      ]);
+
+      const totalDeleted = counts.reduce((a, b) => a + b, 0);
+      alert(`Cleanup Complete! ${totalDeleted} dummy records purged from live database.`);
+      setRefreshKey(k => k + 1);
+    } catch (e) {
+      alert('Cleanup failed: ' + (e as any).message);
+    } finally {
+      setIsCleaning(false);
+    }
+  };
+
   const renderView = () => {
     if (loading) {
       return (
@@ -91,8 +121,9 @@ const App = () => {
     switch (view) {
       case 'reports': return <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} />;
       case 'trainings': return <TrainingsViewer employees={emps} attendance={att} scores={scs} />;
-      case 'attendance': return <AttendanceUpload onUploadComplete={() => setRefreshKey(k => k + 1)} />;
-      case 'employees': return <Employees />;
+      case 'attendance': return <AttendanceUpload onUploadComplete={() => setRefreshKey(k => k + 1)} masterEmployees={emps} />;
+      case 'notified': return <Notified employees={emps} attendance={att} nominations={noms} onUploadComplete={() => setRefreshKey(k => k + 1)} />;
+      case 'employees': return <Employees employees={emps} onUploadComplete={() => setRefreshKey(k => k + 1)} />;
       case 'demographics': return <Demographics />;
       default: return <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} />;
     }
@@ -124,22 +155,49 @@ const App = () => {
             <FileText size={20} /> Trainings Viewer
           </button>
 
+          <button className={`nav-item w-full ${view === 'notified' ? 'active' : ''}`} onClick={() => setView('notified')}>
+            <Mail size={20} /> Notified
+          </button>
+
           <button className={`nav-item w-full ${view === 'employees' ? 'active' : ''}`} onClick={() => setView('employees')}>
-            <Users size={20} /> Field Roster
+            <Users size={20} /> Employee Master
           </button>
 
           <button className={`nav-item w-full ${view === 'demographics' ? 'active' : ''}`} onClick={() => setView('demographics')}>
             <ShieldCheck size={20} /> Eligibility
           </button>
 
-          <button
-            className="nav-item w-full"
-            onClick={handleSeed}
-            disabled={seeding}
-            style={{ marginTop: '24px', opacity: seeding ? 0.5 : 0.7 }}
+          <button 
+            className="nav-item w-full" 
+            onClick={async () => { 
+               setIsSeeding(true); 
+               try {
+                 await seedMasterData();
+                 await seedDatabase();
+                 alert('Database completely seeded with Mock & Master Data!');
+                 setRefreshKey(k => k + 1); 
+               } catch (e) {
+                 alert('Seeding encountered an error');
+               } finally {
+                 setIsSeeding(false);
+               }
+            }} 
+            style={{ marginTop: '24px', opacity: isSeeding ? 0.3 : 0.7 }}
+            disabled={isSeeding}
           >
-            <Database size={20} className={seeding ? "animate-spin" : ""} />
-            {seeding ? "Seeding..." : "Seed Database"}
+            {isSeeding ? <RefreshCw className="animate-spin" size={20} /> : <Database size={20} />} 
+            {isSeeding ? "Seeding Data..." : "Seed Database"}
+          </button>
+
+          <button 
+            className="nav-item w-full" 
+            onClick={handlePurge}
+            style={{ marginTop: '8px', color: 'var(--danger)', opacity: isCleaning ? 0.3 : 0.7 }}
+            disabled={isCleaning}
+          >
+            {isCleaning ? <RefreshCw className="animate-spin" size={20} /> : <Trash2 size={20} />} 
+            {isCleaning ? "Cleaning..." : "Clean Dummy Data"}
+
           </button>
         </nav>
 
@@ -163,6 +221,14 @@ const App = () => {
             <input type="text" className="form-input" placeholder="Search system globally..." style={{ paddingLeft: '48px', background: 'var(--bg-card)', border: 'none', borderRadius: '24px' }} />
           </div>
           <div className="flex-center">
+            <button 
+              className="btn btn-secondary" 
+              onClick={toggleTheme}
+              style={{ width: '40px', height: '40px', padding: 0, borderRadius: '50%' }}
+              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            >
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
             <button className="btn btn-secondary" style={{ width: '40px', height: '40px', padding: 0, borderRadius: '50%' }}>
               <Bell size={18} />
             </button>

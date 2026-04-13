@@ -1,4 +1,6 @@
 // Standard Column Map (any Excel header → standard key)
+import { normalizeText } from './textNormalizer';
+
 export const ALIAS_MAP: Record<string, string> = {
   'aadhaar number': 'aadhaarNumber',
   'aadhaar': 'aadhaarNumber',
@@ -17,11 +19,24 @@ export const ALIAS_MAP: Record<string, string> = {
   'phone': 'mobileNumber',
   'mobile no': 'mobileNumber',
   'contact': 'mobileNumber',
-  'employee name': 'employeeName',
-  'name': 'employeeName',
-  'emp name': 'employeeName',
-  'empname': 'employeeName',
-  'full name': 'employeeName',
+  'employee name': 'name',
+  'name': 'name',
+  'emp name': 'name',
+  'empname': 'name',
+  'full name': 'name',
+  'pr_e_mail': 'email',
+  'email': 'email',
+  'doj': 'doj',
+  'date of joining': 'doj',
+  'joining date': 'doj',
+  'dob': 'dob',
+  'date of birth': 'dob',
+  'aplexp': 'aplExperience',
+  'apl experience': 'aplExperience',
+  'pastexp': 'pastExperience',
+  'past experience': 'pastExperience',
+  'basic qualification': 'basicQualification',
+  'qualification': 'basicQualification',
   'trainer': 'trainerId',
   'trainer id': 'trainerId',
   'trainer name': 'trainerId',
@@ -36,6 +51,7 @@ export const ALIAS_MAP: Record<string, string> = {
   'headquarters': 'hq',
   'head quarter': 'hq',
   'state': 'state',
+  'notification date': 'notificationDate',
   'attendance date': 'attendanceDate',
   'date': 'attendanceDate',
   'training date': 'attendanceDate',
@@ -45,11 +61,14 @@ export const ALIAS_MAP: Record<string, string> = {
   'present/absent': 'attendanceStatus',
   'attendance': 'attendanceStatus',
   // Score columns
-  'score': 'score',
-  'test score': 'score',
-  'detailing / percent': 'score',
-  'detailing percent': 'score',
-  'ip score': 'score',
+  'score': 'Score',
+  'test score': 'T Score',
+  'detailing / percent': 'Percent',
+  'detailing percent': 'Percent',
+  'percent': 'Percent',
+  't score': 'T Score',
+  'test score %': 'Percent',
+  'ip score': 'Percent',
   'knowledge': 'knowledge',
   'bse': 'bse',
   'grasping': 'grasping',
@@ -80,18 +99,12 @@ export const getValue = (row: any, key: string) => {
 };
 
 export const toCamel = (str: any) => {
-  if (!str) return '';
-  return String(str)
-    .trim()
-    .toLowerCase()
-    .split(' ')
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
+  return normalizeText(str);
 };
 
 export const detectTrainingType = (cols: string[]) => {
   const lc = cols.map((c) => (ALIAS_MAP[c.toLowerCase().trim()] || c.toLowerCase()));
   if (lc.some((c) => c === 'scienceScore' || c === 'skillScore')) return 'MIP';
-  if (lc.some((c) => c === 'knowledge' || c === 'bse' || c === 'grasping' || c === 'confidence')) return 'AP';
+  if (lc.some((c) => c === 'knowledge' || c === 'BSE' || c === 'grasping' || c === 'confidence')) return 'AP';
   return 'IP';
 };

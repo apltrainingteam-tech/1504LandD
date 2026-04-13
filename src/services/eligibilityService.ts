@@ -28,9 +28,9 @@ export const getEligibleEmployees = (
   if (!rule) {
     return employees.map(e => ({
       employeeId: e.employeeId,
-      name: e.employeeName,
+      name: e.name,
       team: e.team,
-      cluster: e.cluster,
+      cluster: '', // Cluster not in Master by default
       eligibilityStatus: true
     }));
   }
@@ -45,13 +45,13 @@ export const getEligibleEmployees = (
 
     // 1. Designation Check
     const des = (emp.designation || '').toUpperCase();
-    const ruleDesValues = rule.designation.values.map(v => v.toUpperCase());
-    if (rule.designation.mode === 'INCLUDE') {
-      if (!ruleDesValues.includes(des)) {
+    const ruleDesValues = (rule.designation?.values || []).map(v => v.toUpperCase());
+    if (rule.designation?.mode === 'INCLUDE') {
+      if (ruleDesValues.length > 0 && !ruleDesValues.includes(des)) {
         isEligible = false;
         reason = `Designation ${des} not in eligible list`;
       }
-    } else if (rule.designation.mode === 'EXCLUDE') {
+    } else if (rule.designation?.mode === 'EXCLUDE') {
       if (ruleDesValues.includes(des)) {
         isEligible = false;
         reason = `Designation ${des} is explicitly excluded`;
@@ -59,37 +59,42 @@ export const getEligibleEmployees = (
     }
 
     // 2. Previous Training Check
-    if (isEligible && rule.previousTraining.mode === 'INCLUDE') {
+    if (isEligible && rule.previousTraining?.mode === 'INCLUDE') {
       const completedTrainings = new Set(
         attendance
           .filter(a => a.employeeId === emp.id && a.attendanceStatus === 'Present')
           .map(a => a.trainingType)
       );
-      const missing = rule.previousTraining.values.filter(t => !completedTrainings.has(t));
+      
+      const missing = (rule.previousTraining.values || []).filter((req: any) => {
+        // If specific designations are configured for this prerequisite
+        if (req.designations && req.designations.length > 0) {
+           if (!req.designations.includes(emp.designation || '')) return false; 
+        }
+        return !completedTrainings.has(req.type);
+      });
+      
       if (missing.length > 0) {
         isEligible = false;
-        reason = `Missing required trainings: ${missing.join(', ')}`;
+        reason = `Missing required trainings: ${missing.map((m: any) => m.type).join(', ')}`;
       }
     }
 
     // 3. APL Experience (Tenure) Check
-    if (isEligible && rule.aplExperience.mode === 'RANGE') {
-      if (!emp.joiningDate) {
+    if (isEligible && rule.aplExperience?.mode === 'RANGE') {
+      if (emp.aplExperience === undefined) {
         isEligible = false;
-        reason = 'Joining date missing';
+        reason = 'APL Experience missing';
       } else {
-        const joinDate = new Date(emp.joiningDate);
-        const diffTime = Math.abs(now.getTime() - joinDate.getTime());
-        const expYears = diffTime / (1000 * 60 * 60 * 24 * 365.25);
-        if (expYears < rule.aplExperience.min || expYears > rule.aplExperience.max) {
+        if (emp.aplExperience < (rule.aplExperience.min ?? 0) || emp.aplExperience > (rule.aplExperience.max ?? 999)) {
           isEligible = false;
-          reason = `Experience (${expYears.toFixed(1)} years) outside range ${rule.aplExperience.min}-${rule.aplExperience.max}`;
+          reason = `Experience (${emp.aplExperience} years) outside range ${rule.aplExperience.min}-${rule.aplExperience.max}`;
         }
       }
     }
 
     // 4. Special Rules
-    if (isEligible) {
+    if (isEligible && rule.specialConditions) {
       // Capsule Logic
       if (rule.specialConditions.noAPInNext90Days) {
         const hasFutureAP = attendance.some(a => {
@@ -115,9 +120,9 @@ export const getEligibleEmployees = (
 
     return {
       employeeId: emp.employeeId,
-      name: emp.employeeName,
+      name: emp.name,
       team: emp.team,
-      cluster: emp.cluster,
+      cluster: '',
       eligibilityStatus: isEligible,
       reasonIfNotEligible: reason
     };

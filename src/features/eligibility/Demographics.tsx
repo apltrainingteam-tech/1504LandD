@@ -9,16 +9,18 @@ import {
   AlertCircle, 
   Check, 
   ChevronRight,
-  UserPlus
+  UserPlus,
+  ChevronDown
 } from 'lucide-react';
-import { getCollection, upsertDoc, deleteDocument } from '../services/firestoreService';
+import { getCollection, upsertDoc, deleteDocument } from '../../services/firestoreService';
+import { DESIGNATIONS } from '../../seed/masterData';
 import { 
   TeamClusterMapping, 
   Trainer, 
   EligibilityRule, 
   TrainingType 
-} from '../types/attendance';
-import { DataTable } from '../components/DataTable';
+} from '../../types/attendance';
+import { DataTable } from '../../components/DataTable';
 
 const TRAINING_TYPES: TrainingType[] = ['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'Pre_AP', 'GTG'];
 const TRAINER_TYPES: TrainingType[] = ['HO', 'RTM'];
@@ -41,6 +43,8 @@ export const Demographics = () => {
   const [rules, setRules] = useState<EligibilityRule[]>([]);
   const [activeRuleType, setActiveRuleType] = useState<TrainingType>('IP');
   const [editingRule, setEditingRule] = useState<EligibilityRule | null>(null);
+  const [designationDropdownOpen, setDesignationDropdownOpen] = useState(false);
+  const [openPrerequisiteDropdown, setOpenPrerequisiteDropdown] = useState<TrainingType | null>(null);
 
   useEffect(() => {
     loadData();
@@ -132,14 +136,26 @@ export const Demographics = () => {
   // --- Handlers: Rules ---
   useEffect(() => {
     if (tab === 'rules') {
-      const existing = rules.find(r => r.trainingType === activeRuleType);
-      setEditingRule(existing || {
+      const existing: any = rules.find(r => r.trainingType === activeRuleType);
+      setEditingRule({
         id: activeRuleType,
         trainingType: activeRuleType,
-        designation: { mode: 'ALL', values: [] },
-        previousTraining: { mode: 'ALL', values: [] },
-        aplExperience: { mode: 'ALL', min: 0, max: 10 },
-        specialConditions: { noAPInNext90Days: false, preAPOnlyIfInvited: false }
+        designation: { 
+          mode: existing?.designation?.mode || 'ALL', 
+          values: existing?.designation?.values || [] 
+        },
+        previousTraining: { 
+          mode: existing?.previousTraining?.mode || 'ALL', 
+          values: existing?.previousTraining?.values || [] 
+        },
+        aplExperience: { 
+          min: existing?.aplExperience?.min || 0, 
+          max: existing?.aplExperience?.max || 10 
+        },
+        specialConditions: { 
+          noAPInNext90Days: existing?.specialConditions?.noAPInNext90Days || false, 
+          preAPOnlyIfInvited: existing?.specialConditions?.preAPOnlyIfInvited || false 
+        }
       });
     }
   }, [activeRuleType, rules, tab]);
@@ -332,33 +348,135 @@ export const Demographics = () => {
                 ))}
               </div>
               {editingRule.designation.mode !== 'ALL' && (
-                <input 
-                  className="form-input mt-4" 
-                  placeholder="Enter designations separated by comma..." 
-                  value={editingRule.designation.values.join(', ')}
-                  onChange={e => setEditingRule({ ...editingRule, designation: { ...editingRule.designation, values: e.target.value.split(',').map(v => v.trim()) } })}
-                />
+                <div className="mt-4" style={{ position: 'relative' }}>
+                  <button 
+                    className="form-input flex-between w-full"
+                    onClick={() => setDesignationDropdownOpen(!designationDropdownOpen)}
+                    style={{ background: 'var(--bg-card)', cursor: 'pointer', textAlign: 'left' }}
+                  >
+                    <span style={{ opacity: editingRule.designation.values.length ? 1 : 0.5 }}>
+                      {editingRule.designation.values.length > 0 
+                        ? `${editingRule.designation.values.length} Selected` 
+                        : "Select Designations..."}
+                    </span>
+                    <ChevronDown size={16} style={{ color: 'var(--text-secondary)' }} />
+                  </button>
+                  
+                  {designationDropdownOpen && (
+                    <div style={{ 
+                      position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 50,
+                      background: '#1e1b4b', border: '1px solid var(--accent-primary)', 
+                      borderRadius: '8px', padding: '8px', maxHeight: '220px', overflowY: 'auto',
+                      boxShadow: '0 10px 25px rgba(0,0,0,0.3)'
+                    }}>
+                      {DESIGNATIONS.map(d => {
+                        const isSelected = editingRule.designation.values.includes(d);
+                        return (
+                          <label key={d} className="flex items-center gap-3 p-2 cursor-pointer rounded" style={{ transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                            <input 
+                              type="checkbox" 
+                              checked={isSelected}
+                              onChange={(e) => {
+                                const next = e.target.checked 
+                                  ? [...editingRule.designation.values, d]
+                                  : editingRule.designation.values.filter(v => v !== d);
+                                setEditingRule({ ...editingRule, designation: { ...editingRule.designation, values: next } });
+                              }}
+                              style={{ accentColor: 'var(--accent-primary)', width: '16px', height: '16px', cursor: 'pointer' }}
+                            />
+                            <span style={{ fontSize: '13px', color: isSelected ? 'white' : 'var(--text-secondary)' }}>{d}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                  
+                  {editingRule.designation.values.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {editingRule.designation.values.map(v => (
+                        <span key={v} className="badge badge-primary flex gap-2 items-center" style={{ fontSize: '11px', padding: '4px 8px' }}>
+                          {v}
+                          <Trash2 size={12} className="cursor-pointer" onClick={() => {
+                            setEditingRule({ ...editingRule, designation: { ...editingRule.designation, values: editingRule.designation.values.filter(x => x !== v) } });
+                          }} />
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 
             <div className="rule-section mb-6">
               <h4>2. Prerequisite Trainings</h4>
               <div className="flex flex-wrap gap-2 mt-3">
-                {TRAINING_TYPES.map(t => (
-                  <button 
-                    key={t}
-                    disabled={editingRule.previousTraining.mode === 'ALL'}
-                    className={`badge ${editingRule.previousTraining.values.includes(t) ? 'badge-primary' : 'badge-secondary'} cursor-pointer`}
-                    onClick={() => {
-                      const next = editingRule.previousTraining.values.includes(t)
-                        ? editingRule.previousTraining.values.filter(x => x !== t)
-                        : [...editingRule.previousTraining.values, t];
-                      setEditingRule({ ...editingRule, previousTraining: { ...editingRule.previousTraining, values: next } });
-                    }}
-                  >
-                    {t}
-                  </button>
-                ))}
+                {TRAINING_TYPES.map(t => {
+                  const req = editingRule.previousTraining.values.find((v: any) => v.type === t);
+                  const isSelected = !!req;
+
+                  return (
+                    <div key={t} style={{ position: 'relative' }}>
+                      <button 
+                        disabled={editingRule.previousTraining.mode === 'ALL'}
+                        className={`badge ${isSelected ? 'badge-primary' : 'badge-secondary'} cursor-pointer flex-center gap-1`}
+                        onClick={() => {
+                          const next = isSelected 
+                            ? editingRule.previousTraining.values.filter((x: any) => x.type !== t)
+                            : [...editingRule.previousTraining.values, { type: t, designations: [] }];
+                          setEditingRule({ ...editingRule, previousTraining: { ...editingRule.previousTraining, values: next } });
+                          if (isSelected) {
+                            if (openPrerequisiteDropdown === t) setOpenPrerequisiteDropdown(null);
+                          } else {
+                            setOpenPrerequisiteDropdown(t);
+                          }
+                        }}
+                      >
+                        {t}
+                        {isSelected && (
+                          <div 
+                            onClick={(e) => { e.stopPropagation(); setOpenPrerequisiteDropdown(openPrerequisiteDropdown === t ? null : t); }}
+                            className="hover:bg-white/20 rounded p-1"
+                          >
+                            <ChevronDown size={14} />
+                          </div>
+                        )}
+                      </button>
+                      
+                      {isSelected && openPrerequisiteDropdown === t && (
+                        <div style={{
+                          position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 60,
+                          background: '#1e1b4b', border: '1px solid var(--accent-primary)',
+                          borderRadius: '8px', padding: '8px', maxHeight: '220px', overflowY: 'auto',
+                          width: '260px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)'
+                        }}>
+                          <div className="text-xs text-muted mb-2 px-1">Designations required to have completed {t}:<br/><i>(Leave empty for all designations)</i></div>
+                          {DESIGNATIONS.map(d => {
+                            const isDesignationSelected = req.designations.includes(d);
+                            return (
+                              <label key={d} className="flex items-center gap-3 p-2 cursor-pointer rounded" style={{ transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                <input 
+                                  type="checkbox" 
+                                  checked={isDesignationSelected}
+                                  onChange={(e) => {
+                                    const nextDesigs = e.target.checked 
+                                      ? [...req.designations, d]
+                                      : req.designations.filter((v: string) => v !== d);
+                                    const nextValues = editingRule.previousTraining.values.map((v: any) => 
+                                      v.type === t ? { ...v, designations: nextDesigs } : v
+                                    );
+                                    setEditingRule({ ...editingRule, previousTraining: { ...editingRule.previousTraining, values: nextValues } });
+                                  }}
+                                  style={{ accentColor: 'var(--accent-primary)', width: '16px', height: '16px', cursor: 'pointer' }}
+                                />
+                                <span style={{ fontSize: '13px', color: isDesignationSelected ? 'white' : 'var(--text-secondary)' }}>{d}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
               <div className="mt-3">
                 <label className="flex items-center gap-2 cursor-pointer">

@@ -5,12 +5,12 @@ export interface Attendance {
   employeeId: string;
   trainingType: TrainingType;
   attendanceDate: string; // ISO date string (yyyy-mm-dd)
-  attendanceStatus: 'Present' | 'Absent' | 'Unknown';
+  attendanceStatus: 'Present' | 'Absent';
   trainerId?: string;
   month?: string; // Derived e.g. "2026-04"
   aadhaarNumber?: string;
   mobileNumber?: string;
-  employeeName?: string;
+  name?: string;
   team?: string;
   designation?: string;
   cluster?: string;
@@ -27,11 +27,22 @@ export interface TrainingScore {
 }
 
 export interface TrainingNomination {
-  id: string;
+  id: string; // autoId
   employeeId: string;
-  trainingType: TrainingType;
-  nominationDate: string;
-  status: 'Notified' | 'Pending';
+  aadhaarNumber: string;
+  mobileNumber: string;
+  name: string;
+  designation: string;
+  team: string;
+  hq: string;
+  state: string;
+
+  trainingType: string; 
+  notificationDate: string; // YYYY-MM-DD
+  month: string; // YYYY-MM
+  
+  notificationCount?: number; 
+  createdAt?: number;
 }
 
 export interface Demographics {
@@ -63,7 +74,7 @@ export interface EligibilityRule {
   };
   previousTraining: {
     mode: 'ALL' | 'INCLUDE' | 'NONE';
-    values: TrainingType[];
+    values: Array<{ type: TrainingType; designations: string[] }>;
   };
   aplExperience: {
     mode: 'ALL' | 'RANGE';

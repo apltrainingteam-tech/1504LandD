@@ -1,7 +1,7 @@
 import React from 'react';
-import { DataTable } from './DataTable';
-import { displayScore } from '../utils/scoreNormalizer';
-import { SCORE_SCHEMAS } from '../types/reports';
+import { DataTable } from '../../../components/DataTable';
+import { displayScore } from '../../../utils/scoreNormalizer';
+import { SCORE_SCHEMAS } from '../../../types/reports';
 import { Check, AlertTriangle, XCircle } from 'lucide-react';
 
 interface UploadPreviewProps {

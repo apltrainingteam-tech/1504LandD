@@ -1,13 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { Search, Filter } from 'lucide-react';
-import { Employee } from '../types/employee';
-import { Attendance, TrainingScore } from '../types/attendance';
-import { SCORE_SCHEMAS } from '../types/reports';
-import { buildUnifiedDataset } from '../services/reportService';
-import { DataTable } from '../components/DataTable';
-import { Filters } from '../components/Filters';
-import { formatDateForDisplay } from '../utils/dateParser';
-import { displayScore } from '../utils/scoreNormalizer';
+import { Employee } from '../../types/employee';
+import { Attendance, TrainingScore } from '../../types/attendance';
+import { SCORE_SCHEMAS } from '../../types/reports';
+import { buildUnifiedDataset } from '../../services/reportService';
+import { DataTable } from '../../components/DataTable';
+import { Filters } from '../../components/Filters';
+import { formatDateForDisplay } from '../../utils/dateParser';
+import { displayScore } from '../../utils/scoreNormalizer';
 
 interface TrainingsViewerProps {
   employees: Employee[];
@@ -29,7 +29,7 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
     if (!search) return unified;
     const s = search.toLowerCase();
     return unified.filter(r => 
-      r.employee.employeeName.toLowerCase().includes(s) || 
+      r.employee.name.toLowerCase().includes(s) || 
       r.employee.employeeId.toLowerCase().includes(s) ||
       (r.employee.aadhaarNumber || '').includes(s)
     );
@@ -79,7 +79,7 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
               <td style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{r.employee.aadhaarNumber || '—'}</td>
               <td style={{ fontWeight: 600 }}>{r.employee.employeeId}</td>
               <td style={{ fontSize: '12px' }}>{r.employee.mobileNumber || '—'}</td>
-              <td>{r.employee.employeeName}</td>
+              <td>{r.employee.name}</td>
               <td style={{ fontSize: '12px' }}>{r.attendance.trainerId || '—'}</td>
               <td style={{ fontSize: '12px' }}>{r.employee.team}</td>
               <td style={{ fontSize: '12px' }}>{r.employee.hq || '—'}</td>

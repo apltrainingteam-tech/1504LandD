@@ -1,68 +1,66 @@
-import { doc, setDoc } from 'firebase/firestore';
-import { db, upsertDoc } from './services/firestoreService';
+import { upsertDoc } from './services/firestoreService';
 import { mockEmployees, mockAttendance, mockScores, mockNominations, mockDemographics } from './api.mock';
 import { STATE_ZONE, TEAM_CLUSTER, DESIGNATIONS, TRAINERS } from './seed/masterData';
 
-export const seedDatabase = async () => {
-  console.log("Seeding base mock data started...");
+/**
+ * Sequential batch write with delays
+ */
+const batchWrite = async (items: any[], collectionName: string, keyField: string) => {
+  for (const item of items) {
+    const id = item[keyField];
+    await upsertDoc(collectionName, id, item);
 
-  for (const e of mockEmployees) {
-    await setDoc(doc(db, 'employees', e.id), e);
+    // small delay to prevent overload
+    await new Promise(res => setTimeout(res, 50));
   }
-
-  for (const a of mockAttendance) {
-    await setDoc(doc(db, 'attendance', a.id), a);
-  }
-
-  for (const s of mockScores) {
-    await setDoc(doc(db, 'training_scores', s.id), s);
-  }
-
-  for (const n of mockNominations) {
-    await setDoc(doc(db, 'training_nominations', n.id), n);
-  }
-
-  for (const d of mockDemographics) {
-    await setDoc(doc(db, 'demographics', d.id), d);
-  }
-
-  console.log("Base mock data seeding completed successfully!");
 };
 
+/**
+ * Safe version of base mock data seeding
+ */
+export const seedDatabase = async () => {
+  try {
+    console.log("Seeding base mock data started...");
+
+    await batchWrite(mockEmployees, 'employees', 'id');
+    await batchWrite(mockAttendance, 'attendance', 'id');
+    await batchWrite(mockScores, 'training_scores', 'id');
+    await batchWrite(mockNominations, 'training_nominations', 'id');
+    await batchWrite(mockDemographics, 'demographics', 'id');
+
+    console.log("Base mock data seeding completed successfully!");
+    return true;
+  } catch (err: any) {
+    console.error("Base seeding failed:", err);
+    return false;
+  }
+};
+
+/**
+ * Safe version of master data seeding
+ */
 export const seedMasterData = async () => {
   try {
     console.log("Master Data Seeding started...");
 
-    // STATE-ZONE
-    console.log("Seeding state_zone...");
-    for (const s of STATE_ZONE) {
-      await upsertDoc('state_zone', s.state, s);
-    }
+    await batchWrite(STATE_ZONE, 'state_zone', 'state');
+    await batchWrite(TEAM_CLUSTER, 'team_cluster_mapping', 'id');
 
-    // TEAM-CLUSTER
-    console.log("Seeding team_cluster_mapping...");
-    for (const t of TEAM_CLUSTER) {
-      await upsertDoc('team_cluster_mapping', t.id, t);
-    }
-
-    // DESIGNATIONS
-    console.log("Seeding designations...");
     for (const d of DESIGNATIONS) {
       await upsertDoc('designations', d, { name: d });
+      await new Promise(res => setTimeout(res, 20));
     }
 
-    // TRAINERS
-    console.log("Seeding trainers...");
-    for (const tr of TRAINERS) {
-      await upsertDoc('trainers', tr.id, tr);
-    }
+    await batchWrite(TRAINERS, 'trainers', 'id');
 
-    console.log("Master Data Seeding completed successfully!");
-    alert("Master Data Seeded Successfully! Refreshing tables...");
+    console.log("Seeding completed");
+    alert("Master Data Seeded Successfully!");
+
     return true;
+
   } catch (err: any) {
-    console.error("Master Data Seeding failed:", err);
-    alert("Seeding Failed: " + (err.message || "Unknown error"));
+    console.error("Seeding failed:", err);
+    alert("Error: " + err.message);
     return false;
   }
 };
