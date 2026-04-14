@@ -111,7 +111,8 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
     return MONTH_LABELS[m] || month;
   };
 
-  const MONTHS = useMemo(() => getFiscalMonths(selectedFYs[tab]), [selectedFYs, tab]);
+  const selectedFY = selectedFYs[tab];
+  const MONTHS = useMemo(() => getFiscalMonths(selectedFY), [selectedFY]);
 
   // Force default view on tab change
   useEffect(() => {
@@ -147,12 +148,14 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
   const allClusters = useMemo(() => [...new Set(employees.map(e => clusterMapping[e.team] || e.state).filter(Boolean))].sort(), [employees, clusterMapping]);
   const allTrainers = useMemo(() => [...new Set(attendance.map(a => a.trainerId).filter(Boolean))].sort(), [attendance]);
 
+  const normalizeType = (value?: string) => (value || '').toUpperCase();
+
   // Build filtered base dataset for current tab
   const rawUnified = useMemo(() => {
-    const att = attendance.filter(a => a.trainingType === tab);
-    const scs = scores.filter(s => s.trainingType === tab);
-    const noms = nominations.filter(n => n.trainingType === tab);
-    const rule = rules.find(r => r.trainingType === tab);
+    const att = attendance.filter(a => normalizeType(a.trainingType) === tab);
+    const scs = scores.filter(s => normalizeType(s.trainingType) === tab);
+    const noms = nominations.filter(n => normalizeType(n.trainingType) === tab);
+    const rule = rules.find(r => normalizeType(r.trainingType) === tab);
     const eligResults = getEligibleEmployees(tab as TrainingType, rule, employees, attendance, nominations);
     return buildUnifiedDataset(employees, att, scs, noms, eligResults).map(r => {
       if (r.employee) {

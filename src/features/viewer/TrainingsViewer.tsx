@@ -4,6 +4,8 @@ import { Employee } from '../../types/employee';
 import { Attendance, TrainingScore } from '../../types/attendance';
 import { SCORE_SCHEMAS } from '../../types/reports';
 import { buildUnifiedDataset } from '../../services/reportService';
+
+const normalizeType = (value?: string) => (value || '').toUpperCase();
 import { DataTable } from '../../components/DataTable';
 import { Filters } from '../../components/Filters';
 import { formatDateForDisplay } from '../../utils/dateParser';
@@ -20,8 +22,8 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
   const [search, setSearch] = useState('');
 
   const unified = useMemo(() => {
-    const filteredAtt = attendance.filter(a => a.trainingType === tab);
-    const filteredScs = scores.filter(s => s.trainingType === tab);
+    const filteredAtt = attendance.filter(a => normalizeType(a.trainingType) === tab);
+    const filteredScs = scores.filter(s => normalizeType(s.trainingType) === tab);
     return buildUnifiedDataset(employees, filteredAtt, filteredScs, []);
   }, [employees, attendance, scores, tab]);
 

@@ -162,13 +162,14 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
             {uploading ? (
                <>
                  <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${uploadProgress}%`, background: 'rgba(255,255,255,0.3)', transition: 'width 0.2s', zIndex: 0 }} />
-                 <span style={{ position: 'relative', zIndex: 1, fontWeight: 700 }}>Uploading... {uploadProgress}%</span>
+                 <span style={{ position: 'relative', zIndex: 1, fontWeight: 700 }}>Processing in batches... {uploadProgress}%</span>
                </>
             ) : `Accept & Sync ${uploadableCount} Rows (${uploadMode.toUpperCase()})`}
           </button>
           
           <button className="btn btn-secondary w-full" onClick={reset} disabled={uploading}>Discard & Reject</button>
-          {errCount > 0 && <span className="text-muted text-center mt-2" style={{ fontSize: '13px' }}>{errCount} rows with errors will be skipped</span>}
+          {uploading && <span className="text-muted text-center mt-2" style={{ fontSize: '12px' }}>Large uploads process in chunks of 25 records to prevent quota limits</span>}
+          {errCount > 0 && !uploading && <span className="text-muted text-center mt-2" style={{ fontSize: '13px' }}>{errCount} rows with errors will be skipped</span>}
         </div>
       </div>
     );

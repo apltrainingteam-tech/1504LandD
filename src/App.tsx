@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Mail,
   Trash2,
+  AlertCircle,
   Sun,
   Moon
 } from 'lucide-react';
@@ -70,6 +71,13 @@ const App = () => {
         getCollection('training_nominations'),
         getCollection('demographics')
       ]);
+      console.log('Loaded collections:', {
+        employees: e.length,
+        attendance: a.length,
+        training_scores: s.length,
+        training_nominations: n.length,
+        demographics: d.length
+      });
       setEmps(e as Employee[]);
       setAtt(a as Attendance[]);
       setScs(s as TrainingScore[]);
@@ -235,6 +243,24 @@ const App = () => {
           </div>
         </header>
 
+        <div style={{ marginBottom: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          <div className="glass-panel" style={{ padding: '12px 16px', minWidth: '180px' }}>
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Employees</div>
+            <div style={{ fontSize: '18px', fontWeight: 700 }}>{emps.length}</div>
+          </div>
+          <div className="glass-panel" style={{ padding: '12px 16px', minWidth: '180px' }}>
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Attendance</div>
+            <div style={{ fontSize: '18px', fontWeight: 700 }}>{att.length}</div>
+          </div>
+          <div className="glass-panel" style={{ padding: '12px 16px', minWidth: '180px' }}>
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Scores</div>
+            <div style={{ fontSize: '18px', fontWeight: 700 }}>{scs.length}</div>
+          </div>
+          <div className="glass-panel" style={{ padding: '12px 16px', minWidth: '180px' }}>
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Nominations</div>
+            <div style={{ fontSize: '18px', fontWeight: 700 }}>{noms.length}</div>
+          </div>
+        </div>
         {renderView()}
       </main>
     </div>
