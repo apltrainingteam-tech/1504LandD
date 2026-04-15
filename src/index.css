@@ -260,19 +260,7 @@ button {
   background: rgba(239, 68, 68, 0.2);
 }
 
-/* Forms */
-.form-group {
-  margin-bottom: 20px;
-}
-
-.form-label {
-  display: block;
-  margin-bottom: 8px;
-  color: var(--text-secondary);
-  font-size: 14px;
-  font-weight: 500;
-}
-
+/* Form inputs */
 .form-input, .form-select, .form-textarea {
   width: 100%;
   padding: 12px 16px;
@@ -388,18 +376,27 @@ tbody tr:hover {
 .badge-danger { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
 .badge-info { background: rgba(99, 102, 241, 0.15); color: var(--accent-primary); }
 
-/* Avatar */
-.avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+/* Tabs */
+.tab {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s;
+  cursor: pointer;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.tab:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+}
+
+.tab-active {
   background: var(--accent-gradient);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  font-size: 14px;
   color: white;
+  border-color: var(--accent-primary);
 }
 
 /* Utilities */

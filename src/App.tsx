@@ -14,6 +14,7 @@ import {
   Mail,
   Trash2,
   AlertCircle,
+  AlertTriangle,
   Sun,
   Moon
 } from 'lucide-react';
@@ -27,6 +28,7 @@ import { AttendanceUpload } from './features/uploads/AttendanceUpload';
 import { Employees } from './features/employees/Employees';
 import { Demographics } from './features/eligibility/Demographics';
 import { Notified } from './features/notifications/Notified';
+import { GapAnalysis } from './features/gap-analysis/GapAnalysis';
 
 // Services & Types
 import { getCollection, deleteRecordsByQuery } from './services/firestoreService';
@@ -34,7 +36,7 @@ import { seedDatabase, seedMasterData } from './seed';
 import { Employee } from './types/employee';
 import { Attendance, TrainingScore, TrainingNomination, Demographics as DemoType } from './types/attendance';
 
-type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'notified';
+type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'notified' | 'gap-analysis';
 
 const App = () => {
   const { theme, toggleTheme } = useTheme();
@@ -133,6 +135,7 @@ const App = () => {
       case 'notified': return <Notified employees={emps} attendance={att} nominations={noms} onUploadComplete={() => setRefreshKey(k => k + 1)} />;
       case 'employees': return <Employees employees={emps} onUploadComplete={() => setRefreshKey(k => k + 1)} />;
       case 'demographics': return <Demographics />;
+      case 'gap-analysis': return <GapAnalysis employees={emps} attendance={att} nominations={noms} />;
       default: return <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} />;
     }
   };
@@ -173,6 +176,10 @@ const App = () => {
 
           <button className={`nav-item w-full ${view === 'demographics' ? 'active' : ''}`} onClick={() => setView('demographics')}>
             <ShieldCheck size={20} /> Eligibility
+          </button>
+
+          <button className={`nav-item w-full ${view === 'gap-analysis' ? 'active' : ''}`} onClick={() => setView('gap-analysis')}>
+            <AlertTriangle size={20} /> Gap Analysis
           </button>
 
           <button 
