@@ -62,13 +62,41 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
   const [expanded, setExpanded] = useState(new Set<string>());
   const [rules, setRules] = useState<EligibilityRule[]>([]);
   const [clusterMapping, setClusterMapping] = useState<Record<string, string>>({});
-  const [selectedFYs, setSelectedFYs] = useState<Record<string, string>>({
-    IP: FY_OPTIONS[5], // Default to 2025-26
-    AP: FY_OPTIONS[5],
-    MIP: FY_OPTIONS[5],
-    Refresher: FY_OPTIONS[5],
-    Capsule: FY_OPTIONS[5],
-    Pre_AP: FY_OPTIONS[5]
+  const [selectedFYs, setSelectedFYs] = useState<Record<string, string>>(() => {
+    const maxMonths: Record<string, string> = {};
+
+    const updateMax = (typeFallback: string, dateStr: string) => {
+      const type = (typeFallback || '').toUpperCase();
+      const m = (dateStr || '').substring(0, 7);
+      if (m && (!maxMonths[type] || m > maxMonths[type])) {
+        maxMonths[type] = m;
+      }
+    };
+
+    nominations.forEach(n => updateMax(n.trainingType, n.notificationDate || ''));
+    attendance.forEach(a => updateMax(a.trainingType, a.month || a.attendanceDate || ''));
+
+    const getFYForType = (typeKey: string) => {
+      const maxMonth = maxMonths[typeKey.toUpperCase()];
+      if (!maxMonth) return getCurrentFY();
+      const [yearStr, monthStr] = maxMonth.split('-');
+      const year = parseInt(yearStr, 10);
+      const month = parseInt(monthStr, 10);
+      if (!isNaN(year) && !isNaN(month)) {
+        const startYear = month >= 4 ? year : year - 1;
+        return `${startYear}-${(startYear + 1).toString().slice(2)}`;
+      }
+      return getCurrentFY();
+    };
+
+    return {
+      IP: getFYForType('IP'),
+      AP: getFYForType('AP'),
+      MIP: getFYForType('MIP'),
+      Refresher: getFYForType('Refresher'),
+      Capsule: getFYForType('Capsule'),
+      Pre_AP: getFYForType('Pre_AP')
+    };
   });
   const [showFilters, setShowFilters] = useState(false);
   const [tsMode, setTsMode] = useState<'score' | 'count'>('score');

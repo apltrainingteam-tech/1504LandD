@@ -70,7 +70,13 @@ export function normalizeToIPRecords(ds: UnifiedRecord[]): IPRecord[] {
   const records: IPRecord[] = [];
   ds.forEach(r => {
     if (r.attendance.attendanceStatus !== 'Present') return;
-    const s = r.score?.scores?.['Percent'] ?? r.score?.scores?.['T Score'] ?? r.score?.scores?.['Score'];
+    // Prefer schema camelCase keys, fallback to legacy Title Case if needed.
+    const s = r.score?.scores?.['score'] ?? 
+              r.score?.scores?.['percent'] ?? 
+              r.score?.scores?.['tScore'] ?? 
+              r.score?.scores?.['Percent'] ?? 
+              r.score?.scores?.['T Score'] ?? 
+              r.score?.scores?.['Score'];
     if (s == null) return;
     
     // Normalize team name to match map keys reliably
@@ -245,8 +251,11 @@ export function buildIPMonthlyTeamRanks(ds: UnifiedRecord[], fyMonths?: string[]
       return;
     }
 
-    // Score: prefer Score → Percent → T Score
+    // Score: prefer schema camelCase keys → fallback to legacy Title Case
     const rawScore = Number(
+      r.score?.scores?.['score'] ??
+      r.score?.scores?.['percent'] ??
+      r.score?.scores?.['tScore'] ??
       r.score?.scores?.['Score'] ??
       r.score?.scores?.['Percent'] ??
       r.score?.scores?.['T Score'] ??

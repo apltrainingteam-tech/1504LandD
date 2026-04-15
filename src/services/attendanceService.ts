@@ -1,4 +1,5 @@
-import { upsertDoc, clearCollectionByField, getCollection } from './firestoreService';
+import { writeBatch, doc } from 'firebase/firestore';
+import { db, clearCollectionByField, getCollection } from './firestoreService';
 
 /** Strip undefined fields — Firestore rejects documents with undefined values. */
 function stripUndefined(obj: Record<string, any>): Record<string, any> {
@@ -30,56 +31,56 @@ const retryWithBackoff = async (fn: () => Promise<void>, maxRetries = 5): Promis
 
 // 🔹 PROCESS RECORDS IN BATCHES TO PREVENT QUOTA EXHAUSTION
 const processBatch = async (
-  batch: any[],
+  batchRows: any[],
   trainingType: string
 ): Promise<{ attCount: number; scoreCount: number }> => {
   let attCount = 0;
   let scoreCount = 0;
 
-  for (const row of batch) {
-    const d = row.data;
-    const attId = `${d.employeeId || 'UNK'}_${trainingType}_${d.attendanceDate}_${Date.now()}`;
+  const batch = writeBatch(db);
 
-    // Retry write with exponential backoff
-    await retryWithBackoff(() =>
-      upsertDoc('attendance', attId, stripUndefined({
-        id: attId,
-        employeeId: d.employeeId,
-        aadhaarNumber: d.aadhaarNumber || '',
-        mobileNumber: d.mobileNumber || '',
-        name: d.name || '',
-        trainingType,
-        attendanceDate: d.attendanceDate,
-        attendanceStatus: d.attendanceStatus,
-        month: d.month || '',
-        trainerId: d.trainerId || '',
-        team: d.team || '',
-        designation: d.designation || '',
-        cluster: d.cluster || '',
-        hq: d.hq || '',
-        state: d.state || ''
-      }))
-    );
+  for (const row of batchRows) {
+    const d = row.data;
+    const attId = `${d.employeeId || 'UNK'}_${trainingType}_${d.attendanceDate}`;
+
+    const attRef = doc(db, 'attendance', attId);
+    batch.set(attRef, stripUndefined({
+      id: attId,
+      employeeId: d.employeeId,
+      aadhaarNumber: d.aadhaarNumber || '',
+      mobileNumber: d.mobileNumber || '',
+      name: d.name || '',
+      trainingType,
+      attendanceDate: d.attendanceDate,
+      attendanceStatus: d.attendanceStatus,
+      month: d.month || '',
+      trainerId: d.trainerId || '',
+      team: d.team || '',
+      designation: d.designation || '',
+      cluster: d.cluster || '',
+      hq: d.hq || '',
+      state: d.state || ''
+    }), { merge: true });
 
     attCount++;
 
     if (d._hasScores && d.attendanceDate) {
       const scoreId = `${d.employeeId || 'UNK'}_${trainingType}_${d.attendanceDate}`;
-      await retryWithBackoff(() =>
-        upsertDoc('training_scores', scoreId, stripUndefined({
-          id: scoreId,
-          employeeId: d.employeeId,
-          trainingType,
-          dateStr: d.attendanceDate,
-          scores: d._scores
-        }))
-      );
+      const scoreRef = doc(db, 'training_scores', scoreId);
+      
+      batch.set(scoreRef, stripUndefined({
+        id: scoreId,
+        employeeId: d.employeeId,
+        trainingType,
+        dateStr: d.attendanceDate,
+        scores: d._scores
+      }), { merge: true });
+      
       scoreCount++;
     }
-
-    // Add small delay between individual writes
-    await new Promise(resolve => setTimeout(resolve, 100));
   }
+
+  await retryWithBackoff(() => batch.commit());
 
   return { attCount, scoreCount };
 };
@@ -101,29 +102,16 @@ export const uploadAttendanceBatch = async (
     await clearCollectionByField('training_scores', 'trainingType', trainingType);
   }
 
-  const existingKeys = new Set<string>();
   if (mode === 'append') {
-    const existingAtt = await getCollection('attendance');
-    existingAtt.forEach(a => {
-      if (a.employeeId && a.attendanceDate && a.trainingType) {
-        existingKeys.add(`${a.employeeId}_${a.attendanceDate}_${a.trainingType}`);
-      }
-    });
+    // Instead of querying and retrieving thousands of records (which destroys read quotas), 
+    // we lean natively on `setDoc` with `merge: true` in our batch. 
+    // It will elegantly upsert without multiplying read quotas.
+    console.log('Append mode active: Relying on deterministic IDs to safely merge duplicates naturally.');
   }
 
-  // Filter out duplicates in append mode
-  const rowsToProcess = uploadableRows.filter(row => {
-    if (mode === 'append') {
-      const key = `${row.data.employeeId}_${row.data.attendanceDate}_${trainingType}`;
-      if (existingKeys.has(key)) {
-        skippedCount++;
-        return false;
-      }
-    }
-    return true;
-  });
+  // Process rows
+  const rowsToProcess = uploadableRows;
 
-  // Process in chunks to prevent quota exhaustion
   const totalChunks = Math.ceil(rowsToProcess.length / chunkSize);
   console.log(`Processing ${rowsToProcess.length} records in ${totalChunks} chunks of ${chunkSize}`);
 
@@ -148,11 +136,9 @@ export const uploadAttendanceBatch = async (
     processedCount += chunk.length;
     if (onProgress) onProgress(processedCount);
 
-    // Add delay between chunks to prevent quota issues
+    // Add delay between chunks
     if (chunkIndex < totalChunks - 1) {
-      const chunkDelayMs = 2000; // 2 second pause between chunks
-      console.log(`Waiting ${chunkDelayMs}ms before next chunk...`);
-      await new Promise(resolve => setTimeout(resolve, chunkDelayMs));
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
   }
 

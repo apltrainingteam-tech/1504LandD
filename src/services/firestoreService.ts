@@ -9,7 +9,8 @@ import {
   writeBatch,
   query,
   where,
-  getDoc
+  getDoc,
+  enableIndexedDbPersistence
 } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -25,6 +26,18 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
+
+try {
+  enableIndexedDbPersistence(db).catch((err) => {
+    if (err.code == 'failed-precondition') {
+      console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.');
+    } else if (err.code == 'unimplemented') {
+      console.warn('Browser does not support Firestore persistence.');
+    }
+  });
+} catch (e) {
+  console.warn('Error applying Firestore persistence', e);
+}
 
 console.log('Firebase initialized successfully with config:', firebaseConfig);
 

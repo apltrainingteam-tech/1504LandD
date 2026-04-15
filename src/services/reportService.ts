@@ -100,7 +100,12 @@ export function calcIP(recs: UnifiedRecord[]) {
   const p = recs.filter(r => r.attendance.attendanceStatus === 'Present');
   let h = 0, med = 0, l = 0;
   p.forEach(r => {
-    const s = r.score?.scores?.['Score'];
+    const s = r.score?.scores?.['score'] ?? 
+              r.score?.scores?.['percent'] ?? 
+              r.score?.scores?.['tScore'] ?? 
+              r.score?.scores?.['Score'] ?? 
+              r.score?.scores?.['Percent'] ?? 
+              r.score?.scores?.['T Score'];
     if (s != null) {
       if (s >= 75) h++;
       else if (s >= 50) med++;
