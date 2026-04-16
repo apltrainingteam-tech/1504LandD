@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx';
 import { parseAnyDate } from '../utils/dateParser';
 import { normalizeScore } from '../utils/scoreNormalizer';
 import { normalizeText } from '../utils/textNormalizer';
+import { normalizeTrainerName, standardizeTrainer } from '../utils/trainerMapper';
 import { getSchema, mapHeader } from './trainingSchemas';
 import { STATE_ZONE } from '../seed/masterData';
 
@@ -322,6 +323,10 @@ export const parseExcelFile = (
 
           const matchQuality = !masterData ? 'NONE' : isPerfectMatch ? 'PERFECT' : 'PARTIAL';
 
+          const rawTrainer = String(m.trainerId || '').trim();
+          const normalizedTrainer = normalizeTrainerName(rawTrainer);
+          const standardizedTrainer = standardizeTrainer(rawTrainer);
+
           // Build base record — STRICT MASTER OVERRIDE when matched
           const rec: any = {
             // 🔥 ALWAYS USE MASTER IF MATCHED (ignore uploaded identifiers)
@@ -337,7 +342,10 @@ export const parseExcelFile = (
             cluster: masterData ? masterData.cluster : normalizeText(m.cluster || m.state || ''),
             zone: masterData ? (masterData.zone || getZoneFromState(masterData.state)) : getZoneFromState(m.state),
             doj: masterData ? masterData.doj : '',
-            trainerId: String(m.trainerId || '').trim(),
+            trainerRaw: rawTrainer,
+            trainerNormalized: normalizedTrainer,
+            trainerName: standardizedTrainer,
+            trainerId: standardizedTrainer,
             trainingType,
             attendanceDate: null,
             attendanceStatus: 'Present',
@@ -393,6 +401,17 @@ export const parseExcelFile = (
           if (!m.employeeId && !m.aadhaarNumber && !m.mobileNumber) {
             messages.push('No identifier (ID, Aadhaar, or Mobile)');
             status = 'error';
+          }
+
+          // Trainer missing should not block upload
+          if (!rawTrainer) {
+            messages.push('Trainer name missing');
+            if (status === 'valid') status = 'warn';
+          }
+
+          if (rawTrainer && normalizedTrainer.length > 0 && normalizedTrainer.length < 3) {
+            messages.push('Trainer name may be incomplete');
+            if (status === 'valid') status = 'warn';
           }
 
           // Error: employee not found in master
