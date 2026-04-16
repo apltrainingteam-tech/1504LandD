@@ -5,6 +5,7 @@ import { normalizeText } from '../utils/textNormalizer';
 import { normalizeTrainerName, standardizeTrainer } from '../utils/trainerMapper';
 import { getSchema, mapHeader } from './trainingSchemas';
 import { STATE_ZONE } from '../seed/masterData';
+import { getFiscalYearFromDate } from '../utils/fiscalYear';
 
 import { Employee } from '../types/employee';
 
@@ -375,6 +376,7 @@ export const parseExcelFile = (
           const parsedDate = parseAnyDate(m.attendanceDate);
           rec.attendanceDate = parsedDate || null;
           rec.month = parsedDate ? parsedDate.substring(0, 7) : null;
+          rec.fiscalYear = getFiscalYearFromDate(parsedDate || undefined);
 
           // ── Schema-driven score extraction ────────────────────────────────
           schema.scoreFields.forEach(scoreKey => {

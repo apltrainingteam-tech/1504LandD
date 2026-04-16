@@ -22,6 +22,7 @@ import { getRefresherPerformanceAggregates } from '../../services/refresherPerfo
 import { buildCapsuleAttendanceMatrix } from '../../services/capsuleAttendanceService';
 import { getCapsulePerformanceAggregates } from '../../services/capsulePerformanceService';
 import { getEligibleEmployees, EligibilityResult } from '../../services/eligibilityService';
+import { getFiscalYears } from '../../utils/fiscalYear';
 
 import { getCollection } from '../../services/firestoreService';
 import { KPIBox } from '../../components/KPIBox';
@@ -38,10 +39,7 @@ import { normalizeText } from '../../utils/textNormalizer';
 
 const ALL_TRAINING_TYPES = ['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'Pre_AP'];
 
-const FY_OPTIONS = Array.from({ length: 21 }, (_, i) => {
-  const start = 2020 + i;
-  return `${start}-${(start + 1).toString().slice(2)}`;
-});
+const FY_OPTIONS = getFiscalYears(2015);
 
 interface ReportsAnalyticsProps {
   employees: Employee[];

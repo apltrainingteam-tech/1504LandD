@@ -9,6 +9,7 @@ export interface Attendance {
   employeeStatus?: 'ACTIVE' | 'INACTIVE'; // Workforce classification
   trainerId?: string;
   month?: string; // Derived e.g. "2026-04"
+  fiscalYear?: string; // Fiscal year e.g. "2025-26"
   aadhaarNumber?: string;
   mobileNumber?: string;
   name?: string;

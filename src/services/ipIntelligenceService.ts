@@ -3,6 +3,7 @@ import { IPRecord, IPAggregates, IPMonthMapNode, IPHeritageMapCell, IPMonthlyTea
 
 import { TEAM_CLUSTER_MAP } from './clusterMap';
 import { normalizeText } from '../utils/textNormalizer';
+import { getFiscalYears } from '../utils/fiscalYear';
 
 export function getCurrentFY(): string {
   const today = new Date();
@@ -26,11 +27,7 @@ export function getFiscalMonths(fy: string): string[] {
   return months;
 }
 
-export const FISCAL_YEARS = Array.from({ length: 22 }, (_, i) => {
-  const start = 2020 + i;
-  const end = String(start + 1).slice(-2);
-  return `${start}-${end}`;
-});
+export const FISCAL_YEARS = getFiscalYears(2015);
 
 
 
