@@ -47,6 +47,7 @@ export const UploadPreview: React.FC<UploadPreviewProps> = ({ rows, trainingType
     'Status',
     'Match',
     'Quality',
+    'Emp Status',
     'Strength',
     'Aadhaar',
     'Emp ID',
@@ -236,6 +237,13 @@ export const UploadPreview: React.FC<UploadPreviewProps> = ({ rows, trainingType
                     <span style={{ color: 'var(--warning)', fontWeight: 600 }}>PARTIAL</span>
                   ) : (
                     <span style={{ color: 'var(--danger)', fontWeight: 600 }}>NONE</span>
+                  )}
+                </td>
+                <td style={{ fontSize: '12px', fontWeight: 500 }}>
+                  {r.data.employeeStatus === 'ACTIVE' ? (
+                    <span style={{ color: 'var(--success)', fontWeight: 600 }}>ACTIVE</span>
+                  ) : (
+                    <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>INACTIVE</span>
                   )}
                 </td>
                 <td style={{ fontSize: '12px' }}>

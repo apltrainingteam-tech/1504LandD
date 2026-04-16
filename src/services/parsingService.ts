@@ -356,6 +356,7 @@ export const parseExcelFile = (
             _matchQuality: matchQuality, // PERFECT | PARTIAL | NONE
             _matchStrength: matchedBy === 'ID' ? 'HIGH' : matchedBy === 'Aadhaar' ? 'MEDIUM' : matchedBy === 'Mobile' ? 'LOW' : 'NONE',
             isHistorical: !masterData,
+            employeeStatus: masterData ? 'ACTIVE' : 'INACTIVE',
             _mismatches: [] as string[] // Track any mismatches
           };
 
@@ -416,10 +417,12 @@ export const parseExcelFile = (
           }
 
           // Historical record: employee not found in active master
-          if (!masterData && status !== 'error') {
-            messages.push('Employee not found in active master (treated as historical record)');
-            status = 'warn';
-            rec._matchQuality = 'NONE';
+          if (!masterData) {
+            rec.employeeStatus = 'INACTIVE';
+            messages.push('Employee not found in active master → marked as INACTIVE');
+            if (status === 'valid') status = 'warn';
+          } else {
+            rec.employeeStatus = 'ACTIVE';
           }
 
           // Warning: ID override (matched by non-ID, uploaded ID differs from master)

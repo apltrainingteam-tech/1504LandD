@@ -16,6 +16,7 @@ export const exportUnmatchedRows = (rows: any[], filename: string = 'Unmatched_R
   // Transform for export
   const exportData = unmatchedRows.map(r => ({
     '#': r.rowNum || '',
+    Employee_Status: r.employeeStatus || 'UNKNOWN',
     Employee_ID: r.employeeId || '',
     Aadhaar: r.aadhaarNumber || '',
     Mobile: r.mobileNumber || '',
@@ -64,6 +65,7 @@ export const exportUnmatchedRows = (rows: any[], filename: string = 'Unmatched_R
 export const exportFullDiagnostics = (rows: any[], filename: string = 'Full_Upload_Diagnostics.xlsx') => {
   const exportData = rows.map(r => ({
     Row_Num: r.rowNum || '',
+    Employee_Status: r.employeeStatus || 'UNKNOWN',
     Status: r.status?.toUpperCase() || 'UNKNOWN',
     Match_Quality: r._matchQuality || 'NONE',
     Matched_By: r._matchedBy || 'NOT_MATCHED',

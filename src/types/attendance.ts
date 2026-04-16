@@ -6,6 +6,7 @@ export interface Attendance {
   trainingType: TrainingType;
   attendanceDate: string; // ISO date string (yyyy-mm-dd)
   attendanceStatus: 'Present' | 'Absent';
+  employeeStatus?: 'ACTIVE' | 'INACTIVE'; // Workforce classification
   trainerId?: string;
   month?: string; // Derived e.g. "2026-04"
   aadhaarNumber?: string;
