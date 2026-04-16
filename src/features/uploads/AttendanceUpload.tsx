@@ -123,9 +123,11 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
     const validCount = rows.filter(r => r.status === 'valid').length;
     const warnCount = rows.filter(r => r.status === 'warn').length;
     const errCount = rows.filter(r => r.status === 'error').length;
+    const unmatchedCount = rows.filter(r => r.data._matchQuality === 'NONE').length;
+    const perfectCount = rows.filter(r => r.data._matchQuality === 'PERFECT').length;
     const uploadableCount = rows.filter(r => r.status !== 'error').length;
-    const hasUnmatchedRecords = errCount > 0;
-    const canUpload = uploadableCount > 0 && !hasUnmatchedRecords;
+    const strictUploadBlocked = strictMode && perfectCount === 0;
+    const canUpload = uploadableCount > 0 && !strictUploadBlocked;
 
     return (
       <div className="animate-fade-in">
@@ -164,7 +166,7 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
           </div>
         </div>
 
-        {hasUnmatchedRecords && (
+        {strictUploadBlocked ? (
           <div style={{
             padding: '16px 20px',
             background: 'rgba(239, 68, 68, 0.08)',
@@ -177,14 +179,32 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
           }}>
             <XCircle size={20} style={{ color: 'var(--danger)', flexShrink: 0, marginTop: '2px' }} />
             <div>
-              <div style={{ fontWeight: 600, color: 'var(--danger)', marginBottom: '4px' }}>Upload Blocked</div>
+              <div style={{ fontWeight: 600, color: 'var(--danger)', marginBottom: '4px' }}>Strict Mode Restricts Upload</div>
               <div style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.5' }}>
-                {errCount} record(s) could not be matched against the Employee Master database. 
-                These records cannot be imported. Please fix the Employee ID, Aadhaar, or Mobile number and try again.
+                Strict Mode is enabled but no perfectly matched records were found. Disable Strict Mode or correct the data to proceed.
               </div>
             </div>
           </div>
-        )}
+        ) : unmatchedCount > 0 ? (
+          <div style={{
+            padding: '16px 20px',
+            background: 'rgba(245, 158, 11, 0.08)',
+            border: '1px solid rgba(245, 158, 11, 0.3)',
+            borderRadius: '8px',
+            marginBottom: '24px',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '12px'
+          }}>
+            <AlertTriangle size={20} style={{ color: 'var(--warning)', flexShrink: 0, marginTop: '2px' }} />
+            <div>
+              <div style={{ fontWeight: 600, color: 'var(--warning)', marginBottom: '4px' }}>Historical Records Detected</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.5' }}>
+                Some records are not found in active employee master. These will be treated as historical records and still uploaded.
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         <div className="mb-8">
           <UploadPreview 
@@ -200,7 +220,7 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
             className="btn btn-primary w-full" 
             onClick={doUpload} 
             disabled={uploading || !canUpload}
-            title={!canUpload ? hasUnmatchedRecords ? 'Fix unmatched records to proceed' : 'No valid records to upload' : ''}
+            title={!canUpload ? strictUploadBlocked ? 'Strict Mode requires a perfect match' : 'No valid records to upload' : ''}
             style={{ padding: '14px 32px', position: 'relative', overflow: 'hidden' }}
           >
             {uploading ? (
