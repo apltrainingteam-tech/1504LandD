@@ -4,6 +4,14 @@ import { getEligibleEmployees, EligibilityResult, isEligibleHardcoded } from './
 import { TEAM_CLUSTER, STATE_ZONE } from '../seed/masterData';
 import { normalizeText } from '../utils/textNormalizer';
 
+// Zone lookup from state
+const getZoneFromState = (state?: string): string => {
+  if (!state) return 'Unknown';
+  const normalized = state.toUpperCase().trim();
+  const stateZone = STATE_ZONE.find(sz => sz.state.toUpperCase() === normalized);
+  return stateZone?.zone || 'Unknown';
+};
+
 // Simple ID normalization function
 const normalizeId = (id: string | number | undefined | null): string => {
   if (id === null || id === undefined) return '';
@@ -179,25 +187,13 @@ export const computeGapAnalysis = (
   // Apply zone filter for Refresher
   let filteredEmployees = activeEmployees;
   if (zoneFilter && trainingType === 'Refresher') {
-    filteredEmployees = activeEmployees.filter(e => e.zone === zoneFilter);
+    filteredEmployees = activeEmployees.filter(e => {
+      const empZone = e.zone || getZoneFromState(e.state);
+      return empZone === zoneFilter;
+    });
   }
 
-  console.log(
-    "EMPLOYEE SAMPLE IDS:",
-    filteredEmployees.slice(0, 5).map(e => normalizeId(e.employeeId))
-  );
-  
-  // DEBUG: Show raw employee IDs
-  const rawEmployeeSample = filteredEmployees.slice(0, 3).map(e => ({ 
-    raw: e.employeeId, 
-    normalized: normalizeId(e.employeeId),
-    designation: e.designation
-  }));
-  console.table(rawEmployeeSample);
-  
-  // DEBUG: Unique attendance statuses in data
-  const uniqueStatuses = [...new Set(attendance.map(a => a.attendanceStatus))];
-  console.log("📋 UNIQUE ATTENDANCE STATUSES IN DATA:", uniqueStatuses);
+  console.log(`📍 ZONE FILTER: Applied=${!!zoneFilter}, Zone=${zoneFilter}, FilteredCount=${filteredEmployees.length}, TotalActive=${activeEmployees.length}`);
 
   // Get eligible employees using hardcoded rules
   const eligibleEmployeeIds = new Set<string>();

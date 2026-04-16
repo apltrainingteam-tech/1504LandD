@@ -1,15 +1,36 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Filter } from 'lucide-react';
+import { Search, Filter, MapPin } from 'lucide-react';
 import { Employee } from '../../types/employee';
 import { Attendance, TrainingScore } from '../../types/attendance';
 import { SCORE_SCHEMAS } from '../../types/reports';
+import { STATE_ZONE } from '../../seed/masterData';
 import { buildUnifiedDataset } from '../../services/reportService';
-
-const normalizeType = (value?: string) => (value || '').toUpperCase();
 import { DataTable } from '../../components/DataTable';
 import { Filters } from '../../components/Filters';
 import { formatDateForDisplay } from '../../utils/dateParser';
 import { displayScore } from '../../utils/scoreNormalizer';
+
+// Training type normalization
+const trainingTypeMap: Record<string, string> = {
+  'REFRESHER_SO': 'Refresher',
+  'REFRESHER_MANAGER': 'Refresher',
+  'REFRESHER': 'Refresher',
+  'CAPSULE': 'Capsule',
+};
+
+const normalizeTrainingType = (value?: string): string => {
+  if (!value) return '';
+  const upper = value.toUpperCase().trim();
+  return trainingTypeMap[upper] || upper;
+};
+
+// Zone lookup from state
+const getZoneFromState = (state?: string): string => {
+  if (!state) return 'Unknown';
+  const normalized = state.toUpperCase().trim();
+  const stateZone = STATE_ZONE.find(sz => sz.state.toUpperCase() === normalized);
+  return stateZone?.zone || 'Unknown';
+};
 
 interface TrainingsViewerProps {
   employees: Employee[];
@@ -20,12 +41,37 @@ interface TrainingsViewerProps {
 export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, attendance, scores }) => {
   const [tab, setTab] = useState('IP');
   const [search, setSearch] = useState('');
+  const [selectedZone, setSelectedZone] = useState('All Zones');
+
+  // Get unique zones
+  const zones = useMemo(() => {
+    const uniqueZones = new Set(STATE_ZONE.map(sz => sz.zone));
+    return ['All Zones', ...Array.from(uniqueZones).sort()];
+  }, []);
 
   const unified = useMemo(() => {
-    const filteredAtt = attendance.filter(a => normalizeType(a.trainingType) === tab);
-    const filteredScs = scores.filter(s => normalizeType(s.trainingType) === tab);
-    return buildUnifiedDataset(employees, filteredAtt, filteredScs, []);
-  }, [employees, attendance, scores, tab]);
+    // Filter by training type (normalized)
+    const normalizedTab = normalizeTrainingType(tab);
+    const filteredAtt = attendance.filter(a => {
+      const normalized = normalizeTrainingType(a.trainingType);
+      return normalized === normalizedTab;
+    });
+    const filteredScs = scores.filter(s => {
+      const normalized = normalizeTrainingType(s.trainingType);
+      return normalized === normalizedTab;
+    });
+    
+    // Filter by zone
+    const filteredEmployees = employees.filter(emp => {
+      if (selectedZone === 'All Zones') return true;
+      const empZone = emp.zone || getZoneFromState(emp.state);
+      return empZone === selectedZone;
+    });
+    
+    console.log(`📊 TRAININGS VIEWER: Training=${normalizedTab}, Zone=${selectedZone}, Employees=${filteredEmployees.length}, Attendance=${filteredAtt.length}`);
+    
+    return buildUnifiedDataset(filteredEmployees, filteredAtt, filteredScs, []);
+  }, [employees, attendance, scores, tab, selectedZone]);
 
   const filtered = useMemo(() => {
     if (!search) return unified;
@@ -52,10 +98,25 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
       </div>
 
       <Filters 
-        options={['IP', 'AP', 'MIP']} 
+        options={['IP', 'AP', 'MIP', 'Refresher', 'Capsule']} 
         activeOption={tab} 
         onChange={setTab} 
       />
+
+      {/* Zone Filter */}
+      <div className="glass-panel" style={{ padding: '12px 24px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <MapPin size={16} style={{ color: 'var(--text-secondary)' }} />
+        <select 
+          value={selectedZone} 
+          onChange={(e) => setSelectedZone(e.target.value)}
+          className="gap-select"
+          style={{ maxWidth: '200px' }}
+        >
+          {zones.map(zone => (
+            <option key={zone} value={zone}>{zone}</option>
+          ))}
+        </select>
+      </div>
 
       <div className="glass-panel" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', gap: '16px' }}>

@@ -1,11 +1,18 @@
-declare module 'react';
-
-import React, { useState, useMemo, ChangeEvent } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ChevronRight, ChevronDown, Users, CheckCircle2, AlertTriangle, TrendingUp, Search, X, MapPin } from 'lucide-react';
 import { Employee } from '../../types/employee';
 import { Attendance, TrainingScore, TrainingNomination } from '../../types/attendance';
+import { STATE_ZONE } from '../../seed/masterData';
 import { computeGapAnalysis, GapAnalysisData, EmployeeGapDetail } from '../../services/gapAnalysisService';
 import { KPIBox } from '../../components/KPIBox';
+
+// Zone lookup from state
+const getZoneFromState = (state?: string): string => {
+  if (!state) return 'Unknown';
+  const normalized = state.toUpperCase().trim();
+  const stateZone = STATE_ZONE.find(sz => sz.state.toUpperCase() === normalized);
+  return stateZone?.zone || 'Unknown';
+};
 
 interface GapAnalysisProps {
   employees: Employee[];
@@ -21,10 +28,25 @@ const GapAnalysis = ({ employees, attendance, nominations }: GapAnalysisProps) =
   const [zoneFilter, setZoneFilter] = useState<string>('');
   const [drilldownData, setDrilldownData] = useState<EmployeeGapDetail[] | null>(null);
 
+  // Get unique zones from masterData
+  const zones = useMemo(() => {
+    const uniqueZones = new Set(STATE_ZONE.map(sz => sz.zone));
+    return ['All Zones', ...Array.from(uniqueZones).sort()];
+  }, []);
+
   const { data, drilldownMap } = useMemo(() => {
-    const zone = tab === 'Refresher' ? zoneFilter : undefined;
-    console.log(`📊 COMPUTING GAP ANALYSIS: Tab=${tab}, Employees=${employees.length}`);
-    const result = computeGapAnalysis(tab, employees, attendance, nominations, zone);
+    // Filter employees by zone if Refresher tab and zone filter selected
+    let filteredEmployees = employees;
+    if (tab === 'Refresher' && zoneFilter) {
+      filteredEmployees = employees.filter(emp => {
+        const empZone = emp.zone || getZoneFromState(emp.state);
+        return empZone === zoneFilter;
+      });
+    }
+    
+    console.log(`📊 GAP ANALYSIS: Tab=${tab}, Zone=${zoneFilter || 'All'}, FilteredEmployees=${filteredEmployees.length}, TotalEmployees=${employees.length}`);
+    
+    const result = computeGapAnalysis(tab, filteredEmployees, attendance, nominations, zoneFilter);
     console.log(`✓ RESULT for ${tab}: ${result.data.length} rows`);
     if (result.data.length > 0) {
       console.log(`  - Total Active: ${result.data.reduce((s, d) => s + d.totalActive, 0)}`);
@@ -92,7 +114,6 @@ const GapAnalysis = ({ employees, attendance, nominations }: GapAnalysisProps) =
 
   const renderZoneFilter = () => {
     if (tab !== 'Refresher') return null;
-    const zones = ['East', 'West', 'North', 'South'];
     return (
       <div className="gap-filter-container">
         <span className="gap-filter-label">
@@ -101,11 +122,14 @@ const GapAnalysis = ({ employees, attendance, nominations }: GapAnalysisProps) =
         </span>
         <select
           value={zoneFilter}
-          onChange={(e: ChangeEvent<HTMLSelectElement>) => setZoneFilter(e.target.value)}
+          onChange={(e) => setZoneFilter(e.target.value)}
           className="gap-select"
         >
-          <option value="">All Zones</option>
-          {zones.map(zone => <option key={zone} value={zone}>{zone}</option>)}
+          {zones.map(zone => (
+            <option key={zone} value={zone === 'All Zones' ? '' : zone}>
+              {zone}
+            </option>
+          ))}
         </select>
       </div>
     );
