@@ -1,8 +1,9 @@
 import { Employee } from '../types/employee';
 import { Attendance, TrainingType, TrainingNomination, EligibilityRule } from '../types/attendance';
-import { getEligibleEmployees, EligibilityResult, isEligibleHardcoded } from './eligibilityService';
+import { getEligibleEmployees, EligibilityResult } from './eligibilityService';
 import { TEAM_CLUSTER, STATE_ZONE } from '../seed/masterData';
 import { normalizeText } from '../utils/textNormalizer';
+import { standardizeDesignation } from '../utils/designationMapper';
 
 // Zone lookup from state
 const getZoneFromState = (state?: string): string => {
@@ -61,7 +62,11 @@ export const isEligible = (employee: Employee, trainingType: TrainingType, rules
 
 export const getLatestAttendance = (employeeId: string, trainingType: TrainingType, attendance: Attendance[]): Attendance | null => {
   const empAttendance = attendance
-    .filter(a => a.employeeId === employeeId && normalize(a.trainingType) === normalize(trainingType) && normalize(a.attendanceStatus) === 'present')
+    .filter(a =>
+      normalizeId(a.employeeId) === normalizeId(employeeId) &&
+      normalize(a.trainingType) === normalize(trainingType) &&
+      normalize(a.attendanceStatus) === 'present'
+    )
     .sort((a, b) => new Date(b.attendanceDate).getTime() - new Date(a.attendanceDate).getTime());
   return empAttendance[0] || null;
 };
@@ -176,7 +181,7 @@ export const computeGapAnalysis = (
 
   // Apply zone filter for Refresher
   let filteredEmployees = baseEmployees;
-  if (zoneFilter && trainingType === 'Refresher') {
+  if (zoneFilter && normalizedTrainingType === 'Refresher') {
     filteredEmployees = baseEmployees.filter(e => {
       const empZone = e.zone || getZoneFromState(e.state);
       return empZone === zoneFilter;
@@ -288,15 +293,19 @@ export const computeGapAnalysis = (
               team: emp.team,
               dateOfJoining: emp.doj,
               daysSinceJoining: daysSince,
-              trainingType
+              trainingType: normalizedTrainingType
             });
 
             // For MIP, count by designation
             if (trainingType === 'MIP') {
-              const des = emp.designation?.toLowerCase();
-              if (des?.includes('flm')) teamData.flmUntrained = (teamData.flmUntrained || 0) + 1;
-              else if (des?.includes('slm')) teamData.slmUntrained = (teamData.slmUntrained || 0) + 1;
-              else if (des?.includes('sr manager') || des?.includes('senior manager')) teamData.srManagerUntrained = (teamData.srManagerUntrained || 0) + 1;
+              const des = standardizeDesignation(emp.designation);
+              if (des === 'FLM') {
+                teamData.flmUntrained = (teamData.flmUntrained || 0) + 1;
+              } else if (des === 'SLM') {
+                teamData.slmUntrained = (teamData.slmUntrained || 0) + 1;
+              } else if (des === 'SR MANAGER') {
+                teamData.srManagerUntrained = (teamData.srManagerUntrained || 0) + 1;
+              }
             }
           }
         }
