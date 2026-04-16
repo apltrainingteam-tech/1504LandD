@@ -94,22 +94,60 @@ const GapAnalysis = ({ employees, attendance, nominations }: GapAnalysisProps) =
     if (tab !== 'Refresher') return null;
     const zones = ['East', 'West', 'North', 'South'];
     return (
-      <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <MapPin size={16} />
+      <div className="gap-filter-container">
+        <span className="gap-filter-label">
+          <MapPin size={16} />
+          Zone:
+        </span>
         <select
           value={zoneFilter}
           onChange={(e: ChangeEvent<HTMLSelectElement>) => setZoneFilter(e.target.value)}
-          style={{ 
-            padding: '8px 12px', 
-            borderRadius: '6px', 
-            border: '1px solid var(--border-color)', 
-            background: 'var(--bg-secondary)',
-            color: 'var(--text-primary)'
-          }}
+          className="gap-select"
         >
           <option value="">All Zones</option>
           {zones.map(zone => <option key={zone} value={zone}>{zone}</option>)}
         </select>
+      </div>
+    );
+  };
+
+  const renderGapInsight = () => {
+    return (
+      <div className="gap-insight">
+        <div className="gap-insight-item">
+          <span className="gap-insight-icon">🎯</span>
+          <div>
+            <div className="gap-insight-label">Eligible</div>
+            <div className="gap-insight-value">{totalEligible}</div>
+          </div>
+        </div>
+        <div className="gap-insight-divider"></div>
+        <div className="gap-insight-item">
+          <span className="gap-insight-icon">📉</span>
+          <div>
+            <div className="gap-insight-label">Untrained</div>
+            <div className="gap-insight-value">{totalUntrained}</div>
+          </div>
+        </div>
+        <div className="gap-insight-divider"></div>
+        <div className="gap-insight-item">
+          <span className="gap-insight-icon">📈</span>
+          <div>
+            <div className="gap-insight-label">Coverage</div>
+            <div className="gap-insight-value">{coveragePercent.toFixed(1)}%</div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderEmptyState = () => {
+    if (data.length > 0) return null;
+    return (
+      <div className="gap-empty-state">
+        <div className="gap-empty-icon">📊</div>
+        <div className="gap-empty-title">No Data Available</div>
+        <div className="gap-empty-text">No eligible employees found for {tab} training</div>
       </div>
     );
   };
@@ -119,8 +157,8 @@ const GapAnalysis = ({ employees, attendance, nominations }: GapAnalysisProps) =
     const isCapsule = tab === 'Capsule';
 
     return (
-      <div className="glass-panel" style={{ overflow: 'auto' }}>
-        <table className="data-table">
+      <div className="gap-table-container glass-panel">
+        <table className="data-table gap-data-table">
           <thead>
             <tr>
               <th style={{ width: '40px' }}></th>
@@ -128,7 +166,7 @@ const GapAnalysis = ({ employees, attendance, nominations }: GapAnalysisProps) =
               {!isCapsule && <th style={{ textAlign: 'center' }}>Total Active</th>}
               {!isCapsule && <th style={{ textAlign: 'center' }}>Eligible</th>}
               <th style={{ textAlign: 'center' }}>Untrained</th>
-              {!isCapsule && <th style={{ textAlign: 'center' }}>Untrained %</th>}
+              {!isCapsule && <th style={{ textAlign: 'center' }} title="Percentage of eligible employees not yet trained">Untrained %</th>}
               {!isCapsule && !isMIP && <th style={{ textAlign: 'center' }}>&gt; 90 Days</th>}
               {isMIP && <th style={{ textAlign: 'center' }}>FLM</th>}
               {isMIP && <th style={{ textAlign: 'center' }}>SLM</th>}
@@ -141,11 +179,16 @@ const GapAnalysis = ({ employees, attendance, nominations }: GapAnalysisProps) =
               const key = isCluster ? row.cluster : `${row.cluster}-${row.team}`;
               const isExpanded = expanded.has(row.cluster);
               const indent = isCluster ? 0 : 20;
+              const isCritical = !isCluster && row.untrainedPercent > 70;
 
               if (!isCluster && !isExpanded) return null;
 
               return (
-                <tr key={index} style={{ background: isCluster ? 'rgba(0,0,0,0.1)' : 'transparent' }}>
+                <tr 
+                  key={index} 
+                  className={isCritical ? 'gap-critical-row' : ''}
+                  style={{ background: isCluster ? 'rgba(0,0,0,0.1)' : 'transparent' }}
+                >
                   <td>
                     {isCluster && (
                       <button
@@ -170,7 +213,19 @@ const GapAnalysis = ({ employees, attendance, nominations }: GapAnalysisProps) =
                   >
                     {row.untrained}
                   </td>
-                  {!isCapsule && <td style={{ textAlign: 'center' }}>{row.untrainedPercent.toFixed(1)}%</td>}
+                  {!isCapsule && (
+                    <td style={{ textAlign: 'center' }}>
+                      <div className="gap-metric-cell">
+                        <div className="gap-progress-bar">
+                          <div 
+                            className="gap-progress-fill"
+                            style={{ width: `${row.untrainedPercent}%` }}
+                          ></div>
+                        </div>
+                        <span className={isCritical ? 'gap-critical-text' : ''}>{row.untrainedPercent.toFixed(1)}%</span>
+                      </div>
+                    </td>
+                  )}
                   {!isCapsule && !isMIP && <td style={{ textAlign: 'center' }}>{row.over90Days}</td>}
                   {isMIP && <td style={{ textAlign: 'center' }}>{row.flmUntrained || 0}</td>}
                   {isMIP && <td style={{ textAlign: 'center' }}>{row.slmUntrained || 0}</td>}
@@ -234,12 +289,12 @@ const GapAnalysis = ({ employees, attendance, nominations }: GapAnalysisProps) =
         <p style={{ color: 'var(--text-secondary)', margin: '8px 0 0 0' }}>Identify training gaps across clusters and teams</p>
       </div>
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: '4px', marginBottom: '24px' }}>
+      {/* Tabs - Pill Style */}
+      <div className="gap-tabs">
         {(['AP', 'MIP', 'Refresher', 'Capsule'] as TrainingTab[]).map(t => (
           <button
             key={t}
-            className={`tab ${tab === t ? 'tab-active' : ''}`}
+            className={`gap-tab ${tab === t ? 'gap-tab-active' : ''}`}
             onClick={() => setTab(t)}
           >
             {t}
@@ -248,8 +303,17 @@ const GapAnalysis = ({ employees, attendance, nominations }: GapAnalysisProps) =
       </div>
 
       {renderZoneFilter()}
+      
+      {/* KPIs */}
       {renderKPIs()}
-      {renderTable()}
+      
+      {/* Insights */}
+      {data.length > 0 && renderGapInsight()}
+      
+      {/* Empty State or Table */}
+      {renderEmptyState()}
+      {data.length > 0 && renderTable()}
+      
       {renderDrilldownModal()}
     </div>
   );

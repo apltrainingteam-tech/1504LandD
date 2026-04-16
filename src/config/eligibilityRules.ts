@@ -22,7 +22,7 @@ export const ELIGIBILITY_RULES = {
   },
 
   Capsule: {
-    designations: "ALL",
+    designations: ["MR", "FLM"],
     preTraining: [],
     preTrainingApplicableTo: "ALL",
     minYears: null,

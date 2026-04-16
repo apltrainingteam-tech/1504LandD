@@ -15,6 +15,9 @@ const normalizeId = (id: string | number | undefined | null): string => {
     .toLowerCase();
 };
 
+// Normalize strings for comparison
+const normalize = (val?: string): string => val?.toLowerCase().trim() || '';
+
 export interface GapAnalysisData {
   cluster: string;
   team: string;
@@ -49,11 +52,8 @@ export const isEligible = (employee: Employee, trainingType: TrainingType, rules
 };
 
 export const getLatestAttendance = (employeeId: string, trainingType: TrainingType, attendance: Attendance[]): Attendance | null => {
-  const normalize = (val?: string) => val?.toLowerCase().trim();
-  const normalizedTrainingType = normalize(trainingType);
-
   const empAttendance = attendance
-    .filter(a => a.employeeId === employeeId && normalize(a.trainingType) === normalizedTrainingType && a.attendanceStatus === 'Present')
+    .filter(a => a.employeeId === employeeId && normalize(a.trainingType) === normalize(trainingType) && normalize(a.attendanceStatus) === 'present')
     .sort((a, b) => new Date(b.attendanceDate).getTime() - new Date(a.attendanceDate).getTime());
   return empAttendance[0] || null;
 };
@@ -136,24 +136,39 @@ export const computeGapAnalysis = (
   nominations: TrainingNomination[],
   zoneFilter?: string
 ): { data: GapAnalysisData[], drilldownData: Map<string, EmployeeGapDetail[]> } => {
-  // Normalize trainingType comparison
-  const selectedType = trainingType.toUpperCase();
+  // Training type mapping for common variations
+  const trainingTypeMap: { [key: string]: TrainingType } = {
+    'REFRESHER_SO': 'Refresher',
+    'REFRESHER_MANAGER': 'Refresher',
+    'CAPSULE_SO': 'Capsule',
+    'CAPSULE_MANAGER': 'Capsule'
+  };
 
+  // Normalize training type
+  const normalizedTrainingType = trainingTypeMap[trainingType.toUpperCase()] || trainingType;
+  
   // Create set of employees who attended this training
   const attendedSet = new Set(
     attendance
       .filter(a =>
         a.employeeId &&
-        a.attendanceStatus?.toUpperCase() === 'PRESENT' &&
-        a.trainingType?.toUpperCase() === selectedType
+        normalize(a.attendanceStatus) === 'present' &&
+        normalize(a.trainingType) === normalize(normalizedTrainingType)
       )
       .map(a => normalizeId(a.employeeId))
   );
 
-  console.log("ATTENDED SET SIZE:", attendedSet.size);
-  console.log("ATTENDED SAMPLE:", Array.from(attendedSet).slice(0,5));
-
-  console.log("EMP SAMPLE:", employees.slice(0,5).map(e => normalizeId(e.employeeId)));
+  // DEBUG: Log training type analysis
+  console.log("📋 TRAINING TYPE ANALYSIS:", {
+    requested: trainingType,
+    normalized: normalizedTrainingType,
+    attendanceTypes: [...new Set(attendance.filter(a => a.employeeId).map(a => a.trainingType))].slice(0, 10),
+    attendedCount: attendedSet.size
+  });
+  
+  if (attendedSet.size === 0) {
+    console.warn(`⚠️ WARNING: Zero attendance records found for '${normalizedTrainingType}'`);
+  }
 
   // Enrich employees
   const enrichedEmployees = enrichEmployees(employees);
@@ -167,15 +182,60 @@ export const computeGapAnalysis = (
     filteredEmployees = activeEmployees.filter(e => e.zone === zoneFilter);
   }
 
+  console.log(
+    "EMPLOYEE SAMPLE IDS:",
+    filteredEmployees.slice(0, 5).map(e => normalizeId(e.employeeId))
+  );
+  
+  // DEBUG: Show raw employee IDs
+  const rawEmployeeSample = filteredEmployees.slice(0, 3).map(e => ({ 
+    raw: e.employeeId, 
+    normalized: normalizeId(e.employeeId),
+    designation: e.designation
+  }));
+  console.table(rawEmployeeSample);
+  
+  // DEBUG: Unique attendance statuses in data
+  const uniqueStatuses = [...new Set(attendance.map(a => a.attendanceStatus))];
+  console.log("📋 UNIQUE ATTENDANCE STATUSES IN DATA:", uniqueStatuses);
+
   // Get eligible employees using hardcoded rules
   const eligibleEmployeeIds = new Set<string>();
   filteredEmployees.forEach(emp => {
-    if (isEligibleHardcoded(emp, trainingType, attendance, nominations)) {
-      eligibleEmployeeIds.add(emp.employeeId);
+    if (isEligibleHardcoded(emp, trainingType, attendance, nominations, true)) {
+      eligibleEmployeeIds.add(normalizeId(emp.employeeId));
     }
   });
 
   console.log(`🔍 GAP-${trainingType}: Eligible count: ${eligibleEmployeeIds.size}`);
+  console.log(`📊 Attended: ${attendedSet.size}, Eligible: ${eligibleEmployeeIds.size}`);
+  
+  // DEBUG: Show sample of eligible IDs
+  const eligibleSample = Array.from(eligibleEmployeeIds).slice(0, 5);
+  console.log("🔹 ELIGIBLE IDs SAMPLE:", JSON.stringify(eligibleSample));
+  const attendedSample = Array.from(attendedSet).slice(0, 5);
+  console.log("🔹 ATTENDED IDs SAMPLE:", JSON.stringify(attendedSample));
+
+  // Debug: Check if any eligible IDs are in attended set
+  const matchedCount = Array.from(eligibleEmployeeIds).filter(id => attendedSet.has(id)).length;
+  console.log(`✅ Matched (eligible + attended): ${matchedCount}`);
+  if (matchedCount === 0 && attendedSet.size > 0 && eligibleEmployeeIds.size > 0) {
+    console.warn("⚠️ WARNING: No matches found. ID format mismatch or data issue.");
+    
+    // Deep diagnostic
+    console.log("🔧 DEEP DIAGNOSTIC:");
+    const eligibleArray = Array.from(eligibleEmployeeIds).slice(0, 5);
+    const attendedArray = Array.from(attendedSet).slice(0, 5);
+    console.log("  Eligible IDs:", eligibleArray);
+    console.log("  Attended IDs:", attendedArray);
+    
+    // Check specific employees
+    const firstEligible = eligibleArray[0];
+    if (firstEligible) {
+      const isInAttended = attendedSet.has(firstEligible);
+      console.log(`  Is '${firstEligible}' in attended? ${isInAttended}`);
+    }
+  }
 
   // Group employees by cluster/team
   const grouped = groupByClusterTeam(filteredEmployees);
@@ -210,17 +270,12 @@ export const computeGapAnalysis = (
       const untrainedDetails: EmployeeGapDetail[] = [];
 
       emps.forEach(emp => {
-        const isElig = eligibleEmployeeIds.has(emp.employeeId);
+        const normalizedEmpId = normalizeId(emp.employeeId);
+        const isElig = eligibleEmployeeIds.has(normalizedEmpId);
         if (isElig) {
           teamData.eligible++;
-          const isTrained = attendedSet.has(normalizeId(emp.employeeId));
+          const isTrained = attendedSet.has(normalizedEmpId);
           const isUntrained = !isTrained;
-
-          console.log({
-            empId: emp.employeeId,
-            trainingType: selectedType,
-            attended: isTrained
-          });
 
           if (isUntrained) {
             teamData.untrained++;

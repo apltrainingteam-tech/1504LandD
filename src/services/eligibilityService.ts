@@ -21,8 +21,14 @@ export interface EligibilityResult {
 }
 
 // Simple ID normalization function
-const normalizeId = (id: string | undefined): string => {
-  return (id || '').toString().trim().toLowerCase();
+const normalizeId = (id: string | number | undefined | null): string => {
+  if (id === null || id === undefined) return '';
+
+  return String(id)
+    .trim()
+    .replace(/\.0+$/, '')
+    .replace(/\s+/g, '')
+    .toLowerCase();
 };
 
 /**
@@ -72,7 +78,7 @@ export const getEligibleEmployees = (
     if (isEligible && rule.previousTraining?.mode === 'INCLUDE') {
       const completedTrainings = new Set(
         attendance
-          .filter(a => normalizeId(a.employeeId) === normalizeId(emp.employeeId) && a.attendanceStatus === 'Present')
+          .filter(a => normalizeId(a.employeeId) === normalizeId(emp.employeeId) && normalize(a.attendanceStatus) === 'present')
           .map(a => normalize(a.trainingType))
       );
       
@@ -140,14 +146,25 @@ export const getEligibleEmployees = (
   });
 };
 
+// Helper to calculate experience years from DOJ
+const getExperienceYears = (doj?: string): number => {
+  if (!doj) return 0;
+  const joiningDate = new Date(doj);
+  const today = new Date();
+  const diffTime = today.getTime() - joiningDate.getTime();
+  return diffTime / (1000 * 60 * 60 * 24 * 365);
+};
+
 /**
  * Hardcoded eligibility check based on fixed rules
+ * @param ignoreTrainingStatus - If true, skip excludeIfAlreadyTrained and nomination-based rules (for gap analysis)
  */
 export const isEligibleHardcoded = (
   employee: Employee,
   trainingType: TrainingType,
   attendance: Attendance[],
-  nominations: TrainingNomination[]
+  nominations: TrainingNomination[],
+  ignoreTrainingStatus: boolean = false
 ): boolean => {
   const rule = ELIGIBILITY_RULES[trainingType as keyof typeof ELIGIBILITY_RULES];
   if (!rule) return true; // If no rule, assume eligible
@@ -165,19 +182,18 @@ export const isEligibleHardcoded = (
     }
   }
 
-  // 2. Experience check
+  // 2. Experience check (using DOJ)
   if (rule.minYears !== null || rule.maxYears !== null) {
-    const doj = new Date(employee.doj);
-    const years = (now.getTime() - doj.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+    const years = getExperienceYears(employee.doj);
     if (rule.minYears !== null && years < rule.minYears) return false;
     if (rule.maxYears !== null && years > rule.maxYears) return false;
   }
 
-  // 3. Pre-training check
-  if (rule.preTraining.length > 0) {
+  // 3. Pre-training check (skip for gap analysis)
+  if (!ignoreTrainingStatus && rule.preTraining.length > 0) {
     const completedTrainings = new Set(
       attendance
-        .filter(a => normalizeId(a.employeeId) === normalizeId(employee.employeeId) && a.attendanceStatus === 'Present')
+        .filter(a => normalizeId(a.employeeId) === normalizeId(employee.employeeId) && normalize(a.attendanceStatus) === 'present')
         .map(a => normalize(a.trainingType))
     );
 
@@ -199,18 +215,18 @@ export const isEligibleHardcoded = (
     }
   }
 
-  // 4. Exclude if already trained
-  if (rule.excludeIfAlreadyTrained) {
+  // 4. Exclude if already trained (skip for gap analysis)
+  if (!ignoreTrainingStatus && rule.excludeIfAlreadyTrained) {
     const hasAttended = attendance.some(a => 
       normalizeId(a.employeeId) === normalizeId(employee.employeeId) && 
       normalize(a.trainingType) === normalize(trainingType) && 
-      a.attendanceStatus === 'Present'
+      normalize(a.attendanceStatus) === 'present'
     );
     if (hasAttended) return false;
   }
 
-  // 5. Capsule rule (noAPInNext90Days)
-  if (rule.noAPInNext90Days) {
+  // 5. Capsule rule (noAPInNext90Days) - skip for gap analysis
+  if (!ignoreTrainingStatus && rule.noAPInNext90Days) {
     const hasAPNomination = nominations.some(n => 
       normalizeId(n.employeeId) === normalizeId(employee.employeeId) && 
       n.trainingType === 'AP' && 
@@ -220,8 +236,8 @@ export const isEligibleHardcoded = (
     if (hasAPNomination) return false;
   }
 
-  // 6. Pre-AP rule (preAPOnlyIfNominated)
-  if (rule.preAPOnlyIfNominated) {
+  // 6. Pre-AP rule (preAPOnlyIfNominated) - skip for gap analysis
+  if (!ignoreTrainingStatus && rule.preAPOnlyIfNominated) {
     const isNominatedForAP = nominations.some(n => 
       normalizeId(n.employeeId) === normalizeId(employee.employeeId) && 
       n.trainingType === 'AP'
