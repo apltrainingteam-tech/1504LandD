@@ -3,6 +3,7 @@ import { parseAnyDate } from '../utils/dateParser';
 import { normalizeScore } from '../utils/scoreNormalizer';
 import { normalizeText } from '../utils/textNormalizer';
 import { getSchema, mapHeader } from './trainingSchemas';
+import { STATE_ZONE } from '../seed/masterData';
 
 import { Employee } from '../types/employee';
 
@@ -12,6 +13,102 @@ export interface ParsedRow {
   messages: string[];
   rowNum: number;
 }
+
+// ─── NORMALIZATION HELPER ───────────────────────────────────────────────────
+const normalize = (val?: string | number): string =>
+  String(val ?? '')
+    .trim()
+    .replace(/\s+/g, '')
+    .toLowerCase();
+
+// ─── ZONE LOOKUP FROM STATE ───────────────────────────────────────────────────
+const getZoneFromState = (state?: string): string => {
+  if (!state) return 'Unknown';
+  const normalized = state.toUpperCase().trim();
+  const stateZone = STATE_ZONE.find(sz => sz.state.toUpperCase() === normalized);
+  return stateZone?.zone || 'Unknown';
+};
+
+// ─── SMART EMPLOYEE MASTER INDEX ────────────────────────────────────────────
+interface MasterIndex {
+  empById: Map<string, Employee>;
+  empByAadhaar: Map<string, Employee>;
+  empByMobile: Map<string, Employee>;
+}
+
+const buildMasterIndex = (employees: Employee[]): MasterIndex => {
+  const empById = new Map<string, Employee>();
+  const empByAadhaar = new Map<string, Employee>();
+  const empByMobile = new Map<string, Employee>();
+
+  employees.forEach(emp => {
+    if (emp.employeeId) {
+      empById.set(normalize(emp.employeeId), emp);
+    }
+    if (emp.aadhaarNumber) {
+      empByAadhaar.set(normalize(emp.aadhaarNumber), emp);
+    }
+    if (emp.mobileNumber) {
+      empByMobile.set(normalize(emp.mobileNumber), emp);
+    }
+  });
+
+  return { empById, empByAadhaar, empByMobile };
+};
+
+// ─── MATCHING PRIORITY LOGIC ─────────────────────────────────────────────────
+const findEmployeeInMaster = (
+  row: any,
+  index: MasterIndex
+): { employee: Employee | null; matchedBy: string } => {
+  const empId = normalize(row.employeeId);
+  const aadhaar = normalize(row.aadhaarNumber);
+  const mobile = normalize(row.mobileNumber);
+
+  // Priority 1: Employee ID
+  if (empId && index.empById.has(empId)) {
+    return { employee: index.empById.get(empId)!, matchedBy: 'ID' };
+  }
+
+  // Priority 2: Aadhaar
+  if (aadhaar && index.empByAadhaar.has(aadhaar)) {
+    return { employee: index.empByAadhaar.get(aadhaar)!, matchedBy: 'Aadhaar' };
+  }
+
+  // Priority 3: Mobile
+  if (mobile && index.empByMobile.has(mobile)) {
+    return { employee: index.empByMobile.get(mobile)!, matchedBy: 'Mobile' };
+  }
+
+  return { employee: null, matchedBy: '' };
+};
+
+// ─── MISMATCH VALIDATION ────────────────────────────────────────────────────
+const validateMismatch = (row: any, emp: Employee): string[] => {
+  const issues: string[] = [];
+
+  // Name mismatch
+  if (row.name && normalize(row.name) !== normalize(emp.name)) {
+    issues.push(`Name mismatch: "${row.name}" vs "${emp.name}"`);
+  }
+
+  // State mismatch
+  if (row.state && normalize(row.state) !== normalize(emp.state)) {
+    issues.push(`State mismatch: "${row.state}" vs "${emp.state}"`);
+  }
+
+  // Mobile mismatch
+  if (row.mobileNumber && normalize(row.mobileNumber) !== normalize(emp.mobileNumber)) {
+    issues.push(`Mobile mismatch: "${row.mobileNumber}" vs "${emp.mobileNumber}"`);
+  }
+
+  // Aadhaar mismatch
+  if (row.aadhaarNumber && normalize(row.aadhaarNumber) !== normalize(emp.aadhaarNumber)) {
+    issues.push(`Aadhaar mismatch: "${row.aadhaarNumber}" vs "${emp.aadhaarNumber}"`);
+  }
+
+  return issues;
+};
 
 // ─── HELPER: build a column→camelKey map for a given set of raw headers ─────
 function buildColMap(rawCols: string[]): Record<string, string> {
@@ -153,7 +250,7 @@ export const parseNominationExcel = (file: File, trainingType: string, masterEmp
   });
 };
 
-// ─── ATTENDANCE + SCORE PARSER (SCHEMA-DRIVEN) ───────────────────────────────
+// ─── ATTENDANCE + SCORE PARSER (SCHEMA-DRIVEN WITH SMART MATCHING) ───────────
 export const parseExcelFile = (
   file: File,
   trainingType: string,
@@ -177,8 +274,17 @@ export const parseExcelFile = (
         // Get schema for this training type
         const schema = getSchema(trainingType);
 
-        // Lookup master data
-        const empMap = new Map(masterEmployees.map(e => [e.employeeId, e]));
+        // 🔥 NORMALIZATION HELPER
+        const normalize = (val?: string | number) =>
+          String(val ?? '')
+            .trim()
+            .replace(/\s+/g, '')
+            .toLowerCase();
+
+        // 🔥 BUILD MULTI-IDENTIFIER INDEXES FOR FAST LOOKUP
+        const empById = new Map(masterEmployees.map(e => [normalize(e.employeeId), e]));
+        const empByAadhaar = new Map(masterEmployees.map(e => [normalize(e.aadhaarNumber), e]));
+        const empByMobile = new Map(masterEmployees.map(e => [normalize(e.mobileNumber), e]));
 
         const processed: ParsedRow[] = json.map((raw, idx) => {
           // Remap all raw keys to camelCase via schema-aware mapper
@@ -188,28 +294,66 @@ export const parseExcelFile = (
             m[mappedKey] = v;
           });
 
-          const rawEmpId = String(m.employeeId || '').trim();
-          const masterData = empMap.get(rawEmpId);
+          // 🔥 EXTRACT & NORMALIZE INPUT VALUES
+          const rawEmpId = normalize(m.employeeId);
+          const rawAadhaar = normalize(m.aadhaarNumber);
+          const rawMobile = normalize(m.mobileNumber);
 
-          // Build base record — prefer Master data for identity fields
+          // 🔥 MATCH PRIORITY: ID → Aadhaar → Mobile
+          let masterData = null;
+          let matchedBy = '';
+
+          if (rawEmpId && empById.has(rawEmpId)) {
+            masterData = empById.get(rawEmpId);
+            matchedBy = 'ID';
+          } else if (rawAadhaar && empByAadhaar.has(rawAadhaar)) {
+            masterData = empByAadhaar.get(rawAadhaar);
+            matchedBy = 'Aadhaar';
+          } else if (rawMobile && empByMobile.has(rawMobile)) {
+            masterData = empByMobile.get(rawMobile);
+            matchedBy = 'Mobile';
+          }
+
+          // 🔥 CALCULATE MATCH QUALITY (for strict mode)
+          const isPerfectMatch =
+            masterData &&
+            matchedBy === 'ID' &&
+            rawEmpId === normalize(masterData.employeeId);
+
+          const matchQuality = !masterData ? 'NONE' : isPerfectMatch ? 'PERFECT' : 'PARTIAL';
+
+          // Build base record — STRICT MASTER OVERRIDE when matched
           const rec: any = {
-            employeeId: rawEmpId,
-            aadhaarNumber: masterData ? masterData.aadhaarNumber : String(m.aadhaarNumber || '').trim(),
-            mobileNumber: masterData ? masterData.mobileNumber : String(m.mobileNumber || '').trim(),
+            // 🔥 ALWAYS USE MASTER IF MATCHED (ignore uploaded identifiers)
+            employeeId: masterData?.employeeId || rawEmpId,
+            aadhaarNumber: masterData?.aadhaarNumber || rawAadhaar,
+            mobileNumber: masterData?.mobileNumber || rawMobile,
+            
             name: masterData ? masterData.name : normalizeText(m.name),
             designation: masterData ? masterData.designation : normalizeText(m.designation),
             team: masterData ? masterData.team : normalizeText(m.team),
             hq: masterData ? masterData.hq : normalizeText(m.hq),
             state: masterData ? masterData.state : normalizeText(m.state),
-            cluster: masterData ? masterData.state : normalizeText(m.cluster || m.state || ''),
+            cluster: masterData ? masterData.cluster : normalizeText(m.cluster || m.state || ''),
+            zone: masterData ? (masterData.zone || getZoneFromState(masterData.state)) : getZoneFromState(m.state),
+            doj: masterData ? masterData.doj : '',
             trainerId: String(m.trainerId || '').trim(),
             trainingType,
             attendanceDate: null,
             attendanceStatus: 'Present',
             month: null,
             _scores: {} as Record<string, number | null>,
-            _hasScores: false
+            _hasScores: false,
+            _matchedBy: matchedBy, // Track which field matched (ID, Aadhaar, Mobile, or '')
+            _matchQuality: matchQuality, // PERFECT | PARTIAL | NONE
+            _matchStrength: matchedBy === 'ID' ? 'HIGH' : matchedBy === 'Aadhaar' ? 'MEDIUM' : matchedBy === 'Mobile' ? 'LOW' : 'NONE',
+            _mismatches: [] as string[] // Track any mismatches
           };
+
+          // Validate mismatches if matched
+          if (masterData) {
+            rec._mismatches = validateMismatch(m, masterData);
+          }
 
           // Normalize attendance status
           if (m.attendanceStatus !== undefined && m.attendanceStatus !== '') {
@@ -223,11 +367,7 @@ export const parseExcelFile = (
           rec.month = parsedDate ? parsedDate.substring(0, 7) : null;
 
           // ── Schema-driven score extraction ────────────────────────────────
-          // For each scoreField defined in the schema, look it up in the mapped row.
-          // Handles cases like 'scienceScore' from 'Science Score' header.
           schema.scoreFields.forEach(scoreKey => {
-            // The cell was already mapped by mapHeader if header matched exactly.
-            // Also try: direct camelCase key, label lookup
             const rawVal = m[scoreKey];
             if (rawVal !== undefined && rawVal !== '' && rawVal !== null) {
               const norm = normalizeScore(rawVal);
@@ -239,7 +379,7 @@ export const parseExcelFile = (
 
           rec._hasScores = Object.keys(rec._scores).length > 0;
 
-          // ── Schema-driven validation ───────────────────────────────────────
+          // ── VALIDATION WITH SMART MATCHING & MATCH QUALITY ────────────────
           const messages: string[] = [];
           let status: 'valid' | 'warn' | 'error' = 'valid';
 
@@ -249,16 +389,36 @@ export const parseExcelFile = (
             status = 'error';
           }
 
-          // Hard error: employee ID missing
-          if (!rec.employeeId) {
-            messages.push('Employee ID missing');
+          // Hard error: No identifier fields at all
+          if (!m.employeeId && !m.aadhaarNumber && !m.mobileNumber) {
+            messages.push('No identifier (ID, Aadhaar, or Mobile)');
             status = 'error';
           }
 
-          // Warning: employee not in master
+          // Error: employee not found in master
           if (!masterData && status !== 'error') {
-            messages.push('Employee not found in Master');
-            status = 'warn';
+            messages.push('❌ Employee not found in Master (tried ID, Aadhaar, Mobile)');
+            status = 'error';
+          }
+
+          // Warning: ID override (matched by non-ID, uploaded ID differs from master)
+          if (masterData && matchedBy && matchedBy !== 'ID' && rawEmpId && status !== 'error') {
+            if (rawEmpId !== normalize(masterData.employeeId)) {
+              messages.push(`⚠️ Employee ID overridden by Master (matched via ${matchedBy})`);
+              if (status === 'valid') status = 'warn';
+            }
+          }
+
+          // Warning: Found by non-ID match (partial match)
+          if (masterData && matchedBy && matchedBy !== 'ID' && status !== 'error') {
+            messages.push(`⚠️ Matched via ${matchedBy} → identity auto-filled from Master`);
+            if (status === 'valid') status = 'warn';
+          }
+
+          // Warning: Mismatches detected
+          if (rec._mismatches.length > 0 && status !== 'error') {
+            rec._mismatches.forEach((m: string) => messages.push(m));
+            if (status === 'valid') status = 'warn';
           }
 
           // Warning: no scores found (only relevant for types that have scores)

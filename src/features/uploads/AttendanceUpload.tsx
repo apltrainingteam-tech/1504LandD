@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { UploadCloud, CheckCircle, X, Check, AlertTriangle, XCircle, Upload, Info } from 'lucide-react';
 import { parseExcelFile, ParsedRow } from '../../services/parsingService';
 import { uploadAttendanceBatch } from '../../services/attendanceService';
-import { UploadPreview } from '../../components/UploadPreview';
+import { UploadPreview } from './components/UploadPreview';
 import { getSchema } from '../../services/trainingSchemas';
 
 import { Employee } from '../../types/employee';
@@ -27,6 +27,7 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
   const [result, setResult] = useState<{ attCount: number, scoreCount: number, skippedCount?: number } | null>(null);
   const [uploadMode, setUploadMode] = useState<'append' | 'replace'>('append');
   const [confirmReplace, setConfirmReplace] = useState(false);
+  const [strictMode, setStrictMode] = useState(false);
 
   const processFile = async (file: File) => {
     setFileName(file.name);
@@ -58,7 +59,19 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
     setUploading(true);
     setUploadProgress(0);
     try {
-      const uploadable = rows.filter(r => r.status !== 'error');
+      // Filter based on strict mode
+      let uploadable = rows.filter(r => r.status !== 'error');
+      
+      if (strictMode) {
+        const perfectMatches = rows.filter(r => r.data._matchQuality === 'PERFECT');
+        if (perfectMatches.length === 0) {
+          alert('No perfectly matched records available for upload. Disable Strict Mode or fix the data.');
+          setUploading(false);
+          return;
+        }
+        uploadable = perfectMatches;
+      }
+      
       const total = uploadable.length;
       
       const res = await uploadAttendanceBatch(uploadable, trainingType, uploadMode, (count) => {
@@ -82,6 +95,7 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
     setAutoDetected(false);
     setUploadMode('append');
     setConfirmReplace(false);
+    setStrictMode(false);
   };
 
   if (step === 'done' && result) {
@@ -110,6 +124,8 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
     const warnCount = rows.filter(r => r.status === 'warn').length;
     const errCount = rows.filter(r => r.status === 'error').length;
     const uploadableCount = rows.filter(r => r.status !== 'error').length;
+    const hasUnmatchedRecords = errCount > 0;
+    const canUpload = uploadableCount > 0 && !hasUnmatchedRecords;
 
     return (
       <div className="animate-fade-in">
@@ -148,15 +164,43 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
           </div>
         </div>
 
+        {hasUnmatchedRecords && (
+          <div style={{
+            padding: '16px 20px',
+            background: 'rgba(239, 68, 68, 0.08)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            borderRadius: '8px',
+            marginBottom: '24px',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '12px'
+          }}>
+            <XCircle size={20} style={{ color: 'var(--danger)', flexShrink: 0, marginTop: '2px' }} />
+            <div>
+              <div style={{ fontWeight: 600, color: 'var(--danger)', marginBottom: '4px' }}>Upload Blocked</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.5' }}>
+                {errCount} record(s) could not be matched against the Employee Master database. 
+                These records cannot be imported. Please fix the Employee ID, Aadhaar, or Mobile number and try again.
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="mb-8">
-          <UploadPreview rows={rows} trainingType={trainingType} />
+          <UploadPreview 
+            rows={rows} 
+            trainingType={trainingType}
+            strictMode={strictMode}
+            onStrictModeChange={setStrictMode}
+          />
         </div>
 
         <div className="flex-center w-full max-w-md mx-auto flex-col gap-2">
           <button 
             className="btn btn-primary w-full" 
             onClick={doUpload} 
-            disabled={uploading || uploadableCount === 0}
+            disabled={uploading || !canUpload}
+            title={!canUpload ? hasUnmatchedRecords ? 'Fix unmatched records to proceed' : 'No valid records to upload' : ''}
             style={{ padding: '14px 32px', position: 'relative', overflow: 'hidden' }}
           >
             {uploading ? (
@@ -169,7 +213,8 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
           
           <button className="btn btn-secondary w-full" onClick={reset} disabled={uploading}>Discard & Reject</button>
           {uploading && <span className="text-muted text-center mt-2" style={{ fontSize: '12px' }}>Large uploads process in chunks of 25 records to prevent quota limits</span>}
-          {errCount > 0 && !uploading && <span className="text-muted text-center mt-2" style={{ fontSize: '13px' }}>{errCount} rows with errors will be skipped</span>}
+          {errCount > 0 && !uploading && <span className="text-muted text-center mt-2" style={{ fontSize: '13px', color: 'var(--danger)' }}>❌ {errCount} rows with errors will NOT be uploaded</span>}
+          {warnCount > 0 && !uploading && <span className="text-muted text-center mt-2" style={{ fontSize: '13px', color: 'var(--warning)' }}>⚠️ {warnCount} rows with warnings will be uploaded with caution</span>}
         </div>
       </div>
     );
