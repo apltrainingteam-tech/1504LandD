@@ -67,14 +67,16 @@ export const UploadPreview: React.FC<UploadPreviewProps> = ({ rows, trainingType
     ? rows.filter(r => r.data._matchQuality === 'PERFECT')
     : rows;
 
-  // Transform for export
+  // Transform rows into flat export objects with full diagnostics
   const transformForExport = (rowsToExport: any[]) => {
-    return rowsToExport.map(r => ({
-      ...r.data,
-      rowNum: r.rowNum,
-      status: r.status,
-      messages: r.messages?.join('; ') || ''
-    }));
+    return rowsToExport.map(r => {
+      const { data, ...wrapper } = r;
+      return {
+        ...data,
+        ...wrapper,
+        messages: Array.isArray(r.messages) ? r.messages : r.messages ? [r.messages] : []
+      };
+    });
   };
 
   return (
@@ -156,7 +158,10 @@ export const UploadPreview: React.FC<UploadPreviewProps> = ({ rows, trainingType
             {summary.partialCount > 0 || summary.noMatchCount > 0 ? (
               <button 
                 className="btn btn-secondary"
-                onClick={() => exportUnmatchedRows(transformForExport(rows.filter(r => r.data._matchQuality !== 'PERFECT')))}
+                onClick={() => {
+                  console.log('Export triggered', rows.length, 'rows');
+                  exportUnmatchedRows(transformForExport(rows.filter(r => r.data._matchQuality !== 'PERFECT')), 'Unmatched_Records.xlsx');
+                }}
                 style={{ padding: '8px 12px', fontSize: '12px' }}
                 title="Download Excel with problematic records for fixing"
               >
@@ -167,7 +172,10 @@ export const UploadPreview: React.FC<UploadPreviewProps> = ({ rows, trainingType
             
             <button 
               className="btn btn-secondary"
-              onClick={() => exportFullDiagnostics(transformForExport(rows))}
+              onClick={() => {
+                console.log('Export triggered', rows.length, 'rows');
+                exportFullDiagnostics(transformForExport(rows), 'Full_Diagnostics.xlsx');
+              }}
               style={{ padding: '8px 12px', fontSize: '12px' }}
               title="Download comprehensive diagnostic report"
             >
