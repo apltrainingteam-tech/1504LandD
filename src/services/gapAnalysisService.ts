@@ -1,8 +1,19 @@
 import { Employee } from '../types/employee';
 import { Attendance, TrainingType, TrainingNomination, EligibilityRule } from '../types/attendance';
-import { getEligibleEmployees, EligibilityResult } from './eligibilityService';
+import { getEligibleEmployees, EligibilityResult, isEligibleHardcoded } from './eligibilityService';
 import { TEAM_CLUSTER, STATE_ZONE } from '../seed/masterData';
 import { normalizeText } from '../utils/textNormalizer';
+
+// Simple ID normalization function
+const normalizeId = (id: string | number | undefined | null): string => {
+  if (id === null || id === undefined) return '';
+
+  return String(id)
+    .trim()
+    .replace(/\.0+$/, '')     // remove trailing .0, .00 (Excel artifacts)
+    .replace(/\s+/g, '')      // remove all spaces
+    .toLowerCase();
+};
 
 export interface GapAnalysisData {
   cluster: string;
@@ -123,19 +134,26 @@ export const computeGapAnalysis = (
   employees: Employee[],
   attendance: Attendance[],
   nominations: TrainingNomination[],
-  rules: EligibilityRule[],
   zoneFilter?: string
 ): { data: GapAnalysisData[], drilldownData: Map<string, EmployeeGapDetail[]> } => {
   // Normalize trainingType comparison
-  const normalize = (val?: string) => val?.toLowerCase().trim();
-  const normalizedTrainingType = normalize(trainingType);
+  const selectedType = trainingType.toUpperCase();
 
-  // Filter attendance by trainingType for attendance checks ONLY
-  const typeAttendance = attendance.filter(
-    a =>
-      normalize(a.trainingType) === normalizedTrainingType &&
-      a.attendanceStatus === 'Present'
+  // Create set of employees who attended this training
+  const attendedSet = new Set(
+    attendance
+      .filter(a =>
+        a.employeeId &&
+        a.attendanceStatus?.toUpperCase() === 'PRESENT' &&
+        a.trainingType?.toUpperCase() === selectedType
+      )
+      .map(a => normalizeId(a.employeeId))
   );
+
+  console.log("ATTENDED SET SIZE:", attendedSet.size);
+  console.log("ATTENDED SAMPLE:", Array.from(attendedSet).slice(0,5));
+
+  console.log("EMP SAMPLE:", employees.slice(0,5).map(e => normalizeId(e.employeeId)));
 
   // Enrich employees
   const enrichedEmployees = enrichEmployees(employees);
@@ -149,19 +167,15 @@ export const computeGapAnalysis = (
     filteredEmployees = activeEmployees.filter(e => e.zone === zoneFilter);
   }
 
-  // Get eligible employees using FULL attendance and nominations datasets
-  const rule = rules.find(r => r.trainingType === trainingType);
-  const eligibleResults = getEligibleEmployees(trainingType, rule, filteredEmployees, attendance, nominations);
-  const eligibleEmployeeIds = new Set(eligibleResults.filter(e => e.eligibilityStatus).map(e => e.employeeId));
-
-  // Debug logs
-  console.log("DEBUG GAP:", {
-    tab: trainingType,
-    totalEmployees: filteredEmployees.length,
-    totalAttendanceRaw: attendance.length,
-    typeAttendance: typeAttendance.length,
-    eligible: eligibleEmployeeIds.size
+  // Get eligible employees using hardcoded rules
+  const eligibleEmployeeIds = new Set<string>();
+  filteredEmployees.forEach(emp => {
+    if (isEligibleHardcoded(emp, trainingType, attendance, nominations)) {
+      eligibleEmployeeIds.add(emp.employeeId);
+    }
   });
+
+  console.log(`🔍 GAP-${trainingType}: Eligible count: ${eligibleEmployeeIds.size}`);
 
   // Group employees by cluster/team
   const grouped = groupByClusterTeam(filteredEmployees);
@@ -199,8 +213,16 @@ export const computeGapAnalysis = (
         const isElig = eligibleEmployeeIds.has(emp.employeeId);
         if (isElig) {
           teamData.eligible++;
-          const latestAtt = getLatestAttendance(emp.employeeId, trainingType, typeAttendance);
-          if (!latestAtt) {
+          const isTrained = attendedSet.has(normalizeId(emp.employeeId));
+          const isUntrained = !isTrained;
+
+          console.log({
+            empId: emp.employeeId,
+            trainingType: selectedType,
+            attended: isTrained
+          });
+
+          if (isUntrained) {
             teamData.untrained++;
             const daysSince = calculateDaysSinceDOJ(emp);
             if (daysSince > 90) teamData.over90Days++;
@@ -209,7 +231,7 @@ export const computeGapAnalysis = (
               employeeId: emp.employeeId,
               name: emp.name,
               designation: emp.designation,
-              cluster: emp.cluster,
+              cluster: emp.cluster || 'Unknown',
               team: emp.team,
               dateOfJoining: emp.doj,
               daysSinceJoining: daysSince,
@@ -235,7 +257,7 @@ export const computeGapAnalysis = (
       if (teamData.slmUntrained) clusterData.slmUntrained = (clusterData.slmUntrained || 0) + teamData.slmUntrained;
       if (teamData.srManagerUntrained) clusterData.srManagerUntrained = (clusterData.srManagerUntrained || 0) + teamData.srManagerUntrained;
 
-      teamData.untrainedPercent = teamData.totalActive > 0 ? (teamData.untrained / teamData.totalActive) * 100 : 0;
+      teamData.untrainedPercent = teamData.eligible > 0 ? (teamData.untrained / teamData.eligible) * 100 : 0;
       data.push(teamData);
 
       if (untrainedDetails.length > 0) {
@@ -243,7 +265,7 @@ export const computeGapAnalysis = (
       }
     });
 
-    clusterData.untrainedPercent = clusterData.totalActive > 0 ? (clusterData.untrained / clusterData.totalActive) * 100 : 0;
+    clusterData.untrainedPercent = clusterData.eligible > 0 ? (clusterData.untrained / clusterData.eligible) * 100 : 0;
   });
 
   // Sort teams within clusters

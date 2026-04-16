@@ -5,6 +5,11 @@ import {
   TrainingNomination, 
   EligibilityRule 
 } from '../types/attendance';
+import { ELIGIBILITY_RULES } from '../config/eligibilityRules';
+import { standardizeDesignation } from '../utils/designationMapper';
+
+// Utility function for normalizing strings for comparison
+const normalize = (val?: string) => val?.toLowerCase().trim();
 
 export interface EligibilityResult {
   employeeId: string;
@@ -14,6 +19,11 @@ export interface EligibilityResult {
   eligibilityStatus: boolean;
   reasonIfNotEligible?: string;
 }
+
+// Simple ID normalization function
+const normalizeId = (id: string | undefined): string => {
+  return (id || '').toString().trim().toLowerCase();
+};
 
 /**
  * Dynamics Rule Engine for Training Eligibility
@@ -62,8 +72,8 @@ export const getEligibleEmployees = (
     if (isEligible && rule.previousTraining?.mode === 'INCLUDE') {
       const completedTrainings = new Set(
         attendance
-          .filter(a => a.employeeId === emp.id && a.attendanceStatus === 'Present')
-          .map(a => a.trainingType)
+          .filter(a => normalizeId(a.employeeId) === normalizeId(emp.employeeId) && a.attendanceStatus === 'Present')
+          .map(a => normalize(a.trainingType))
       );
       
       const missing = (rule.previousTraining.values || []).filter((req: any) => {
@@ -71,12 +81,13 @@ export const getEligibleEmployees = (
         if (req.designations && req.designations.length > 0) {
            if (!req.designations.includes(emp.designation || '')) return false; 
         }
-        return !completedTrainings.has(req.type);
+        const reqType = typeof req === 'string' ? req : req.type;
+        return !completedTrainings.has(normalize(reqType));
       });
       
       if (missing.length > 0) {
         isEligible = false;
-        reason = `Missing required trainings: ${missing.map((m: any) => m.type).join(', ')}`;
+        reason = `Missing required trainings: ${missing.map((m: any) => typeof m === 'string' ? m : m.type).join(', ')}`;
       }
     }
 
@@ -98,7 +109,7 @@ export const getEligibleEmployees = (
       // Capsule Logic
       if (rule.specialConditions.noAPInNext90Days) {
         const hasFutureAP = attendance.some(a => {
-          if (a.employeeId !== emp.id || a.trainingType !== 'AP') return false;
+          if (normalizeId(a.employeeId) !== normalizeId(emp.employeeId) || a.trainingType !== 'AP') return false;
           const aDate = new Date(a.attendanceDate);
           return aDate >= now && aDate <= ninetyDaysFromNow;
         });
@@ -110,7 +121,7 @@ export const getEligibleEmployees = (
 
       // Pre-AP Logic
       if (isEligible && rule.specialConditions.preAPOnlyIfInvited) {
-        const isNominated = nominations.some(n => n.employeeId === emp.id && n.trainingType === 'AP');
+        const isNominated = nominations.some(n => normalizeId(n.employeeId) === normalizeId(emp.employeeId) && n.trainingType === 'AP');
         if (!isNominated) {
           isEligible = false;
           reason = 'Only invited candidates (nominated for AP) are eligible';
@@ -127,4 +138,96 @@ export const getEligibleEmployees = (
       reasonIfNotEligible: reason
     };
   });
+};
+
+/**
+ * Hardcoded eligibility check based on fixed rules
+ */
+export const isEligibleHardcoded = (
+  employee: Employee,
+  trainingType: TrainingType,
+  attendance: Attendance[],
+  nominations: TrainingNomination[]
+): boolean => {
+  const rule = ELIGIBILITY_RULES[trainingType as keyof typeof ELIGIBILITY_RULES];
+  if (!rule) return true; // If no rule, assume eligible
+
+  const now = new Date();
+  const ninetyDaysFromNow = new Date();
+  ninetyDaysFromNow.setDate(now.getDate() + 90);
+
+  // 1. Designation check
+  if (rule.designations !== "ALL") {
+    const empDesignation = standardizeDesignation(employee.designation);
+    const allowedDesignations = rule.designations.map(d => d.toUpperCase());
+    if (!allowedDesignations.includes(empDesignation)) {
+      return false;
+    }
+  }
+
+  // 2. Experience check
+  if (rule.minYears !== null || rule.maxYears !== null) {
+    const doj = new Date(employee.doj);
+    const years = (now.getTime() - doj.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+    if (rule.minYears !== null && years < rule.minYears) return false;
+    if (rule.maxYears !== null && years > rule.maxYears) return false;
+  }
+
+  // 3. Pre-training check
+  if (rule.preTraining.length > 0) {
+    const completedTrainings = new Set(
+      attendance
+        .filter(a => normalizeId(a.employeeId) === normalizeId(employee.employeeId) && a.attendanceStatus === 'Present')
+        .map(a => normalize(a.trainingType))
+    );
+
+    // Check if pre-training applies to this employee's designation
+    let appliesToEmployee = false;
+    if (rule.preTrainingApplicableTo === "ALL") {
+      appliesToEmployee = true;
+    } else {
+      const empDesignation = standardizeDesignation(employee.designation);
+      appliesToEmployee = rule.preTrainingApplicableTo.some(d => d.toUpperCase() === empDesignation);
+    }
+
+    if (appliesToEmployee) {
+      for (const req of rule.preTraining) {
+        if (!completedTrainings.has(normalize(req))) {
+          return false;
+        }
+      }
+    }
+  }
+
+  // 4. Exclude if already trained
+  if (rule.excludeIfAlreadyTrained) {
+    const hasAttended = attendance.some(a => 
+      normalizeId(a.employeeId) === normalizeId(employee.employeeId) && 
+      normalize(a.trainingType) === normalize(trainingType) && 
+      a.attendanceStatus === 'Present'
+    );
+    if (hasAttended) return false;
+  }
+
+  // 5. Capsule rule (noAPInNext90Days)
+  if (rule.noAPInNext90Days) {
+    const hasAPNomination = nominations.some(n => 
+      normalizeId(n.employeeId) === normalizeId(employee.employeeId) && 
+      n.trainingType === 'AP' && 
+      new Date(n.notificationDate) >= now && 
+      new Date(n.notificationDate) <= ninetyDaysFromNow
+    );
+    if (hasAPNomination) return false;
+  }
+
+  // 6. Pre-AP rule (preAPOnlyIfNominated)
+  if (rule.preAPOnlyIfNominated) {
+    const isNominatedForAP = nominations.some(n => 
+      normalizeId(n.employeeId) === normalizeId(employee.employeeId) && 
+      n.trainingType === 'AP'
+    );
+    if (!isNominatedForAP) return false;
+  }
+
+  return true;
 };

@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from 'react';
+declare module 'react';
+
+import React, { useState, useMemo, ChangeEvent } from 'react';
 import { ChevronRight, ChevronDown, Users, CheckCircle2, AlertTriangle, TrendingUp, Search, X, MapPin } from 'lucide-react';
 import { Employee } from '../../types/employee';
-import { Attendance, TrainingScore, TrainingNomination, EligibilityRule } from '../../types/attendance';
+import { Attendance, TrainingScore, TrainingNomination } from '../../types/attendance';
 import { computeGapAnalysis, GapAnalysisData, EmployeeGapDetail } from '../../services/gapAnalysisService';
-import { getCollection } from '../../services/firestoreService';
 import { KPIBox } from '../../components/KPIBox';
 
 interface GapAnalysisProps {
@@ -14,22 +15,23 @@ interface GapAnalysisProps {
 
 type TrainingTab = 'AP' | 'MIP' | 'Refresher' | 'Capsule';
 
-const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance, nominations }) => {
+const GapAnalysis = ({ employees, attendance, nominations }: GapAnalysisProps) => {
   const [tab, setTab] = useState<TrainingTab>('AP');
   const [expanded, setExpanded] = useState(new Set<string>());
-  const [rules, setRules] = useState<EligibilityRule[]>([]);
   const [zoneFilter, setZoneFilter] = useState<string>('');
   const [drilldownData, setDrilldownData] = useState<EmployeeGapDetail[] | null>(null);
 
-  // Load rules
-  React.useEffect(() => {
-    getCollection('eligibility_rules').then(setRules);
-  }, []);
-
   const { data, drilldownMap } = useMemo(() => {
     const zone = tab === 'Refresher' ? zoneFilter : undefined;
-    return computeGapAnalysis(tab, employees, attendance, nominations, rules, zone);
-  }, [tab, employees, attendance, nominations, rules, zoneFilter]);
+    console.log(`📊 COMPUTING GAP ANALYSIS: Tab=${tab}, Employees=${employees.length}`);
+    const result = computeGapAnalysis(tab, employees, attendance, nominations, zone);
+    console.log(`✓ RESULT for ${tab}: ${result.data.length} rows`);
+    if (result.data.length > 0) {
+      console.log(`  - Total Active: ${result.data.reduce((s, d) => s + d.totalActive, 0)}`);
+      console.log(`  - Total Eligible: ${result.data.reduce((s, d) => s + d.eligible, 0)}`);
+    }
+    return result;
+  }, [tab, employees, attendance, nominations, zoneFilter]);
 
   const toggleExpanded = (key: string) => {
     const newExpanded = new Set(expanded);
@@ -47,13 +49,17 @@ const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance, nomina
   const closeDrilldown = () => setDrilldownData(null);
 
   // KPI calculations for AP
-  const totalActive = data.reduce((sum, d) => sum + d.totalActive, 0);
-  const totalEligible = data.reduce((sum, d) => sum + d.eligible, 0);
-  const totalUntrained = data.reduce((sum, d) => sum + d.untrained, 0);
+  const totalActive = data.reduce((sum: number, d: GapAnalysisData) => sum + d.totalActive, 0);
+  const totalEligible = data.reduce((sum: number, d: GapAnalysisData) => sum + d.eligible, 0);
+  const totalUntrained = data.reduce((sum: number, d: GapAnalysisData) => sum + d.untrained, 0);
   const coveragePercent = totalEligible > 0 ? ((totalEligible - totalUntrained) / totalEligible) * 100 : 0;
 
+  React.useEffect(() => {
+    // Logger for debugging (optional - can be removed in production)
+  }, [tab, totalActive, totalEligible, totalUntrained, coveragePercent]);
+
   const renderKPIs = () => {
-    if (tab !== 'AP') return null;
+    // Show KPIs for all tabs
     return (
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
         <KPIBox
@@ -92,7 +98,7 @@ const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance, nomina
         <MapPin size={16} />
         <select
           value={zoneFilter}
-          onChange={(e) => setZoneFilter(e.target.value)}
+          onChange={(e: ChangeEvent<HTMLSelectElement>) => setZoneFilter(e.target.value)}
           style={{ 
             padding: '8px 12px', 
             borderRadius: '6px', 
@@ -130,7 +136,7 @@ const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance, nomina
             </tr>
           </thead>
           <tbody>
-            {data.map((row, index) => {
+            {data.map((row: GapAnalysisData, index: number) => {
               const isCluster = row.team === '';
               const key = isCluster ? row.cluster : `${row.cluster}-${row.team}`;
               const isExpanded = expanded.has(row.cluster);
@@ -202,7 +208,7 @@ const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance, nomina
                 </tr>
               </thead>
               <tbody>
-                {drilldownData.map((emp, i) => (
+                {drilldownData.map((emp: EmployeeGapDetail, i: number) => (
                   <tr key={i}>
                     <td>{emp.employeeId}</td>
                     <td>{emp.name}</td>
