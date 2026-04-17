@@ -165,3 +165,5 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
     </div>
   );
 };
+
+

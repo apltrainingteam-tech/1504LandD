@@ -525,3 +525,5 @@ export const Notified: React.FC<NotifiedProps> = ({ employees, attendance, nomin
     </div>
   );
 };
+
+

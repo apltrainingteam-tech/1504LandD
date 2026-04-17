@@ -694,7 +694,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
 
                   return (
                     <Fragment key={clusterName}>
-                      <tr onClick={() => toggleExpand(clusterName)} style={{ cursor: 'pointer', background: 'rgba(99,102,241,0.04)' }}>
+                      <tr onClick={() => toggleExpand(clusterName)} style={{ cursor: 'pointer', background: 'rgba(34,45,104,0.04)' }}>
                         <td>{isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</td>
                         <td style={{ fontWeight: 700 }}>{clusterName}</td>
                         <td style={{ textAlign: 'center', fontWeight: 600 }}>{clusterData.totalNotified}</td>
@@ -882,7 +882,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
             </div>
 
             {/* ── TABLE 1: CLUSTER-WISE DRILL-DOWN ── */}
-            <div style={{ padding: '14px 20px 6px', borderBottom: '1px solid var(--border-color)', background: 'rgba(99,102,241,0.04)' }}>
+            <div style={{ padding: '14px 20px 6px', borderBottom: '1px solid var(--border-color)', background: 'rgba(34,45,104,0.04)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
                 <Trophy size={16} color="var(--accent-primary)" />
                 <span style={{ fontWeight: 700, fontSize: '14px', color: 'var(--accent-primary)' }}>TABLE 1 — Cluster-wise Ranking</span>
@@ -909,7 +909,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
                         {/* Cluster header row */}
                         <tr
                           onClick={() => toggleExpand(`rank_${cluster}`)}
-                          style={{ cursor: 'pointer', background: 'rgba(99,102,241,0.06)', borderBottom: '1px solid var(--border-color)' }}
+                          style={{ cursor: 'pointer', background: 'rgba(34,45,104,0.06)', borderBottom: '1px solid var(--border-color)' }}
                         >
                           <td style={{ textAlign: 'center', padding: '10px 8px' }}>
                             {isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
@@ -1051,3 +1051,5 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
     </div>
   );
 };
+
+

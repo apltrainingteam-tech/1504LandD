@@ -253,7 +253,7 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
             onClick={() => setUploadMode('append')}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-              <div style={{ padding: '10px', borderRadius: '50%', background: 'rgba(99,102,241,0.1)', color: 'var(--accent-primary)' }}>
+              <div style={{ padding: '10px', borderRadius: '50%', background: 'rgba(34,45,104,0.1)', color: 'var(--accent-primary)' }}>
                 <CheckCircle size={24} />
               </div>
               <h3 style={{ fontSize: '18px', margin: 0 }}>Append Data</h3>
@@ -378,7 +378,7 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
               <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: 600 }}>Score Fields</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {scoreLabels.map(label => (
-                  <span key={label} className="badge" style={{ background: 'rgba(99,102,241,0.15)', color: 'var(--accent-primary)', border: '1px solid rgba(99,102,241,0.3)' }}>{label}</span>
+                  <span key={label} className="badge" style={{ background: 'rgba(34,45,104,0.15)', color: 'var(--accent-primary)', border: '1px solid rgba(34,45,104,0.3)' }}>{label}</span>
                 ))}
               </div>
             </div>
@@ -393,3 +393,5 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
     </div>
   );
 };
+
+

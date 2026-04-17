@@ -78,3 +78,5 @@ export const TimeSeriesTable: React.FC<TimeSeriesTableProps> = ({ rows, months, 
     </div>
   );
 };
+
+

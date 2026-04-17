@@ -77,7 +77,7 @@ export const DrilldownPanel: React.FC<DrilldownPanelProps> = ({ nodes, tab }) =>
                     .filter(r => r.attendance.attendanceStatus === 'Present')
                     .slice(0, 50)
                     .map((r, i) => (
-                      <div key={i} style={{ marginLeft: '24px', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 16px', borderLeft: '2px solid rgba(99,102,241,0.2)', background: 'rgba(255,255,255,0.01)', borderRadius: '0 6px 6px 0' }}>
+                      <div key={i} style={{ marginLeft: '24px', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 16px', borderLeft: '2px solid rgba(34,45,104,0.2)', background: 'rgba(255,255,255,0.01)', borderRadius: '0 6px 6px 0' }}>
                         <User size={12} color="var(--text-muted)" />
                         <span style={{ fontWeight: 600, fontSize: '12px', minWidth: '80px' }}>{r.employee.employeeId}</span>
                         <span style={{ flex: 1 }}>{r.employee.name}</span>
@@ -105,3 +105,5 @@ export const DrilldownPanel: React.FC<DrilldownPanelProps> = ({ nodes, tab }) =>
     </div>
   );
 };
+
+

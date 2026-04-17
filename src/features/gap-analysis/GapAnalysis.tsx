@@ -344,3 +344,4 @@ const GapAnalysis = ({ employees, attendance, nominations }: GapAnalysisProps) =
 };
 
 export { GapAnalysis };
+

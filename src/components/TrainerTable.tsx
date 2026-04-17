@@ -31,7 +31,7 @@ export const TrainerTable: React.FC<TrainerTableProps> = ({ stats }) => {
   const th = (label: string, key: SortKey) => (
     <th
       onClick={() => handleSort(key)}
-      style={{ padding: '12px 16px', textAlign: 'left', cursor: 'pointer', userSelect: 'none', background: sortKey === key ? 'rgba(99,102,241,0.08)' : 'var(--bg-card)' }}
+      style={{ padding: '12px 16px', textAlign: 'left', cursor: 'pointer', userSelect: 'none', background: sortKey === key ? 'rgba(34,45,104,0.08)' : 'var(--bg-card)' }}
     >
       <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>{label}<SortIcon colKey={key} /></span>
     </th>
@@ -77,3 +77,5 @@ export const TrainerTable: React.FC<TrainerTableProps> = ({ stats }) => {
     </div>
   );
 };
+
+

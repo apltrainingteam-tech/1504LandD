@@ -14,12 +14,14 @@ import {
   Mail,
   Trash2,
   AlertCircle,
-  AlertTriangle,
+  Target,
   Sun,
   Moon
 } from 'lucide-react';
 import { useTheme } from './context/ThemeContext';
 import './index.css';
+
+const logoUrl = new URL('./assets/ajanta-pharma-logo.svg', import.meta.url).href;
 
 // Feature Pages
 import { ReportsAnalytics } from './features/dashboard/ReportsAnalytics';
@@ -36,7 +38,7 @@ import { seedDatabase, seedMasterData } from './seed';
 import { Employee } from './types/employee';
 import { Attendance, TrainingScore, TrainingNomination, Demographics as DemoType } from './types/attendance';
 
-type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'notified' | 'gap-analysis';
+type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'notified' | 'gap-analysis' | 'performance';
 
 const App = () => {
   const { theme, toggleTheme } = useTheme();
@@ -130,6 +132,7 @@ const App = () => {
 
     switch (view) {
       case 'reports': return <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} />;
+      case 'performance': return <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} />;
       case 'trainings': return <TrainingsViewer employees={emps} attendance={att} scores={scs} />;
       case 'attendance': return <AttendanceUpload onUploadComplete={() => setRefreshKey(k => k + 1)} masterEmployees={emps} />;
       case 'notified': return <Notified employees={emps} attendance={att} nominations={noms} onUploadComplete={() => setRefreshKey(k => k + 1)} />;
@@ -145,85 +148,80 @@ const App = () => {
       {/* Sidebar Navigation */}
       <aside className="sidebar">
         <div className="sidebar-logo">
-          <div style={{ width: '36px', height: '36px', background: 'var(--accent-gradient)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(99, 102, 241, 0.4)' }}>
-            <Activity size={22} color="white" />
-          </div>
-          <span className="gradient-text">PharmaIntel</span>
+          <img
+            src={logoUrl}
+            alt="Ajanta Pharma logo"
+            className="brand-logo"
+            style={{
+              width: 'auto',
+              height: '40px',
+              objectFit: 'contain',
+              filter: 'none',
+              opacity: 1,
+              mixBlendMode: 'normal'
+            }}
+          />
         </div>
 
-        <nav style={{ flex: 1, marginTop: '24px' }}>
-          <div className="text-muted" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', paddingLeft: '12px', fontWeight: '600' }}>Intelligence Modules</div>
+        <nav className="sidebar-nav">
+          {/* INTELLIGENCE SECTION */}
+          <div className="nav-section-header">Intelligence</div>
 
-          <button className={`nav-item w-full ${view === 'reports' ? 'active' : ''}`} onClick={() => setView('reports')} style={{ background: view === 'reports' ? 'var(--accent-gradient)' : 'rgba(99,102,241,0.05)', color: view === 'reports' ? '#fff' : 'var(--accent-primary)', marginBottom: '16px' }}>
-            <BarChart3 size={20} /> Dashboard
+          <button className={`nav-item ${view === 'reports' ? 'active' : ''}`} onClick={() => setView('reports')}>
+            <BarChart3 size={20} />
+            <span>Overview</span>
           </button>
 
-          <button className={`nav-item w-full ${view === 'attendance' ? 'active' : ''}`} onClick={() => setView('attendance')}>
-            <CalendarCheck size={20} /> Upload Portal
+          <button className={`nav-item ${view === 'gap-analysis' ? 'active' : ''}`} onClick={() => setView('gap-analysis')}>
+            <Target size={20} />
+            <span>Training Requirements</span>
           </button>
 
-          <button className={`nav-item w-full ${view === 'trainings' ? 'active' : ''}`} onClick={() => setView('trainings')}>
-            <FileText size={20} /> Trainings Viewer
+          <button className={`nav-item ${view === 'performance' ? 'active' : ''}`} onClick={() => setView('performance')}>
+            <Activity size={20} />
+            <span>Performance Insights</span>
           </button>
 
-          <button className={`nav-item w-full ${view === 'notified' ? 'active' : ''}`} onClick={() => setView('notified')}>
-            <Mail size={20} /> Notified
+          {/* OPERATIONS SECTION */}
+          <div className="nav-section-header" style={{ marginTop: '24px' }}>Operations</div>
+
+          <button className={`nav-item ${view === 'attendance' ? 'active' : ''}`} onClick={() => setView('attendance')}>
+            <CalendarCheck size={20} />
+            <span>Upload Portal</span>
           </button>
 
-          <button className={`nav-item w-full ${view === 'employees' ? 'active' : ''}`} onClick={() => setView('employees')}>
-            <Users size={20} /> Employee Master
+          <button className={`nav-item ${view === 'trainings' ? 'active' : ''}`} onClick={() => setView('trainings')}>
+            <FileText size={20} />
+            <span>Training Data</span>
           </button>
 
-          <button className={`nav-item w-full ${view === 'demographics' ? 'active' : ''}`} onClick={() => setView('demographics')}>
-            <ShieldCheck size={20} /> Eligibility
+          <button className={`nav-item ${view === 'notified' ? 'active' : ''}`} onClick={() => setView('notified')}>
+            <Mail size={20} />
+            <span>Nominations</span>
           </button>
 
-          <button className={`nav-item w-full ${view === 'gap-analysis' ? 'active' : ''}`} onClick={() => setView('gap-analysis')}>
-            <AlertTriangle size={20} /> Gap Analysis
+          {/* FOUNDATION SECTION */}
+          <div className="nav-section-header" style={{ marginTop: '24px' }}>Foundation</div>
+
+          <button className={`nav-item ${view === 'employees' ? 'active' : ''}`} onClick={() => setView('employees')}>
+            <Users size={20} />
+            <span>Employee Master</span>
           </button>
 
-          <button 
-            className="nav-item w-full" 
-            onClick={async () => { 
-               setIsSeeding(true); 
-               try {
-                 await seedMasterData();
-                 await seedDatabase();
-                 alert('Database completely seeded with Mock & Master Data!');
-                 setRefreshKey(k => k + 1); 
-               } catch (e) {
-                 alert('Seeding encountered an error');
-               } finally {
-                 setIsSeeding(false);
-               }
-            }} 
-            style={{ marginTop: '24px', opacity: isSeeding ? 0.3 : 0.7 }}
-            disabled={isSeeding}
-          >
-            {isSeeding ? <RefreshCw className="animate-spin" size={20} /> : <Database size={20} />} 
-            {isSeeding ? "Seeding Data..." : "Seed Database"}
-          </button>
-
-          <button 
-            className="nav-item w-full" 
-            onClick={handlePurge}
-            style={{ marginTop: '8px', color: 'var(--danger)', opacity: isCleaning ? 0.3 : 0.7 }}
-            disabled={isCleaning}
-          >
-            {isCleaning ? <RefreshCw className="animate-spin" size={20} /> : <Trash2 size={20} />} 
-            {isCleaning ? "Cleaning..." : "Clean Dummy Data"}
-
+          <button className={`nav-item ${view === 'demographics' ? 'active' : ''}`} onClick={() => setView('demographics')}>
+            <ShieldCheck size={20} />
+            <span>Eligibility Rules</span>
           </button>
         </nav>
 
         <div className="user-profile">
           <div className="avatar">AD</div>
           <div style={{ flex: 1, textAlign: 'left' }}>
-            <div style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-primary)' }}>Admin User</div>
-            <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Firestore Live</div>
+            <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>Admin User</div>
+            <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Super Admin</div>
           </div>
-          <button style={{ color: 'var(--text-secondary)' }}>
-            <LogOut size={18} />
+          <button style={{ color: 'var(--text-secondary)', padding: '4px' }}>
+            <LogOut size={16} />
           </button>
         </div>
       </aside>
@@ -275,3 +273,5 @@ const App = () => {
 };
 
 export default App;
+
+

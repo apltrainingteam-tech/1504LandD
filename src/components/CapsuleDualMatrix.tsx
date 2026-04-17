@@ -146,7 +146,7 @@ export const CapsuleAttendanceMatrix: React.FC<{ data: CapsuleAttendanceAggregat
 
               return (
                 <Fragment key={clusterName}>
-                  <tr onClick={() => toggleExpand(clusterName)} style={{ cursor: 'pointer', background: 'rgba(99,102,241,0.04)' }}>
+                  <tr onClick={() => toggleExpand(clusterName)} style={{ cursor: 'pointer', background: 'rgba(34,45,104,0.04)' }}>
                     <td>{isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</td>
                     <td style={{ fontWeight: 700 }}>{clusterName}</td>
                     <td style={{ textAlign: 'center', fontWeight: 600 }}>{clusterData.totalNotified}</td>
@@ -237,7 +237,7 @@ export const CapsulePerformanceMatrix: React.FC<{ data: CapsulePerformanceAggreg
 
               return (
                 <Fragment key={clusterName}>
-                  <tr onClick={() => toggleExpand(clusterName)} style={{ cursor: 'pointer', background: 'rgba(99,102,241,0.04)' }}>
+                  <tr onClick={() => toggleExpand(clusterName)} style={{ cursor: 'pointer', background: 'rgba(34,45,104,0.04)' }}>
                     <td>{isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</td>
                     <td style={{ fontWeight: 700 }}>{clusterName}</td>
                     {fyMonths.map(mo => {
@@ -288,3 +288,5 @@ export const CapsulePerformanceMatrix: React.FC<{ data: CapsulePerformanceAggreg
     </Fragment>
   );
 };
+
+
