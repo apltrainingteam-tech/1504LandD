@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { TimeSeriesRow } from '../types/reports';
 import { flagScore, flagClass } from '../utils/scoreNormalizer';
 
@@ -16,7 +16,7 @@ const formatMonth = (yyyyMM: string): string => {
   return `${months[parseInt(m) - 1]} ${y.slice(2)}`;
 };
 
-export const TimeSeriesTable: React.FC<TimeSeriesTableProps> = ({ rows, months, mode, onModeToggle }) => {
+export const TimeSeriesTable: React.FC<TimeSeriesTableProps> = memo(({ rows, months, mode, onModeToggle }) => {
   if (months.length === 0 || rows.length === 0) {
     return (
       <div style={{ textAlign: 'center', padding: '48px' }} className="text-muted">
@@ -77,6 +77,6 @@ export const TimeSeriesTable: React.FC<TimeSeriesTableProps> = ({ rows, months, 
       </div>
     </div>
   );
-};
+});
 
 

@@ -1,4 +1,4 @@
-import React, { ReactNode } from 'react';
+import React, { ReactNode, memo } from 'react';
 
 interface DataTableProps {
   headers: (string | { label: string, key: string, sortable?: boolean })[];
@@ -7,7 +7,7 @@ interface DataTableProps {
   stickyFirstColumn?: boolean;
 }
 
-export const DataTable: React.FC<DataTableProps> = ({ 
+export const DataTable: React.FC<DataTableProps> = memo(({ 
   headers, 
   children, 
   maxHeight = 'auto',
@@ -41,6 +41,6 @@ export const DataTable: React.FC<DataTableProps> = ({
       </div>
     </div>
   );
-};
+});
 
 

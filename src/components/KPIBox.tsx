@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { LucideIcon } from 'lucide-react';
 
 interface KPIBoxProps {
@@ -10,7 +10,7 @@ interface KPIBoxProps {
   badge?: React.ReactNode;
 }
 
-export const KPIBox: React.FC<KPIBoxProps> = ({ 
+export const KPIBox: React.FC<KPIBoxProps> = memo(({ 
   title, 
   value, 
   icon: Icon, 
@@ -42,6 +42,6 @@ export const KPIBox: React.FC<KPIBoxProps> = ({
       </div>
     </div>
   );
-};
+});
 
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo, useCallback } from 'react';
 import { TrainerStat } from '../types/reports';
 import { flagScore, flagClass, flagLabel } from '../utils/scoreNormalizer';
 import { ChevronUp, ChevronDown } from 'lucide-react';
@@ -10,14 +10,21 @@ interface TrainerTableProps {
 
 type SortKey = 'trainerId' | 'trainingsConducted' | 'totalTrainees' | 'avgScore' | 'attendancePct';
 
-export const TrainerTable: React.FC<TrainerTableProps> = ({ stats }) => {
+export const TrainerTable: React.FC<TrainerTableProps> = memo(({ stats }) => {
   const [sortKey, setSortKey] = useState<SortKey>('avgScore');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
-  const handleSort = (key: SortKey) => {
-    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-    else { setSortKey(key); setSortDir('desc'); }
-  };
+  const handleSort = useCallback((key: SortKey) => {
+    setSortKey(prevKey => {
+      if (prevKey === key) {
+        setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+        return prevKey;
+      } else {
+        setSortDir('desc');
+        return key;
+      }
+    });
+  }, []);
 
   const sorted = [...stats].sort((a, b) => {
     const va = a[sortKey]; const vb = b[sortKey];
@@ -76,6 +83,6 @@ export const TrainerTable: React.FC<TrainerTableProps> = ({ stats }) => {
       </table>
     </div>
   );
-};
+});
 
 

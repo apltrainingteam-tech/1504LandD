@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import { useTheme } from './context/ThemeContext';
 import { FilterProvider } from './context/FilterProvider';
+import { PageTransition } from './components/PageTransition';
+import { SkeletonDashboard } from './components/SkeletonDashboard';
 import './index.css';
 
 const logoUrl = new URL('./assets/ajanta-pharma-logo.svg', import.meta.url).href;
@@ -123,12 +125,7 @@ const App = () => {
 
   const renderView = () => {
     if (loading) {
-      return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
-          <RefreshCw className="animate-spin" size={48} color="var(--accent-primary)" style={{ marginBottom: '20px' }} />
-          <p className="text-muted">Syncing Intelligence Engine...</p>
-        </div>
-      );
+      return <SkeletonDashboard />;
     }
 
     switch (view) {
@@ -268,7 +265,9 @@ const App = () => {
             <div style={{ fontSize: '18px', fontWeight: 700 }}>{noms.length}</div>
           </div>
         </div>
-        {renderView()}
+        <PageTransition pageKey={view}>
+          {renderView()}
+        </PageTransition>
       </main>
       </div>
     </FilterProvider>

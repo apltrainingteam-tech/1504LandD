@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, Fragment } from 'react';
+import React, { useState, useMemo, useEffect, Fragment, memo, useCallback } from 'react';
 import {
   Table, Calendar, GraduationCap, AlertTriangle, ChevronRight, ChevronDown,
   Trophy, Zap, ShieldCheck, CheckCircle2, ChartNetwork, Download, Filter, X, ListOrdered, BarChart3, TrendingUp, AlertCircle
@@ -56,7 +56,7 @@ interface ReportsAnalyticsProps {
 
 type SubView = 'grouped' | 'timeseries' | 'trainer' | 'drilldown' | 'gap' | 'ip_matrix' | 'ip_cluster_rank' | 'ip_team_rank' | 'ap_performance' | 'mip_attendance' | 'mip_performance' | 'refresher_attendance' | 'refresher_performance' | 'capsule_attendance' | 'capsule_performance';
 
-export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
+const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
   employees, attendance, scores, nominations, demographics, pageMode = 'overview'
 }) => {
   // Page-scoped global filter UI state (filters apply only to this page)
@@ -180,9 +180,9 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
   }, [tab, subView]);
 
   // Dynamic options for filter dropdowns
-  const allTeams = useMemo(() => [...new Set(employees.map(e => e.team).filter(Boolean))].sort(), [employees]);
-  const allClusters = useMemo(() => [...new Set(Object.values(TEAM_CLUSTER_MAP).filter(Boolean))].sort(), []);
-  const allTrainers = useMemo(() => [...new Set(attendance.map(a => a.trainerId).filter(Boolean))].sort(), [attendance]);
+  const allTeams = useMemo(() => [...new Set(employees.map(e => e.team).filter((t): t is string => Boolean(t)))].sort(), [employees]);
+  const allClusters = useMemo(() => [...new Set(Object.values(TEAM_CLUSTER_MAP).filter((c): c is string => Boolean(c)))].sort(), []);
+  const allTrainers = useMemo(() => [...new Set(attendance.map(a => a.trainerId).filter((tr): tr is string => Boolean(tr)))].sort(), [attendance]);
 
   const normalizeType = (value?: string) => (value || '').toUpperCase();
 
@@ -224,7 +224,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
   }, [unified, MONTHS]);
 
   // --- Handlers for page-scoped GlobalFilterPanel ---
-  const handleGlobalApply = (f: GlobalFilters) => {
+  const handleGlobalApply = useCallback((f: GlobalFilters) => {
     setPageFilters(f);
     // Map GlobalFilters to existing ReportFilter shape
     setFilter({
@@ -234,13 +234,13 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
       clusters: f.cluster ? [f.cluster] : [],
       trainer: f.trainer || ''
     });
-  };
+  }, []);
 
-  const handleGlobalClear = () => {
+  const handleGlobalClear = useCallback(() => {
     const cleared: GlobalFilters = { cluster: '', team: '', trainer: '', month: '' };
     setPageFilters(cleared);
     setFilter({ monthFrom: '', monthTo: '', teams: [], clusters: [], trainer: '' });
-  };
+  }, []);
 
   const ipRankData = useMemo(() => {
     // Pass MONTHS directly — engine applies FY filter internally
@@ -325,12 +325,10 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
 
   // Dynamic months from the filtered dataset
   const months = useMemo(() => {
-    const mSet = new Set<string>();
-    unified.forEach(r => {
-      const m = r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7);
-      if (m) mSet.add(m);
-    });
-    return [...mSet].sort();
+    const monthsArray = unified
+      .map(r => r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7))
+      .filter((m): m is string => Boolean(m));
+    return [...new Set(monthsArray)].sort();
   }, [unified]);
 
   const timeSeries = useMemo(() => buildTimeSeries(groups, months, tab, tsMode), [groups, months, tab, tsMode]);
@@ -1092,5 +1090,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
     </div>
   );
 };
+
+export const ReportsAnalytics = memo(ReportsAnalyticsComponent);
 
 

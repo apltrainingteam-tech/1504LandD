@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, memo } from 'react';
 import { X } from 'lucide-react';
 import { GlobalFilters } from '../context/filterContext';
 
@@ -14,7 +14,7 @@ interface GlobalFilterPanelProps {
   onClearAll: () => void;
 }
 
-export const GlobalFilterPanel: React.FC<GlobalFilterPanelProps> = ({
+export const GlobalFilterPanel: React.FC<GlobalFilterPanelProps> = memo(({
   isOpen,
   onClose,
   onApply,
@@ -27,21 +27,21 @@ export const GlobalFilterPanel: React.FC<GlobalFilterPanelProps> = ({
 }) => {
   const [tempFilters, setTempFilters] = useState<GlobalFilters>(initialFilters);
 
-  const handleInputChange = (key: keyof GlobalFilters, value: string) => {
+  const handleInputChange = useCallback((key: keyof GlobalFilters, value: string) => {
     setTempFilters(prev => ({ ...prev, [key]: value }));
-  };
+  }, []);
 
-  const handleApply = () => {
+  const handleApply = useCallback(() => {
     onApply(tempFilters);
     onClose();
-  };
+  }, [tempFilters, onApply, onClose]);
 
-  const handleClearAll = () => {
+  const handleClearAll = useCallback(() => {
     const cleared = { cluster: '', team: '', trainer: '', month: '' };
     setTempFilters(cleared);
     onClearAll();
     onClose();
-  };
+  }, [onClearAll, onClose]);
 
   if (!isOpen) return null;
 
@@ -332,4 +332,4 @@ export const GlobalFilterPanel: React.FC<GlobalFilterPanelProps> = ({
       `}</style>
     </>
   );
-};
+});
