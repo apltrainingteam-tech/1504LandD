@@ -7,8 +7,8 @@ import { computeGapAnalysis, GapAnalysisData, EmployeeGapDetail } from '../../se
 import { KPIBox } from '../../components/KPIBox';
 import { InsightStrip } from '../../components/InsightStrip';
 import TopRightControls from '../../components/TopRightControls';
-import { useGlobalFilters } from '../../context/filterContext';
 import { GlobalFilterPanel } from '../../components/GlobalFilterPanel';
+import { GlobalFilters, getActiveFilterCount } from '../../context/filterContext';
 import { getFiscalYears } from '../../utils/fiscalYear';
 import { TEAM_CLUSTER_MAP } from '../../services/clusterMap';
 
@@ -34,7 +34,8 @@ const GapAnalysis = ({ employees, attendance, nominations }: GapAnalysisProps) =
   const [zoneFilter, setZoneFilter] = useState<string>('');
   const FY_OPTIONS = getFiscalYears(2015);
   const [selectedFY, setSelectedFY] = useState<string>(FY_OPTIONS[0]);
-  const { filters: globalFilters, setFilters: setGlobalFilters, activeFilterCount, clearFilters } = useGlobalFilters();
+  const [pageFilters, setPageFilters] = useState<GlobalFilters>({ cluster: '', team: '', trainer: '', month: '' });
+  const activeFilterCount = getActiveFilterCount(pageFilters);
   const [showGlobalFilters, setShowGlobalFilters] = useState(false);
   const [drilldownData, setDrilldownData] = useState<EmployeeGapDetail[] | null>(null);
 
@@ -54,19 +55,53 @@ const GapAnalysis = ({ employees, attendance, nominations }: GapAnalysisProps) =
     return [...m].sort();
   }, [attendance]);
 
+  // Handlers for GlobalFilterPanel (page-scoped)
+  const handleGlobalApply = (f: GlobalFilters) => {
+    setPageFilters(f);
+    setShowGlobalFilters(false);
+  };
+
+  const handleGlobalClear = () => {
+    const cleared: GlobalFilters = { cluster: '', team: '', trainer: '', month: '' };
+    setPageFilters(cleared);
+    setShowGlobalFilters(false);
+  };
+
   const { data, drilldownMap } = useMemo(() => {
-    // Filter employees by zone if Refresher tab and zone filter selected
+    // Apply page-scoped filters to employees/attendance/nominations prior to gap computation
     let filteredEmployees = employees;
+    if (pageFilters.cluster) filteredEmployees = filteredEmployees.filter(emp => (emp.state || '') === pageFilters.cluster);
+    if (pageFilters.team) filteredEmployees = filteredEmployees.filter(emp => (emp.team || '') === pageFilters.team);
+
+    // Filter by zone if Refresher tab and zone filter selected
     if (tab === 'Refresher' && zoneFilter) {
-      filteredEmployees = employees.filter(emp => {
+      filteredEmployees = filteredEmployees.filter(emp => {
         const empZone = emp.zone || getZoneFromState(emp.state);
         return empZone === zoneFilter;
       });
     }
-    
+
+    const filteredAttendance = attendance.filter(a => {
+      if (pageFilters.trainer && a.trainerId !== pageFilters.trainer) return false;
+      if (pageFilters.month) {
+        const m = a.month || (a.attendanceDate || '').substring(0,7);
+        if (m !== pageFilters.month) return false;
+      }
+      return true;
+    });
+
+    const filteredNominations = nominations.filter(n => {
+      if (pageFilters.trainer && n.trainerId !== pageFilters.trainer) return false;
+      if (pageFilters.month) {
+        const m = n.notificationDate ? n.notificationDate.substring(0,7) : '';
+        if (m !== pageFilters.month) return false;
+      }
+      return true;
+    });
+
     console.log(`📊 GAP ANALYSIS: Tab=${tab}, Zone=${zoneFilter || 'All'}, FilteredEmployees=${filteredEmployees.length}, TotalEmployees=${employees.length}`);
-    
-    const result = computeGapAnalysis(tab, filteredEmployees, attendance, nominations, zoneFilter);
+
+    const result = computeGapAnalysis(tab, filteredEmployees, filteredAttendance, filteredNominations, zoneFilter);
     console.log(`✓ RESULT for ${tab}: ${result.data.length} rows`);
     if (result.data.length > 0) {
       console.log(`  - Total Active: ${result.data.reduce((s, d) => s + d.totalActive, 0)}`);
@@ -340,6 +375,7 @@ const GapAnalysis = ({ employees, attendance, nominations }: GapAnalysisProps) =
           onChangeFY={(v) => setSelectedFY(v)}
           onOpenGlobalFilters={() => setShowGlobalFilters(true)}
           onExport={() => alert('Export not available for Training Requirements (UI placeholder)')}
+          activeFilterCount={activeFilterCount}
         />
       </div>
 
@@ -376,13 +412,13 @@ const GapAnalysis = ({ employees, attendance, nominations }: GapAnalysisProps) =
       <GlobalFilterPanel
         isOpen={showGlobalFilters}
         onClose={() => setShowGlobalFilters(false)}
-        onApply={setGlobalFilters}
-        initialFilters={globalFilters}
+        onApply={handleGlobalApply}
+        initialFilters={pageFilters}
         clusterOptions={allClusters}
         teamOptions={allTeams}
         trainerOptions={allTrainers}
         monthOptions={months}
-        onClearAll={clearFilters}
+        onClearAll={handleGlobalClear}
       />
     </div>
   );

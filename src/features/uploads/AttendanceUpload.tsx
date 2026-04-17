@@ -4,6 +4,7 @@ import { parseExcelFile, ParsedRow } from '../../services/parsingService';
 import { uploadAttendanceBatch } from '../../services/attendanceService';
 import { UploadPreview } from './components/UploadPreview';
 import { getSchema } from '../../services/trainingSchemas';
+import { validateFileSize, MAX_UPLOAD_SIZE_BYTES } from '../../utils/fileValidation';
 
 import { Employee } from '../../types/employee';
 
@@ -30,6 +31,12 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
   const [strictMode, setStrictMode] = useState(false);
 
   const processFile = async (file: File) => {
+    // Validate size before any parsing (protect internal tool use)
+    const valid = validateFileSize(file);
+    if (!valid.ok) {
+      alert(valid.reason || `Please use files smaller than ${MAX_UPLOAD_SIZE_BYTES / (1024 * 1024)} MB`);
+      return;
+    }
     setFileName(file.name);
     try {
       const { rows: processed, trainingType: finalType } = await parseExcelFile(file, selectedUploadType, masterEmployees);
@@ -48,11 +55,21 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
-    if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]);
+    const f = e.dataTransfer.files[0];
+    if (f) {
+      const valid = validateFileSize(f);
+      if (!valid.ok) { alert(valid.reason || `Please use files smaller than ${MAX_UPLOAD_SIZE_BYTES / (1024 * 1024)} MB`); return; }
+      processFile(f);
+    }
   };
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files?.[0]) processFile(e.target.files[0]);
+    const f = e.target.files?.[0];
+    if (f) {
+      const valid = validateFileSize(f);
+      if (!valid.ok) { alert(valid.reason || `Please use files smaller than ${MAX_UPLOAD_SIZE_BYTES / (1024 * 1024)} MB`); return; }
+      processFile(f);
+    }
   };
 
   const doUpload = async () => {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Filter, Download } from 'lucide-react';
-import { useGlobalFilters } from '../context/filterContext';
+// TopRightControls is UI-only; active filter count should be provided by the page
 
 interface TopRightControlsProps {
   fiscalOptions?: string[];
@@ -8,6 +8,7 @@ interface TopRightControlsProps {
   onChangeFY?: (fy: string) => void;
   onOpenGlobalFilters?: () => void;
   onExport?: () => void;
+  activeFilterCount?: number;
 }
 
 export const TopRightControls: React.FC<TopRightControlsProps> = ({
@@ -16,8 +17,8 @@ export const TopRightControls: React.FC<TopRightControlsProps> = ({
   onChangeFY,
   onOpenGlobalFilters,
   onExport,
+  activeFilterCount = 0,
 }) => {
-  const { activeFilterCount } = useGlobalFilters();
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

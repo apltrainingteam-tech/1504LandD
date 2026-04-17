@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Users, UploadCloud, CheckCircle, X, Check, AlertTriangle, XCircle, Upload, Search, Database } from 'lucide-react';
 import { parseEmployeeMasterExcel, ParsedRow } from '../../services/parsingService';
+import { validateFileSize, MAX_UPLOAD_SIZE_BYTES } from '../../utils/fileValidation';
 import { clearCollection, addBatch } from '../../services/firestoreService';
 import { Employee } from '../../types/employee';
 
@@ -19,6 +20,11 @@ export const Employees: React.FC<EmployeesProps> = ({ employees = [], onUploadCo
   const [searchQuery, setSearchQuery] = useState('');
 
   const processFile = async (file: File) => {
+    const valid = validateFileSize(file);
+    if (!valid.ok) {
+      alert(valid.reason || `Please use files smaller than ${MAX_UPLOAD_SIZE_BYTES / (1024 * 1024)} MB`);
+      return;
+    }
     setFileName(file.name);
     try {
       const { rows: processed } = await parseEmployeeMasterExcel(file);

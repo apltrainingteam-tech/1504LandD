@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Mail, CheckCircle, AlertCircle, Users, BarChart2, ChevronDown, ChevronRight } from 'lucide-react';
 import { ParsedRow, parseNominationExcel } from '../../services/parsingService';
+import { validateFileSize, MAX_UPLOAD_SIZE_BYTES } from '../../utils/fileValidation';
 import { addBatch } from '../../services/firestoreService';
 import { TEAM_CLUSTER_MAP } from '../../services/clusterMap';
 import { Employee } from '../../types/employee';
@@ -234,6 +235,11 @@ export const Notified: React.FC<NotifiedProps> = ({ employees, attendance, nomin
 
   // Handlers
   const processFile = async (file: File) => {
+    const valid = validateFileSize(file);
+    if (!valid.ok) {
+      alert(valid.reason || `Please use files smaller than ${MAX_UPLOAD_SIZE_BYTES / (1024 * 1024)} MB`);
+      return;
+    }
     setFileName(file.name);
     try {
       const { rows: processed } = await parseNominationExcel(file, selectedUploadType, employees);

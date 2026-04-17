@@ -12,7 +12,7 @@ import { InsightStrip } from '../../components/InsightStrip';
 import { formatDateForDisplay } from '../../utils/dateParser';
 import { displayScore } from '../../utils/scoreNormalizer';
 import TopRightControls from '../../components/TopRightControls';
-import { useGlobalFilters } from '../../context/filterContext';
+import { GlobalFilters, getActiveFilterCount } from '../../context/filterContext';
 import { GlobalFilterPanel } from '../../components/GlobalFilterPanel';
 import { getFiscalYears } from '../../utils/fiscalYear';
 import { TEAM_CLUSTER_MAP } from '../../services/clusterMap';
@@ -51,7 +51,8 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
   const [selectedZone, setSelectedZone] = useState('All Zones');
   const FY_OPTIONS = getFiscalYears(2015);
   const [selectedFY, setSelectedFY] = useState<string>(FY_OPTIONS[0]);
-  const { filters: globalFilters, setFilters: setGlobalFilters, clearFilters } = useGlobalFilters();
+  const [pageFilters, setPageFilters] = useState<GlobalFilters>({ cluster: '', team: '', trainer: '', month: '' });
+  const activeFilterCount = getActiveFilterCount(pageFilters);
   const [showGlobalFilters, setShowGlobalFilters] = useState(false);
 
   // Get unique zones
@@ -93,15 +94,38 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
     return [...s].sort();
   }, [attendance]);
 
+  // Handlers for GlobalFilterPanel (page-scoped)
+  const handleGlobalApply = (f: GlobalFilters) => {
+    setPageFilters(f);
+    setShowGlobalFilters(false);
+  };
+
+  const handleGlobalClear = () => {
+    const cleared: GlobalFilters = { cluster: '', team: '', trainer: '', month: '' };
+    setPageFilters(cleared);
+    setShowGlobalFilters(false);
+  };
+
+  // Apply page-scoped filters from GlobalFilterPanel to the unified dataset
+  const filteredWithPageFilters = useMemo(() => {
+    let data = unified;
+    if (pageFilters.cluster) data = data.filter(r => (r.employee.state || '') === pageFilters.cluster);
+    if (pageFilters.team) data = data.filter(r => (r.employee.team || '') === pageFilters.team);
+    if (pageFilters.trainer) data = data.filter(r => (r.attendance.trainerId || '') === pageFilters.trainer);
+    if (pageFilters.month) data = data.filter(r => ((r.attendance.month || (r.attendance.attendanceDate||'').substring(0,7)) === pageFilters.month));
+    return data;
+  }, [unified, pageFilters]);
+
   const filtered = useMemo(() => {
-    if (!search) return unified;
+    const base = filteredWithPageFilters;
+    if (!search) return base;
     const s = search.toLowerCase();
-    return unified.filter(r => 
+    return base.filter(r => 
       r.employee.name.toLowerCase().includes(s) || 
       r.employee.employeeId.toLowerCase().includes(s) ||
       (r.employee.aadhaarNumber || '').includes(s)
     );
-  }, [unified, search]);
+  }, [filteredWithPageFilters, search]);
 
   // KPI Calculations
   const totalRecords = filtered.length;
@@ -139,6 +163,7 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
           onChangeFY={(v) => setSelectedFY(v)}
           onOpenGlobalFilters={() => setShowGlobalFilters(true)}
           onExport={() => alert('Export not implemented for Training Data (UI placeholder)')}
+          activeFilterCount={activeFilterCount}
         />
       </div>
 
@@ -197,7 +222,7 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
               style={{ paddingLeft: '40px', fontSize: '13px', borderRadius: '8px', padding: '8px 12px 8px 40px', border: '1px solid var(--border-color)' }}
             />
           </div>
-          <button className="btn btn-secondary" style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}><Filter size={16} /></button>
+          {/* Inline toolbar filter removed — use GlobalFilterPanel via TopRightControls */}
         </div>
 
         {/* Data Table */}
@@ -232,13 +257,13 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
       <GlobalFilterPanel
         isOpen={showGlobalFilters}
         onClose={() => setShowGlobalFilters(false)}
-        onApply={setGlobalFilters}
-        initialFilters={globalFilters}
+        onApply={handleGlobalApply}
+        initialFilters={pageFilters}
         clusterOptions={allClusters}
         teamOptions={allTeams}
         trainerOptions={allTrainers}
         monthOptions={months}
-        onClearAll={clearFilters}
+        onClearAll={handleGlobalClear}
       />
     </div>
   );

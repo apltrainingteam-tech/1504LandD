@@ -33,7 +33,7 @@ import { TrainerTable } from '../../components/TrainerTable';
 import { DrilldownPanel } from '../../components/DrilldownPanel';
 import { InsightStrip } from '../../components/InsightStrip';
 import { GlobalFilterPanel } from '../../components/GlobalFilterPanel';
-import { useGlobalFilters } from '../../context/filterContext';
+import { GlobalFilters, getActiveFilterCount } from '../../context/filterContext';
 import { APPerformanceMatrix } from '../../components/APPerformanceMatrix';
 import { MIPAttendanceMatrix, MIPPerformanceMatrix } from '../../components/MIPDualMatrix';
 import { RefresherAttendanceMatrix, RefresherPerformanceMatrix } from '../../components/RefresherDualMatrix';
@@ -59,8 +59,9 @@ type SubView = 'grouped' | 'timeseries' | 'trainer' | 'drilldown' | 'gap' | 'ip_
 export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
   employees, attendance, scores, nominations, demographics, pageMode = 'overview'
 }) => {
-  // Global filters
-  const { filters: globalFilters, setFilters: setGlobalFilters, activeFilterCount, clearFilters } = useGlobalFilters();
+  // Page-scoped global filter UI state (filters apply only to this page)
+  const [pageFilters, setPageFilters] = useState<GlobalFilters>({ cluster: '', team: '', trainer: '', month: '' });
+  const activeFilterCount = getActiveFilterCount(pageFilters);
   const [showGlobalFilters, setShowGlobalFilters] = useState(false);
 
   const [tab, setTab] = useState<string>('IP');
@@ -221,6 +222,25 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
     });
     return buildIPAggregates(filteredRecords);
   }, [unified, MONTHS]);
+
+  // --- Handlers for page-scoped GlobalFilterPanel ---
+  const handleGlobalApply = (f: GlobalFilters) => {
+    setPageFilters(f);
+    // Map GlobalFilters to existing ReportFilter shape
+    setFilter({
+      monthFrom: f.month || '',
+      monthTo: f.month || '',
+      teams: f.team ? [f.team] : [],
+      clusters: f.cluster ? [f.cluster] : [],
+      trainer: f.trainer || ''
+    });
+  };
+
+  const handleGlobalClear = () => {
+    const cleared: GlobalFilters = { cluster: '', team: '', trainer: '', month: '' };
+    setPageFilters(cleared);
+    setFilter({ monthFrom: '', monthTo: '', teams: [], clusters: [], trainer: '' });
+  };
 
   const ipRankData = useMemo(() => {
     // Pass MONTHS directly — engine applies FY filter internally
@@ -1061,13 +1081,13 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
       <GlobalFilterPanel
         isOpen={showGlobalFilters}
         onClose={() => setShowGlobalFilters(false)}
-        onApply={setGlobalFilters}
-        initialFilters={globalFilters}
+        onApply={handleGlobalApply}
+        initialFilters={pageFilters}
         clusterOptions={allClusters}
         teamOptions={allTeams}
         trainerOptions={allTrainers}
         monthOptions={months}
-        onClearAll={clearFilters}
+        onClearAll={handleGlobalClear}
       />
     </div>
   );
