@@ -30,6 +30,9 @@ import { DataTable } from '../../components/DataTable';
 import { TimeSeriesTable } from '../../components/TimeSeriesTable';
 import { TrainerTable } from '../../components/TrainerTable';
 import { DrilldownPanel } from '../../components/DrilldownPanel';
+import { InsightStrip } from '../../components/InsightStrip';
+import { GlobalFilterPanel } from '../../components/GlobalFilterPanel';
+import { useGlobalFilters } from '../../context/filterContext';
 import { APPerformanceMatrix } from '../../components/APPerformanceMatrix';
 import { MIPAttendanceMatrix, MIPPerformanceMatrix } from '../../components/MIPDualMatrix';
 import { RefresherAttendanceMatrix, RefresherPerformanceMatrix } from '../../components/RefresherDualMatrix';
@@ -47,13 +50,18 @@ interface ReportsAnalyticsProps {
   scores: TrainingScore[];
   nominations: TrainingNomination[];
   demographics: Demographics[];
+  pageMode?: 'overview' | 'performance-insights';
 }
 
 type SubView = 'grouped' | 'timeseries' | 'trainer' | 'drilldown' | 'gap' | 'ip_matrix' | 'ip_cluster_rank' | 'ip_team_rank' | 'ap_performance' | 'mip_attendance' | 'mip_performance' | 'refresher_attendance' | 'refresher_performance' | 'capsule_attendance' | 'capsule_performance';
 
 export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
-  employees, attendance, scores, nominations, demographics
+  employees, attendance, scores, nominations, demographics, pageMode = 'overview'
 }) => {
+  // Global filters
+  const { filters: globalFilters, setFilters: setGlobalFilters, activeFilterCount, clearFilters } = useGlobalFilters();
+  const [showGlobalFilters, setShowGlobalFilters] = useState(false);
+
   const [tab, setTab] = useState<string>('IP');
   const [viewBy, setViewBy] = useState<ViewByOption>('Team');
   const [subView, setSubView] = useState<SubView>('ip_matrix');
@@ -350,12 +358,21 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
 
   return (
     <div className="animate-fade-in">
-      {/* Header */}
+      {/* Page Identity */}
+      <div style={{ marginBottom: '24px' }}>
+        <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 700 }}>
+          {pageMode === 'performance-insights' ? 'Performance Insights' : 'Overview'}
+        </h1>
+        <p style={{ color: 'var(--text-secondary)', margin: '8px 0 0 0', fontSize: '13px' }}>
+          {pageMode === 'performance-insights' 
+            ? 'Detailed training performance analysis and rankings' 
+            : 'Training performance snapshot and trends'}
+        </p>
+      </div>
+
+      {/* Controls Header */}
       <div className="header" style={{ marginBottom: '20px' }}>
-        <div>
-          <h2 style={{ fontSize: '24px' }}>Intelligence Engine</h2>
-          <p className="text-muted">High-fidelity training analytics and rankings</p>
-        </div>
+        <div style={{ display: 'flex' }}></div>
         <div className="flex-center" style={{ gap: '8px' }}>
           {tab === 'IP' ? (
             <Fragment>
@@ -420,6 +437,10 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
           <button className={`btn btn-secondary ${hasActiveFilter ? 'active' : ''}`} onClick={() => setShowFilters(f => !f)} title="Filters" style={{ position: 'relative' }}>
             <Filter size={16} />
             {hasActiveFilter && <span style={{ position: 'absolute', top: '4px', right: '4px', width: '8px', height: '8px', background: 'var(--accent-primary)', borderRadius: '50%' }} />}
+          </button>
+          <button className={`btn btn-secondary ${activeFilterCount > 0 ? 'active' : ''}`} onClick={() => setShowGlobalFilters(true)} title={`Global Filters ${activeFilterCount > 0 ? `(${activeFilterCount})` : ''}`} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Filter size={16} />
+            {activeFilterCount > 0 && <span style={{ fontSize: '11px', fontWeight: 600, minWidth: '16px' }}>{activeFilterCount}</span>}
           </button>
           <button className="btn btn-secondary" onClick={handleExport} title="Export CSV"><Download size={16} /></button>
         </div>
@@ -565,6 +586,22 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
           </Fragment>
         )}
       </div>
+
+      {/* Insight Strip */}
+      {pageMode !== 'performance-insights' && tab === 'IP' && (
+        <InsightStrip
+          text="Performance stable; Revance declining; 120 candidates pending training."
+          variant="primary"
+          icon="trending"
+        />
+      )}
+      {pageMode === 'performance-insights' && (
+        <InsightStrip
+          text="Iluma leading consistently; Derma shows volatility in last 3 months."
+          variant="primary"
+          icon="check"
+        />
+      )}
 
       {/* Top / Bottom 3 */}
       {subView === 'grouped' && tab !== 'IP' && tab !== 'AP' && ranked.length > 3 && (
@@ -1051,5 +1088,17 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
     </div>
   );
 };
+
+<GlobalFilterPanel
+        isOpen={showGlobalFilters}
+        onClose={() => setShowGlobalFilters(false)}
+        onApply={setGlobalFilters}
+        initialFilters={globalFilters}
+        clusterOptions={allClusters}
+        teamOptions={allTeams}
+        trainerOptions={allTrainers}
+        monthOptions={months}
+        onClearAll={clearFilters}
+      />
 
 

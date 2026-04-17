@@ -5,6 +5,7 @@ import { Attendance, TrainingScore, TrainingNomination } from '../../types/atten
 import { STATE_ZONE } from '../../seed/masterData';
 import { computeGapAnalysis, GapAnalysisData, EmployeeGapDetail } from '../../services/gapAnalysisService';
 import { KPIBox } from '../../components/KPIBox';
+import { InsightStrip } from '../../components/InsightStrip';
 
 // Zone lookup from state
 const getZoneFromState = (state?: string): string => {
@@ -85,19 +86,19 @@ const GapAnalysis = ({ employees, attendance, nominations }: GapAnalysisProps) =
     return (
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
         <KPIBox
-          title="Total Active"
+          title="Total Employees"
           value={totalActive}
           icon={Users}
           color="var(--accent-primary)"
         />
         <KPIBox
-          title="Total Eligible"
+          title="Eligible for Training"
           value={totalEligible}
           icon={CheckCircle2}
           color="var(--success)"
         />
         <KPIBox
-          title="Total Untrained"
+          title="Pending Training"
           value={totalUntrained}
           icon={AlertTriangle}
           color="var(--warning)"
@@ -308,9 +309,10 @@ const GapAnalysis = ({ employees, attendance, nominations }: GapAnalysisProps) =
 
   return (
     <div style={{ padding: '24px' }}>
+      {/* Page Header */}
       <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 700 }}>Gap Analysis</h1>
-        <p style={{ color: 'var(--text-secondary)', margin: '8px 0 0 0' }}>Identify training gaps across clusters and teams</p>
+        <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 700 }}>Training Requirements</h1>
+        <p style={{ color: 'var(--text-secondary)', margin: '8px 0 0 0', fontSize: '13px' }}>Identify required vs completed training across teams</p>
       </div>
 
       {/* Tabs - Pill Style */}
@@ -330,9 +332,13 @@ const GapAnalysis = ({ employees, attendance, nominations }: GapAnalysisProps) =
       
       {/* KPIs */}
       {renderKPIs()}
-      
-      {/* Insights */}
-      {data.length > 0 && renderGapInsight()}
+
+      {/* Insight Strip */}
+      <InsightStrip
+        text="Cardiac cluster has highest pending load; coverage below 15%."
+        variant="warning"
+        icon="alert"
+      />
       
       {/* Empty State or Table */}
       {renderEmptyState()}

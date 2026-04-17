@@ -19,6 +19,7 @@ import {
   Moon
 } from 'lucide-react';
 import { useTheme } from './context/ThemeContext';
+import { FilterProvider } from './context/FilterProvider';
 import './index.css';
 
 const logoUrl = new URL('./assets/ajanta-pharma-logo.svg', import.meta.url).href;
@@ -131,8 +132,8 @@ const App = () => {
     }
 
     switch (view) {
-      case 'reports': return <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} />;
-      case 'performance': return <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} />;
+      case 'reports': return <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} pageMode="overview" />;
+      case 'performance': return <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} pageMode="performance-insights" />;
       case 'trainings': return <TrainingsViewer employees={emps} attendance={att} scores={scs} />;
       case 'attendance': return <AttendanceUpload onUploadComplete={() => setRefreshKey(k => k + 1)} masterEmployees={emps} />;
       case 'notified': return <Notified employees={emps} attendance={att} nominations={noms} onUploadComplete={() => setRefreshKey(k => k + 1)} />;
@@ -144,9 +145,10 @@ const App = () => {
   };
 
   return (
-    <div className="app-container">
-      {/* Sidebar Navigation */}
-      <aside className="sidebar">
+    <FilterProvider>
+      <div className="app-container">
+        {/* Sidebar Navigation */}
+        <aside className="sidebar">
         <div className="sidebar-logo">
           <img
             src={logoUrl}
@@ -268,7 +270,8 @@ const App = () => {
         </div>
         {renderView()}
       </main>
-    </div>
+      </div>
+    </FilterProvider>
   );
 };
 
