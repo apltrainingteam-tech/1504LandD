@@ -105,7 +105,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
       Pre_AP: getFYForType('Pre_AP')
     };
   });
-  const [showFilters, setShowFilters] = useState(false);
+  
   const [tsMode, setTsMode] = useState<'score' | 'count'>('score');
 
   // Filter state
