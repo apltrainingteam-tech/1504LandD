@@ -11,6 +11,11 @@ import { KPIBox } from '../../components/KPIBox';
 import { InsightStrip } from '../../components/InsightStrip';
 import { formatDateForDisplay } from '../../utils/dateParser';
 import { displayScore } from '../../utils/scoreNormalizer';
+import TopRightControls from '../../components/TopRightControls';
+import { useGlobalFilters } from '../../context/filterContext';
+import { GlobalFilterPanel } from '../../components/GlobalFilterPanel';
+import { getFiscalYears } from '../../utils/fiscalYear';
+import { TEAM_CLUSTER_MAP } from '../../services/clusterMap';
 
 // Training type normalization
 const trainingTypeMap: Record<string, string> = {
@@ -44,6 +49,10 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
   const [tab, setTab] = useState('IP');
   const [search, setSearch] = useState('');
   const [selectedZone, setSelectedZone] = useState('All Zones');
+  const FY_OPTIONS = getFiscalYears(2015);
+  const [selectedFY, setSelectedFY] = useState<string>(FY_OPTIONS[0]);
+  const { filters: globalFilters, setFilters: setGlobalFilters, clearFilters } = useGlobalFilters();
+  const [showGlobalFilters, setShowGlobalFilters] = useState(false);
 
   // Get unique zones
   const zones = useMemo(() => {
@@ -74,6 +83,15 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
     
     return buildUnifiedDataset(filteredEmployees, filteredAtt, filteredScs, []);
   }, [employees, attendance, scores, tab, selectedZone]);
+
+  const allTeams = useMemo(() => [...new Set(employees.map(e => e.team).filter(Boolean))].sort(), [employees]);
+  const allClusters = useMemo(() => [...new Set(Object.values(TEAM_CLUSTER_MAP).filter(Boolean))].sort(), []);
+  const allTrainers = useMemo(() => [...new Set(attendance.map(a => a.trainerId).filter(Boolean))].sort(), [attendance]);
+  const months = useMemo(() => {
+    const s = new Set<string>();
+    attendance.forEach(a => { if (a.month) s.add(a.month); if (a.attendanceDate) s.add((a.attendanceDate||'').substring(0,7)); });
+    return [...s].sort();
+  }, [attendance]);
 
   const filtered = useMemo(() => {
     if (!search) return unified;
@@ -110,9 +128,18 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
   return (
     <div className="animate-fade-in" style={{ padding: '24px' }}>
       {/* Page Header */}
-      <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 700 }}>Training Data</h1>
-        <p style={{ color: 'var(--text-secondary)', margin: '8px 0 0 0', fontSize: '13px' }}>Standardized historical training records and participation data</p>
+      <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 700 }}>Training Data</h1>
+          <p style={{ color: 'var(--text-secondary)', margin: '8px 0 0 0', fontSize: '13px' }}>Standardized historical training records and participation data</p>
+        </div>
+        <TopRightControls
+          fiscalOptions={FY_OPTIONS}
+          selectedFY={selectedFY}
+          onChangeFY={(v) => setSelectedFY(v)}
+          onOpenGlobalFilters={() => setShowGlobalFilters(true)}
+          onExport={() => alert('Export not implemented for Training Data (UI placeholder)')}
+        />
       </div>
 
       {/* Filter Controls Row */}
@@ -202,6 +229,17 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
           ))}
         </DataTable>
       </div>
+      <GlobalFilterPanel
+        isOpen={showGlobalFilters}
+        onClose={() => setShowGlobalFilters(false)}
+        onApply={setGlobalFilters}
+        initialFilters={globalFilters}
+        clusterOptions={allClusters}
+        teamOptions={allTeams}
+        trainerOptions={allTrainers}
+        monthOptions={months}
+        onClearAll={clearFilters}
+      />
     </div>
   );
 };

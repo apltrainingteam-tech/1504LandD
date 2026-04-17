@@ -23,6 +23,7 @@ import { buildCapsuleAttendanceMatrix } from '../../services/capsuleAttendanceSe
 import { getCapsulePerformanceAggregates } from '../../services/capsulePerformanceService';
 import { getEligibleEmployees, EligibilityResult } from '../../services/eligibilityService';
 import { getFiscalYears } from '../../utils/fiscalYear';
+import { TEAM_CLUSTER_MAP } from '../../services/clusterMap';
 
 import { getCollection } from '../../services/firestoreService';
 import { KPIBox } from '../../components/KPIBox';
@@ -179,7 +180,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
 
   // Dynamic options for filter dropdowns
   const allTeams = useMemo(() => [...new Set(employees.map(e => e.team).filter(Boolean))].sort(), [employees]);
-  const allClusters = useMemo(() => [...new Set(employees.map(e => clusterMapping[e.team] || e.state).filter(Boolean))].sort(), [employees, clusterMapping]);
+  const allClusters = useMemo(() => [...new Set(Object.values(TEAM_CLUSTER_MAP).filter(Boolean))].sort(), []);
   const allTrainers = useMemo(() => [...new Set(attendance.map(a => a.trainerId).filter(Boolean))].sort(), [attendance]);
 
   const normalizeType = (value?: string) => (value || '').toUpperCase();
@@ -328,7 +329,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
     setExpanded(next);
   };
 
-  const hasActiveFilter = filter.monthFrom || filter.monthTo || filter.teams.length > 0 || filter.clusters.length > 0 || filter.trainer;
+  // (old inline filters removed) keep legacy `filter` state intact but inline UI was replaced by GlobalFilterPanel
 
   const handleExport = () => {
     const rows = unified.map(r => ({
@@ -434,10 +435,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
             </div>
           )}
 
-          <button className={`btn btn-secondary ${hasActiveFilter ? 'active' : ''}`} onClick={() => setShowFilters(f => !f)} title="Filters" style={{ position: 'relative' }}>
-            <Filter size={16} />
-            {hasActiveFilter && <span style={{ position: 'absolute', top: '4px', right: '4px', width: '8px', height: '8px', background: 'var(--accent-primary)', borderRadius: '50%' }} />}
-          </button>
+          {/* Inline filter button removed in favor of GlobalFilterPanel */}
           <button className={`btn btn-secondary ${activeFilterCount > 0 ? 'active' : ''}`} onClick={() => setShowGlobalFilters(true)} title={`Global Filters ${activeFilterCount > 0 ? `(${activeFilterCount})` : ''}`} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Filter size={16} />
             {activeFilterCount > 0 && <span style={{ fontSize: '11px', fontWeight: 600, minWidth: '16px' }}>{activeFilterCount}</span>}
@@ -464,34 +462,7 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
         )}
       </div>
 
-      {/* Filter Panel */}
-      {showFilters && (
-        <div className="glass-panel" style={{ padding: '20px', marginBottom: '20px', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          {(['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'Pre_AP'].every(t => tab !== t)) && (
-            <Fragment>
-              <div>
-                <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>From Month</label>
-                <input type="month" className="form-input" value={filter.monthFrom} onChange={e => setFilter(f => ({ ...f, monthFrom: e.target.value }))} style={{ width: '150px' }} />
-              </div>
-              <div>
-                <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>To Month</label>
-                <input type="month" className="form-input" value={filter.monthTo} onChange={e => setFilter(f => ({ ...f, monthTo: e.target.value }))} style={{ width: '150px' }} />
-              </div>
-            </Fragment>
-          )}
-          <div>
-            <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Trainer</label>
-            <select className="form-input" value={filter.trainer} onChange={e => setFilter(f => ({ ...f, trainer: e.target.value }))} style={{ width: '180px' }}>
-              <option value="">All Trainers</option>
-              {allTrainers.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-          <button className="btn btn-secondary" onClick={() => setFilter({ monthFrom: '', monthTo: '', teams: [], clusters: [], trainer: '' })} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <X size={14} /> Clear Filters
-          </button>
-          {(['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'Pre_AP'].every(t => tab !== t)) && hasActiveFilter && <span className="badge badge-primary" style={{ alignSelf: 'center', marginLeft: 'auto' }}>Filters Active — {unified.length} records</span>}
-        </div>
-      )}
+      {/* Inline filter panel removed in favor of GlobalFilterPanel */}
 
       {/* KPI Cards */}
       <div className="dashboard-grid" style={{ marginBottom: '24px' }}>
@@ -1084,12 +1055,10 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
             })}
           </DataTable>
         </div>
-      )}
-    </div>
-  );
-};
 
-<GlobalFilterPanel
+      )}
+
+      <GlobalFilterPanel
         isOpen={showGlobalFilters}
         onClose={() => setShowGlobalFilters(false)}
         onApply={setGlobalFilters}
@@ -1100,5 +1069,8 @@ export const ReportsAnalytics: React.FC<ReportsAnalyticsProps> = ({
         monthOptions={months}
         onClearAll={clearFilters}
       />
+    </div>
+  );
+};
 
 

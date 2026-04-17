@@ -6,6 +6,11 @@ import { STATE_ZONE } from '../../seed/masterData';
 import { computeGapAnalysis, GapAnalysisData, EmployeeGapDetail } from '../../services/gapAnalysisService';
 import { KPIBox } from '../../components/KPIBox';
 import { InsightStrip } from '../../components/InsightStrip';
+import TopRightControls from '../../components/TopRightControls';
+import { useGlobalFilters } from '../../context/filterContext';
+import { GlobalFilterPanel } from '../../components/GlobalFilterPanel';
+import { getFiscalYears } from '../../utils/fiscalYear';
+import { TEAM_CLUSTER_MAP } from '../../services/clusterMap';
 
 // Zone lookup from state
 const getZoneFromState = (state?: string): string => {
@@ -27,6 +32,10 @@ const GapAnalysis = ({ employees, attendance, nominations }: GapAnalysisProps) =
   const [tab, setTab] = useState<TrainingTab>('AP');
   const [expanded, setExpanded] = useState(new Set<string>());
   const [zoneFilter, setZoneFilter] = useState<string>('');
+  const FY_OPTIONS = getFiscalYears(2015);
+  const [selectedFY, setSelectedFY] = useState<string>(FY_OPTIONS[0]);
+  const { filters: globalFilters, setFilters: setGlobalFilters, activeFilterCount, clearFilters } = useGlobalFilters();
+  const [showGlobalFilters, setShowGlobalFilters] = useState(false);
   const [drilldownData, setDrilldownData] = useState<EmployeeGapDetail[] | null>(null);
 
   // Get unique zones from masterData
@@ -34,6 +43,16 @@ const GapAnalysis = ({ employees, attendance, nominations }: GapAnalysisProps) =
     const uniqueZones = new Set(STATE_ZONE.map(sz => sz.zone));
     return ['All Zones', ...Array.from(uniqueZones).sort()];
   }, []);
+
+  // dynamic lists for global filters
+  const allTeams = useMemo(() => [...new Set(employees.map(e => e.team).filter(Boolean))].sort(), [employees]);
+  const allClusters = useMemo(() => [...new Set(Object.values(TEAM_CLUSTER_MAP).filter(Boolean))].sort(), []);
+  const allTrainers = useMemo(() => [...new Set(attendance.map(a => a.trainerId).filter(Boolean))].sort(), [attendance]);
+  const months = useMemo(() => {
+    const m = new Set<string>();
+    attendance.forEach(a => { if (a.month) m.add(a.month); if (a.attendanceDate) m.add((a.attendanceDate || '').substring(0,7)); });
+    return [...m].sort();
+  }, [attendance]);
 
   const { data, drilldownMap } = useMemo(() => {
     // Filter employees by zone if Refresher tab and zone filter selected
@@ -310,9 +329,18 @@ const GapAnalysis = ({ employees, attendance, nominations }: GapAnalysisProps) =
   return (
     <div style={{ padding: '24px' }}>
       {/* Page Header */}
-      <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 700 }}>Training Requirements</h1>
-        <p style={{ color: 'var(--text-secondary)', margin: '8px 0 0 0', fontSize: '13px' }}>Identify required vs completed training across teams</p>
+      <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 700 }}>Training Requirements</h1>
+          <p style={{ color: 'var(--text-secondary)', margin: '8px 0 0 0', fontSize: '13px' }}>Identify required vs completed training across teams</p>
+        </div>
+        <TopRightControls
+          fiscalOptions={FY_OPTIONS}
+          selectedFY={selectedFY}
+          onChangeFY={(v) => setSelectedFY(v)}
+          onOpenGlobalFilters={() => setShowGlobalFilters(true)}
+          onExport={() => alert('Export not available for Training Requirements (UI placeholder)')}
+        />
       </div>
 
       {/* Tabs - Pill Style */}
@@ -345,6 +373,17 @@ const GapAnalysis = ({ employees, attendance, nominations }: GapAnalysisProps) =
       {data.length > 0 && renderTable()}
       
       {renderDrilldownModal()}
+      <GlobalFilterPanel
+        isOpen={showGlobalFilters}
+        onClose={() => setShowGlobalFilters(false)}
+        onApply={setGlobalFilters}
+        initialFilters={globalFilters}
+        clusterOptions={allClusters}
+        teamOptions={allTeams}
+        trainerOptions={allTrainers}
+        monthOptions={months}
+        onClearAll={clearFilters}
+      />
     </div>
   );
 };
