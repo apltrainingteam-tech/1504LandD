@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, Fragment, memo, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import {
   Table, Calendar, GraduationCap, AlertTriangle, ChevronRight, ChevronDown,
   Trophy, Zap, ShieldCheck, CheckCircle2, ChartNetwork, Download, Filter, X, ListOrdered, BarChart3, TrendingUp, AlertCircle
@@ -26,6 +27,7 @@ import { getFiscalYears } from '../../utils/fiscalYear';
 import { TEAM_CLUSTER_MAP } from '../../services/clusterMap';
 
 import { getCollection } from '../../services/firestoreService';
+import { scheduleIdle, StagedComputationManager } from '../../utils/stagedComputation';
 import { KPIBox } from '../../components/KPIBox';
 import { DataTable } from '../../components/DataTable';
 import { TimeSeriesTable } from '../../components/TimeSeriesTable';
@@ -114,6 +116,21 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
     monthFrom: '', monthTo: '', teams: [], clusters: [], trainer: ''
   });
 
+  // ─── STAGED RENDERING STATE ───
+  // Progressive rendering: KPI → Grouped → TimeSeries → Trainer → Drilldown → Matrices (lazy by tab)
+  const [kpiStage, setKpiStage] = useState<'loading' | 'ready'>('loading');
+  const [kpiCache, setKpiCache] = useState<any>(null);
+  
+  // Staggered table loading: grouped → timeseries → trainer → drilldown
+  const [groupedStage, setGroupedStage] = useState<'loading' | 'ready'>('loading');
+  const [timeseriesStage, setTimeseriesStage] = useState<'loading' | 'ready'>('loading');
+  const [trainerStage, setTrainerStage] = useState<'loading' | 'ready'>('loading');
+  const [drilldownStage, setDrilldownStage] = useState<'loading' | 'ready'>('loading');
+  
+  // Lazy matrix loading: only load when tab is active
+  const [lazyMatrices, setLazyMatrices] = useState<Set<string>>(new Set());
+  const [matrixStage, setMatrixStage] = useState<'loading' | 'ready'>('loading');
+
   useEffect(() => {
     getCollection('eligibility_rules').then(data => setRules(data as EligibilityRule[]));
     getCollection('team_cluster_mapping').then(data => {
@@ -127,6 +144,20 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
     });
   }, []);
 
+  // ─── LAZY LOAD MATRIX TRACKING ───
+  // Only load matrix computation for currently active tab
+  useEffect(() => {
+    const matrixKey = `matrix_${tab}_${subView}`;
+    setLazyMatrices(prev => {
+      if (!prev.has(matrixKey)) {
+        const next = new Set(prev);
+        next.add(matrixKey);
+        return next;
+      }
+      return prev;
+    });
+  }, [tab, subView]);
+
   // --- BUCKET HELPERS ---
   const formatCell = (data: any) => {
     if (!data || data.total === 0) return '-';
@@ -138,14 +169,14 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
     return Math.round((part / total) * 100);
   };
 
-  const formatMonthLabel = (month: string) => {
+  const formatMonthLabel = useCallback((month: string) => {
     const m = month.split('-')[1];
     const MONTH_LABELS: Record<string, string> = {
       '04': 'Apr', '05': 'May', '06': 'Jun', '07': 'Jul', '08': 'Aug', '09': 'Sep',
       '10': 'Oct', '11': 'Nov', '12': 'Dec', '01': 'Jan', '02': 'Feb', '03': 'Mar'
     };
     return MONTH_LABELS[m] || month;
-  };
+  }, []);
 
   const selectedFY = selectedFYs[tab];
   const MONTHS = useMemo(() => getFiscalMonths(selectedFY), [selectedFY]);
@@ -341,15 +372,152 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
   const gCap = useMemo(() => calcCapsule(unified), [unified]);
   const gPreAP = useMemo(() => calcPreAP(unified, tabNoms), [unified, tabNoms]);
 
-  const toggleExpand = (k: string) => {
-    const next = new Set(expanded);
-    next.has(k) ? next.delete(k) : next.add(k);
-    setExpanded(next);
-  };
+  // ─── STAGED COMPUTATION EFFECT ───
+  // Progressive rendering pipeline with requestIdleCallback:
+  // KPI (immediate) → Grouped → TimeSeries → Trainer → Drilldown → Matrices (lazy by tab)
+  useEffect(() => {
+    // Reset stages on dependency change
+    setKpiStage('loading');
+    setGroupedStage('loading');
+    setTimeseriesStage('loading');
+    setTrainerStage('loading');
+    setDrilldownStage('loading');
+    setMatrixStage('loading');
+
+    if (!unified || unified.length === 0) return;
+
+    const cleanups: Array<() => void> = [];
+
+    // STAGE 0: KPI Computation (immediate, runs now)
+    // Fast operations - compute immediately for instant feedback
+    const cleanup0 = scheduleIdle(
+      () => {
+        const kpiData: Record<string, any> = {};
+        if (tab === 'IP' && gIP) kpiData.ipData = gIP;
+        if (tab === 'AP' && gAP) kpiData.apData = gAP;
+        if (tab === 'AP' && subView === 'ap_performance' && apPerfData) kpiData.apPerfData = apPerfData;
+        if (tab === 'MIP' && subView === 'mip_attendance' && mipAttendanceData) kpiData.mipAttendanceData = mipAttendanceData;
+        if (tab === 'MIP' && subView === 'mip_performance' && mipPerfData) kpiData.mipPerfData = mipPerfData;
+        if (tab === 'Refresher' && subView === 'refresher_attendance' && refresherAttData) kpiData.refresherAttData = refresherAttData;
+        if (tab === 'Refresher' && subView === 'refresher_performance' && refresherPerfData) kpiData.refresherPerfData = refresherPerfData;
+        if (tab === 'Capsule' && subView === 'capsule_attendance' && capsuleAttData) kpiData.capsuleAttData = capsuleAttData;
+        if (tab === 'Capsule' && subView === 'capsule_performance' && capsulePerfData) kpiData.capsulePerfData = capsulePerfData;
+        if (subView === 'gap') kpiData.gapMetrics = gapMetrics;
+        return kpiData;
+      },
+      () => setKpiStage('ready'),
+      1,  // fallback delay: 1ms
+      true  // use requestIdleCallback
+    );
+    cleanups.push(cleanup0);
+
+    // STAGE 1: Grouped Ranking Table (staggered, ~20ms)
+    // First table to load after KPI renders
+    const cleanup1 = scheduleIdle(
+      () => {
+        if (subView === 'grouped' && ranked.length > 0) {
+          return { ranked };
+        }
+        return {};
+      },
+      () => setGroupedStage('ready'),
+      20,  // fallback delay: 20ms
+      true  // use requestIdleCallback
+    );
+    cleanups.push(cleanup1);
+
+    // STAGE 2: Time Series Table (staggered, ~40ms)
+    // Load time series after grouped renders
+    const cleanup2 = scheduleIdle(
+      () => {
+        if (subView === 'timeseries' && timeSeries.length > 0) {
+          return { timeSeries };
+        }
+        return {};
+      },
+      () => setTimeseriesStage('ready'),
+      40,  // fallback delay: 40ms
+      true  // use requestIdleCallback
+    );
+    cleanups.push(cleanup2);
+
+    // STAGE 3: Trainer Stats Table (staggered, ~60ms)
+    // Load trainer stats after time series renders
+    const cleanup3 = scheduleIdle(
+      () => {
+        if (subView === 'trainer' && trainerStats.length > 0) {
+          return { trainerStats };
+        }
+        return {};
+      },
+      () => setTrainerStage('ready'),
+      60,  // fallback delay: 60ms
+      true  // use requestIdleCallback
+    );
+    cleanups.push(cleanup3);
+
+    // STAGE 4: Drilldown Panel (staggered, ~80ms)
+    // Load drilldown after trainer stats renders
+    const cleanup4 = scheduleIdle(
+      () => {
+        if (subView === 'drilldown' && drilldownNodes.length > 0) {
+          return { drilldownNodes };
+        }
+        return {};
+      },
+      () => setDrilldownStage('ready'),
+      80,  // fallback delay: 80ms
+      true  // use requestIdleCallback
+    );
+    cleanups.push(cleanup4);
+
+    // STAGE 5: Lazy Matrix Computation (only if matrix is in lazy set)
+    // Heavy matrix rendering data - lowest priority, only for active tab
+    const matrixKey = `matrix_${tab}_${subView}`;
+    if (lazyMatrices.has(matrixKey)) {
+      const cleanup5 = scheduleIdle(
+        () => {
+          const matrixData: Record<string, any> = {};
+          if (tab === 'IP' && subView === 'ip_matrix' && ipData) matrixData.ipMatrix = ipData;
+          if (tab === 'IP' && subView === 'ip_team_rank' && ipRankData) matrixData.ipRankData = ipRankData;
+          if (tab === 'AP' && subView === 'ap_performance' && apPerfData) matrixData.apMatrix = apPerfData;
+          if (tab === 'MIP' && subView === 'mip_attendance' && mipAttendanceData) matrixData.mipAttMatrix = mipAttendanceData;
+          if (tab === 'MIP' && subView === 'mip_performance' && mipPerfData) matrixData.mipPerfMatrix = mipPerfData;
+          if (tab === 'Refresher' && subView === 'refresher_attendance' && refresherAttData) matrixData.refAttMatrix = refresherAttData;
+          if (tab === 'Refresher' && subView === 'refresher_performance' && refresherPerfData) matrixData.refPerfMatrix = refresherPerfData;
+          if (tab === 'Capsule' && subView === 'capsule_attendance' && capsuleAttData) matrixData.capAttMatrix = capsuleAttData;
+          if (tab === 'Capsule' && subView === 'capsule_performance' && capsulePerfData) matrixData.capPerfMatrix = capsulePerfData;
+          return matrixData;
+        },
+        () => setMatrixStage('ready'),
+        100,  // fallback delay: 100ms
+        true  // use requestIdleCallback
+      );
+      cleanups.push(cleanup5);
+    }
+
+    // Master cleanup
+    return () => {
+      cleanups.forEach(cleanup => cleanup());
+    };
+  }, [
+    unified, tab, subView, lazyMatrices,
+    gIP, gAP, apPerfData, mipAttendanceData, mipPerfData,
+    refresherAttData, refresherPerfData, capsuleAttData, capsulePerfData,
+    ipData, ipRankData, gapMetrics, ranked, drilldownNodes, timeSeries, trainerStats
+  ]);
+
+  const toggleExpand = useCallback((k: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      next.has(k) ? next.delete(k) : next.add(k);
+      return next;
+    });
+  }, []);
 
   // (old inline filters removed) keep legacy `filter` state intact but inline UI was replaced by GlobalFilterPanel
 
-  const handleExport = () => {
+  const handleExport = useCallback(() => {
     const rows = unified.map(r => ({
       EmployeeId: r.employee.employeeId,
       Name: r.employee.name,
@@ -364,7 +532,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
       ...r.score?.scores
     }));
     exportToCSV(rows, `${tab}_report_${new Date().toISOString().slice(0, 10)}.csv`);
-  };
+  }, [unified, tab]);
 
   const genericHeaders = [
     '#', '', viewBy,
@@ -374,6 +542,31 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
     ...(['Refresher', 'GTG', 'HO', 'RTM'].includes(tab) ? ['Count', 'Avg Score', 'Flag'] : []),
     ...(['Capsule', 'Pre_AP'].includes(tab) ? ['Count', 'Avg Score', 'Flag'] : []),
   ];
+
+  // ─── SKELETON RENDERERS ───
+  // Show while respective stage is loading
+  const KPISkeletons = () => (
+    <div className="dashboard-grid" style={{ marginBottom: '24px' }}>
+      {[...Array(4)].map((_, i) => (
+        <div key={i} className="glass-panel" style={{ height: '100px', background: 'rgba(255,255,255,0.02)', animation: 'pulse 2s infinite' }} />
+      ))}
+    </div>
+  );
+
+  const TableSkeleton = () => (
+    <div className="glass-panel" style={{ padding: '20px', marginBottom: '24px' }}>
+      <div style={{ height: '40px', background: 'rgba(255,255,255,0.05)', marginBottom: '12px', borderRadius: '6px', animation: 'pulse 2s infinite' }} />
+      {[...Array(5)].map((_, i) => (
+        <div key={i} style={{ height: '30px', background: 'rgba(255,255,255,0.02)', marginBottom: '8px', borderRadius: '4px', animation: 'pulse 2s infinite' }} />
+      ))}
+    </div>
+  );
+
+  const MatrixSkeleton = () => (
+    <div className="glass-panel" style={{ padding: '20px', marginBottom: '24px', overflowX: 'auto' }}>
+      <div style={{ height: '300px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px', animation: 'pulse 2s infinite' }} />
+    </div>
+  );
 
   return (
     <div className="animate-fade-in">
@@ -482,16 +675,24 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
 
       {/* Inline filter panel removed in favor of GlobalFilterPanel */}
 
-      {/* KPI Cards */}
-      <div className="dashboard-grid" style={{ marginBottom: '24px' }}>
-        {subView === 'gap' ? (
-          <Fragment>
-            <KPIBox title="Eligible Cohort" value={gapMetrics.eligibleCount} icon={ShieldCheck} />
-            <KPIBox title="Trained Volume" value={gapMetrics.trainedCount} color="var(--success)" icon={CheckCircle2} />
-            <KPIBox title="Training Gap" value={gapMetrics.gapCount} color="var(--danger)" icon={AlertTriangle} subValue={`${((gapMetrics.gapCount / (gapMetrics.eligibleCount || 1)) * 100).toFixed(1)}% untrained`} />
-          </Fragment>
-        ) : (
-          <Fragment>
+      {/* KPI Cards - Progressive Rendering Stage 0 (KPI) */}
+      {kpiStage === 'loading' ? (
+        <KPISkeletons />
+      ) : (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, ease: 'easeOut' }}
+        >
+          <div className="dashboard-grid" style={{ marginBottom: '24px' }}>
+            {subView === 'gap' ? (
+            <Fragment>
+              <KPIBox title="Eligible Cohort" value={gapMetrics.eligibleCount} icon={ShieldCheck} />
+              <KPIBox title="Trained Volume" value={gapMetrics.trainedCount} color="var(--success)" icon={CheckCircle2} />
+              <KPIBox title="Training Gap" value={gapMetrics.gapCount} color="var(--danger)" icon={AlertTriangle} subValue={`${((gapMetrics.gapCount / (gapMetrics.eligibleCount || 1)) * 100).toFixed(1)}% untrained`} />
+            </Fragment>
+          ) : (
+            <Fragment>
             {tab === 'IP' && (
               <Fragment>
                 <KPIBox title="Total Candidates" value={ipData.globalKPIs.totalCandidates} icon={Zap} />
@@ -574,7 +775,9 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
             )}
           </Fragment>
         )}
-      </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Insight Strip */}
       {pageMode !== 'performance-insights' && tab === 'IP' && (
@@ -606,78 +809,60 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
         </div>
       )}
 
-      {/* --- IP SPECIFIC VIEWS --- */}
+      {/* --- IP SPECIFIC VIEWS - Progressive Rendering Stage 5 (Lazy Matrix) --- */}
       {subView === 'ip_matrix' && (
-        <div className="glass-panel" style={{ overflow: 'hidden' }}>
-          <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h3 style={{ margin: 0, fontSize: '18px' }}>Cluster → Team → Month Matrix Engine</h3>
-          </div>
-          <div style={{ overflowX: 'auto' }}>
-            <table className="data-table" style={{ width: '100%' }}>
-              <thead>
-                <tr>
-                  <th style={{ width: '40px' }}></th>
-                  <th>Cluster / Team</th>
-                  <th style={{ textAlign: 'center' }}>Total</th>
-                  <th style={{ textAlign: 'center' }}>High %</th>
-                  <th style={{ textAlign: 'center' }}>Med %</th>
-                  <th style={{ textAlign: 'center' }}>Low %</th>
-                  {MONTHS.map(mo => <th key={mo} style={{ textAlign: 'center', minWidth: '60px' }}>{formatMonthLabel(mo)}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {Object.keys(ipData.clusterMonthMap).map(clusterName => {
-                  const clusterData = ipData.clusterMonthMap[clusterName];
-                  const isOpen = expanded.has(clusterName);
-                  const hPct = getPercent(clusterData.high, clusterData.total);
-                  const mPct = getPercent(clusterData.medium, clusterData.total);
-                  const lPct = getPercent(clusterData.low, clusterData.total);
+        matrixStage === 'loading' ? (
+          <MatrixSkeleton />
+        ) : (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+          >
+            <div className="glass-panel" style={{ overflow: 'hidden' }}>
+              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <h3 style={{ margin: 0, fontSize: '18px' }}>Cluster → Team → Month Matrix Engine</h3>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table className="data-table" style={{ width: '100%' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ width: '40px' }}></th>
+                      <th>Cluster / Team</th>
+                      <th style={{ textAlign: 'center' }}>Total</th>
+                      <th style={{ textAlign: 'center' }}>High %</th>
+                      <th style={{ textAlign: 'center' }}>Med %</th>
+                      <th style={{ textAlign: 'center' }}>Low %</th>
+                      {MONTHS.map(mo => <th key={mo} style={{ textAlign: 'center', minWidth: '60px' }}>{formatMonthLabel(mo)}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.keys(ipData.clusterMonthMap).map(clusterName => {
+                      const clusterData = ipData.clusterMonthMap[clusterName];
+                      const isOpen = expanded.has(clusterName);
+                      const hPct = getPercent(clusterData.high, clusterData.total);
+                      const mPct = getPercent(clusterData.medium, clusterData.total);
+                      const lPct = getPercent(clusterData.low, clusterData.total);
 
-                  const getRowStyle = (hp: number, lp: number) => {
-                    if (hp > 70) return { background: 'rgba(16, 185, 129, 0.1)' };
-                    if (lp > 30) return { background: 'rgba(239, 68, 68, 0.1)' };
-                    return {};
-                  };
+                      const getRowStyle = (hp: number, lp: number) => {
+                        if (hp > 70) return { background: 'rgba(16, 185, 129, 0.1)' };
+                        if (lp > 30) return { background: 'rgba(239, 68, 68, 0.1)' };
+                        return {};
+                      };
 
-                  return (
-                    <Fragment key={clusterName}>
-                      <tr onClick={() => toggleExpand(clusterName)} style={{ cursor: 'pointer', ...getRowStyle(hPct, lPct) }}>
-                        <td>{isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</td>
-                        <td style={{ fontWeight: 700 }}>{clusterName}</td>
-                        <td style={{ textAlign: 'center', fontWeight: 600 }}>{clusterData.total}</td>
-                        <td style={{ textAlign: 'center' }} className={hPct > 70 ? 'text-success' : ''}>{hPct}%</td>
-                        <td style={{ textAlign: 'center' }} className={mPct > 50 ? 'text-warning' : ''}>{mPct}%</td>
-                        <td style={{ textAlign: 'center' }} className={lPct > 30 ? 'text-danger' : ''}>{lPct}%</td>
-                        {MONTHS.map(mo => {
-                          const cell = clusterData.months[mo];
-                          const txt = formatCell(cell);
-                          let cellStyle = { textAlign: 'center', fontWeight: 600 } as any;
-                          if (cell && cell.total > 0) {
-                            if (cell.low > cell.high) cellStyle.color = 'var(--danger)';
-                            else if (cell.high > cell.low) cellStyle.color = 'var(--success)';
-                          }
-                          return <td key={mo} style={cellStyle}>{txt}</td>;
-                        })}
-                      </tr>
-
-                      {isOpen && Object.keys(ipData.teamMonthMap[clusterName] || {}).map(teamName => {
-                        const teamData = ipData.teamMonthMap[clusterName][teamName];
-                        const thPct = getPercent(teamData.high, teamData.total);
-                        const tmPct = getPercent(teamData.medium, teamData.total);
-                        const tlPct = getPercent(teamData.low, teamData.total);
-
-                        return (
-                          <tr key={teamName} style={{ ...getRowStyle(thPct, tlPct), fontSize: '13px' }}>
-                            <td></td>
-                            <td style={{ paddingLeft: '24px' }}>↳ {teamName}</td>
-                            <td style={{ textAlign: 'center', fontWeight: 600 }}>{teamData.total}</td>
-                            <td style={{ textAlign: 'center' }} className={thPct > 70 ? 'text-success' : ''}>{thPct}%</td>
-                            <td style={{ textAlign: 'center' }} className={tmPct > 50 ? 'text-warning' : ''}>{tmPct}%</td>
-                            <td style={{ textAlign: 'center' }} className={tlPct > 30 ? 'text-danger' : ''}>{tlPct}%</td>
+                      return (
+                        <Fragment key={clusterName}>
+                          <tr onClick={() => toggleExpand(clusterName)} style={{ cursor: 'pointer', ...getRowStyle(hPct, lPct) }}>
+                            <td>{isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</td>
+                            <td style={{ fontWeight: 700 }}>{clusterName}</td>
+                            <td style={{ textAlign: 'center', fontWeight: 600 }}>{clusterData.total}</td>
+                            <td style={{ textAlign: 'center' }} className={hPct > 70 ? 'text-success' : ''}>{hPct}%</td>
+                            <td style={{ textAlign: 'center' }} className={mPct > 50 ? 'text-warning' : ''}>{mPct}%</td>
+                            <td style={{ textAlign: 'center' }} className={lPct > 30 ? 'text-danger' : ''}>{lPct}%</td>
                             {MONTHS.map(mo => {
-                              const cell = teamData.months[mo];
+                              const cell = clusterData.months[mo];
                               const txt = formatCell(cell);
-                              let cellStyle = { textAlign: 'center' } as any;
+                              let cellStyle = { textAlign: 'center', fontWeight: 600 } as any;
                               if (cell && cell.total > 0) {
                                 if (cell.low > cell.high) cellStyle.color = 'var(--danger)';
                                 else if (cell.high > cell.low) cellStyle.color = 'var(--success)';
@@ -685,72 +870,83 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                               return <td key={mo} style={cellStyle}>{txt}</td>;
                             })}
                           </tr>
-                        );
-                      })}
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
 
-      {/* --- AP EVENT FUNNEL MATRIX --- */}
-      {subView === 'grouped' && tab === 'AP' && apData && (
-        <div className="glass-panel" style={{ overflow: 'hidden' }}>
-          <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h3 style={{ margin: 0, fontSize: '18px' }}>AP Notified vs Attended Matrix</h3>
-          </div>
-          <div style={{ overflowX: 'auto' }}>
-            <table className="data-table" style={{ width: '100%', minWidth: '1000px' }}>
-              <thead>
-                <tr>
-                  <th style={{ width: '40px' }}></th>
-                  <th style={{ minWidth: '160px' }}>Cluster / Team</th>
-                  <th style={{ textAlign: 'center' }}>Total Notified</th>
-                  <th style={{ textAlign: 'center' }}>Total Attended</th>
-                  {MONTHS.map(mo => <th key={mo} style={{ textAlign: 'center', minWidth: '90px' }}>{formatMonthLabel(mo)}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {Object.keys(apData.clusterMonthMap).sort().map(clusterName => {
-                  const clusterData = apData.clusterMonthMap[clusterName];
-                  const isOpen = expanded.has(clusterName);
+                          {isOpen && Object.keys(ipData.teamMonthMap[clusterName] || {}).map(teamName => {
+                            const teamData = ipData.teamMonthMap[clusterName][teamName];
+                          const thPct = getPercent(teamData.high, teamData.total);
+                          const tmPct = getPercent(teamData.medium, teamData.total);
+                          const tlPct = getPercent(teamData.low, teamData.total);
 
-                  return (
-                    <Fragment key={clusterName}>
-                      <tr onClick={() => toggleExpand(clusterName)} style={{ cursor: 'pointer', background: 'rgba(34,45,104,0.04)' }}>
-                        <td>{isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</td>
-                        <td style={{ fontWeight: 700 }}>{clusterName}</td>
-                        <td style={{ textAlign: 'center', fontWeight: 600 }}>{clusterData.totalNotified}</td>
-                        <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--success)' }}>{clusterData.totalAttended}</td>
-                        {MONTHS.map(mo => {
-                          const cell = clusterData.months[mo];
-                          if (!cell || (!cell.notified && !cell.attended)) return <td key={mo} style={{ textAlign: 'center', opacity: 0.3 }}>—</td>;
-                          const pct = cell.notified > 0 ? Math.round((cell.attended / cell.notified) * 100) : 0;
-                          const isWarning = cell.attended > cell.notified;
-                          const isPerfect = pct === 100 && cell.notified > 0;
-                          
                           return (
-                            <td key={mo} style={{ textAlign: 'center', background: isWarning ? 'rgba(239, 68, 68, 0.1)' : isPerfect ? 'rgba(16, 185, 129, 0.1)' : 'transparent' }}>
-                              <div style={{ fontWeight: 600, color: isWarning ? 'var(--danger)' : 'inherit' }}>{cell.attended} / {cell.notified}</div>
-                              {cell.notified > 0 && <div style={{ fontSize: '10px', opacity: 0.7 }}>({pct}%)</div>}
-                            </td>
+                            <tr key={teamName} style={{ ...getRowStyle(thPct, tlPct), fontSize: '13px' }}>
+                              <td></td>
+                              <td style={{ paddingLeft: '24px' }}>↳ {teamName}</td>
+                              <td style={{ textAlign: 'center', fontWeight: 600 }}>{teamData.total}</td>
+                              <td style={{ textAlign: 'center' }} className={thPct > 70 ? 'text-success' : ''}>{thPct}%</td>
+                              <td style={{ textAlign: 'center' }} className={tmPct > 50 ? 'text-warning' : ''}>{tmPct}%</td>
+                              <td style={{ textAlign: 'center' }} className={tlPct > 30 ? 'text-danger' : ''}>{tlPct}%</td>
+                              {MONTHS.map(mo => {
+                                const cell = teamData.months[mo];
+                                const txt = formatCell(cell);
+                                let cellStyle = { textAlign: 'center' } as any;
+                                if (cell && cell.total > 0) {
+                                  if (cell.low > cell.high) cellStyle.color = 'var(--danger)';
+                                  else if (cell.high > cell.low) cellStyle.color = 'var(--success)';
+                                }
+                                return <td key={mo} style={cellStyle}>{txt}</td>;
+                              })}
+                            </tr>
                           );
                         })}
-                      </tr>
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
+      )}
 
-                      {isOpen && Object.keys(apData.teamMonthMap[clusterName] || {}).sort().map(teamName => {
-                        const teamData = apData.teamMonthMap[clusterName][teamName];
-                        return (
-                          <tr key={teamName} style={{ fontSize: '13px' }}>
-                            <td></td>
-                            <td style={{ paddingLeft: '24px' }}>↳ {teamName}</td>
-                            <td style={{ textAlign: 'center', fontWeight: 600 }}>{teamData.totalNotified}</td>
-                            <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--success)' }}>{teamData.totalAttended}</td>
+      {/* --- AP EVENT FUNNEL MATRIX - Progressive Rendering Stage 1 (Grouped) --- */}
+      {subView === 'grouped' && tab === 'AP' && (
+        groupedStage === 'loading' ? (
+          <TableSkeleton />
+        ) : apData ? (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+          >
+            <div className="glass-panel" style={{ overflow: 'hidden' }}>
+              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <h3 style={{ margin: 0, fontSize: '18px' }}>AP Notified vs Attended Matrix</h3>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table className="data-table" style={{ width: '100%', minWidth: '1000px' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ width: '40px' }}></th>
+                      <th style={{ minWidth: '160px' }}>Cluster / Team</th>
+                      <th style={{ textAlign: 'center' }}>Total Notified</th>
+                      <th style={{ textAlign: 'center' }}>Total Attended</th>
+                      {MONTHS.map(mo => <th key={mo} style={{ textAlign: 'center', minWidth: '90px' }}>{formatMonthLabel(mo)}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.keys(apData.clusterMonthMap).sort().map(clusterName => {
+                      const clusterData = apData.clusterMonthMap[clusterName];
+                      const isOpen = expanded.has(clusterName);
+
+                      return (
+                        <Fragment key={clusterName}>
+                          <tr onClick={() => toggleExpand(clusterName)} style={{ cursor: 'pointer', background: 'rgba(34,45,104,0.04)' }}>
+                            <td>{isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</td>
+                            <td style={{ fontWeight: 700 }}>{clusterName}</td>
+                            <td style={{ textAlign: 'center', fontWeight: 600 }}>{clusterData.totalNotified}</td>
+                            <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--success)' }}>{clusterData.totalAttended}</td>
                             {MONTHS.map(mo => {
-                              const cell = teamData.months[mo];
+                              const cell = clusterData.months[mo];
                               if (!cell || (!cell.notified && !cell.attended)) return <td key={mo} style={{ textAlign: 'center', opacity: 0.3 }}>—</td>;
                               const pct = cell.notified > 0 ? Math.round((cell.attended / cell.notified) * 100) : 0;
                               const isWarning = cell.attended > cell.notified;
@@ -764,97 +960,163 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                               );
                             })}
                           </tr>
-                        );
-                      })}
+
+                          {isOpen && Object.keys(apData.teamMonthMap[clusterName] || {}).sort().map(teamName => {
+                            const teamData = apData.teamMonthMap[clusterName][teamName];
+                            return (
+                              <tr key={teamName} style={{ fontSize: '13px' }}>
+                                <td></td>
+                                <td style={{ paddingLeft: '24px' }}>↳ {teamName}</td>
+                                <td style={{ textAlign: 'center', fontWeight: 600 }}>{teamData.totalNotified}</td>
+                                <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--success)' }}>{teamData.totalAttended}</td>
+                              {MONTHS.map(mo => {
+                                const cell = teamData.months[mo];
+                                if (!cell || (!cell.notified && !cell.attended)) return <td key={mo} style={{ textAlign: 'center', opacity: 0.3 }}>—</td>;
+                                const pct = cell.notified > 0 ? Math.round((cell.attended / cell.notified) * 100) : 0;
+                                const isWarning = cell.attended > cell.notified;
+                                const isPerfect = pct === 100 && cell.notified > 0;
+                                
+                                return (
+                                  <td key={mo} style={{ textAlign: 'center', background: isWarning ? 'rgba(239, 68, 68, 0.1)' : isPerfect ? 'rgba(16, 185, 129, 0.1)' : 'transparent' }}>
+                                    <div style={{ fontWeight: 600, color: isWarning ? 'var(--danger)' : 'inherit' }}>{cell.attended} / {cell.notified}</div>
+                                    {cell.notified > 0 && <div style={{ fontSize: '10px', opacity: 0.7 }}>({pct}%)</div>}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </motion.div>
+        ) : null
+      )}
+
+      {/* --- AP PERFORMANCE MATRIX - Progressive Rendering Stage 3 --- */}
+      {subView === 'ap_performance' && tab === 'AP' && (
+        matrixStage === 'loading' ? (
+          <MatrixSkeleton />
+        ) : apPerfData ? (
+          <APPerformanceMatrix 
+            data={apPerfData} 
+            fyMonths={MONTHS} 
+            timelines={filteredTimelines} 
+          />
+        ) : null
+      )}
+
+      {/* --- MIP MATRICES - Progressive Rendering Stage 3 --- */}
+      {subView === 'mip_attendance' && tab === 'MIP' && (
+        matrixStage === 'loading' ? (
+          <MatrixSkeleton />
+        ) : mipAttendanceData ? (
+          <MIPAttendanceMatrix data={mipAttendanceData} fyMonths={MONTHS} timelines={filteredTimelines} />
+        ) : null
+      )}
+      {subView === 'mip_performance' && tab === 'MIP' && (
+        matrixStage === 'loading' ? (
+          <MatrixSkeleton />
+        ) : mipPerfData ? (
+          <MIPPerformanceMatrix data={mipPerfData} fyMonths={MONTHS} timelines={filteredTimelines} />
+        ) : null
+      )}
+
+      {/* --- REFRESHER MATRICES - Progressive Rendering Stage 3 --- */}
+      {subView === 'refresher_attendance' && tab === 'Refresher' && (
+        matrixStage === 'loading' ? (
+          <MatrixSkeleton />
+        ) : refresherAttData ? (
+          <RefresherAttendanceMatrix data={refresherAttData} fyMonths={MONTHS} timelines={filteredTimelines} />
+        ) : null
+      )}
+      {subView === 'refresher_performance' && tab === 'Refresher' && (
+        matrixStage === 'loading' ? (
+          <MatrixSkeleton />
+        ) : refresherPerfData ? (
+          <RefresherPerformanceMatrix data={refresherPerfData} fyMonths={MONTHS} timelines={filteredTimelines} />
+        ) : null
+      )}
+
+      {/* --- CAPSULE MATRICES - Progressive Rendering Stage 3 --- */}
+      {subView === 'capsule_attendance' && tab === 'Capsule' && (
+        matrixStage === 'loading' ? (
+          <MatrixSkeleton />
+        ) : capsuleAttData ? (
+          <CapsuleAttendanceMatrix data={capsuleAttData} fyMonths={MONTHS} timelines={filteredTimelines} />
+        ) : null
+      )}
+      {subView === 'capsule_performance' && tab === 'Capsule' && (
+        matrixStage === 'loading' ? (
+          <MatrixSkeleton />
+        ) : capsulePerfData ? (
+          <CapsulePerformanceMatrix data={capsulePerfData} fyMonths={MONTHS} timelines={filteredTimelines} />
+        ) : null
+      )}
+
+      {/* GROUPED RANKINGS FOR OTHER TABS - Progressive Rendering Stage 1 (Grouped) */}
+      {subView === 'grouped' && tab !== 'IP' && tab !== 'AP' && tab !== 'MIP' && tab !== 'Refresher' && tab !== 'Capsule' && (
+        groupedStage === 'loading' ? (
+          <TableSkeleton />
+        ) : (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+          >
+            <div className="glass-panel" style={{ overflow: 'hidden' }}>
+              <DataTable headers={genericHeaders}>
+                {ranked.map(g => {
+                  const isOpen = expanded.has(g.key);
+                  return (
+                    <Fragment key={g.key}>
+                      <tr onClick={() => toggleExpand(g.key)} style={{ cursor: 'pointer' }}>
+                        <td style={{ fontWeight: 700, color: 'var(--accent-primary)' }}>{g.rank}</td>
+                        <td>{isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</td>
+                        <td style={{ fontWeight: 600 }}>{g.key}</td>
+                        {tab === 'MIP' && (() => {
+                          const m = calcMIP(g.records);
+                          const avg = (m.avgSci + m.avgSkl) / 2;
+                          return <Fragment>
+                            <td>{m.count}</td><td>{m.avgSci.toFixed(2)}</td>
+                            <td style={{ fontWeight: 700 }}>{m.avgSkl.toFixed(2)}</td>
+                            <td><span className={`badge ${flagClass(flagScore(avg))}`}>{flagLabel(flagScore(avg))}</span></td>
+                          </Fragment>;
+                        })()}
+                        {['Refresher', 'Capsule', 'Pre_AP', 'GTG', 'HO', 'RTM'].includes(tab) && (() => {
+                          const m = calcGeneric(g.records);
+                          return <Fragment>
+                            <td>{m.count}</td>
+                            <td style={{ fontWeight: 700 }}>{m.avgScore > 0 ? m.avgScore.toFixed(2) : '—'}</td>
+                            <td><span className={`badge ${flagClass(flagScore(m.avgScore))}`}>{flagLabel(flagScore(m.avgScore))}</span></td>
+                          </Fragment>;
+                        })()}
+                      </tr>
+                      {isOpen && g.records.map((r, ri) => (
+                        <tr key={ri} style={{ background: 'rgba(255,255,255,0.02)', fontSize: '12px' }}>
+                          <td /><td />
+                          <td colSpan={genericHeaders.length - 2} className="text-muted">
+                            <strong>{r.employee.name}</strong> ({r.employee.employeeId}) · {r.attendance.attendanceDate} · {r.attendance.attendanceStatus}
+                          </td>
+                        </tr>
+                      ))}
                     </Fragment>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* --- AP PERFORMANCE MATRIX --- */}
-      {subView === 'ap_performance' && tab === 'AP' && apPerfData && (
-        <APPerformanceMatrix 
-          data={apPerfData} 
-          fyMonths={MONTHS} 
-          timelines={filteredTimelines} 
-        />
-      )}
-
-      {/* --- MIP MATRICES --- */}
-      {subView === 'mip_attendance' && tab === 'MIP' && mipAttendanceData && (
-        <MIPAttendanceMatrix data={mipAttendanceData} fyMonths={MONTHS} timelines={filteredTimelines} />
-      )}
-      {subView === 'mip_performance' && tab === 'MIP' && mipPerfData && (
-        <MIPPerformanceMatrix data={mipPerfData} fyMonths={MONTHS} timelines={filteredTimelines} />
-      )}
-
-      {/* --- REFRESHER MATRICES --- */}
-      {subView === 'refresher_attendance' && tab === 'Refresher' && refresherAttData && (
-        <RefresherAttendanceMatrix data={refresherAttData} fyMonths={MONTHS} timelines={filteredTimelines} />
-      )}
-      {subView === 'refresher_performance' && tab === 'Refresher' && refresherPerfData && (
-        <RefresherPerformanceMatrix data={refresherPerfData} fyMonths={MONTHS} timelines={filteredTimelines} />
-      )}
-
-      {/* --- CAPSULE MATRICES --- */}
-      {subView === 'capsule_attendance' && tab === 'Capsule' && capsuleAttData && (
-        <CapsuleAttendanceMatrix data={capsuleAttData} fyMonths={MONTHS} timelines={filteredTimelines} />
-      )}
-      {subView === 'capsule_performance' && tab === 'Capsule' && capsulePerfData && (
-        <CapsulePerformanceMatrix data={capsulePerfData} fyMonths={MONTHS} timelines={filteredTimelines} />
-      )}
-
-      {/* GROUPED RANKINGS FOR OTHER TABS */}
-      {subView === 'grouped' && tab !== 'IP' && tab !== 'AP' && tab !== 'MIP' && tab !== 'Refresher' && tab !== 'Capsule' && (
-        <div className="glass-panel" style={{ overflow: 'hidden' }}>
-          <DataTable headers={genericHeaders}>
-            {ranked.map(g => {
-              const isOpen = expanded.has(g.key);
-              return (
-                <Fragment key={g.key}>
-                  <tr onClick={() => toggleExpand(g.key)} style={{ cursor: 'pointer' }}>
-                    <td style={{ fontWeight: 700, color: 'var(--accent-primary)' }}>{g.rank}</td>
-                    <td>{isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</td>
-                    <td style={{ fontWeight: 600 }}>{g.key}</td>
-                    {tab === 'MIP' && (() => {
-                      const m = calcMIP(g.records);
-                      const avg = (m.avgSci + m.avgSkl) / 2;
-                      return <Fragment>
-                        <td>{m.count}</td><td>{m.avgSci.toFixed(2)}</td>
-                        <td style={{ fontWeight: 700 }}>{m.avgSkl.toFixed(2)}</td>
-                        <td><span className={`badge ${flagClass(flagScore(avg))}`}>{flagLabel(flagScore(avg))}</span></td>
-                      </Fragment>;
-                    })()}
-                    {['Refresher', 'Capsule', 'Pre_AP', 'GTG', 'HO', 'RTM'].includes(tab) && (() => {
-                      const m = calcGeneric(g.records);
-                      return <Fragment>
-                        <td>{m.count}</td>
-                        <td style={{ fontWeight: 700 }}>{m.avgScore > 0 ? m.avgScore.toFixed(2) : '—'}</td>
-                        <td><span className={`badge ${flagClass(flagScore(m.avgScore))}`}>{flagLabel(flagScore(m.avgScore))}</span></td>
-                      </Fragment>;
-                    })()}
-                  </tr>
-                  {isOpen && g.records.map((r, ri) => (
-                    <tr key={ri} style={{ background: 'rgba(255,255,255,0.02)', fontSize: '12px' }}>
-                      <td /><td />
-                      <td colSpan={genericHeaders.length - 2} className="text-muted">
-                        <strong>{r.employee.name}</strong> ({r.employee.employeeId}) · {r.attendance.attendanceDate} · {r.attendance.attendanceStatus}
-                      </td>
-                    </tr>
-                  ))}
-                </Fragment>
-              );
-            })}
-          </DataTable>
-        </div>
+              </DataTable>
+            </div>
+          </motion.div>
+        )
       )}
 
       {/* --- IP TEAM RANK MATRIX --- */}
-      {subView === 'ip_team_rank' && (() => {
+      {subView === 'ip_team_rank' && (
+        matrixStage === 'loading' ? (
+          <MatrixSkeleton />
+        ) : (() => {
         // ── Derive cluster→teams structure from ipRankData ──
         const clusterTeams: Record<string, string[]> = {};
         Object.entries(ipRankData.teams).forEach(([team, entry]) => {
@@ -1021,59 +1283,92 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
             </div>
           </div>
         );
-      })()}
+      })()
+      )}
 
-
-      {/* TIME SERIES */}
+      {/* TIME SERIES - Progressive Rendering Stage 2 (TimeSeriesTable) */}
       {subView === 'timeseries' && (
-        <div className="glass-panel" style={{ padding: '24px' }}>
-          <h3 style={{ marginBottom: '16px' }}>Month-by-Month Trend — {tab}</h3>
-          <TimeSeriesTable rows={timeSeries} months={months} mode={tsMode} onModeToggle={() => setTsMode(m => m === 'score' ? 'count' : 'score')} />
-        </div>
+        timeseriesStage === 'loading' ? (
+          <TableSkeleton />
+        ) : (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+          >
+            <div className="glass-panel" style={{ padding: '24px' }}>
+              <h3 style={{ marginBottom: '16px' }}>Month-by-Month Trend — {tab}</h3>
+              <TimeSeriesTable rows={timeSeries} months={months} mode={tsMode} onModeToggle={() => setTsMode(m => m === 'score' ? 'count' : 'score')} />
+            </div>
+          </motion.div>
+        )
       )}
 
-      {/* TRAINER ANALYTICS */}
+      {/* TRAINER ANALYTICS - Progressive Rendering Stage 3 (Trainer) */}
       {subView === 'trainer' && (
-        <div className="glass-panel" style={{ overflow: 'hidden' }}>
-          <div style={{ padding: '20px', borderBottom: '1px solid var(--border-color)' }}>
-            <h3 style={{ margin: 0 }}>Trainer Performance Analytics — {tab}</h3>
-          </div>
-          <TrainerTable stats={trainerStats} tab={tab} />
-        </div>
+        trainerStage === 'loading' ? (
+          <TableSkeleton />
+        ) : (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+          >
+            <div className="glass-panel" style={{ overflow: 'hidden' }}>
+              <div style={{ padding: '20px', borderBottom: '1px solid var(--border-color)' }}>
+                <h3 style={{ margin: 0 }}>Trainer Performance Analytics — {tab}</h3>
+              </div>
+              <TrainerTable stats={trainerStats} tab={tab} />
+            </div>
+          </motion.div>
+        )
       )}
 
-      {/* DRILL-DOWN */}
+      {/* DRILL-DOWN - Progressive Rendering Stage 4 (Drilldown) */}
       {subView === 'drilldown' && tab !== 'IP' && tab !== 'MIP' && tab !== 'Refresher' && tab !== 'Capsule' && (
-        <div className="glass-panel" style={{ padding: '24px' }}>
-          <h3 style={{ marginBottom: '16px' }}>Drill-Down: Cluster → Team → Employee</h3>
-          <DrilldownPanel nodes={drilldownNodes} tab={tab} />
-        </div>
+        drilldownStage === 'loading' ? (
+          <TableSkeleton />
+        ) : (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+          >
+            <div className="glass-panel" style={{ padding: '24px' }}>
+              <h3 style={{ marginBottom: '16px' }}>Drill-Down: Cluster → Team → Employee</h3>
+              <DrilldownPanel nodes={drilldownNodes} tab={tab} />
+            </div>
+          </motion.div>
+        )
       )}
 
-      {/* GAP ANALYSIS */}
+      {/* GAP ANALYSIS - Progressive Rendering Stage 1 (KPI stage, since gapMetrics computed in KPI stage) */}
       {subView === 'gap' && (
-        <div className="mt-8">
-          <h3 className="mb-4">Gap Analysis: Eligible but Not Trained</h3>
-          <DataTable headers={['Employee ID', 'Name', 'Team', 'State', 'Status', 'Reason']}>
-            {eligibilityResults.length === 0 ? (
-              <tr><td colSpan={6} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-secondary)' }}>No eligibility data. Configure rules in Demographics.</td></tr>
-            ) : eligibilityResults.map((er, i) => {
-              const hasAttended = attendance.some(a => a.employeeId === er.employeeId && a.trainingType === tab && a.attendanceStatus === 'Present');
-              if (hasAttended || !er.eligibilityStatus) return null;
-              return (
-                <tr key={i}>
-                  <td style={{ fontWeight: 600 }}>{er.employeeId}</td>
-                  <td>{er.name}</td>
-                  <td>{er.team}</td>
-                  <td>{er.cluster}</td>
-                  <td><span className="badge badge-danger">Untrained Gap</span></td>
-                  <td className="text-muted" style={{ fontSize: '11px' }}>{er.reasonIfNotEligible || '—'}</td>
-                </tr>
-              );
-            })}
-          </DataTable>
-        </div>
-
+        kpiStage === 'loading' ? (
+          <KPISkeletons />
+        ) : (
+          <div className="mt-8">
+            <h3 className="mb-4">Gap Analysis: Eligible but Not Trained</h3>
+            <DataTable headers={['Employee ID', 'Name', 'Team', 'State', 'Status', 'Reason']}>
+              {eligibilityResults.length === 0 ? (
+                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-secondary)' }}>No eligibility data. Configure rules in Demographics.</td></tr>
+              ) : eligibilityResults.map((er, i) => {
+                const hasAttended = attendance.some(a => a.employeeId === er.employeeId && a.trainingType === tab && a.attendanceStatus === 'Present');
+                if (hasAttended || !er.eligibilityStatus) return null;
+                return (
+                  <tr key={i}>
+                    <td style={{ fontWeight: 600 }}>{er.employeeId}</td>
+                    <td>{er.name}</td>
+                    <td>{er.team}</td>
+                    <td>{er.cluster}</td>
+                    <td><span className="badge badge-danger">Untrained Gap</span></td>
+                    <td className="text-muted" style={{ fontSize: '11px' }}>{er.reasonIfNotEligible || '—'}</td>
+                  </tr>
+                );
+              })}
+            </DataTable>
+          </div>
+        )
       )}
 
       <GlobalFilterPanel

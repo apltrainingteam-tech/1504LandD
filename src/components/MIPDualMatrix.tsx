@@ -1,4 +1,4 @@
-import React, { useState, Fragment } from 'react';
+import React, { useState, Fragment, memo, useCallback } from 'react';
 import { ChevronRight, ChevronDown, X } from 'lucide-react';
 import { MIPAttendanceAggregates, getMIPAttendanceDrilldown, MIPCandidateAttendance } from '../services/mipAttendanceService';
 import { MIPPerformanceAggregates, getMIPPerformanceDrilldown, MIPCandidatePerformance } from '../services/mipPerformanceService';
@@ -126,15 +126,17 @@ const MIPPerformanceDrilldown: React.FC<{ cluster: string, team: string, month: 
 
 // --- EXPORTED MATRICES ---
 
-export const MIPAttendanceMatrix: React.FC<{ data: MIPAttendanceAggregates, fyMonths: string[], timelines: Map<string, EmployeeEventTimeline> }> = ({ data, fyMonths, timelines }) => {
+export const MIPAttendanceMatrix: React.FC<{ data: MIPAttendanceAggregates, fyMonths: string[], timelines: Map<string, EmployeeEventTimeline> }> = memo(({ data, fyMonths, timelines }) => {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [drillTarget, setDrillTarget] = useState<{ cluster: string, team: string, month: string } | null>(null);
 
-  const toggleExpand = (k: string) => {
-    const next = new Set(expanded);
-    next.has(k) ? next.delete(k) : next.add(k);
-    setExpanded(next);
-  };
+  const toggleExpand = useCallback((k: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      next.has(k) ? next.delete(k) : next.add(k);
+      return next;
+    });
+  }, []);
 
   const formatMonthLabel = (month: string) => {
     const m = month.split('-')[1];
@@ -220,17 +222,21 @@ export const MIPAttendanceMatrix: React.FC<{ data: MIPAttendanceAggregates, fyMo
       {drillTarget && <MIPAttendanceDrilldown cluster={drillTarget.cluster} team={drillTarget.team} month={drillTarget.month} timelines={timelines} onClose={() => setDrillTarget(null)} />}
     </Fragment>
   );
-};
+});
 
-export const MIPPerformanceMatrix: React.FC<{ data: MIPPerformanceAggregates, fyMonths: string[], timelines: Map<string, EmployeeEventTimeline> }> = ({ data, fyMonths, timelines }) => {
+MIPAttendanceMatrix.displayName = 'MIPAttendanceMatrix';
+
+export const MIPPerformanceMatrix: React.FC<{ data: MIPPerformanceAggregates, fyMonths: string[], timelines: Map<string, EmployeeEventTimeline> }> = memo(({ data, fyMonths, timelines }) => {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [drillTarget, setDrillTarget] = useState<{ cluster: string, team: string, month: string } | null>(null);
 
-  const toggleExpand = (k: string) => {
-    const next = new Set(expanded);
-    next.has(k) ? next.delete(k) : next.add(k);
-    setExpanded(next);
-  };
+  const toggleExpand = useCallback((k: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      next.has(k) ? next.delete(k) : next.add(k);
+      return next;
+    });
+  }, []);
 
   const formatMonthLabel = (month: string) => {
     const m = month.split('-')[1];
@@ -315,6 +321,8 @@ export const MIPPerformanceMatrix: React.FC<{ data: MIPPerformanceAggregates, fy
       {drillTarget && <MIPPerformanceDrilldown cluster={drillTarget.cluster} team={drillTarget.team} month={drillTarget.month} timelines={timelines} onClose={() => setDrillTarget(null)} />}
     </Fragment>
   );
-};
+});
+
+MIPPerformanceMatrix.displayName = 'MIPPerformanceMatrix';
 
 

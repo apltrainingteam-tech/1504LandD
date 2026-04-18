@@ -2,6 +2,7 @@ import { Employee } from '../types/employee';
 import { Attendance, TrainingScore, TrainingNomination } from '../types/attendance';
 import { UnifiedRecord, GroupedData, ViewByOption, TimeSeriesRow, TrainerStat, DrilldownNode, ReportFilter, SCORE_SCHEMAS } from '../types/reports';
 import { EligibilityResult } from './eligibilityService';
+import { groupByKey, groupByTwoLevels, groupByField } from '../utils/mapGrouping';
 
 const safe = (v: any): number => (typeof v === 'number' && !isNaN(v)) ? v : 0;
 
@@ -63,6 +64,10 @@ export function applyFilters(ds: UnifiedRecord[], filter: ReportFilter): Unified
 }
 
 // ─── GROUPING ENGINE ───────────────────────────────────────────────────────
+/**
+ * Optimized grouping: Uses Map-based pattern to avoid repeated lookups.
+ * Single pass through data + nominations with O(n+m) complexity.
+ */
 export function groupData(
   ds: UnifiedRecord[],
   by: ViewByOption,
@@ -71,7 +76,8 @@ export function groupData(
 ): GroupedData[] {
   const m = new Map<string, GroupedData>();
 
-  ds.forEach(r => {
+  // Single pass through records
+  for (const r of ds) {
     let k = '—';
     if (by === 'Month') k = r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7) || '—';
     else if (by === 'Team') k = r.employee.team || '—';
@@ -79,10 +85,17 @@ export function groupData(
 
     if (!m.has(k)) m.set(k, { key: k, records: [], nominations: [], metric: 0 });
     m.get(k)!.records.push(r);
-  });
+  }
 
-  (noms || []).forEach(n => {
-    const e = emps.find(x => x.employeeId === n.employeeId || x.id === n.employeeId);
+  // Build lookup map for employees (O(n) instead of O(m*n) with repeated finds)
+  const empMap = new Map<string, Employee>();
+  for (const e of emps) {
+    empMap.set(e.employeeId || e.id, e);
+  }
+
+  // Single pass through nominations
+  for (const n of noms) {
+    const e = empMap.get(n.employeeId);
     let k = '—';
     if (by === 'Month') k = (n.notificationDate || '').substring(0, 7) || '—';
     else if (by === 'Team') k = e?.team || '—';
@@ -90,7 +103,7 @@ export function groupData(
 
     if (!m.has(k)) m.set(k, { key: k, records: [], nominations: [], metric: 0 });
     m.get(k)!.nominations.push(n);
-  });
+  }
 
   return Array.from(m.values());
 }
@@ -224,6 +237,10 @@ export function calcGeneric(recs: UnifiedRecord[]) {
 }
 
 // ─── TIME SERIES BUILDER ───────────────────────────────────────────────────
+/**
+ * Optimized time series: Pre-groups records by month to avoid repeated filtering.
+ * Uses Map to store month-grouped records for O(n*m) instead of O(n*m*k) complexity.
+ */
 export function buildTimeSeries(
   groups: GroupedData[],
   months: string[],
@@ -231,82 +248,137 @@ export function buildTimeSeries(
   mode: 'count' | 'score' = 'score'
 ): TimeSeriesRow[] {
   return groups.map(g => {
+    // Pre-group records by month (single pass)
+    const monthMap = new Map<string, UnifiedRecord[]>();
+    for (const r of g.records) {
+      const m = r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7);
+      if (!monthMap.has(m)) monthMap.set(m, []);
+      monthMap.get(m)!.push(r);
+    }
+
     const cells: Record<string, number | null> = {};
-    months.forEach(mo => {
-      const monthRecs = g.records.filter(r => {
-        const m = r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7);
-        return m === mo;
-      });
-      if (monthRecs.length === 0) { cells[mo] = null; return; }
+    
+    for (const mo of months) {
+      const monthRecs = monthMap.get(mo);
+      if (!monthRecs || monthRecs.length === 0) { 
+        cells[mo] = null; 
+        continue; 
+      }
+
       if (mode === 'count') {
-        cells[mo] = monthRecs.filter(r => r.attendance.attendanceStatus === 'Present').length;
+        // Single filter pass to count present
+        let presentCount = 0;
+        for (const r of monthRecs) {
+          if (r.attendance.attendanceStatus === 'Present') presentCount++;
+        }
+        cells[mo] = presentCount;
       } else {
+        // Calculate metrics based on tab type
         if (tab === 'IP') cells[mo] = calcIP(monthRecs).weighted;
         else if (tab === 'AP') cells[mo] = calcAP(monthRecs, g.nominations).composite;
         else if (tab === 'MIP') { const m = calcMIP(monthRecs); cells[mo] = (m.avgSci + m.avgSkl) / 2; }
         else if (tab === 'Refresher') cells[mo] = calcRefresher(monthRecs).overallAvg;
         else cells[mo] = calcCapsule(monthRecs).avgScore;
       }
-    });
+    }
+    
     return { label: g.key, cells };
   });
 }
 
 // ─── TRAINER STATS ENGINE ──────────────────────────────────────────────────
+/**
+ * Optimized trainer stats: Single pass with Set-based tracking.
+ * Avoids repeated filtering and lookups.
+ */
 export function calcTrainerStats(ds: UnifiedRecord[]): TrainerStat[] {
   const m = new Map<string, { sessions: Set<string>; trainees: Set<string>; total: number; totalAtt: number; scoreSum: number; scoreCount: number }>();
-  ds.forEach(r => {
+  
+  // Single pass through all records
+  for (const r of ds) {
     const tid = r.attendance.trainerId || '—';
-    if (!m.has(tid)) m.set(tid, { sessions: new Set(), trainees: new Set(), total: 0, totalAtt: 0, scoreSum: 0, scoreCount: 0 });
+    
+    if (!m.has(tid)) {
+      m.set(tid, { sessions: new Set(), trainees: new Set(), total: 0, totalAtt: 0, scoreSum: 0, scoreCount: 0 });
+    }
+    
     const entry = m.get(tid)!;
     const sessionKey = r.attendance.attendanceDate || '—';
+    
     entry.sessions.add(sessionKey);
     entry.trainees.add(r.attendance.employeeId);
     entry.total++;
+    
     if (r.attendance.attendanceStatus === 'Present') {
       entry.totalAtt++;
       const avg = avgScores(r.score?.scores);
-      if (avg > 0) { entry.scoreSum += avg; entry.scoreCount++; }
+      if (avg > 0) { 
+        entry.scoreSum += avg; 
+        entry.scoreCount++; 
+      }
     }
-  });
-  return Array.from(m.entries()).map(([tid, e]) => ({
-    trainerId: tid,
-    trainingsConducted: e.sessions.size,
-    totalTrainees: e.trainees.size,
-    avgScore: e.scoreCount > 0 ? e.scoreSum / e.scoreCount : 0,
-    attendancePct: e.total > 0 ? (e.totalAtt / e.total) * 100 : 0
-  })).sort((a, b) => b.avgScore - a.avgScore);
+  }
+  
+  // Convert to array and sort in one pass
+  return Array.from(m.entries())
+    .map(([tid, e]) => ({
+      trainerId: tid,
+      trainingsConducted: e.sessions.size,
+      totalTrainees: e.trainees.size,
+      avgScore: e.scoreCount > 0 ? e.scoreSum / e.scoreCount : 0,
+      attendancePct: e.total > 0 ? (e.totalAtt / e.total) * 100 : 0
+    }))
+    .sort((a, b) => b.avgScore - a.avgScore);
 }
 
 // ─── DRILL-DOWN BUILDER ────────────────────────────────────────────────────
+/**
+ * Optimized drilldown: Uses two-level Map grouping for O(n) single pass.
+ * Avoids nested forEach and repeated .filter() calls.
+ */
 export function buildDrilldown(ds: UnifiedRecord[], tab: string): DrilldownNode[] {
-  const clusterMap = new Map<string, Map<string, UnifiedRecord[]>>();
-  ds.forEach(r => {
-    const cluster = r.employee.state || '—';
-    const team = r.employee.team || '—';
-    if (!clusterMap.has(cluster)) clusterMap.set(cluster, new Map());
-    const teamMap = clusterMap.get(cluster)!;
-    if (!teamMap.has(team)) teamMap.set(team, []);
-    teamMap.get(team)!.push(r);
-  });
+  // Use optimized two-level Map grouping
+  const clusterMap = groupByTwoLevels(
+    ds,
+    r => r.employee.state || '—',
+    r => r.employee.team || '—'
+  );
 
-  return Array.from(clusterMap.entries()).map(([cluster, teamMap]) => {
-    const children: DrilldownNode[] = Array.from(teamMap.entries()).map(([team, recs]) => ({
-      key: `${cluster}_${team}`,
-      label: team,
-      metric: getPrimaryMetricRaw(recs, tab),
-      count: recs.filter(r => r.attendance.attendanceStatus === 'Present').length,
-      records: recs
-    }));
-    const allRecs = children.flatMap(c => c.records || []);
-    return {
+  // Build nodes with single-pass metric calculation
+  const nodes: DrilldownNode[] = [];
+  
+  for (const [cluster, teamMap] of clusterMap) {
+    const children: DrilldownNode[] = [];
+    const clusterRecs: UnifiedRecord[] = [];
+
+    for (const [team, recs] of teamMap) {
+      // Pre-filter present records once
+      const presentRecs = recs.filter(r => r.attendance.attendanceStatus === 'Present');
+      
+      children.push({
+        key: `${cluster}_${team}`,
+        label: team,
+        metric: getPrimaryMetricRaw(recs, tab),
+        count: presentRecs.length,
+        records: recs
+      });
+
+      clusterRecs.push(...recs);
+    }
+
+    // Calculate cluster-level metric once from all records
+    const presentClusterRecs = clusterRecs.filter(r => r.attendance.attendanceStatus === 'Present');
+    
+    nodes.push({
       key: cluster,
       label: cluster,
-      metric: getPrimaryMetricRaw(allRecs, tab),
-      count: allRecs.filter(r => r.attendance.attendanceStatus === 'Present').length,
+      metric: getPrimaryMetricRaw(clusterRecs, tab),
+      count: presentClusterRecs.length,
       children
-    };
-  }).sort((a, b) => b.metric - a.metric);
+    });
+  }
+
+  return nodes.sort((a, b) => b.metric - a.metric);
 }
 
 // ─── GAP ANALYSIS ─────────────────────────────────────────────────────────

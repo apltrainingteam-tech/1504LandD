@@ -1,4 +1,4 @@
-import React, { useState, Fragment } from 'react';
+import React, { useState, Fragment, memo, useCallback } from 'react';
 import { ChevronRight, ChevronDown, CheckCircle2, Zap, Trophy, AlertTriangle, AlertCircle, TrendingUp, Search, X } from 'lucide-react';
 import { APPerformanceAggregates, APCandidatePerformance, getDrilldownList } from '../services/apPerformanceService';
 import { EmployeeEventTimeline } from '../services/apIntelligenceService';
@@ -150,15 +150,17 @@ export interface APPerformanceMatrixProps {
   timelines: Map<string, EmployeeEventTimeline>;
 }
 
-export const APPerformanceMatrix: React.FC<APPerformanceMatrixProps> = ({ data, fyMonths, timelines }) => {
+export const APPerformanceMatrix: React.FC<APPerformanceMatrixProps> = memo(({ data, fyMonths, timelines }) => {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [drillTarget, setDrillTarget] = useState<{ cluster: string, team: string, month: string } | null>(null);
 
-  const toggleExpand = (k: string) => {
-    const next = new Set(expanded);
-    next.has(k) ? next.delete(k) : next.add(k);
-    setExpanded(next);
-  };
+  const toggleExpand = useCallback((k: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      next.has(k) ? next.delete(k) : next.add(k);
+      return next;
+    });
+  }, []);
 
   const formatMonthLabel = (month: string) => {
     const m = month.split('-')[1];
@@ -255,5 +257,7 @@ export const APPerformanceMatrix: React.FC<APPerformanceMatrixProps> = ({ data, 
       )}
     </Fragment>
   );
-};
+});
+
+APPerformanceMatrix.displayName = 'APPerformanceMatrix';
 
