@@ -162,14 +162,14 @@ export const APPerformanceMatrix: React.FC<APPerformanceMatrixProps> = memo(({ d
     });
   }, []);
 
-  const formatMonthLabel = (month: string) => {
+  const formatMonthLabel = useCallback((month: string) => {
     const m = month.split('-')[1];
     const MONTH_LABELS: Record<string, string> = {
       '04': 'Apr', '05': 'May', '06': 'Jun', '07': 'Jul', '08': 'Aug', '09': 'Sep',
       '10': 'Oct', '11': 'Nov', '12': 'Dec', '01': 'Jan', '02': 'Feb', '03': 'Mar'
     };
     return MONTH_LABELS[m] || month;
-  };
+  }, []);
 
   return (
     <Fragment>

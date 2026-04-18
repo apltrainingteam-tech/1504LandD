@@ -20,8 +20,31 @@ export function buildUnifiedDataset(
   noms: TrainingNomination[],
   eligibilityResults: EligibilityResult[] = []
 ): UnifiedRecord[] {
+  const empMap = new Map<string, Employee>();
+  for (const e of emps) {
+    empMap.set(e.employeeId || e.id, e);
+  }
+
+  const scoreMap = new Map<string, TrainingScore>();
+  for (const s of scs) {
+    const key = `${s.employeeId}::${s.trainingType}::${s.dateStr}`;
+    scoreMap.set(key, s);
+  }
+
+  const nominationMap = new Map<string, TrainingNomination>();
+  for (const n of noms) {
+    const key = `${n.employeeId}::${n.trainingType}`;
+    nominationMap.set(key, n);
+  }
+
+  const eligibilityMap = new Map<string, EligibilityResult>();
+  for (const el of eligibilityResults) {
+    eligibilityMap.set(el.employeeId, el);
+  }
+
   return att.map(a => {
-    const emp = emps.find(e => e.id === a.employeeId || e.employeeId === a.employeeId) || {
+    const empKey = a.employeeId;
+    const emp = empMap.get(empKey) || {
       id: a.employeeId,
       employeeId: a.employeeId,
       name: a.name || '—',
@@ -35,9 +58,10 @@ export function buildUnifiedDataset(
       aplExperience: 0, pastExperience: 0, totalExperience: 0, age: 0,
       status: 'Active' as const,
     };
-    const sc = scs.find(s => s.employeeId === a.employeeId && s.trainingType === a.trainingType && s.dateStr === a.attendanceDate) || null;
-    const nm = noms.find(n => n.employeeId === a.employeeId && n.trainingType === a.trainingType) || null;
-    const el = eligibilityResults.find(e => e.employeeId === a.employeeId);
+
+    const sc = scoreMap.get(`${a.employeeId}::${a.trainingType}::${a.attendanceDate}`) || null;
+    const nm = nominationMap.get(`${a.employeeId}::${a.trainingType}`) || null;
+    const el = eligibilityMap.get(a.employeeId);
 
     return {
       employee: emp as Employee,

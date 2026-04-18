@@ -149,21 +149,23 @@ const RefresherPerformanceDrilldown: React.FC<{ cluster: string, team: string, m
 
 // --- EXPORTED MATRICES ---
 
-export const RefresherAttendanceMatrix: React.FC<{ data: RefresherAttendanceAggregates, fyMonths: string[], timelines: Map<string, EmployeeEventTimeline> }> = ({ data, fyMonths, timelines }) => {
+export const RefresherAttendanceMatrix: React.FC<{ data: RefresherAttendanceAggregates, fyMonths: string[], timelines: Map<string, EmployeeEventTimeline> }> = memo(({ data, fyMonths, timelines }) => {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [drillTarget, setDrillTarget] = useState<{ cluster: string, team: string, month: string } | null>(null);
 
-  const toggleExpand = (k: string) => {
-    const next = new Set(expanded);
-    next.has(k) ? next.delete(k) : next.add(k);
-    setExpanded(next);
-  };
+  const toggleExpand = useCallback((k: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      next.has(k) ? next.delete(k) : next.add(k);
+      return next;
+    });
+  }, []);
 
-  const formatMonthLabel = (month: string) => {
+  const formatMonthLabel = useCallback((month: string) => {
     const m = month.split('-')[1];
     const MONTH_LABELS: Record<string, string> = { '04': 'Apr', '05': 'May', '06': 'Jun', '07': 'Jul', '08': 'Aug', '09': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Dec', '01': 'Jan', '02': 'Feb', '03': 'Mar' };
     return MONTH_LABELS[m] || month;
-  };
+  }, []);
 
   return (
     <Fragment>
@@ -242,21 +244,23 @@ export const RefresherAttendanceMatrix: React.FC<{ data: RefresherAttendanceAggr
   );
 };
 
-export const RefresherPerformanceMatrix: React.FC<{ data: RefresherPerformanceAggregates, fyMonths: string[], timelines: Map<string, EmployeeEventTimeline> }> = ({ data, fyMonths, timelines }) => {
+export const RefresherPerformanceMatrix: React.FC<{ data: RefresherPerformanceAggregates, fyMonths: string[], timelines: Map<string, EmployeeEventTimeline> }> = memo(({ data, fyMonths, timelines }) => {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [drillTarget, setDrillTarget] = useState<{ cluster: string, team: string, month: string } | null>(null);
 
-  const toggleExpand = (k: string) => {
-    const next = new Set(expanded);
-    next.has(k) ? next.delete(k) : next.add(k);
-    setExpanded(next);
-  };
+  const toggleExpand = useCallback((k: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      next.has(k) ? next.delete(k) : next.add(k);
+      return next;
+    });
+  }, []);
 
-  const formatMonthLabel = (month: string) => {
+  const formatMonthLabel = useCallback((month: string) => {
     const m = month.split('-')[1];
     const MONTH_LABELS: Record<string, string> = { '04': 'Apr', '05': 'May', '06': 'Jun', '07': 'Jul', '08': 'Aug', '09': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Dec', '01': 'Jan', '02': 'Feb', '03': 'Mar' };
     return MONTH_LABELS[m] || month;
-  };
+  }, []);
 
   return (
     <Fragment>

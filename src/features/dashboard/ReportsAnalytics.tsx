@@ -42,6 +42,7 @@ import { RefresherAttendanceMatrix, RefresherPerformanceMatrix } from '../../com
 import { CapsuleAttendanceMatrix, CapsulePerformanceMatrix } from '../../components/CapsuleDualMatrix';
 import { flagScore, flagClass, flagLabel } from '../../utils/scoreNormalizer';
 import { normalizeText } from '../../utils/textNormalizer';
+import { useGroupedData, useRankedGroups, useTrainerStats, useDrilldownNodes, useTimeSeries, useGapMetrics, useMonthsFromData, useFilterOptions } from '../../utils/computationHooks';
 
 const ALL_TRAINING_TYPES = ['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'Pre_AP'];
 
@@ -211,9 +212,8 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
   }, [tab, subView]);
 
   // Dynamic options for filter dropdowns
-  const allTeams = useMemo(() => [...new Set(employees.map(e => e.team).filter((t): t is string => Boolean(t)))].sort(), [employees]);
+  const { allTeams, allTrainers } = useFilterOptions(employees, attendance);
   const allClusters = useMemo(() => [...new Set(Object.values(TEAM_CLUSTER_MAP).filter((c): c is string => Boolean(c)))].sort(), []);
-  const allTrainers = useMemo(() => [...new Set(attendance.map(a => a.trainerId).filter((tr): tr is string => Boolean(tr)))].sort(), [attendance]);
 
   const normalizeType = (value?: string) => (value || '').toUpperCase();
 
@@ -348,21 +348,16 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
 
   const tabNoms = useMemo(() => nominations.filter(n => n.trainingType === tab), [nominations, tab]);
 
-  const gapMetrics = useMemo(() => getGapData(tab, eligibilityResults, attendance), [tab, eligibilityResults, attendance]);
-  const groups = useMemo(() => groupData(unified, viewBy, tabNoms, employees), [unified, viewBy, tabNoms, employees]);
-  const ranked = useMemo(() => rankGroups(groups, tab), [groups, tab]);
-  const trainerStats = useMemo(() => calcTrainerStats(unified), [unified]);
-  const drilldownNodes = useMemo(() => buildDrilldown(unified, tab), [unified, tab]);
+  const gapMetrics = useGapMetrics(tab, eligibilityResults, attendance);
+  const groups = useGroupedData(unified, viewBy, tabNoms, employees);
+  const ranked = useRankedGroups(groups, tab);
+  const trainerStats = useTrainerStats(unified);
+  const drilldownNodes = useDrilldownNodes(unified, tab);
 
   // Dynamic months from the filtered dataset
-  const months = useMemo(() => {
-    const monthsArray = unified
-      .map(r => r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7))
-      .filter((m): m is string => Boolean(m));
-    return [...new Set(monthsArray)].sort();
-  }, [unified]);
+  const months = useMonthsFromData(unified);
 
-  const timeSeries = useMemo(() => buildTimeSeries(groups, months, tab, tsMode), [groups, months, tab, tsMode]);
+  const timeSeries = useTimeSeries(groups, months, tab, tsMode);
 
   // KPI computations (Legacy)
   const gIP = useMemo(() => calcIP(unified), [unified]);
@@ -873,31 +868,31 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
 
                           {isOpen && Object.keys(ipData.teamMonthMap[clusterName] || {}).map(teamName => {
                             const teamData = ipData.teamMonthMap[clusterName][teamName];
-                          const thPct = getPercent(teamData.high, teamData.total);
-                          const tmPct = getPercent(teamData.medium, teamData.total);
-                          const tlPct = getPercent(teamData.low, teamData.total);
+                            const thPct = getPercent(teamData.high, teamData.total);
+                            const tmPct = getPercent(teamData.medium, teamData.total);
+                            const tlPct = getPercent(teamData.low, teamData.total);
 
-                          return (
-                            <tr key={teamName} style={{ ...getRowStyle(thPct, tlPct), fontSize: '13px' }}>
-                              <td></td>
-                              <td style={{ paddingLeft: '24px' }}>↳ {teamName}</td>
-                              <td style={{ textAlign: 'center', fontWeight: 600 }}>{teamData.total}</td>
-                              <td style={{ textAlign: 'center' }} className={thPct > 70 ? 'text-success' : ''}>{thPct}%</td>
-                              <td style={{ textAlign: 'center' }} className={tmPct > 50 ? 'text-warning' : ''}>{tmPct}%</td>
-                              <td style={{ textAlign: 'center' }} className={tlPct > 30 ? 'text-danger' : ''}>{tlPct}%</td>
-                              {MONTHS.map(mo => {
-                                const cell = teamData.months[mo];
-                                const txt = formatCell(cell);
-                                let cellStyle = { textAlign: 'center' } as any;
-                                if (cell && cell.total > 0) {
-                                  if (cell.low > cell.high) cellStyle.color = 'var(--danger)';
-                                  else if (cell.high > cell.low) cellStyle.color = 'var(--success)';
-                                }
-                                return <td key={mo} style={cellStyle}>{txt}</td>;
-                              })}
-                            </tr>
-                          );
-                        })}
+                            return (
+                              <tr key={teamName} style={{ ...getRowStyle(thPct, tlPct), fontSize: '13px' }}>
+                                <td></td>
+                                <td style={{ paddingLeft: '24px' }}>↳ {teamName}</td>
+                                <td style={{ textAlign: 'center', fontWeight: 600 }}>{teamData.total}</td>
+                                <td style={{ textAlign: 'center' }} className={thPct > 70 ? 'text-success' : ''}>{thPct}%</td>
+                                <td style={{ textAlign: 'center' }} className={tmPct > 50 ? 'text-warning' : ''}>{tmPct}%</td>
+                                <td style={{ textAlign: 'center' }} className={tlPct > 30 ? 'text-danger' : ''}>{tlPct}%</td>
+                                {MONTHS.map(mo => {
+                                  const cell = teamData.months[mo];
+                                  const txt = formatCell(cell);
+                                  let cellStyle = { textAlign: 'center' } as any;
+                                  if (cell && cell.total > 0) {
+                                    if (cell.low > cell.high) cellStyle.color = 'var(--danger)';
+                                    else if (cell.high > cell.low) cellStyle.color = 'var(--success)';
+                                  }
+                                  return <td key={mo} style={cellStyle}>{txt}</td>;
+                                })}
+                              </tr>
+                            );
+                          })}
                       </Fragment>
                     );
                   })}
@@ -905,6 +900,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
               </table>
             </div>
           </div>
+          </motion.div>
         )
       )}
 
@@ -969,29 +965,30 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                                 <td style={{ paddingLeft: '24px' }}>↳ {teamName}</td>
                                 <td style={{ textAlign: 'center', fontWeight: 600 }}>{teamData.totalNotified}</td>
                                 <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--success)' }}>{teamData.totalAttended}</td>
-                              {MONTHS.map(mo => {
-                                const cell = teamData.months[mo];
-                                if (!cell || (!cell.notified && !cell.attended)) return <td key={mo} style={{ textAlign: 'center', opacity: 0.3 }}>—</td>;
-                                const pct = cell.notified > 0 ? Math.round((cell.attended / cell.notified) * 100) : 0;
-                                const isWarning = cell.attended > cell.notified;
-                                const isPerfect = pct === 100 && cell.notified > 0;
-                                
-                                return (
-                                  <td key={mo} style={{ textAlign: 'center', background: isWarning ? 'rgba(239, 68, 68, 0.1)' : isPerfect ? 'rgba(16, 185, 129, 0.1)' : 'transparent' }}>
-                                    <div style={{ fontWeight: 600, color: isWarning ? 'var(--danger)' : 'inherit' }}>{cell.attended} / {cell.notified}</div>
-                                    {cell.notified > 0 && <div style={{ fontSize: '10px', opacity: 0.7 }}>({pct}%)</div>}
-                                  </td>
-                                );
-                              })}
-                            </tr>
-                          );
-                        })}
+                                {MONTHS.map(mo => {
+                                  const cell = teamData.months[mo];
+                                  if (!cell || (!cell.notified && !cell.attended)) return <td key={mo} style={{ textAlign: 'center', opacity: 0.3 }}>—</td>;
+                                  const pct = cell.notified > 0 ? Math.round((cell.attended / cell.notified) * 100) : 0;
+                                  const isWarning = cell.attended > cell.notified;
+                                  const isPerfect = pct === 100 && cell.notified > 0;
+                                  
+                                  return (
+                                    <td key={mo} style={{ textAlign: 'center', background: isWarning ? 'rgba(239, 68, 68, 0.1)' : isPerfect ? 'rgba(16, 185, 129, 0.1)' : 'transparent' }}>
+                                      <div style={{ fontWeight: 600, color: isWarning ? 'var(--danger)' : 'inherit' }}>{cell.attended} / {cell.notified}</div>
+                                      {cell.notified > 0 && <div style={{ fontSize: '10px', opacity: 0.7 }}>({pct}%)</div>}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            );
+                          })}
                       </Fragment>
                     );
                   })}
                 </tbody>
               </table>
             </div>
+          </div>
           </motion.div>
         ) : null
       )}
