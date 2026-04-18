@@ -203,7 +203,7 @@ export const CapsuleAttendanceMatrix: React.FC<{ data: CapsuleAttendanceAggregat
       {drillTarget && <CapsuleAttendanceDrilldown cluster={drillTarget.cluster} team={drillTarget.team} month={drillTarget.month} timelines={timelines} onClose={() => setDrillTarget(null)} />}
     </Fragment>
   );
-};
+});
 
 export const CapsulePerformanceMatrix: React.FC<{ data: CapsulePerformanceAggregates, fyMonths: string[], timelines: Map<string, EmployeeEventTimeline> }> = memo(({ data, fyMonths, timelines }) => {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -291,6 +291,6 @@ export const CapsulePerformanceMatrix: React.FC<{ data: CapsulePerformanceAggreg
       {drillTarget && <CapsulePerformanceDrilldown cluster={drillTarget.cluster} team={drillTarget.team} month={drillTarget.month} timelines={timelines} onClose={() => setDrillTarget(null)} />}
     </Fragment>
   );
-};
+});
 
 

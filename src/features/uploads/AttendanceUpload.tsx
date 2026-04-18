@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { UploadCloud, CheckCircle, X, Check, AlertTriangle, XCircle, Upload, Info } from 'lucide-react';
 import { parseExcelFile, ParsedRow } from '../../services/parsingService';
-import { uploadAttendanceBatch } from '../../services/attendanceService';
+import { uploadAttendanceData, UploadProgressState, UploadResult } from '../../services/attendanceUploadService';
 import { UploadPreview } from './components/UploadPreview';
+import { UploadProgressIndicator } from '../../components/UploadProgressIndicator';
+import { UploadResultSummary } from '../../components/UploadResultSummary';
 import { getSchema } from '../../services/trainingSchemas';
 import { validateFileSize, MAX_UPLOAD_SIZE_BYTES } from '../../utils/fileValidation';
 
@@ -16,16 +18,26 @@ interface AttendanceUploadProps {
 const TRAINING_TYPES = ['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'Pre_AP', 'GTG', 'HO', 'RTM'];
 
 export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComplete, masterEmployees }) => {
-  const [step, setStep] = useState<'upload' | 'mode_select' | 'preview' | 'done'>('upload');
+  const [step, setStep] = useState<'upload' | 'mode_select' | 'preview' | 'uploading' | 'done'>('upload');
   const [dragOver, setDragOver] = useState(false);
   const [fileName, setFileName] = useState('');
   const [selectedUploadType, setSelectedUploadType] = useState(TRAINING_TYPES[0]);
   const [trainingType, setTrainingType] = useState('IP');
   const [autoDetected, setAutoDetected] = useState(false);
   const [rows, setRows] = useState<ParsedRow[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [result, setResult] = useState<{ attCount: number, scoreCount: number, skippedCount?: number } | null>(null);
+  
+  // New: Progress tracking
+  const [progressState, setProgressState] = useState<UploadProgressState>({
+    totalRows: 0,
+    uploadedRows: 0,
+    currentChunk: 0,
+    totalChunks: 0,
+    status: 'idle'
+  });
+  
+  // New: Detailed upload result
+  const [result, setResult] = useState<UploadResult | null>(null);
+  
   const [uploadMode, setUploadMode] = useState<'append' | 'replace'>('append');
   const [confirmReplace, setConfirmReplace] = useState(false);
   const [strictMode, setStrictMode] = useState(false);
@@ -73,8 +85,6 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
   };
 
   const doUpload = async () => {
-    setUploading(true);
-    setUploadProgress(0);
     try {
       // Filter based on strict mode
       let uploadable = rows.filter(r => r.status !== 'error');
@@ -83,24 +93,37 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
         const perfectMatches = rows.filter(r => r.data._matchQuality === 'PERFECT');
         if (perfectMatches.length === 0) {
           alert('No perfectly matched records available for upload. Disable Strict Mode or fix the data.');
-          setUploading(false);
           return;
         }
         uploadable = perfectMatches;
       }
       
-      const total = uploadable.length;
+      // Move to uploading step
+      setStep('uploading');
+
+      console.log(`[UI] Starting upload with ${uploadable.length} rows in ${uploadMode} mode`);
       
-      const res = await uploadAttendanceBatch(uploadable, trainingType, uploadMode, (count) => {
-        setUploadProgress(Math.round((count / total) * 100));
-      });
+      // Call new service with progress callback
+      const uploadResult = await uploadAttendanceData(
+        uploadable,
+        trainingType,
+        uploadMode,
+        (state: UploadProgressState) => {
+          console.log(`[UI] Progress update:`, state);
+          setProgressState(state);
+        },
+        25 // chunkSize
+      );
       
-      setResult(res);
+      // Store result and move to done
+      setResult(uploadResult);
       setStep('done');
       onUploadComplete?.();
+      
     } catch (err: any) {
       alert('Upload failed: ' + err.message);
-      setUploading(false); // Stop progress naturally handled here on failure
+      console.error('Upload error:', err);
+      setStep('preview'); // Return to preview on error
     }
   };
 
@@ -113,25 +136,45 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
     setUploadMode('append');
     setConfirmReplace(false);
     setStrictMode(false);
+    setProgressState({
+      totalRows: 0,
+      uploadedRows: 0,
+      currentChunk: 0,
+      totalChunks: 0,
+      status: 'idle'
+    });
   };
 
   if (step === 'done' && result) {
     return (
-      <div className="animate-fade-in" style={{ textAlign: 'center', padding: '60px' }}>
-        <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(16,185,129,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
-          <CheckCircle size={48} color="var(--success)" />
+      <div className="animate-fade-in">
+        <UploadResultSummary 
+          result={result}
+          fileName={fileName}
+          trainingType={trainingType}
+          mode={uploadMode}
+        />
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '32px' }}>
+          <button className="btn btn-primary" onClick={reset}>
+            <Upload size={18} /> Upload Another File
+          </button>
         </div>
-        <h2 style={{ fontSize: '32px', marginBottom: '16px' }}>Upload Successful</h2>
-        <div className="glass-panel" style={{ maxWidth: '400px', margin: '0 auto 32px', padding: '24px' }}>
-          <p className="text-muted" style={{ marginBottom: '12px' }}>{result.attCount} Attendance records synced</p>
-          <p className="text-muted" style={{ marginBottom: result.skippedCount !== undefined ? '12px' : '0' }}>{result.scoreCount} Score records synced</p>
-          {result.skippedCount !== undefined && result.skippedCount > 0 && (
-            <p style={{ color: 'var(--warning)', fontWeight: 600 }}>{result.skippedCount} Duplicate records skipped</p>
-          )}
+      </div>
+    );
+  }
+
+  // New uploading step
+  if (step === 'uploading') {
+    return (
+      <div className="animate-fade-in" style={{ maxWidth: '500px', margin: '0 auto', paddingTop: '60px', textAlign: 'center' }}>
+        <h2 style={{ fontSize: '24px', marginBottom: '8px' }}>Uploading Data</h2>
+        <p className="text-muted" style={{ marginBottom: '32px' }}>
+          Processing {progressState.totalRows} rows in chunks of 25 records...
+        </p>
+        
+        <div style={{ marginBottom: '32px' }}>
+          <UploadProgressIndicator state={progressState} />
         </div>
-        <button className="btn btn-primary" onClick={reset}>
-          <Upload size={18} /> Upload Another File
-        </button>
       </div>
     );
   }
@@ -236,22 +279,17 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
           <button 
             className="btn btn-primary w-full" 
             onClick={doUpload} 
-            disabled={uploading || !canUpload}
+            disabled={!canUpload}
             title={!canUpload ? strictUploadBlocked ? 'Strict Mode requires a perfect match' : 'No valid records to upload' : ''}
             style={{ padding: '14px 32px', position: 'relative', overflow: 'hidden' }}
           >
-            {uploading ? (
-               <>
-                 <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${uploadProgress}%`, background: 'rgba(255,255,255,0.3)', transition: 'width 0.2s', zIndex: 0 }} />
-                 <span style={{ position: 'relative', zIndex: 1, fontWeight: 700 }}>Processing in batches... {uploadProgress}%</span>
-               </>
-            ) : `Accept & Sync ${uploadableCount} Rows (${uploadMode.toUpperCase()})`}
+            {`Accept & Sync ${uploadableCount} Rows (${uploadMode.toUpperCase()})`}
           </button>
           
-          <button className="btn btn-secondary w-full" onClick={reset} disabled={uploading}>Discard & Reject</button>
-          {uploading && <span className="text-muted text-center mt-2" style={{ fontSize: '12px' }}>Large uploads process in chunks of 25 records to prevent quota limits</span>}
-          {errCount > 0 && !uploading && <span className="text-muted text-center mt-2" style={{ fontSize: '13px', color: 'var(--danger)' }}>❌ {errCount} rows with errors will NOT be uploaded</span>}
-          {warnCount > 0 && !uploading && <span className="text-muted text-center mt-2" style={{ fontSize: '13px', color: 'var(--warning)' }}>⚠️ {warnCount} rows with warnings will be uploaded with caution</span>}
+          <button className="btn btn-secondary w-full" onClick={reset}>Discard & Reject</button>
+          {errCount > 0 && <span className="text-muted text-center mt-2" style={{ fontSize: '13px', color: 'var(--danger)' }}>❌ {errCount} rows with errors will NOT be uploaded</span>}
+          {warnCount > 0 && <span className="text-muted text-center mt-2" style={{ fontSize: '13px', color: 'var(--warning)' }}>⚠️ {warnCount} rows with warnings will be uploaded with caution</span>}
+          <span className="text-muted text-center mt-2" style={{ fontSize: '12px' }}>Large uploads process in chunks of 25 records to prevent quota limits</span>
         </div>
       </div>
     );

@@ -242,7 +242,7 @@ export const RefresherAttendanceMatrix: React.FC<{ data: RefresherAttendanceAggr
       {drillTarget && <RefresherAttendanceDrilldown cluster={drillTarget.cluster} team={drillTarget.team} month={drillTarget.month} timelines={timelines} onClose={() => setDrillTarget(null)} />}
     </Fragment>
   );
-};
+});
 
 export const RefresherPerformanceMatrix: React.FC<{ data: RefresherPerformanceAggregates, fyMonths: string[], timelines: Map<string, EmployeeEventTimeline> }> = memo(({ data, fyMonths, timelines }) => {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -335,6 +335,6 @@ export const RefresherPerformanceMatrix: React.FC<{ data: RefresherPerformanceAg
       {drillTarget && <RefresherPerformanceDrilldown cluster={drillTarget.cluster} team={drillTarget.team} month={drillTarget.month} timelines={timelines} onClose={() => setDrillTarget(null)} />}
     </Fragment>
   );
-};
+});
 
 

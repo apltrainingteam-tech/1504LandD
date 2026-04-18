@@ -34,6 +34,7 @@ import { Employees } from './features/employees/Employees';
 import { Demographics } from './features/eligibility/Demographics';
 import { Notified } from './features/notifications/Notified';
 import { GapAnalysis } from './features/gap-analysis/GapAnalysis';
+import { RecruitmentQuality } from './features/srm/RecruitmentQuality';
 
 // Services & Types
 import { getCollection, deleteRecordsByQuery } from './services/firestoreService';
@@ -41,7 +42,7 @@ import { seedDatabase, seedMasterData } from './seed';
 import { Employee } from './types/employee';
 import { Attendance, TrainingScore, TrainingNomination, Demographics as DemoType } from './types/attendance';
 
-type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'notified' | 'gap-analysis' | 'performance';
+type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'notified' | 'gap-analysis' | 'performance' | 'srm';
 
 const App = () => {
   const { theme, toggleTheme } = useTheme();
@@ -131,6 +132,7 @@ const App = () => {
     switch (view) {
       case 'reports': return <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} pageMode="overview" />;
       case 'performance': return <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} pageMode="performance-insights" />;
+      case 'srm': return <RecruitmentQuality employees={emps} attendance={att} scores={scs} />;
       case 'trainings': return <TrainingsViewer employees={emps} attendance={att} scores={scs} />;
       case 'attendance': return <AttendanceUpload onUploadComplete={() => setRefreshKey(k => k + 1)} masterEmployees={emps} />;
       case 'notified': return <Notified employees={emps} attendance={att} nominations={noms} onUploadComplete={() => setRefreshKey(k => k + 1)} />;
@@ -179,6 +181,11 @@ const App = () => {
           <button className={`nav-item ${view === 'performance' ? 'active' : ''}`} onClick={() => setView('performance')}>
             <Activity size={20} />
             <span>Performance Insights</span>
+          </button>
+
+          <button className={`nav-item ${view === 'srm' ? 'active' : ''}`} onClick={() => setView('srm')}>
+            <Target size={20} />
+            <span>SRM (Recruitment Quality)</span>
           </button>
 
           {/* OPERATIONS SECTION */}
