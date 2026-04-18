@@ -122,55 +122,65 @@ async function processBatchChunk(
   let scoreCount = 0;
 
   const batch = writeBatch(db);
+  let hasOperations = false;
 
   for (const row of rows) {
-    const cleanData = mapToFirestore(row);
+    try {
+      const cleanData = mapToFirestore(row);
 
-    // Skip if critical fields missing
-    if (!cleanData.employeeId || !cleanData.attendanceDate) {
-      console.warn(`[BATCH] Skipping row in chunk ${chunkIndex}: missing employeeId or date`, cleanData);
-      continue;
-    }
+      // Skip if critical fields missing
+      if (!cleanData.employeeId || !cleanData.attendanceDate) {
+        console.warn(`[BATCH] Skipping row in chunk ${chunkIndex}: missing employeeId or date`, cleanData);
+        continue;
+      }
 
-    // Generate deterministic ID for deduplication in append mode
-    const attId = `${cleanData.employeeId}_${trainingType}_${cleanData.attendanceDate}`;
+      // Generate deterministic ID for deduplication in append mode
+      const attId = `${cleanData.employeeId}_${trainingType}_${cleanData.attendanceDate}`;
 
-    // Add attendance record
-    const attRef = doc(db, 'attendance', attId);
-    const attPayload = {
-      id: attId,
-      trainingType,
-      ...cleanData
-    };
-
-    batch.set(attRef, attPayload, { merge: true });
-    attCount++;
-
-    // Add training scores if present
-    const d = row.data || row;
-    if (d._hasScores && d._scores) {
-      const scoreId = `${cleanData.employeeId}_${trainingType}_${cleanData.attendanceDate}`;
-      const scoreRef = doc(db, 'training_scores', scoreId);
-
-      const scorePayload = {
-        id: scoreId,
-        employeeId: cleanData.employeeId,
+      // Add attendance record
+      const attRef = doc(db, 'attendance', attId);
+      const attPayload = {
+        id: attId,
         trainingType,
-        dateStr: cleanData.attendanceDate,
-        scores: d._scores
+        ...cleanData
       };
 
-      batch.set(scoreRef, scorePayload, { merge: true });
-      scoreCount++;
+      batch.set(attRef, attPayload, { merge: true });
+      attCount++;
+      hasOperations = true;
+
+      // Add training scores if present
+      const d = row.data || row;
+      if (d._hasScores && d._scores && typeof d._scores === 'object') {
+        const scoreId = `${cleanData.employeeId}_${trainingType}_${cleanData.attendanceDate}`;
+        const scoreRef = doc(db, 'training_scores', scoreId);
+
+        const scorePayload = {
+          id: scoreId,
+          employeeId: cleanData.employeeId,
+          trainingType,
+          dateStr: cleanData.attendanceDate,
+          scores: d._scores
+        };
+
+        batch.set(scoreRef, scorePayload, { merge: true });
+        scoreCount++;
+        hasOperations = true;
+      }
+    } catch (rowError: any) {
+      console.error(`[BATCH] Error processing row in chunk ${chunkIndex}:`, rowError.message);
+      // Continue to next row instead of crashing
     }
   }
 
-  // Commit with retry (1 retry, exponential backoff)
-  await retryWithBackoff(
-    () => batch.commit(),
-    2, // maxRetries
-    100 // initialDelayMs
-  );
+  // Only commit if there are operations
+  if (hasOperations) {
+    await retryWithBackoff(
+      () => batch.commit(),
+      2, // maxRetries
+      100 // initialDelayMs
+    );
+  }
 
   return { attCount, scoreCount };
 }
@@ -187,6 +197,20 @@ export async function uploadAttendanceData(
   chunkSize: number = 25
 ): Promise<UploadResult> {
   const startTime = performance.now();
+  
+  // Validate input
+  if (!rows || rows.length === 0) {
+    return {
+      successCount: 0,
+      failureCount: 0,
+      totalProcessed: 0,
+      failedChunks: [],
+      errors: ['No rows provided for upload'],
+      payloadSizeKB: 0,
+      duration: 0
+    };
+  }
+
   const totalRows = rows.length;
   const totalChunks = Math.ceil(totalRows / chunkSize);
 
@@ -200,9 +224,14 @@ export async function uploadAttendanceData(
     duration: 0
   };
 
-  // Calculate payload size BEFORE upload
-  const cleanData = rows.map(r => mapToFirestore(r));
-  const payloadInfo = calculatePayloadSize(cleanData);
+  // Calculate payload size BEFORE upload (with error handling)
+  let payloadInfo = { sizeKB: 0, sizeBytes: 0 };
+  try {
+    const cleanData = rows.map(r => mapToFirestore(r)).filter(d => d && d.employeeId);
+    payloadInfo = calculatePayloadSize(cleanData);
+  } catch (e) {
+    console.warn('Could not calculate payload size:', e);
+  }
   result.payloadSizeKB = payloadInfo.sizeKB;
 
   console.log(`
@@ -239,8 +268,7 @@ export async function uploadAttendanceData(
     try {
       const { attCount, scoreCount } = await processBatchChunk(chunk, trainingType, chunkIndex);
 
-      result.successCount += attCount;
-      scoreCount > 0 && (result.successCount += scoreCount);
+      result.successCount += attCount + scoreCount;
       processedCount += chunk.length;
 
       // Update progress
@@ -311,15 +339,20 @@ export async function uploadAttendanceBatch(
   mode: 'replace' | 'append',
   onProgress?: (count: number) => void
 ): Promise<{ attCount: number; scoreCount: number; skippedCount: number }> {
-  const result = await uploadAttendanceData(uploadableRows, trainingType, mode, (state) => {
-    if (onProgress) {
-      onProgress(state.uploadedRows);
-    }
-  });
+  try {
+    const result = await uploadAttendanceData(uploadableRows, trainingType, mode, (state) => {
+      if (onProgress) {
+        onProgress(state.uploadedRows);
+      }
+    });
 
-  return {
-    attCount: result.successCount,
-    scoreCount: 0, // Included in successCount
-    skippedCount: result.failureCount
-  };
+    return {
+      attCount: result.successCount,
+      scoreCount: 0, // Included in successCount
+      skippedCount: result.failureCount
+    };
+  } catch (error: any) {
+    console.error('[UPLOAD ERROR]', error);
+    throw error;
+  }
 }

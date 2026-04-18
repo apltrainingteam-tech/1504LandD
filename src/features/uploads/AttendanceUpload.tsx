@@ -86,11 +86,22 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
 
   const doUpload = async () => {
     try {
+      // Validate we have data
+      if (!rows || rows.length === 0) {
+        alert('No valid records to upload. Please check your file and try again.');
+        return;
+      }
+
       // Filter based on strict mode
       let uploadable = rows.filter(r => r.status !== 'error');
       
+      if (uploadable.length === 0) {
+        alert('All records have errors. Please fix the data and try again.');
+        return;
+      }
+      
       if (strictMode) {
-        const perfectMatches = rows.filter(r => r.data._matchQuality === 'PERFECT');
+        const perfectMatches = rows.filter(r => r.data?._matchQuality === 'PERFECT');
         if (perfectMatches.length === 0) {
           alert('No perfectly matched records available for upload. Disable Strict Mode or fix the data.');
           return;
@@ -98,10 +109,25 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
         uploadable = perfectMatches;
       }
       
+      // Validate training type
+      if (!trainingType) {
+        alert('Please select a training type before uploading.');
+        return;
+      }
+
+      // Initialize progress state
+      setProgressState({
+        totalRows: uploadable.length,
+        uploadedRows: 0,
+        currentChunk: 0,
+        totalChunks: Math.ceil(uploadable.length / 25),
+        status: 'uploading'
+      });
+      
       // Move to uploading step
       setStep('uploading');
 
-      console.log(`[UI] Starting upload with ${uploadable.length} rows in ${uploadMode} mode`);
+      console.log(`[UI] Starting upload with ${uploadable.length} rows in ${uploadMode} mode for ${trainingType}`);
       
       // Call new service with progress callback
       const uploadResult = await uploadAttendanceData(
@@ -121,8 +147,17 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
       onUploadComplete?.();
       
     } catch (err: any) {
-      alert('Upload failed: ' + err.message);
+      const errorMsg = err?.message || String(err) || 'Unknown error occurred';
+      alert('Upload failed: ' + errorMsg);
       console.error('Upload error:', err);
+      
+      // Update progress state with error
+      setProgressState(prev => ({
+        ...prev,
+        status: 'error',
+        currentError: errorMsg
+      }));
+      
       setStep('preview'); // Return to preview on error
     }
   };
