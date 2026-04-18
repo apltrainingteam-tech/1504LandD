@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { UploadCloud, CheckCircle, X, Check, AlertTriangle, XCircle, Upload, Info } from 'lucide-react';
 import { parseExcelFile, ParsedRow } from '../../services/parsingService';
 import { uploadAttendanceData, UploadProgressState, UploadResult } from '../../services/attendanceUploadService';
@@ -42,7 +42,16 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
   const [confirmReplace, setConfirmReplace] = useState(false);
   const [strictMode, setStrictMode] = useState(false);
 
-  const processFile = async (file: File) => {
+  // Track mounted state to prevent updates on unmounted component
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  const processFile = useCallback(async (file: File) => {
     // Validate size before any parsing (protect internal tool use)
     const valid = validateFileSize(file);
     if (!valid.ok) {
@@ -62,9 +71,9 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
       alert('Parse failed: ' + err.message);
       console.error(err);
     }
-  };
+  }, [selectedUploadType, masterEmployees]);
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
     const f = e.dataTransfer.files[0];
@@ -73,18 +82,18 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
       if (!valid.ok) { alert(valid.reason || `Please use files smaller than ${MAX_UPLOAD_SIZE_BYTES / (1024 * 1024)} MB`); return; }
       processFile(f);
     }
-  };
+  }, [processFile]);
 
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (f) {
       const valid = validateFileSize(f);
       if (!valid.ok) { alert(valid.reason || `Please use files smaller than ${MAX_UPLOAD_SIZE_BYTES / (1024 * 1024)} MB`); return; }
       processFile(f);
     }
-  };
+  }, [processFile]);
 
-  const doUpload = async () => {
+  const doUpload = useCallback(async () => {
     try {
       // Validate we have data
       if (!rows || rows.length === 0) {
@@ -116,16 +125,16 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
       }
 
       // Initialize progress state
-      setProgressState({
-        totalRows: uploadable.length,
-        uploadedRows: 0,
-        currentChunk: 0,
-        totalChunks: Math.ceil(uploadable.length / 25),
-        status: 'uploading'
-      });
-      
-      // Move to uploading step
-      setStep('uploading');
+      if (isMountedRef.current) {
+        setProgressState({
+          totalRows: uploadable.length,
+          uploadedRows: 0,
+          currentChunk: 0,
+          totalChunks: Math.ceil(uploadable.length / 25),
+          status: 'uploading'
+        });
+        setStep('uploading');
+      }
 
       console.log(`[UI] Starting upload with ${uploadable.length} rows in ${uploadMode} mode for ${trainingType}`);
       
@@ -135,34 +144,41 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
         trainingType,
         uploadMode,
         (state: UploadProgressState) => {
-          console.log(`[UI] Progress update:`, state);
-          setProgressState(state);
+          if (isMountedRef.current) {
+            console.log(`[UI] Progress update:`, state);
+            setProgressState(state);
+          }
         },
         25 // chunkSize
       );
       
       // Store result and move to done
-      setResult(uploadResult);
-      setStep('done');
-      onUploadComplete?.();
+      if (isMountedRef.current) {
+        setResult(uploadResult);
+        setStep('done');
+        onUploadComplete?.();
+      }
       
     } catch (err: any) {
       const errorMsg = err?.message || String(err) || 'Unknown error occurred';
-      alert('Upload failed: ' + errorMsg);
       console.error('Upload error:', err);
       
-      // Update progress state with error
-      setProgressState(prev => ({
-        ...prev,
-        status: 'error',
-        currentError: errorMsg
-      }));
-      
-      setStep('preview'); // Return to preview on error
+      if (isMountedRef.current) {
+        alert('Upload failed: ' + errorMsg);
+        
+        // Update progress state with error
+        setProgressState(prev => ({
+          ...prev,
+          status: 'error',
+          currentError: errorMsg
+        }));
+        
+        setStep('preview'); // Return to preview on error
+      }
     }
-  };
+  }, [rows, strictMode, trainingType, uploadMode, isMountedRef, onUploadComplete]);
 
-  const reset = () => {
+  const reset = useCallback(() => {
     setStep('upload');
     setRows([]);
     setFileName('');
@@ -178,7 +194,7 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
       totalChunks: 0,
       status: 'idle'
     });
-  };
+  }, []);
 
   if (step === 'done' && result) {
     return (

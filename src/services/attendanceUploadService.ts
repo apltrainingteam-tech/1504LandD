@@ -253,7 +253,13 @@ export async function uploadAttendanceData(
     status: 'uploading'
   };
 
-  if (onProgress) onProgress(progressState);
+  if (onProgress) {
+    try {
+      onProgress(progressState);
+    } catch (e) {
+      console.warn('[PROGRESS] Callback error:', e);
+    }
+  }
 
   let processedCount = 0;
 
@@ -274,7 +280,13 @@ export async function uploadAttendanceData(
       // Update progress
       progressState.uploadedRows = processedCount;
       progressState.currentChunk = chunkIndex + 1;
-      if (onProgress) onProgress(progressState);
+      if (onProgress) {
+        try {
+          onProgress(progressState);
+        } catch (e) {
+          console.warn('[PROGRESS] Callback error:', e);
+        }
+      }
 
       console.log(
         `[CHUNK ${chunkIndex + 1}/${totalChunks}] ✓ Uploaded ${attCount} attendance + ${scoreCount} score records`
@@ -299,7 +311,13 @@ export async function uploadAttendanceData(
 
       // Continue to next chunk (graceful failure)
       progressState.currentError = errorMsg;
-      if (onProgress) onProgress(progressState);
+      if (onProgress) {
+        try {
+          onProgress(progressState);
+        } catch (e) {
+          console.warn('[PROGRESS] Callback error:', e);
+        }
+      }
     }
   }
 
@@ -309,8 +327,14 @@ export async function uploadAttendanceData(
 
   // Final progress state
   progressState.status = result.failedChunks.length > 0 ? 'error' : 'completed';
-  progressState.uploadedRows = result.successCount;
-  if (onProgress) onProgress(progressState);
+  progressState.uploadedRows = processedCount;  // Use row count, not record count
+  if (onProgress) {
+    try {
+      onProgress(progressState);
+    } catch (e) {
+      console.warn('[PROGRESS] Callback error:', e);
+    }
+  }
 
   console.log(`
 [UPLOAD COMPLETE]
