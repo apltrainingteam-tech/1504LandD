@@ -37,7 +37,7 @@ import { GapAnalysis } from './features/gap-analysis/GapAnalysis';
 import { RecruitmentQuality } from './features/srm/RecruitmentQuality';
 
 // Services & Types
-import { getCollection, deleteRecordsByQuery } from './services/firestoreService';
+import { getCollection, deleteRecordsByQuery } from './services/apiClient';
 import { seedDatabase, seedMasterData } from './seed';
 import { Employee } from './types/employee';
 import { Attendance, TrainingScore, TrainingNomination, Demographics as DemoType } from './types/attendance';

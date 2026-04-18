@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Mail, CheckCircle, AlertCircle, Users, BarChart2, ChevronDown, ChevronRight } from 'lucide-react';
 import { ParsedRow, parseNominationExcel } from '../../services/parsingService';
 import { validateFileSize, MAX_UPLOAD_SIZE_BYTES } from '../../utils/fileValidation';
-import { addBatch } from '../../services/firestoreService';
+import { addBatch } from '../../services/apiClient';
 import { TEAM_CLUSTER_MAP } from '../../services/clusterMap';
 import { Employee } from '../../types/employee';
 import { Attendance, TrainingNomination } from '../../types/attendance';

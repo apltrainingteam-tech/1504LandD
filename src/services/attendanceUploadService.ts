@@ -1,5 +1,4 @@
-import { writeBatch, doc } from 'firebase/firestore';
-import { db } from './firestoreService';
+import { addBatch, clearCollectionByField } from './apiClient';
 
 /** ============================================================================
  * TYPES
@@ -31,40 +30,43 @@ export interface UploadResult {
 }
 
 /** ============================================================================
- * FIRESTORE FIELD MAPPER
+ * MONGODB FIELD MAPPER
  * ============================================================================ */
 
 /**
- * CRITICAL: Maps parsed row to ONLY required Firestore fields.
+ * CRITICAL: Maps parsed row to ONLY required MongoDB fields.
  * Strips warnings, errors, UI flags, nested objects, and undefined values.
  */
-export function mapToFirestore(row: any): Record<string, any> {
+export function mapToMongoDB(row: any): Record<string, any> {
   const d = row.data || row;
 
   // Whitelist ONLY these fields
-  const firestorePayload: Record<string, any> = {};
+  const mongoPayload: Record<string, any> = {};
 
   // String fields
-  if (d.aadhaarNumber) firestorePayload.aadhaarNumber = String(d.aadhaarNumber).trim();
-  if (d.mobileNumber) firestorePayload.mobileNumber = String(d.mobileNumber).trim();
-  if (d.cluster) firestorePayload.cluster = String(d.cluster).trim();
-  if (d.designation) firestorePayload.designation = String(d.designation).trim();
-  if (d.employeeId) firestorePayload.employeeId = String(d.employeeId).trim();
-  if (d.hq) firestorePayload.hq = String(d.hq).trim();
-  if (d.attendanceStatus) firestorePayload.attendanceStatus = String(d.attendanceStatus).trim();
-  if (d.attendanceDate) firestorePayload.attendanceDate = String(d.attendanceDate).trim();
-  if (d.month) firestorePayload.month = String(d.month).trim();
+  if (d.aadhaarNumber) mongoPayload.aadhaarNumber = String(d.aadhaarNumber).trim();
+  if (d.mobileNumber) mongoPayload.mobileNumber = String(d.mobileNumber).trim();
+  if (d.cluster) mongoPayload.cluster = String(d.cluster).trim();
+  if (d.designation) mongoPayload.designation = String(d.designation).trim();
+  if (d.employeeId) mongoPayload.employeeId = String(d.employeeId).trim();
+  if (d.hq) mongoPayload.hq = String(d.hq).trim();
+  if (d.attendanceStatus) mongoPayload.attendanceStatus = String(d.attendanceStatus).trim();
+  if (d.attendanceDate) mongoPayload.attendanceDate = String(d.attendanceDate).trim();
+  if (d.month) mongoPayload.month = String(d.month).trim();
 
   // ID field (required)
-  if (d.id) firestorePayload.id = String(d.id);
+  if (d.id) mongoPayload.id = String(d.id);
 
   // ✅ EXCLUDED (never sent):
   // - _matchQuality, _hasScores, _scores, status, warnings, errors, flags
   // - name, trainerId, team, state (not in required list)
   // - Any nested objects or arrays
 
-  return firestorePayload;
+  return mongoPayload;
 }
+
+// Keep old function name for backwards compatibility
+export const mapToFirestore = mapToMongoDB;
 
 /** ============================================================================
  * PAYLOAD SIZE CALCULATOR
@@ -121,12 +123,12 @@ async function processBatchChunk(
   let attCount = 0;
   let scoreCount = 0;
 
-  const batch = writeBatch(db);
-  let hasOperations = false;
+  const attPayloads: any[] = [];
+  const scorePayloads: any[] = [];
 
   for (const row of rows) {
     try {
-      const cleanData = mapToFirestore(row);
+      const cleanData = mapToMongoDB(row);
 
       // Skip if critical fields missing
       if (!cleanData.employeeId || !cleanData.attendanceDate) {
@@ -138,34 +140,32 @@ async function processBatchChunk(
       const attId = `${cleanData.employeeId}_${trainingType}_${cleanData.attendanceDate}`;
 
       // Add attendance record
-      const attRef = doc(db, 'attendance', attId);
       const attPayload = {
         id: attId,
+        _id: attId,
         trainingType,
         ...cleanData
       };
 
-      batch.set(attRef, attPayload, { merge: true });
+      attPayloads.push(attPayload);
       attCount++;
-      hasOperations = true;
 
       // Add training scores if present
       const d = row.data || row;
       if (d._hasScores && d._scores && typeof d._scores === 'object') {
         const scoreId = `${cleanData.employeeId}_${trainingType}_${cleanData.attendanceDate}`;
-        const scoreRef = doc(db, 'training_scores', scoreId);
 
         const scorePayload = {
           id: scoreId,
+          _id: scoreId,
           employeeId: cleanData.employeeId,
           trainingType,
           dateStr: cleanData.attendanceDate,
           scores: d._scores
         };
 
-        batch.set(scoreRef, scorePayload, { merge: true });
+        scorePayloads.push(scorePayload);
         scoreCount++;
-        hasOperations = true;
       }
     } catch (rowError: any) {
       console.error(`[BATCH] Error processing row in chunk ${chunkIndex}:`, rowError.message);
@@ -173,10 +173,17 @@ async function processBatchChunk(
     }
   }
 
-  // Only commit if there are operations
-  if (hasOperations) {
+  // Only execute if there are operations
+  if (attPayloads.length > 0 || scorePayloads.length > 0) {
     await retryWithBackoff(
-      () => batch.commit(),
+      async () => {
+        if (attPayloads.length > 0) {
+          await addBatch('attendance', attPayloads);
+        }
+        if (scorePayloads.length > 0) {
+          await addBatch('training_scores', scorePayloads);
+        }
+      },
       2, // maxRetries
       100 // initialDelayMs
     );
@@ -227,7 +234,7 @@ export async function uploadAttendanceData(
   // Calculate payload size BEFORE upload (with error handling)
   let payloadInfo = { sizeKB: 0, sizeBytes: 0 };
   try {
-    const cleanData = rows.map(r => mapToFirestore(r)).filter(d => d && d.employeeId);
+    const cleanData = rows.map(r => mapToMongoDB(r)).filter(d => d && d.employeeId);
     payloadInfo = calculatePayloadSize(cleanData);
   } catch (e) {
     console.warn('Could not calculate payload size:', e);
@@ -292,7 +299,7 @@ export async function uploadAttendanceData(
         `[CHUNK ${chunkIndex + 1}/${totalChunks}] ✓ Uploaded ${attCount} attendance + ${scoreCount} score records`
       );
 
-      // Delay between batches (reduce Firestore load)
+      // Delay between batches (reduce MongoDB load)
       if (chunkIndex < totalChunks - 1) {
         await new Promise(resolve => setTimeout(resolve, 150));
       }

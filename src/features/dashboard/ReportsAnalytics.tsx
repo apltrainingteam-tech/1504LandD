@@ -26,7 +26,7 @@ import { getEligibleEmployees, EligibilityResult } from '../../services/eligibil
 import { getFiscalYears } from '../../utils/fiscalYear';
 import { TEAM_CLUSTER_MAP } from '../../services/clusterMap';
 
-import { getCollection } from '../../services/firestoreService';
+import { getCollection } from '../../services/apiClient';
 import { scheduleIdle, StagedComputationManager } from '../../utils/stagedComputation';
 import { KPIBox } from '../../components/KPIBox';
 import { DataTable } from '../../components/DataTable';

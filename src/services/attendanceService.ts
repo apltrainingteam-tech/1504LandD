@@ -1,5 +1,4 @@
-import { writeBatch, doc } from 'firebase/firestore';
-import { db, clearCollectionByField, getCollection } from './firestoreService';
+import { clearCollectionByField, addBatch, getCollection } from './apiClient';
 
 /** Strip undefined fields — Firestore rejects documents with undefined values. */
 function stripUndefined(obj: Record<string, any>): Record<string, any> {
@@ -37,14 +36,15 @@ const processBatch = async (
   let attCount = 0;
   let scoreCount = 0;
 
-  const batch = writeBatch(db);
+  const attendanceItems: any[] = [];
+  const scoresItems: any[] = [];
 
   for (const row of batchRows) {
     const d = row.data;
     const attId = `${d.employeeId || 'UNK'}_${trainingType}_${d.attendanceDate}`;
 
-    const attRef = doc(db, 'attendance', attId);
-    batch.set(attRef, stripUndefined({
+    attendanceItems.push({
+      _id: attId,
       id: attId,
       employeeId: d.employeeId,
       aadhaarNumber: d.aadhaarNumber || '',
@@ -60,27 +60,35 @@ const processBatch = async (
       cluster: d.cluster || '',
       hq: d.hq || '',
       state: d.state || ''
-    }), { merge: true });
+    });
 
     attCount++;
 
     if (d._hasScores && d.attendanceDate) {
       const scoreId = `${d.employeeId || 'UNK'}_${trainingType}_${d.attendanceDate}`;
-      const scoreRef = doc(db, 'training_scores', scoreId);
       
-      batch.set(scoreRef, stripUndefined({
+      scoresItems.push({
+        _id: scoreId,
         id: scoreId,
         employeeId: d.employeeId,
         trainingType,
         dateStr: d.attendanceDate,
         scores: d._scores
-      }), { merge: true });
+      });
       
       scoreCount++;
     }
   }
 
-  await retryWithBackoff(() => batch.commit());
+  // Execute batch writes with retry
+  await retryWithBackoff(async () => {
+    if (attendanceItems.length > 0) {
+      await addBatch('attendance', attendanceItems);
+    }
+    if (scoresItems.length > 0) {
+      await addBatch('training_scores', scoresItems);
+    }
+  });
 
   return { attCount, scoreCount };
 };

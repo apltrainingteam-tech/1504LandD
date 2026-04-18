@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Users, UploadCloud, CheckCircle, X, Check, AlertTriangle, XCircle, Upload, Search, Database } from 'lucide-react';
 import { parseEmployeeMasterExcel, ParsedRow } from '../../services/parsingService';
 import { validateFileSize, MAX_UPLOAD_SIZE_BYTES } from '../../utils/fileValidation';
-import { clearCollection, addBatch } from '../../services/firestoreService';
+import { clearCollection, addBatch } from '../../services/apiClient';
 import { Employee } from '../../types/employee';
 
 interface EmployeesProps {

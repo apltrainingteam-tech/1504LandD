@@ -12,7 +12,7 @@ import {
   UserPlus,
   ChevronDown
 } from 'lucide-react';
-import { getCollection, upsertDoc, deleteDocument } from '../../services/firestoreService';
+import { getCollection, upsertDoc, deleteDocument } from '../../services/apiClient';
 import { DESIGNATIONS } from '../../seed/masterData';
 import { 
   TeamClusterMapping, 

@@ -1,4 +1,4 @@
-import { upsertDoc } from './services/firestoreService';
+import { upsertDoc } from './services/apiClient';
 import { mockEmployees, mockAttendance, mockScores, mockNominations, mockDemographics } from './api.mock';
 import { STATE_ZONE, TEAM_CLUSTER, DESIGNATIONS, TRAINERS } from './seed/masterData';
 
