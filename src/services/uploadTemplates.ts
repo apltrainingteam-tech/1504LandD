@@ -1,4 +1,16 @@
 /**
+ * ⚠️ DEPRECATED - DO NOT USE
+ * 
+ * This is the LEGACY template system. It has been replaced by:
+ * ✅ uploadTemplatesStrict.ts (with strict, deterministic template detection)
+ * 
+ * This file is kept for reference only. All new code should use:
+ * - uploadTemplatesStrict for strict template handling
+ * 
+ * The application now exclusively uses uploadTemplatesStrict via AttendanceUploadStrict.
+ */
+
+/**
  * Upload Template Definitions
  * Standardized schemas for each training type to eliminate data mismatches
  */

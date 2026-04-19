@@ -1,3 +1,17 @@
+/**
+ * ⚠️ DEPRECATED - DO NOT USE
+ * 
+ * This is the LEGACY upload service. It has been replaced by:
+ * ✅ uploadServiceEnriched.ts (with master data enrichment and flexible validation)
+ * ✅ uploadServiceStrict.ts (with strict validation)
+ * 
+ * This file is kept for reference only. All new code should use:
+ * - uploadServiceEnriched for flexible validation with master data
+ * - uploadServiceStrict for strict, deterministic uploading
+ * 
+ * The application now exclusively uses enriched upload system via AttendanceUploadStrict.
+ */
+
 import { addBatch, clearCollectionByField } from './apiClient';
 
 /** ============================================================================

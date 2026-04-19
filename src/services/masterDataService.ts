@@ -3,7 +3,7 @@
  * Loads and manages employee master data for enrichment
  */
 
-import { getCollection } from './mongodbService';
+import { getCollection } from './apiService';
 
 /**
  * Employee record from master data

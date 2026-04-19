@@ -1,4 +1,20 @@
 /**
+ * ⚠️ SUPERSEDED - UPLOADSERVICEENRICHED IS PREFERRED
+ * 
+ * This provides strict, deterministic uploading with no fallback.
+ * However, uploadServiceEnriched is now the ACTIVE implementation:
+ * 
+ * ✅ uploadServiceEnriched:
+ *    - Flexible validation (accepts Employee ID, Aadhaar, Mobile)
+ *    - Master data enrichment
+ *    - Better error handling
+ *    - Used by AttendanceUploadStrict (active in App.tsx)
+ * 
+ * This service can be used for strict-only workflows if needed, but
+ * the application now exclusively uses enriched upload system.
+ */
+
+/**
  * STRICT UPLOAD SERVICE
  * 
  * - Uses strict parser (zero ambiguity)
@@ -8,6 +24,7 @@
  */
 
 import { parseExcelFileStrict, getValidRows, getErrorRows, getSummary, ParseResult } from './parsingServiceStrict';
+import { createBatch, clearCollection } from './apiService';
 
 export interface UploadOptions {
   mode: 'append' | 'replace';  // append: add to existing; replace: clear collection first
@@ -116,16 +133,11 @@ export async function uploadTrainingDataStrict(
     const collectionName = 'training_data';
 
     try {
-      // Dynamic import to avoid circular dependencies
-      const { getDb } = await import('./mongodbService');
-      const db = await getDb();
-      const collection = db.collection(collectionName);
-
       // IMPORTANT: Clear collection if replace mode
       if (options.mode === 'replace') {
         console.log(`[UPLOAD] Clearing collection "${collectionName}" (replace mode)`);
         debugLog.push(`[UPLOAD] Clearing collection "${collectionName}" (replace mode)`);
-        await collection.deleteMany({});
+        await clearCollection(collectionName);
       }
 
       // Upload in chunks
@@ -145,16 +157,8 @@ export async function uploadTrainingDataStrict(
             };
           });
 
-          // Upsert to handle duplicates
-          const operations = docsToInsert.map(doc => ({
-            updateOne: {
-              filter: { _id: doc._id },
-              update: { $set: doc },
-              upsert: true
-            }
-          }));
-
-          await collection.bulkWrite(operations);
+          // Upload batch via API (backend handles upsert)
+          await createBatch(collectionName, docsToInsert);
           uploadedCount += chunk.length;
 
           console.log(`[UPLOAD] Chunk ${chunkNum}: ${uploadedCount}/${validRows.length} rows uploaded`);

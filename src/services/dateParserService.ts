@@ -1,4 +1,32 @@
 /**
+ * ✅ DATE PARSER SERVICE - ACTIVE SYSTEM IN PRODUCTION
+ * 
+ * This service provides parseExcelDate(), which is used by uploadServiceEnriched
+ * and parsingServiceEnriched to handle Excel date parsing.
+ * 
+ * HANDLES MULTIPLE FORMATS:
+ * ✓ Excel numeric dates (serial format): 44999, 45000, etc.
+ * ✓ ISO 8601: YYYY-MM-DD (2024-01-15)
+ * ✓ Common formats:
+ *   - DD/MM/YYYY (15/01/2024)
+ *   - MM/DD/YYYY (01/15/2024)
+ *   - DD-MM-YYYY (15-01-2024)
+ *   - DD.MM.YYYY (15.01.2024)
+ * ✓ Date objects (returned as-is)
+ * 
+ * VALIDATES:
+ * ✓ Date format detection
+ * ✓ Month/day range validation
+ * ✓ Ambiguous format handling (prefers DD/MM for non-US locales)
+ * 
+ * NEVER REJECTS (always tries to parse):
+ * ✓ Returns null only for truly unparseable input
+ * ✓ Works with single/double digit months and days
+ * ✓ Works with Excel numeric dates
+ * 
+ * REPLACES:
+ * ❌ parseAnyDate from utils/dateParser (legacy)
+ * 
  * Date Parser Service
  * Handles Excel date serial numbers, ISO strings, and various formats
  */

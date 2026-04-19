@@ -33,14 +33,36 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
 
   // ─── DEBUG LOGGING ───────────────────────────────────────────────────────
   useEffect(() => {
+    console.log('═══════════════════════════════════════════════════════════════');
     console.log('🚀 ENRICHED UPLOAD SYSTEM ACTIVE');
-    console.log('🔍 STRICT TEMPLATE DETECTION: Deterministic (no fallback)');
-    console.log('🔍 STRICT COLUMN MATCHING: Exact (no fuzzy matching)');
-    console.log('✨ ENRICHED PARSER ACTIVE: Master data enrichment enabled');
-    console.log('✨ DATE PARSER ACTIVE: Excel serial, ISO, common formats');
-    console.log('✨ FLEXIBLE VALIDATION: Accept ANY identifier (ID, Aadhaar, Mobile)');
-    console.log('✨ CONFLICT DETECTION: Enabled');
-    console.log('Error reporting: Detailed with row numbers and enrichment status');
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('');
+    console.log('✅ PARSER: uploadServiceEnriched');
+    console.log('   - Flexible validation: Accepts Employee ID, Aadhaar, Mobile');
+    console.log('   - No "Employee ID required" errors');
+    console.log('   - Automatic master data enrichment');
+    console.log('');
+    console.log('✅ DATE PARSER: parseExcelDate() from dateParserService');
+    console.log('   - Excel numeric dates (serial format)');
+    console.log('   - ISO 8601 format (YYYY-MM-DD)');
+    console.log('   - Common formats (DD/MM/YYYY, MM/DD/YYYY, DD-MM-YYYY)');
+    console.log('   - No "YYYY-MM-DD required" validation errors');
+    console.log('');
+    console.log('✅ TEMPLATES: uploadTemplatesStrict');
+    console.log('   - Strict, deterministic template detection');
+    console.log('   - Exact column matching (no fuzzy matching)');
+    console.log('');
+    console.log('✅ VALIDATION BEHAVIOR:');
+    console.log('   ✓ Rows without Employee ID accepted if Aadhaar/Mobile exists');
+    console.log('   ✓ Excel dates parsed correctly');
+    console.log('   ✓ No legacy validation restrictions');
+    console.log('');
+    console.log('✅ ERROR REPORTING:');
+    console.log('   - Detailed with row numbers');
+    console.log('   - Enrichment status tracking');
+    console.log('   - Active/Inactive employee status');
+    console.log('');
+    console.log('═══════════════════════════════════════════════════════════════');
   }, []);
 
   // ─── HANDLERS ────────────────────────────────────────────────────────────
@@ -146,6 +168,35 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
     setUploadMode('append');
     setConfirmReplace(false);
     currentFileRef.current = null;
+  }, []);
+
+  // ─── TEST: Insert Fallback Test Record ──────────────────────────────────
+  const handleTestInsert = useCallback(async () => {
+    try {
+      alert('Testing database connectivity...\nInserting 1 dummy test record...');
+      
+      const { createBatch } = await import('../../services/apiService');
+      
+      const testRecord = {
+        _id: `test_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        employeeId: 'TEST-' + Math.random().toString(36).substr(2, 6).toUpperCase(),
+        attendanceDate: new Date().toISOString().split('T')[0],
+        trainingType: 'TEST',
+        score: 99,
+        testRecord: true,
+        uploadedAt: new Date().toISOString(),
+        note: 'Database connectivity test - can safely delete'
+      };
+      
+      console.log('[TEST] Inserting test record:', testRecord);
+      const result = await createBatch('training_data', [testRecord]);
+      
+      console.log('[TEST] ✅ Test insert succeeded:', result);
+      alert(`✅ SUCCESS!\n\nTest record inserted successfully.\nThis confirms database connectivity is working.\n\nYou can manually delete this record from MongoDB if desired.\n\nAPI Response:\n${JSON.stringify(result, null, 2)}`);
+    } catch (err: any) {
+      console.error('[TEST] ❌ Test insert failed:', err);
+      alert(`❌ TEST FAILED\n\n${err.message}\n\nDatabase connectivity issue or API error.`);
+    }
   }, []);
 
   // ─── RENDER: UPLOADING STAGE ──────────────────────────────────────────────
@@ -472,6 +523,16 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
           style={{ padding: '12px 32px', cursor: fileName ? 'pointer' : 'not-allowed', opacity: fileName ? 1 : 0.5 }}
         >
           {!fileName ? '⬆️ Select File First' : '🚀 Start Upload'}
+        </button>
+        
+        {/* TEST BUTTON - DEBUG */}
+        <button
+          className="btn btn-secondary"
+          onClick={handleTestInsert}
+          title="Test database connectivity by inserting a dummy record"
+          style={{ padding: '12px 24px', cursor: 'pointer' }}
+        >
+          🧪 Test DB Insert
         </button>
       </div>
     </div>

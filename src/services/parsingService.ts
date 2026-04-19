@@ -1,3 +1,17 @@
+/**
+ * ⚠️ DEPRECATED - DO NOT USE
+ * 
+ * This is the LEGACY parser. It has been replaced by:
+ * ✅ parsingServiceEnriched.ts (with master data enrichment)
+ * ✅ parsingServiceStrict.ts (with strict validation)
+ * 
+ * This file is kept for reference only. All new code should use:
+ * - parsingServiceEnriched for flexible validation with master data
+ * - parsingServiceStrict for strict, deterministic parsing
+ * 
+ * The application now exclusively uses enriched upload system via AttendanceUploadStrict.
+ */
+
 import * as XLSX from 'xlsx';
 import { parseAnyDate } from '../utils/dateParser';
 import { normalizeScore } from '../utils/scoreNormalizer';

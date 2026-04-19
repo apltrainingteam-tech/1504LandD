@@ -1,3 +1,24 @@
+/**
+ * ⚠️ DEPRECATED - DO NOT USE
+ * 
+ * This component uses LEGACY upload services and is NO LONGER ACTIVE in the application.
+ * 
+ * Legacy services used by this component:
+ * ❌ parsingService (old parser)
+ * ❌ attendanceUploadService (old upload handler)
+ * ❌ uploadTemplates (old template system)
+ * 
+ * ✅ Use AttendanceUploadStrict instead:
+ * - Uses uploadServiceEnriched (flexible validation, master data enrichment)
+ * - Uses dateParserService (handles Excel dates correctly)
+ * - Uses uploadTemplatesStrict (deterministic template detection)
+ * - Accepts rows without Employee ID if Aadhaar/Mobile present
+ * - No "YYYY-MM-DD required" validation errors
+ * 
+ * This file is kept for reference only and should be removed in future cleanup.
+ * The application now uses AttendanceUploadStrict exclusively.
+ */
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { UploadCloud, CheckCircle, X, Check, AlertTriangle, XCircle, Upload, Info, Download } from 'lucide-react';
 import { parseExcelFile, ParsedRow } from '../../services/parsingService';

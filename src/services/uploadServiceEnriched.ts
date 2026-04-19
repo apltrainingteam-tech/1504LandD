@@ -1,10 +1,31 @@
 /**
- * Enhanced Upload Service
+ * ✅ ENRICHED UPLOAD SERVICE - ACTIVE SYSTEM IN PRODUCTION
+ * 
+ * This is the MAIN upload service currently used by the application.
+ * It is used by AttendanceUploadStrict, which is active in App.tsx.
+ * 
+ * KEY FEATURES:
+ * ✓ Flexible validation: Accepts Employee ID, Aadhaar, or Mobile number
+ * ✓ Master data enrichment: Automatically enriches rows with employee data
+ * ✓ Excel date handling: Parses serial, ISO, and common date formats
+ * ✓ Conflict detection: Identifies when identifiers conflict
+ * ✓ Detailed error reporting: Row-level errors with status
+ * ✓ Active/Inactive status: Tracks employment status for each row
+ * 
+ * VALIDATES (does NOT reject):
+ * ✓ Rows without Employee ID (if Aadhaar/Mobile present)
+ * ✓ Excel numeric dates (serial format)
+ * ✓ Common date formats (DD/MM/YYYY, MM/DD/YYYY, etc.)
+ * 
+ * REPLACES:
+ * ❌ uploadService (legacy)
+ * ❌ uploadServiceStrict (strict-only, less flexible)
+ * 
  * Orchestrates upload with master data enrichment, flexible validation, and comprehensive logging
  */
 
 import { parseExcelFileEnriched, EnrichedParseResult, getValidRowsEnriched } from './parsingServiceEnriched';
-import { addBatch, clearCollection } from './mongodbService';
+import { createBatch, clearCollection } from './apiService';
 
 /**
  * Upload progress callback
@@ -105,6 +126,16 @@ export async function uploadTrainingDataEnriched(
     const validRows = getValidRowsEnriched(parseResult);
     const errorRows = parseResult.rows.filter(r => r.status === 'error');
 
+    // DEBUG: Log before upload
+    log(`[UPLOAD] ✅ DEBUG: validRows.length = ${validRows.length}`);
+    log(`[UPLOAD] ✅ DEBUG: errorRows.length = ${errorRows.length}`);
+    if (validRows.length > 0) {
+      log('[UPLOAD] ✅ DEBUG: First record to upload:');
+      log(JSON.stringify(validRows[0], null, 2));
+    } else {
+      log('[UPLOAD] ⚠️ WARNING: NO VALID ROWS TO UPLOAD!');
+    }
+
     log(`[UPLOAD] Found ${validRows.length} valid rows to upload`);
 
     if (validRows.length === 0) {
@@ -152,7 +183,17 @@ export async function uploadTrainingDataEnriched(
 
       try {
         log(`[UPLOAD] Chunk ${chunkNum}/${totalChunks}: Uploading ${chunk.length} rows...`);
-        await addBatch('training_data', chunk);
+        
+        // DEBUG: Log chunk details
+        log(`[UPLOAD] DEBUG: Chunk ${chunkNum} contains ${chunk.length} records`);
+        if (chunk.length > 0) {
+          log(`[UPLOAD] DEBUG: Chunk sample record:`, JSON.stringify(chunk[0], null, 2));
+          log(`[UPLOAD] DEBUG: Chunk record keys: ${Object.keys(chunk[0]).join(', ')}`);
+        }
+        
+        const batchResult = await createBatch('training_data', chunk);
+        log(`[UPLOAD] DEBUG: Batch API response:`, JSON.stringify(batchResult));
+        
         uploadedCount += chunk.length;
         
         const progressPct = 66 + Math.floor((uploadedCount / validRows.length) * 33);

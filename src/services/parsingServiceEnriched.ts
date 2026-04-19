@@ -1,5 +1,27 @@
 /**
- * Enhanced Parsing Service
+ * ✅ ENHANCED PARSING SERVICE - ACTIVE SYSTEM IN PRODUCTION
+ * 
+ * This is the MAIN parser currently used by the application.
+ * It is used by uploadServiceEnriched and AttendanceUploadStrict.
+ * 
+ * KEY FEATURES:
+ * ✓ Template-driven parsing with master data enrichment
+ * ✓ Flexible identity validation (Employee ID, Aadhaar, Mobile)
+ * ✓ Excel date handling: parseExcelDate() supports multiple formats
+ * ✓ Automatic master data enrichment
+ * ✓ Conflict detection
+ * ✓ Row-level validation and detailed error reporting
+ * 
+ * ACCEPTS (does NOT reject):
+ * ✓ Rows without Employee ID (if Aadhaar/Mobile present)
+ * ✓ Excel numeric dates (serial format)
+ * ✓ ISO dates (YYYY-MM-DD)
+ * ✓ Common formats (DD/MM/YYYY, MM/DD/YYYY, DD-MM-YYYY, etc.)
+ * 
+ * REPLACES:
+ * ❌ parsingService (legacy)
+ * ❌ parsingServiceStrict (strict-only, less flexible)
+ * 
  * Template-driven parsing with master data enrichment, flexible identity validation, and advanced date handling
  */
 
@@ -243,8 +265,17 @@ export async function parseExcelFileEnriched(file: File): Promise<EnrichedParseR
       });
     }
 
+    // DEBUG: Log validRows details
+    const validRows = rows.filter(r => r.status === 'valid' && r.data);
+    console.log(`[PARSER] ✅ DEBUG: validRows.length = ${validRows.length}`);
+    if (validRows.length > 0) {
+      console.log('[PARSER] ✅ DEBUG: Sample valid row:', JSON.stringify(validRows[0].data, null, 2));
+    } else {
+      console.log('[PARSER] ⚠️ DEBUG: NO VALID ROWS FOUND!');
+    }
+
     // Return result
-    return {
+    const result = {
       templateType,
       rows,
       stats: {
@@ -268,6 +299,9 @@ export async function parseExcelFileEnriched(file: File): Promise<EnrichedParseR
         sampleRecord: rows.find(r => r.status === 'valid')?.data
       }
     };
+
+    console.log('[PARSER] ✅ Returning parseResult:', result);
+    return result;
   } catch (error: any) {
     console.error('[PARSER] Parse error:', error);
     throw error;
@@ -281,7 +315,21 @@ export async function parseExcelFileEnriched(file: File): Promise<EnrichedParseR
  * Get valid rows from parse result
  */
 export function getValidRowsEnriched(result: EnrichedParseResult): any[] {
-  return result.rows.filter(r => r.status === 'valid' && r.data).map(r => r.data!);
+  console.log('[PARSER] getValidRowsEnriched() called');
+  console.log(`[PARSER]   - Input result.rows.length: ${result.rows.length}`);
+  console.log(`[PARSER]   - Input result.stats.validRows: ${result.stats.validRows}`);
+  
+  const validRows = result.rows.filter(r => r.status === 'valid' && r.data).map(r => r.data!);
+  
+  console.log(`[PARSER] ✅ Extracted validRows.length: ${validRows.length}`);
+  if (validRows.length > 0) {
+    console.log('[PARSER] ✅ First valid row:', JSON.stringify(validRows[0], null, 2));
+    console.log(`[PARSER] ✅ Last valid row keys:`, Object.keys(validRows[validRows.length - 1]));
+  } else {
+    console.log('[PARSER] ⚠️ WARNING: NO VALID ROWS EXTRACTED!');
+  }
+  
+  return validRows;
 }
 
 /**
