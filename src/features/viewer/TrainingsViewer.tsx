@@ -13,8 +13,9 @@ import { formatDateForDisplay } from '../../utils/dateParser';
 import { displayScore } from '../../utils/scoreNormalizer';
 import TopRightControls from '../../components/TopRightControls';
 import { GlobalFilters, getActiveFilterCount } from '../../context/filterContext';
+import { getPrimaryMetricRaw } from '../../services/reportService';
 import { GlobalFilterPanel } from '../../components/GlobalFilterPanel';
-import { getFiscalYears } from '../../utils/fiscalYear';
+import { getFiscalYears, getFiscalYearFromDate } from '../../utils/fiscalYear';
 import { TEAM_CLUSTER_MAP } from '../../services/clusterMap';
 
 // Training type normalization
@@ -28,7 +29,17 @@ const trainingTypeMap: Record<string, string> = {
 const normalizeTrainingType = (value?: string): string => {
   if (!value) return '';
   const upper = value.toUpperCase().trim();
+  // Standardize naming
+  if (upper === 'PRE_AP') return 'PreAP';
   return trainingTypeMap[upper] || upper;
+};
+
+const normalizeType = (value?: string) => {
+  if (!value) return '';
+  const upper = value.toUpperCase().trim();
+  if (upper === 'PRE_AP') return 'PreAP';
+  if (upper === 'REFRESHER_SO' || upper === 'REFRESHER_MANAGER') return 'Refresher';
+  return upper;
 };
 
 // Zone lookup from state
@@ -61,36 +72,86 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
     return ['All Zones', ...Array.from(uniqueZones).sort()];
   }, []);
 
-  const unified = useMemo(() => {
-    // Filter by training type (normalized)
+  // ─── SINGLE SOURCE OF TRUTH: FILTERED DATASET ──────────────────────────
+  const filtered = useMemo(() => {
+    // 1. Filter by training type (normalized)
     const normalizedTab = normalizeTrainingType(tab);
-    const filteredAtt = attendance.filter(a => {
-      const normalized = normalizeTrainingType(a.trainingType);
-      return normalized === normalizedTab;
-    });
-    const filteredScs = scores.filter(s => {
-      const normalized = normalizeTrainingType(s.trainingType);
-      return normalized === normalizedTab;
-    });
+    let data = attendance.filter(a => normalizeType(a.trainingType) === tab);
+    const scs = scores.filter(s => normalizeType(s.trainingType) === tab);
     
-    // Filter by zone
-    const filteredEmployees = employees.filter(emp => {
-      if (selectedZone === 'All Zones') return true;
-      const empZone = emp.zone || getZoneFromState(emp.state);
-      return empZone === selectedZone;
-    });
+    // Build initial unified dataset for this tab
+    let ds = buildUnifiedDataset(employees, data, scs, []);
+
+    // 2. Filter by Fiscal Year
+    if (selectedFY) {
+      ds = ds.filter(r => getFiscalYearFromDate(r.attendance.attendanceDate) === selectedFY);
+    }
+
+    // 3. Filter by Zone
+    if (selectedZone !== 'All Zones') {
+      ds = ds.filter(r => {
+        const empZone = r.employee.zone || getZoneFromState(r.employee.state);
+        return empZone === selectedZone;
+      });
+    }
+
+    // 4. Page-scoped Global Filters
+    if (pageFilters.cluster) {
+      ds = ds.filter(r => (r.employee.cluster || '') === pageFilters.cluster);
+    }
+    if (pageFilters.team) {
+      ds = ds.filter(r => (r.employee.team || '') === pageFilters.team);
+    }
+    if (pageFilters.trainer) {
+      ds = ds.filter(r => (r.attendance.trainerId || '') === pageFilters.trainer);
+    }
+    if (pageFilters.month) {
+      ds = ds.filter(r => {
+        const m = r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7);
+        return m === pageFilters.month;
+      });
+    }
+
+    // 5. Search Filter
+    if (search) {
+      const s = search.toLowerCase();
+      ds = ds.filter(r => 
+        r.employee.name.toLowerCase().includes(s) || 
+        r.employee.employeeId.toLowerCase().includes(s) ||
+        (r.employee.aadhaarNumber || '').includes(s)
+      );
+    }
+
+    console.log(`🔍 [FILTER ENGINE] Tab=${normalizedTab}, FY=${selectedFY}, Zone=${selectedZone}, Count=${ds.length}`);
+    return ds;
+  }, [employees, attendance, scores, tab, selectedFY, selectedZone, pageFilters, search]);
+
+  // ─── KPI CALCULATIONS ────────────────────────────────────────────────────
+  const kpis = useMemo(() => {
+    const total = filtered.length;
+    const present = filtered.filter(r => r.attendance.attendanceStatus === 'Present');
+    const attPercent = total > 0 ? ((present.length / total) * 100).toFixed(1) : '0';
     
-    console.log(`📊 TRAININGS VIEWER: Training=${normalizedTab}, Zone=${selectedZone}, Employees=${filteredEmployees.length}, Attendance=${filteredAtt.length}`);
+    // Calculate avg score using the same metric logic as dashboard
+    const avg = getPrimaryMetricRaw(filtered, tab);
     
-    return buildUnifiedDataset(filteredEmployees, filteredAtt, filteredScs, []);
-  }, [employees, attendance, scores, tab, selectedZone]);
+    return {
+      total,
+      attPercent,
+      avg: typeof avg === 'number' ? avg.toFixed(1) : avg,
+      totalUnified: filtered.length // Total in this filtered view
+    };
+  }, [filtered, tab]);
 
   const allTeams = useMemo(() => [...new Set(employees.map(e => e.team).filter(Boolean))].sort(), [employees]);
-  const allClusters = useMemo(() => [...new Set(Object.values(TEAM_CLUSTER_MAP).filter(Boolean))].sort(), []);
+  const allClusters = useMemo(() => [...new Set(employees.map(e => e.cluster).filter(Boolean))].sort(), [employees]);
   const allTrainers = useMemo(() => [...new Set(attendance.map(a => a.trainerId).filter(Boolean))].sort(), [attendance]);
   const months = useMemo(() => {
     const s = new Set<string>();
-    attendance.forEach(a => { if (a.month) s.add(a.month); if (a.attendanceDate) s.add((a.attendanceDate||'').substring(0,7)); });
+    attendance.forEach(a => { 
+      if (a.month) s.add(a.month); 
+      if (a.attendanceDate) s.add((a.attendanceDate||'').substring(0,7)); 
+    });
     return [...s].sort();
   }, [attendance]);
 
@@ -105,44 +166,6 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
     setPageFilters(cleared);
     setShowGlobalFilters(false);
   };
-
-  // Apply page-scoped filters from GlobalFilterPanel to the unified dataset
-  const filteredWithPageFilters = useMemo(() => {
-    let data = unified;
-    if (pageFilters.cluster) data = data.filter(r => (r.employee.state || '') === pageFilters.cluster);
-    if (pageFilters.team) data = data.filter(r => (r.employee.team || '') === pageFilters.team);
-    if (pageFilters.trainer) data = data.filter(r => (r.attendance.trainerId || '') === pageFilters.trainer);
-    if (pageFilters.month) data = data.filter(r => ((r.attendance.month || (r.attendance.attendanceDate||'').substring(0,7)) === pageFilters.month));
-    return data;
-  }, [unified, pageFilters]);
-
-  const filtered = useMemo(() => {
-    const base = filteredWithPageFilters;
-    if (!search) return base;
-    const s = search.toLowerCase();
-    return base.filter(r => 
-      r.employee.name.toLowerCase().includes(s) || 
-      r.employee.employeeId.toLowerCase().includes(s) ||
-      (r.employee.aadhaarNumber || '').includes(s)
-    );
-  }, [filteredWithPageFilters, search]);
-
-  // KPI Calculations
-  const totalRecords = filtered.length;
-  const presentCount = filtered.filter(r => r.attendance.attendanceStatus === 'Present').length;
-  const attendancePercent = totalRecords > 0 ? ((presentCount / totalRecords) * 100).toFixed(1) : 0;
-  
-  const avgScore = useMemo(() => {
-    const validScores = filtered
-      .filter(r => r.score?.scores)
-      .flatMap(r => Object.values(r.score.scores).filter(v => typeof v === 'number'));
-    
-    if (validScores.length === 0) return 0;
-    const sum = validScores.reduce((a: number, b: any) => a + (typeof b === 'number' ? b : 0), 0);
-    return (sum / validScores.length).toFixed(1);
-  }, [filtered]);
-
-  const totalTrainings = unified.length;
 
   const schema = SCORE_SCHEMAS[tab] || [];
   const headers = [
@@ -194,10 +217,10 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
 
       {/* KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-        <KPIBox title="Total Records" value={totalRecords} icon={BookOpen} />
-        <KPIBox title="Present %" value={`${attendancePercent}%`} color="var(--success)" icon={CheckCircle2} />
-        <KPIBox title="Avg Score" value={typeof avgScore === 'number' ? avgScore.toFixed(1) : avgScore} color="var(--accent-primary)" icon={TrendingUp} />
-        <KPIBox title="Total Trainings" value={totalTrainings} color="var(--warning)" icon={Users} />
+        <KPIBox title="Total Records" value={kpis.total} icon={BookOpen} />
+        <KPIBox title="Present %" value={`${kpis.attPercent}%`} color="var(--success)" icon={CheckCircle2} />
+        <KPIBox title="Avg Score" value={kpis.avg} color="var(--accent-primary)" icon={TrendingUp} />
+        <KPIBox title="Total Trainings" value={kpis.totalUnified} color="var(--warning)" icon={Users} />
       </div>
 
       {/* Insight Strip */}

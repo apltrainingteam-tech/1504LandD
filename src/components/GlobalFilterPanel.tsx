@@ -135,10 +135,11 @@ export const GlobalFilterPanel: React.FC<GlobalFilterPanelProps> = memo(({
             <select
               value={tempFilters.cluster}
               onChange={(e) => handleInputChange('cluster', e.target.value)}
+              className="form-select"
               style={{
                 width: '100%',
                 padding: '10px 12px',
-                background: 'var(--bg-card)',
+                background: 'var(--sidebar-bg)',
                 border: '1px solid var(--border-color)',
                 borderRadius: '8px',
                 color: 'var(--text-primary)',
@@ -147,9 +148,9 @@ export const GlobalFilterPanel: React.FC<GlobalFilterPanelProps> = memo(({
                 cursor: 'pointer',
               }}
             >
-              <option value="">All Clusters</option>
+              <option value="" style={{ background: '#0f172a', color: '#fff' }}>All Clusters</option>
               {clusterOptions.map((cluster) => (
-                <option key={cluster} value={cluster}>
+                <option key={cluster} value={cluster} style={{ background: '#0f172a', color: '#fff' }}>
                   {cluster}
                 </option>
               ))}
@@ -174,10 +175,11 @@ export const GlobalFilterPanel: React.FC<GlobalFilterPanelProps> = memo(({
             <select
               value={tempFilters.team}
               onChange={(e) => handleInputChange('team', e.target.value)}
+              className="form-select"
               style={{
                 width: '100%',
                 padding: '10px 12px',
-                background: 'var(--bg-card)',
+                background: 'var(--sidebar-bg)',
                 border: '1px solid var(--border-color)',
                 borderRadius: '8px',
                 color: 'var(--text-primary)',
@@ -186,9 +188,9 @@ export const GlobalFilterPanel: React.FC<GlobalFilterPanelProps> = memo(({
                 cursor: 'pointer',
               }}
             >
-              <option value="">All Teams</option>
+              <option value="" style={{ background: '#0f172a', color: '#fff' }}>All Teams</option>
               {teamOptions.map((team) => (
-                <option key={team} value={team}>
+                <option key={team} value={team} style={{ background: '#0f172a', color: '#fff' }}>
                   {team}
                 </option>
               ))}
@@ -213,10 +215,11 @@ export const GlobalFilterPanel: React.FC<GlobalFilterPanelProps> = memo(({
             <select
               value={tempFilters.trainer}
               onChange={(e) => handleInputChange('trainer', e.target.value)}
+              className="form-select"
               style={{
                 width: '100%',
                 padding: '10px 12px',
-                background: 'var(--bg-card)',
+                background: 'var(--sidebar-bg)',
                 border: '1px solid var(--border-color)',
                 borderRadius: '8px',
                 color: 'var(--text-primary)',
@@ -225,9 +228,9 @@ export const GlobalFilterPanel: React.FC<GlobalFilterPanelProps> = memo(({
                 cursor: 'pointer',
               }}
             >
-              <option value="">All Trainers</option>
+              <option value="" style={{ background: '#0f172a', color: '#fff' }}>All Trainers</option>
               {trainerOptions.map((trainer) => (
-                <option key={trainer} value={trainer}>
+                <option key={trainer} value={trainer} style={{ background: '#0f172a', color: '#fff' }}>
                   {trainer}
                 </option>
               ))}
@@ -252,10 +255,11 @@ export const GlobalFilterPanel: React.FC<GlobalFilterPanelProps> = memo(({
             <select
               value={tempFilters.month}
               onChange={(e) => handleInputChange('month', e.target.value)}
+              className="form-select"
               style={{
                 width: '100%',
                 padding: '10px 12px',
-                background: 'var(--bg-card)',
+                background: 'var(--sidebar-bg)',
                 border: '1px solid var(--border-color)',
                 borderRadius: '8px',
                 color: 'var(--text-primary)',
@@ -264,9 +268,9 @@ export const GlobalFilterPanel: React.FC<GlobalFilterPanelProps> = memo(({
                 cursor: 'pointer',
               }}
             >
-              <option value="">All Months</option>
+              <option value="" style={{ background: '#0f172a', color: '#fff' }}>All Months</option>
               {monthOptions.map((month) => (
-                <option key={month} value={month}>
+                <option key={month} value={month} style={{ background: '#0f172a', color: '#fff' }}>
                   {month}
                 </option>
               ))}
