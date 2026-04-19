@@ -42,6 +42,7 @@ import { seedDatabase, seedMasterData } from './seed';
 import { Employee } from './types/employee';
 import { Attendance, TrainingScore, TrainingNomination, Demographics as DemoType } from './types/attendance';
 import { parseAnyDate } from './utils/dateParser';
+import { getSchema } from './services/trainingSchemas';
 
 type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'notified' | 'gap-analysis' | 'performance' | 'srm';
 
@@ -120,16 +121,27 @@ const App = () => {
           } as Attendance);
         }
 
-        // Populate Scores - Dynamic extraction of anything "score" or "percent" related
+        // Populate Scores - Using official training schema definitions
         const scoresObj: Record<string, number> = {};
+        const schema = getSchema(trainingType);
         
-        const extractFrom = (obj: any) => {
-          if (!obj) return;
-          Object.keys(obj).forEach(k => {
+        const extractBySchema = (source: any) => {
+          if (!source) return;
+          schema.scoreFields.forEach(field => {
+            const val = source[field];
+            if (val !== undefined && val !== null) {
+              const num = typeof val === 'number' ? val : parseFloat(val);
+              if (!isNaN(num)) {
+                scoresObj[field] = num;
+              }
+            }
+          });
+
+          // Fallback: Also try common variations if schema field is missing
+          Object.keys(source).forEach(k => {
             const kl = k.toLowerCase();
-            if (kl.includes('score') || kl.includes('percent')) {
-              const val = obj[k];
-              // Handle both numbers and numeric strings
+            if ((kl.includes('score') || kl.includes('percent')) && !scoresObj[k]) {
+              const val = source[k];
               const num = typeof val === 'number' ? val : parseFloat(val);
               if (!isNaN(num) && num !== null) {
                 scoresObj[k] = num;
@@ -138,8 +150,8 @@ const App = () => {
           });
         };
 
-        extractFrom(row);
-        extractFrom(r); // Overwrite/supplement with unwrapped data
+        extractBySchema(r); 
+        extractBySchema(row);
 
         if (Object.keys(scoresObj).length > 0) {
           s.push({

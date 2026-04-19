@@ -11,23 +11,23 @@ export interface TrainingSchema {
 export const TRAINING_SCHEMAS: Record<string, TrainingSchema> = {
   IP: {
     required: ['aadhaarNumber', 'employeeId', 'mobileNumber', 'name', 'trainerId', 'team', 'designation', 'hq', 'state', 'attendanceDate'],
-    scoreFields: ['percent', 'tScore'],
-    scoreLabels: { percent: 'Detailing %', tScore: 'T Score' }
+    scoreFields: ['detailing', 'percent', 'tScore'],
+    scoreLabels: { detailing: 'Detailing', percent: 'Test Score', tScore: 'Trainability Score' }
   },
 
   AP: {
     required: ['aadhaarNumber', 'employeeId', 'mobileNumber', 'name', 'trainerId', 'team', 'designation', 'hq', 'state', 'attendanceDate', 'attendanceStatus'],
-    scoreFields: ['knowledge', 'grasping', 'detailing', 'situationHandling', 'english', 'localLanguage', 'involvement', 'effort', 'confidence'],
+    scoreFields: ['knowledge', 'bse', 'grasping', 'participation', 'detailing', 'rolePlay', 'punctuality', 'grooming', 'behaviour'],
     scoreLabels: {
       knowledge: 'Knowledge',
+      bse: 'BSE',
       grasping: 'Grasping',
-      detailing: 'Detailing',
-      situationHandling: 'Situation Handling',
-      english: 'English',
-      localLanguage: 'Local Language',
-      involvement: 'Involvement',
-      effort: 'Effort',
-      confidence: 'Confidence'
+      participation: 'Participation',
+      detailing: 'Detailing & Presentation',
+      rolePlay: 'Role Play',
+      punctuality: 'Punctuality',
+      grooming: 'Grooming & Dress Code',
+      behaviour: 'Behaviour'
     }
   },
 
@@ -39,10 +39,8 @@ export const TRAINING_SCHEMAS: Record<string, TrainingSchema> = {
 
   Refresher: {
     required: ['aadhaarNumber', 'employeeId', 'mobileNumber', 'name', 'trainerId', 'team', 'designation', 'hq', 'state', 'attendanceDate', 'attendanceStatus'],
-    scoreFields: ['scienceScore', 'skillScore', 'knowledge', 'situationHandling', 'presentation'],
+    scoreFields: ['knowledge', 'situationHandling', 'presentation'],
     scoreLabels: {
-      scienceScore: 'Science Score',
-      skillScore: 'Skill Score',
       knowledge: 'Knowledge',
       situationHandling: 'Situation Handling',
       presentation: 'Presentation'
@@ -57,8 +55,8 @@ export const TRAINING_SCHEMAS: Record<string, TrainingSchema> = {
 
   Pre_AP: {
     required: ['aadhaarNumber', 'employeeId', 'mobileNumber', 'name', 'trainerId', 'team', 'designation', 'hq', 'state', 'attendanceDate', 'attendanceStatus'],
-    scoreFields: ['knowledge', 'grasping'],
-    scoreLabels: { knowledge: 'Knowledge', grasping: 'Grasping' }
+    scoreFields: ['percent'],
+    scoreLabels: { percent: 'Test Score' }
   },
 
   GTG: {

@@ -47,7 +47,11 @@ export function detectTemplateType(excelHeaders: string[]): string {
 
   // Detection rules in priority order (most specific first)
   if (headerSet.has('Trainability Score')) return 'IP';
-  if (headerSet.has('BSE')) return 'AP';
+  if (headerSet.has('BSE') || headerSet.has('Situation Handling')) {
+    if (headerSet.has('Science Score')) return 'MIP'; // MIP also has some common ones
+    if (headerSet.has('Knowledge') && !headerSet.has('BSE')) return 'Refresher';
+    return 'AP';
+  }
   if (headerSet.has('AP Date')) return 'PreAP';
   if (headerSet.has('Science Score')) return 'MIP';
   if (headerSet.has('Situation Handling')) return 'Refresher';
@@ -58,10 +62,9 @@ export function detectTemplateType(excelHeaders: string[]): string {
     `Available headers: ${excelHeaders.join(', ')}\n` +
     `Expected one of:\n` +
     `  - "Trainability Score" for IP\n` +
-    `  - "BSE" for AP\n` +
+    `  - "BSE" or "Situation Handling" for AP/Refresher\n` +
     `  - "AP Date" for PreAP\n` +
     `  - "Science Score" for MIP\n` +
-    `  - "Situation Handling" for Refresher\n` +
     `  - "Test Score" (alone) for Capsule`
   );
 }
@@ -72,7 +75,7 @@ export const COLUMN_MAPPING: Record<string, string> = {
   'Aadhaar Number': 'aadhaarNumber',
   'Employee ID': 'employeeId',
   'Mobile Number': 'mobileNumber',
-  'Trainer': 'trainer',
+  'Trainer': 'trainerId',
   'Team': 'team',
   'Name': 'name',
   'Designation': 'designation',
@@ -82,32 +85,41 @@ export const COLUMN_MAPPING: Record<string, string> = {
   'Attendance Status': 'attendanceStatus',
 
   // IP template
-  'Detailing': 'detailingScore',
-  'Test Score': 'testScore',
-  'Trainability Score': 'trainabilityScore',
+  'Detailing': 'detailing',
+  'Test Score': 'percent',
+  'Trainability Score': 'tScore',
 
   // AP template
-  'Knowledge': 'knowledgeScore',
-  'BSE': 'bseScore',
-  'Grasping': 'graspingScore',
-  'Participation': 'participationScore',
-  'Detailing & Presentation': 'detailingPresentationScore',
-  'Role Play': 'rolePlayScore',
-  'Punctuality': 'punctualityScore',
-  'Grooming & Dress Code': 'groomingScore',
-  'Behaviour': 'behaviourScore',
+  'Knowledge': 'knowledge',
+  'BSE': 'bse',
+  'Grasping': 'grasping',
+  'Participation': 'participation',
+  'Detailing': 'detailing',
+  'Presentation': 'presentation',
+  'Detailing & Presentation': 'detailing',
+  'Situation Handling': 'situationHandling',
+  'Role Play': 'rolePlay',
+  'Punctuality': 'punctuality',
+  'Grooming & Dress Code': 'grooming',
+  'Behaviour': 'behaviour',
+  'English': 'english',
+  'Local Language': 'localLanguage',
+  'Involvement': 'involvement',
+  'Effort': 'effort',
+  'Confidence': 'confidence',
 
   // PreAP template
   'AP Date': 'apDate',
   'Notified': 'notified',
+  'Test Score': 'percent',
 
   // MIP template
   'Science Score': 'scienceScore',
   'Skill Score': 'skillScore',
 
   // Refresher template
-  'Situation Handling': 'situationHandlingScore',
-  'Presentation': 'presentationScore'
+  'Situation Handling': 'situationHandling',
+  'Presentation': 'presentation'
 };
 
 // ─── VALIDATION ──────────────────────────────────────────────────────────────

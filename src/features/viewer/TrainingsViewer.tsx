@@ -18,6 +18,7 @@ import { GlobalFilterPanel } from '../../components/GlobalFilterPanel';
 import { getFiscalYears, getFiscalYearFromDate } from '../../utils/fiscalYear';
 import { TEAM_CLUSTER_MAP } from '../../services/clusterMap';
 import { normalizeText } from '../../utils/textNormalizer';
+import { getSchema } from '../../services/trainingSchemas';
 
 // Training type normalization
 const trainingTypeMap: Record<string, string> = {
@@ -169,9 +170,13 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
     setShowGlobalFilters(false);
   };
 
-  const schema = SCORE_SCHEMAS[tab] || [];
+  const schemaObj = getSchema(tab);
+  const schema = schemaObj.scoreFields;
+  const labels = schemaObj.scoreLabels;
+  
   const headers = [
-    'Aadhaar', 'Emp ID', 'Mobile', 'Name', 'Trainer', 'Team', 'HQ', 'State', 'Date', 'Status', ...schema
+    'Aadhaar', 'Emp ID', 'Mobile', 'Name', 'Trainer', 'Team', 'HQ', 'State', 'Date', 'Status', 
+    ...schema.map(k => labels[k] || k)
   ];
 
   return (
