@@ -1,7 +1,8 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { UploadCloud, CheckCircle, X, AlertTriangle, XCircle, Download } from 'lucide-react';
-import { uploadTrainingDataStrict, formatUploadResult, UploadProgress, UploadResult } from '../../services/uploadServiceStrict';
+import { uploadTrainingDataEnriched, UploadProgress, UploadResultEnriched } from '../../services/uploadServiceEnriched';
 import { getTemplateForDownload, getAllTemplateTypes } from '../../services/uploadTemplatesStrict';
+import { parseExcelDate } from '../../services/dateParserService';
 import * as XLSX from 'xlsx';
 
 interface AttendanceUploadStrictProps {
@@ -23,7 +24,7 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
     message: 'Ready to upload'
   });
   
-  const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
+  const [uploadResult, setUploadResult] = useState<UploadResultEnriched | null>(null);
   const [uploadMode, setUploadMode] = useState<'append' | 'replace'>('append');
   const [confirmReplace, setConfirmReplace] = useState(false);
   
@@ -32,10 +33,14 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
 
   // ─── DEBUG LOGGING ───────────────────────────────────────────────────────
   useEffect(() => {
-    console.log('🚀 STRICT TEMPLATE SYSTEM ACTIVE');
-    console.log('Template detection: Deterministic (no fallback)');
-    console.log('Column mapping: Exact (no fuzzy matching)');
-    console.log('Error reporting: Detailed with row numbers');
+    console.log('🚀 ENRICHED UPLOAD SYSTEM ACTIVE');
+    console.log('🔍 STRICT TEMPLATE DETECTION: Deterministic (no fallback)');
+    console.log('🔍 STRICT COLUMN MATCHING: Exact (no fuzzy matching)');
+    console.log('✨ ENRICHED PARSER ACTIVE: Master data enrichment enabled');
+    console.log('✨ DATE PARSER ACTIVE: Excel serial, ISO, common formats');
+    console.log('✨ FLEXIBLE VALIDATION: Accept ANY identifier (ID, Aadhaar, Mobile)');
+    console.log('✨ CONFLICT DETECTION: Enabled');
+    console.log('Error reporting: Detailed with row numbers and enrichment status');
   }, []);
 
   // ─── HANDLERS ────────────────────────────────────────────────────────────
@@ -93,7 +98,7 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
     });
 
     try {
-      const result = await uploadTrainingDataStrict(file, {
+      const result = await uploadTrainingDataEnriched(file, {
         mode: uploadMode,
         onProgress: (progress) => {
           if (isMountedRef.current) {
@@ -203,7 +208,7 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
             <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
               {uploadResult.uploadedRows} of {uploadResult.totalRows} rows uploaded to training_data collection
             </p>
-            <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', fontSize: '14px' }}>
+            <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', fontSize: '14px', flexWrap: 'wrap' }}>
               <div style={{ padding: '8px 12px', background: 'rgba(34, 197, 94, 0.1)', borderRadius: '6px' }}>
                 <strong>{uploadResult.uploadedRows}</strong> Uploaded ✅
               </div>
@@ -212,6 +217,12 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
                   <strong>{uploadResult.rejectedRows}</strong> Rejected ❌
                 </div>
               )}
+              <div style={{ padding: '8px 12px', background: 'rgba(34, 197, 94, 0.15)', borderRadius: '6px', fontWeight: 600 }}>
+                👤 Active: <strong>{uploadResult.activeEmployees}</strong>
+              </div>
+              <div style={{ padding: '8px 12px', background: 'rgba(156, 163, 175, 0.1)', borderRadius: '6px', fontWeight: 600 }}>
+                ⚠️ Inactive: <strong>{uploadResult.inactiveEmployees}</strong>
+              </div>
             </div>
           </div>
         ) : (
@@ -326,8 +337,8 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
     <div className="animate-fade-in">
       <div className="header">
         <div>
-          <h2 style={{ fontSize: '24px' }}>📊 Strict Training Data Upload</h2>
-          <p className="text-muted">Zero ambiguity. Deterministic template detection. No fallback logic.</p>
+          <h2 style={{ fontSize: '24px' }}>📊 Enriched Training Data Upload</h2>
+          <p className="text-muted">Zero ambiguity. Master data enrichment. Flexible ID validation. Conflict detection.</p>
         </div>
       </div>
 
