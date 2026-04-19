@@ -72,24 +72,90 @@ const App = () => {
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [e, a, s, n, d] = await Promise.all([
+      const [e, trainingDataRaw, d] = await Promise.all([
         getCollection('employees'),
-        getCollection('attendance'),
-        getCollection('training_scores'),
-        getCollection('training_nominations'),
+        getCollection('training_data'),
         getCollection('demographics')
       ]);
-      console.log('Loaded collections:', {
+      
+      const a: Attendance[] = [];
+      const s: TrainingScore[] = [];
+      const n: TrainingNomination[] = [];
+
+      (trainingDataRaw as any[]).forEach((row) => {
+        if (!row) return;
+        
+        // Populate Attendance
+        if (row.attendanceDate) {
+          a.push({
+            id: row._id || Math.random().toString(),
+            employeeId: row.employeeId,
+            trainingType: row.trainingType,
+            attendanceDate: row.attendanceDate,
+            attendanceStatus: row.attendanceStatus || 'Present',
+            employeeStatus: row.employeeStatus || 'Active',
+            aadhaarNumber: row.aadhaarNumber,
+            mobileNumber: row.mobileNumber,
+            name: row.name,
+            team: row.team,
+            designation: row.designation,
+            hq: row.hq,
+            state: row.state,
+          } as Attendance);
+        }
+
+        // Populate Scores
+        const scoreKeys = ['detailingScore', 'testScore', 'trainabilityScore', 'knowledgeScore', 'bseScore', 'graspingScore', 'participationScore', 'detailingPresentationScore', 'rolePlayScore', 'punctualityScore', 'groomingScore', 'behaviourScore', 'scienceScore', 'skillScore', 'situationHandlingScore', 'presentationScore'];
+        
+        const scoresObj: Record<string, number> = {};
+        scoreKeys.forEach(k => {
+          if (row[k] !== undefined && row[k] !== null) {
+            scoresObj[k.replace('Score', '')] = row[k];
+          }
+        });
+
+        if (Object.keys(scoresObj).length > 0) {
+          s.push({
+            id: row._id || Math.random().toString(),
+            employeeId: row.employeeId,
+            trainingType: row.trainingType,
+            dateStr: row.attendanceDate,
+            scores: scoresObj
+          } as TrainingScore);
+        }
+
+        // Populate Nominations
+        if (row.trainingType === 'PreAP' || row.notified) {
+          n.push({
+            id: row._id || Math.random().toString(),
+            employeeId: row.employeeId,
+            trainingType: row.trainingType,
+            notificationDate: row.apDate || row.attendanceDate || '',
+            month: (row.apDate || row.attendanceDate || '').substring(0, 7),
+            notificationCount: 1,
+            aadhaarNumber: row.aadhaarNumber || '',
+            mobileNumber: row.mobileNumber || '',
+            name: row.name || '',
+            designation: row.designation || '',
+            team: row.team || '',
+            hq: row.hq || '',
+            state: row.state || '',
+          } as TrainingNomination);
+        }
+      });
+
+      console.log('Loaded unified collections:', {
         employees: e.length,
-        attendance: a.length,
-        training_scores: s.length,
-        training_nominations: n.length,
+        attendance_derived: a.length,
+        scores_derived: s.length,
+        nominations_derived: n.length,
         demographics: d.length
       });
+      
       setEmps(e as Employee[]);
-      setAtt(a as Attendance[]);
-      setScs(s as TrainingScore[]);
-      setNoms(n as TrainingNomination[]);
+      setAtt(a);
+      setScs(s);
+      setNoms(n);
       setDemos(d as DemoType[]);
     } catch (err) {
       console.error('Failed to load collections:', err);

@@ -189,7 +189,8 @@ export async function parseExcelFileEnriched(file: File): Promise<EnrichedParseR
         }
 
         // Step 6c: Map to MongoDB field names
-        const mappedRow = mapRowToMongoDB(rowObject, headers, templateType);
+        const mapResult = mapRowToMongoDB(rowObject, headers, templateType);
+        const mappedRow = mapResult.mapped;
         mappedRow.attendanceDate = attendanceDate;
         mappedRow.trainingType = templateType;
 

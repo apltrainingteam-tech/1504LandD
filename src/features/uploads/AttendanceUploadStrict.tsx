@@ -15,7 +15,7 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
   const [dragOver, setDragOver] = useState(false);
   const [selectedTemplateType, setSelectedTemplateType] = useState('IP');
   const [fileName, setFileName] = useState('');
-  
+
   // ─── UPLOAD STATE ────────────────────────────────────────────────────────
   const [uploadProgress, setUploadProgress] = useState<UploadProgress>({
     stage: 'parsing',
@@ -23,11 +23,11 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
     total: 100,
     message: 'Ready to upload'
   });
-  
+
   const [uploadResult, setUploadResult] = useState<UploadResultEnriched | null>(null);
   const [uploadMode, setUploadMode] = useState<'append' | 'replace'>('append');
   const [confirmReplace, setConfirmReplace] = useState(false);
-  
+
   const isMountedRef = useRef(true);
   const currentFileRef = useRef<File | null>(null);
 
@@ -70,7 +70,7 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
   const handleDownloadTemplate = useCallback(() => {
     try {
       const { headers, description, sample } = getTemplateForDownload(selectedTemplateType);
-      
+
       // Create Excel workbook
       const ws = XLSX.utils.aoa_to_sheet([
         headers,
@@ -80,7 +80,7 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
 
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, selectedTemplateType);
-      
+
       // Save file
       const fileName = `${selectedTemplateType}_Training_Template.xlsx`;
       XLSX.writeFile(wb, fileName);
@@ -132,7 +132,7 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
       if (isMountedRef.current) {
         setUploadResult(result);
         setStep('done');
-        
+
         if (result.success && onUploadComplete) {
           onUploadComplete();
         }
@@ -146,6 +146,8 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
           totalRows: 0,
           uploadedRows: 0,
           rejectedRows: 0,
+          activeEmployees: 0,
+          inactiveEmployees: 0,
           errors: [{ rowNum: 0, message: errorMsg }],
           warnings: [],
           debugLog: errorMsg
@@ -174,9 +176,9 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
   const handleTestInsert = useCallback(async () => {
     try {
       alert('Testing database connectivity...\nInserting 1 dummy test record...');
-      
+
       const { createBatch } = await import('../../services/apiService');
-      
+
       const testRecord = {
         _id: `test_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         employeeId: 'TEST-' + Math.random().toString(36).substr(2, 6).toUpperCase(),
@@ -187,10 +189,10 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
         uploadedAt: new Date().toISOString(),
         note: 'Database connectivity test - can safely delete'
       };
-      
+
       console.log('[TEST] Inserting test record:', testRecord);
       const result = await createBatch('training_data', [testRecord]);
-      
+
       console.log('[TEST] ✅ Test insert succeeded:', result);
       alert(`✅ SUCCESS!\n\nTest record inserted successfully.\nThis confirms database connectivity is working.\n\nYou can manually delete this record from MongoDB if desired.\n\nAPI Response:\n${JSON.stringify(result, null, 2)}`);
     } catch (err: any) {
@@ -237,7 +239,7 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
   // ─── RENDER: DONE STAGE ──────────────────────────────────────────────────
   if (step === 'done' && uploadResult) {
     const isSuccess = uploadResult.success;
-    
+
     return (
       <div className="animate-fade-in" style={{ maxWidth: '700px', margin: '0 auto' }}>
         {/* SUCCESS HEADER */}
@@ -524,7 +526,7 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
         >
           {!fileName ? '⬆️ Select File First' : '🚀 Start Upload'}
         </button>
-        
+
         {/* TEST BUTTON - DEBUG */}
         <button
           className="btn btn-secondary"
