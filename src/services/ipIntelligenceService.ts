@@ -73,7 +73,11 @@ export function normalizeToIPRecords(ds: UnifiedRecord[]): IPRecord[] {
               r.score?.scores?.['tScore'] ?? 
               r.score?.scores?.['Percent'] ?? 
               r.score?.scores?.['T Score'] ?? 
-              r.score?.scores?.['Score'];
+              r.score?.scores?.['Score'] ??
+              r.score?.scores?.['testScore'] ??
+              r.score?.scores?.['test'] ??
+              r.score?.scores?.['knowledgeScore'] ??
+              r.score?.scores?.['scienceScore'];
     if (s == null) return;
     
     // Normalize team name to match map keys reliably

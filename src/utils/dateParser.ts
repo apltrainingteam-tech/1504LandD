@@ -28,9 +28,9 @@ export function parseAnyDate(raw: any): string | null {
     return `${yr}-${m1b[2].padStart(2, '0')}-${m1b[1].padStart(2, '0')}`;
   }
 
-  // DD-Mon-YYYY
+  // DD-Mon-YYYY or DD Mon YYYY
   const mos: Record<string, string> = { jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06', jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12' };
-  const m2 = s.match(/^(\d{1,2})[\/\-]([A-Za-z]{3})[\/\-](\d{2,4})$/);
+  const m2 = s.match(/^(\d{1,2})[\/\-\s]([A-Za-z]{3})[\/\-\s](\d{2,4})$/);
   if (m2) {
     const mo = mos[m2[2].toLowerCase()];
     const yr = m2[3].length === 2 ? (parseInt(m2[3]) < 50 ? '20' + m2[3] : '19' + m2[3]) : m2[3];

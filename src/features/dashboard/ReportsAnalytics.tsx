@@ -73,9 +73,19 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
   const [expanded, setExpanded] = useState(new Set<string>());
   const [rules, setRules] = useState<EligibilityRule[]>([]);
   const [clusterMapping, setClusterMapping] = useState<Record<string, string>>({});
-  const [selectedFYs, setSelectedFYs] = useState<Record<string, string>>(() => {
-    const maxMonths: Record<string, string> = {};
+  const [selectedFYs, setSelectedFYs] = useState<Record<string, string>>({
+    IP: getCurrentFY(),
+    AP: getCurrentFY(),
+    MIP: getCurrentFY(),
+    Refresher: getCurrentFY(),
+    Capsule: getCurrentFY(),
+    PRE_AP: getCurrentFY()
+  });
+  const [tsMode, setTsMode] = useState<'score' | 'count'>('score');
 
+  // Helper to compute default FYs from data
+  const computeDefaultFYs = useCallback(() => {
+    const maxMonths: Record<string, string> = {};
     const updateMax = (typeFallback: string, dateStr: string) => {
       const type = (typeFallback || '').toUpperCase();
       const m = (dateStr || '').substring(0, 7);
@@ -83,34 +93,38 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
         maxMonths[type] = m;
       }
     };
-
     nominations.forEach(n => updateMax(n.trainingType, n.notificationDate || ''));
     attendance.forEach(a => updateMax(a.trainingType, a.month || a.attendanceDate || ''));
 
-    const getFYForType = (typeKey: string) => {
-      const maxMonth = maxMonths[typeKey.toUpperCase()];
-      if (!maxMonth) return getCurrentFY();
-      const [yearStr, monthStr] = maxMonth.split('-');
-      const year = parseInt(yearStr, 10);
-      const month = parseInt(monthStr, 10);
-      if (!isNaN(year) && !isNaN(month)) {
+    const res: Record<string, string> = {};
+    const types = ['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'PRE_AP'];
+    types.forEach(t => {
+      const maxMonth = maxMonths[t];
+      if (!maxMonth) {
+        res[t] = getCurrentFY();
+      } else {
+        const [yearStr, monthStr] = maxMonth.split('-');
+        const year = parseInt(yearStr, 10);
+        const month = parseInt(monthStr, 10);
         const startYear = month >= 4 ? year : year - 1;
-        return `${startYear}-${(startYear + 1).toString().slice(2)}`;
+        res[t] = `${startYear}-${(startYear + 1).toString().slice(2)}`;
       }
-      return getCurrentFY();
-    };
+    });
+    return res;
+  }, [attendance, nominations]);
 
-    return {
-      IP: getFYForType('IP'),
-      AP: getFYForType('AP'),
-      MIP: getFYForType('MIP'),
-      Refresher: getFYForType('Refresher'),
-      Capsule: getFYForType('Capsule'),
-      PRE_AP: getFYForType('PRE_AP')
-    };
-  });
-  
-  const [tsMode, setTsMode] = useState<'score' | 'count'>('score');
+  // Sync FY with data on load
+  useEffect(() => {
+    if (attendance.length > 0 || nominations.length > 0) {
+      setSelectedFYs(prev => {
+        const defaults = computeDefaultFYs();
+        // Only update if current tab's FY is the default and differs from what data suggests
+        // or if we have no state yet (which isn't possible given initial state)
+        // Simplest: just update all if they were purely default-init
+        return { ...prev, ...defaults };
+      });
+    }
+  }, [attendance, nominations, computeDefaultFYs]);
 
   // Filter state
   const [filter, setFilter] = useState<ReportFilter>({

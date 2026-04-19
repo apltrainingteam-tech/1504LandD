@@ -167,7 +167,11 @@ export function calcIP(recs: UnifiedRecord[]) {
               r.score?.scores?.['tScore'] ?? 
               r.score?.scores?.['Score'] ?? 
               r.score?.scores?.['Percent'] ?? 
-              r.score?.scores?.['T Score'];
+              r.score?.scores?.['T Score'] ??
+              r.score?.scores?.['testScore'] ??
+              r.score?.scores?.['test'] ??
+              r.score?.scores?.['knowledgeScore'] ??
+              r.score?.scores?.['scienceScore'];
     if (s != null) {
       if (s >= 75) h++;
       else if (s >= 50) med++;

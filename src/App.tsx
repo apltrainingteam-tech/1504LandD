@@ -41,6 +41,7 @@ import { getCollection, deleteRecordsByQuery } from './services/apiClient';
 import { seedDatabase, seedMasterData } from './seed';
 import { Employee } from './types/employee';
 import { Attendance, TrainingScore, TrainingNomination, Demographics as DemoType } from './types/attendance';
+import { parseAnyDate } from './utils/dateParser';
 
 type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'notified' | 'gap-analysis' | 'performance' | 'srm';
 
@@ -89,7 +90,11 @@ const App = () => {
         const r = row.mapped || row.data || row;
         
         // Ensure root-level fields like attendanceDate/trainingType are preserved if they were outside 'mapped'
-        const attendanceDate = r.attendanceDate || row.attendanceDate;
+        let attendanceDate = r.attendanceDate || row.attendanceDate;
+        if (attendanceDate) {
+          attendanceDate = parseAnyDate(attendanceDate) || attendanceDate;
+        }
+
         const trainingType = r.trainingType || row.trainingType;
         const employeeId = r.employeeId || r.aadhaarNumber || row.employeeId || row.aadhaarNumber;
         
@@ -102,6 +107,7 @@ const App = () => {
             employeeId: String(employeeId),
             trainingType: trainingType,
             attendanceDate: attendanceDate,
+            month: (attendanceDate as string).substring(0, 7),
             attendanceStatus: r.attendanceStatus || 'Present',
             employeeStatus: r.employeeStatus || 'Active',
             aadhaarNumber: r.aadhaarNumber || row.aadhaarNumber,
@@ -114,16 +120,26 @@ const App = () => {
           } as Attendance);
         }
 
-        // Populate Scores
-        const scoreKeys = ['detailingScore', 'testScore', 'trainabilityScore', 'knowledgeScore', 'bseScore', 'graspingScore', 'participationScore', 'detailingPresentationScore', 'rolePlayScore', 'punctualityScore', 'groomingScore', 'behaviourScore', 'scienceScore', 'skillScore', 'situationHandlingScore', 'presentationScore'];
-        
+        // Populate Scores - Dynamic extraction of anything "score" or "percent" related
         const scoresObj: Record<string, number> = {};
-        scoreKeys.forEach(k => {
-          const val = r[k] !== undefined ? r[k] : row[k];
-          if (val !== undefined && val !== null) {
-            scoresObj[k.replace('Score', '')] = val;
-          }
-        });
+        
+        const extractFrom = (obj: any) => {
+          if (!obj) return;
+          Object.keys(obj).forEach(k => {
+            const kl = k.toLowerCase();
+            if (kl.includes('score') || kl.includes('percent')) {
+              const val = obj[k];
+              // Handle both numbers and numeric strings
+              const num = typeof val === 'number' ? val : parseFloat(val);
+              if (!isNaN(num) && num !== null) {
+                scoresObj[k] = num;
+              }
+            }
+          });
+        };
+
+        extractFrom(row);
+        extractFrom(r); // Overwrite/supplement with unwrapped data
 
         if (Object.keys(scoresObj).length > 0) {
           s.push({
@@ -137,12 +153,17 @@ const App = () => {
 
         // Populate Nominations
         if (trainingType === 'PreAP' || r.notified || row.notified) {
+          let notificationDate = r.apDate || attendanceDate || '';
+          if (notificationDate) {
+            notificationDate = parseAnyDate(notificationDate) || notificationDate;
+          }
+          
           n.push({
             id: row._id || Math.random().toString(),
             employeeId: String(employeeId),
             trainingType: trainingType,
-            notificationDate: r.apDate || attendanceDate || '',
-            month: (r.apDate || attendanceDate || '').substring(0, 7),
+            notificationDate: notificationDate,
+            month: (notificationDate as string).substring(0, 7),
             notificationCount: 1,
             aadhaarNumber: r.aadhaarNumber || row.aadhaarNumber || '',
             mobileNumber: r.mobileNumber || row.mobileNumber || '',
