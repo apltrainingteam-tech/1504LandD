@@ -24,29 +24,32 @@ dotenv.config();
 const app: Express = express();
 const PORT = process.env.PORT || 5000;
 
-// CORS Configuration
-const corsOptions = {
-  origin: [
-    'http://localhost:5174',
-    'http://localhost:5173',
-    'http://localhost:3000',
-    'http://127.0.0.1:5173'
-  ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
-  optionsSuccessStatus: 200
-};
+// Dynamic CORS Configuration
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like Postman, curl)
+    if (!origin) return callback(null, true);
 
-// Middleware
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+    // Allow all localhost ports dynamically
+    if (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) {
+      return callback(null, true);
+    }
+
+    // Reject other origins
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true
+}));
+
+// Preflight support
+app.options('*', cors());
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Request logging middleware
+// Request logging middleware with Origin
 app.use((req: Request, res: Response, next: NextFunction) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} - IP: ${req.ip}`);
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} - Origin: ${req.headers.origin || 'No Origin'}`);
   next();
 });
 
@@ -116,13 +119,23 @@ app.post('/api/:collection', async (req: Request, res: Response) => {
     const { batch, items, upsert, id, data } = req.body;
 
     console.log(`[POST /api/${collection}] batch=${batch}, upsert=${upsert}`);
+    console.log('Incoming payload:', JSON.stringify(req.body, null, 2));
 
     let result;
 
     if (batch && items) {
-      // Batch insert
+      if (!Array.isArray(items) || items.length === 0) {
+        throw new Error('Batch items are empty or invalid');
+      }
+
       await addBatch(collection, items);
-      result = { insertedCount: items.length };
+
+      console.log(`[BATCH INSERT] Attempted: ${items.length}`);
+
+      return res.json({
+        success: true,
+        insertedCount: items.length
+      });
     } else if (upsert && id) {
       // Upsert document
       await upsertDoc(collection, id, data);
@@ -289,12 +302,10 @@ const server = app.listen(PORT, async () => {
 ║   API Base: http://localhost:${PORT}/api                     ║
 ║   Health: http://localhost:${PORT}/health                    ║
 ║                                                            ║
-║   CORS Enabled for:                                        ║
-║   • http://localhost:5173 (Vite Frontend)                 ║
-║   • http://localhost:3000 (React Dev Server)              ║
+║   CORS: Dynamic Localhost (Ports 5173, 5174, etc.)         ║
+║   Mode: ${process.env.NODE_ENV || 'development'}                                    ║
 ║                                                            ║
 ║   Database: pharma_intelligence (MongoDB)                 ║
-║   Environment: ${process.env.NODE_ENV || 'development'}                     ║
 ║   Timestamp: ${timestamp}                ║
 ║                                                            ║
 ╚════════════════════════════════════════════════════════════╝
