@@ -174,14 +174,34 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
   }, [tab, subView]);
 
   // --- BUCKET HELPERS ---
-  const formatCell = (data: any) => {
-    if (!data || data.total === 0) return '-';
-    return `${data.high}/${data.medium}/${data.low}`;
+  const renderPerformanceCell = (data: any) => {
+    if (!data || data.total === 0) return <td style={{ textAlign: 'center', opacity: 0.4 }}>—</td>;
+    
+    return (
+      <td style={{ textAlign: 'center' }} title={`>90%: ${data.elite}\n75–90%: ${data.high}\n50–75%: ${data.medium}\n<50%: ${data.low}`}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', fontSize: '12px' }}>
+          <span style={{ color: '#22c55e', fontWeight: 600 }}>{data.elite}</span>
+          <span style={{ opacity: 0.2 }}>/</span>
+          <span style={{ color: '#3b82f6' }}>{data.high}</span>
+          <span style={{ opacity: 0.2 }}>/</span>
+          <span style={{ color: '#f59e0b' }}>{data.medium}</span>
+          <span style={{ opacity: 0.2 }}>/</span>
+          <span style={{ color: '#ef4444', fontWeight: 600 }}>{data.low}</span>
+        </div>
+      </td>
+    );
   };
 
   const getPercent = (part: number, total: number) => {
     if (!total) return 0;
     return Math.round((part / total) * 100);
+  };
+
+  const renderSummaryPercent = (part: number, total: number, threshold?: number, colorClass?: string) => {
+    if (!total) return <td style={{ textAlign: 'center', opacity: 0.4 }}>—</td>;
+    const pct = Math.round((part / total) * 100);
+    const finalClass = (threshold && pct >= threshold) ? colorClass : '';
+    return <td style={{ textAlign: 'center' }} className={finalClass}>{pct}%</td>;
   };
 
   const formatMonthLabel = useCallback((month: string) => {
@@ -850,71 +870,54 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                       <th style={{ width: '40px' }}></th>
                       <th>Cluster / Team</th>
                       <th style={{ textAlign: 'center' }}>Total</th>
+                      <th style={{ textAlign: 'center' }}>Elite %</th>
                       <th style={{ textAlign: 'center' }}>High %</th>
-                      <th style={{ textAlign: 'center' }}>Med %</th>
+                      <th style={{ textAlign: 'center' }}>Medium %</th>
                       <th style={{ textAlign: 'center' }}>Low %</th>
-                      {MONTHS.map(mo => <th key={mo} style={{ textAlign: 'center', minWidth: '60px' }}>{formatMonthLabel(mo)}</th>)}
+                      {MONTHS.map(mo => <th key={mo} style={{ textAlign: 'center', minWidth: '90px' }}>{formatMonthLabel(mo)}</th>)}
                     </tr>
                   </thead>
                   <tbody>
                     {Object.keys(ipData.clusterMonthMap).map(clusterName => {
                       const clusterData = ipData.clusterMonthMap[clusterName];
                       const isOpen = expanded.has(clusterName);
-                      const hPct = getPercent(clusterData.high, clusterData.total);
-                      const mPct = getPercent(clusterData.medium, clusterData.total);
+                      const ePct = getPercent(clusterData.elite, clusterData.total);
                       const lPct = getPercent(clusterData.low, clusterData.total);
 
                       const getRowStyle = (hp: number, lp: number) => {
-                        if (hp > 70) return { background: 'rgba(16, 185, 129, 0.1)' };
-                        if (lp > 30) return { background: 'rgba(239, 68, 68, 0.1)' };
+                        if (hp > 70) return { background: 'rgba(16, 185, 129, 0.08)' };
+                        if (lp > 30) return { background: 'rgba(239, 68, 68, 0.08)' };
                         return {};
                       };
 
                       return (
                         <Fragment key={clusterName}>
-                          <tr onClick={() => toggleExpand(clusterName)} style={{ cursor: 'pointer', ...getRowStyle(hPct, lPct) }}>
+                          <tr onClick={() => toggleExpand(clusterName)} style={{ cursor: 'pointer', ...getRowStyle(ePct, lPct) }}>
                             <td>{isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</td>
                             <td style={{ fontWeight: 700 }}>{clusterName}</td>
                             <td style={{ textAlign: 'center', fontWeight: 600 }}>{clusterData.total}</td>
-                            <td style={{ textAlign: 'center' }} className={hPct > 70 ? 'text-success' : ''}>{hPct}%</td>
-                            <td style={{ textAlign: 'center' }} className={mPct > 50 ? 'text-warning' : ''}>{mPct}%</td>
-                            <td style={{ textAlign: 'center' }} className={lPct > 30 ? 'text-danger' : ''}>{lPct}%</td>
-                            {MONTHS.map(mo => {
-                              const cell = clusterData.months[mo];
-                              const txt = formatCell(cell);
-                              let cellStyle = { textAlign: 'center', fontWeight: 600 } as any;
-                              if (cell && cell.total > 0) {
-                                if (cell.low > cell.high) cellStyle.color = 'var(--danger)';
-                                else if (cell.high > cell.low) cellStyle.color = 'var(--success)';
-                              }
-                              return <td key={mo} style={cellStyle}>{txt}</td>;
-                            })}
+                            {renderSummaryPercent(clusterData.elite, clusterData.total, 50, 'text-success')}
+                            {renderSummaryPercent(clusterData.high, clusterData.total, 50, 'text-success')}
+                            {renderSummaryPercent(clusterData.medium, clusterData.total, 40, 'text-warning')}
+                            {renderSummaryPercent(clusterData.low, clusterData.total, 30, 'text-danger')}
+                            {MONTHS.map(mo => renderPerformanceCell(clusterData.months[mo]))}
                           </tr>
 
                           {isOpen && Object.keys(ipData.teamMonthMap[clusterName] || {}).map(teamName => {
                             const teamData = ipData.teamMonthMap[clusterName][teamName];
-                            const thPct = getPercent(teamData.high, teamData.total);
-                            const tmPct = getPercent(teamData.medium, teamData.total);
-                            const tlPct = getPercent(teamData.low, teamData.total);
+                            const ethPct = getPercent(teamData.elite, teamData.total);
+                            const tlhPct = getPercent(teamData.low, teamData.total);
 
                             return (
-                              <tr key={teamName} style={{ ...getRowStyle(thPct, tlPct), fontSize: '13px' }}>
+                              <tr key={teamName} style={{ ...getRowStyle(ethPct, tlhPct), fontSize: '13px' }}>
                                 <td></td>
                                 <td style={{ paddingLeft: '24px' }}>↳ {teamName}</td>
                                 <td style={{ textAlign: 'center', fontWeight: 600 }}>{teamData.total}</td>
-                                <td style={{ textAlign: 'center' }} className={thPct > 70 ? 'text-success' : ''}>{thPct}%</td>
-                                <td style={{ textAlign: 'center' }} className={tmPct > 50 ? 'text-warning' : ''}>{tmPct}%</td>
-                                <td style={{ textAlign: 'center' }} className={tlPct > 30 ? 'text-danger' : ''}>{tlPct}%</td>
-                                {MONTHS.map(mo => {
-                                  const cell = teamData.months[mo];
-                                  const txt = formatCell(cell);
-                                  let cellStyle = { textAlign: 'center' } as any;
-                                  if (cell && cell.total > 0) {
-                                    if (cell.low > cell.high) cellStyle.color = 'var(--danger)';
-                                    else if (cell.high > cell.low) cellStyle.color = 'var(--success)';
-                                  }
-                                  return <td key={mo} style={cellStyle}>{txt}</td>;
-                                })}
+                                {renderSummaryPercent(teamData.elite, teamData.total, 50, 'text-success')}
+                                {renderSummaryPercent(teamData.high, teamData.total, 50, 'text-success')}
+                                {renderSummaryPercent(teamData.medium, teamData.total, 40, 'text-warning')}
+                                {renderSummaryPercent(teamData.low, teamData.total, 30, 'text-danger')}
+                                {MONTHS.map(mo => renderPerformanceCell(teamData.months[mo]))}
                               </tr>
                             );
                           })}
@@ -1184,7 +1187,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
             <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.02)', flexWrap: 'wrap', gap: '12px' }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>IP Team Rankings</h3>
-                <p className="text-muted" style={{ fontSize: '12px', marginTop: '4px' }}>Formula: (95·A + 82.5·B + 62.5·C − 25·D) / Total · Competition Ranking · FY {selectedFY}</p>
+                <p className="text-muted" style={{ fontSize: '12px', marginTop: '4px' }}>Formula: (95·Elite + 82.5·High + 62.5·Med − 25·Low) · National Total Points · FY {selectedFY}</p>
               </div>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <span className="badge badge-info" style={{ fontWeight: 700 }}>FY {selectedFY}</span>

@@ -75,10 +75,10 @@ export interface IPRecord {
   cluster: string;
   month: string;
   score: number;
-  bucket: 'HIGH' | 'MEDIUM' | 'LOW';
+  bucket: 'ELITE' | 'HIGH' | 'MEDIUM' | 'LOW';
 }
 
-export interface IPHeritageMapCell {
+  elite: number;
   high: number;
   medium: number;
   low: number;
@@ -87,6 +87,7 @@ export interface IPHeritageMapCell {
 
 export interface IPMonthMapNode {
   total: number;
+  elite: number;
   high: number;
   medium: number;
   low: number;

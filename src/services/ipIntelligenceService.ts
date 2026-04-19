@@ -4,6 +4,7 @@ import { IPRecord, IPAggregates, IPMonthMapNode, IPHeritageMapCell, IPMonthlyTea
 import { TEAM_CLUSTER_MAP } from './clusterMap';
 import { normalizeText } from '../utils/textNormalizer';
 import { getFiscalYears } from '../utils/fiscalYear';
+import { normalizeScore } from '../utils/scoreNormalizer';
 
 export function getCurrentFY(): string {
   const today = new Date();
@@ -35,29 +36,22 @@ export const IP_CONFIG = {
   highThreshold: 75,
   mediumThreshold: 50,
   lowThreshold: 50,
-  highMidpoint: 95,
-  mediumMidpoint: 82.5,
-  lowMidpoint: 62.5,
-  penaltyPerLowExtreme: 25,
   penaltyEnabled: false,
 };
 
 
 
-export function classifyBucket(score: number): 'HIGH' | 'MEDIUM' | 'LOW' {
-  if (score >= IP_CONFIG.highThreshold) return 'HIGH';
-  if (score >= IP_CONFIG.mediumThreshold) return 'MEDIUM';
+export function classifyBucket(score: number): 'ELITE' | 'HIGH' | 'MEDIUM' | 'LOW' {
+  if (score > 90) return 'ELITE';
+  if (score >= 75) return 'HIGH';
+  if (score >= 50) return 'MEDIUM';
   return 'LOW';
 }
 
-export function calculateWeightedScore(h: number, m: number, l: number, total: number): number {
+export function calculateWeightedScore(e: number, h: number, m: number, l: number, total: number): number {
   if (total === 0) return 0;
-  let score = ((h * IP_CONFIG.highMidpoint) + (m * IP_CONFIG.mediumMidpoint) + (l * IP_CONFIG.lowMidpoint)) / total;
-  if (IP_CONFIG.penaltyEnabled && IP_CONFIG.penaltyPerLowExtreme > 0) {
-    // subtract penalty per Low element ? Or extreme lows ? We use `l`
-    score -= (l * IP_CONFIG.penaltyPerLowExtreme);
-  }
-  return score;
+  // Summary score for Overview KPIs
+  return ((e * 98) + (h * 85) + (m * 65) + (l * 35)) / total;
 }
 
 
@@ -68,16 +62,21 @@ export function normalizeToIPRecords(ds: UnifiedRecord[]): IPRecord[] {
   ds.forEach(r => {
     if (r.attendance.attendanceStatus !== 'Present') return;
     // Prefer schema camelCase keys, fallback to legacy Title Case if needed.
-    const s = r.score?.scores?.['score'] ?? 
-              r.score?.scores?.['percent'] ?? 
-              r.score?.scores?.['tScore'] ?? 
-              r.score?.scores?.['Percent'] ?? 
-              r.score?.scores?.['T Score'] ?? 
-              r.score?.scores?.['Score'] ??
-              r.score?.scores?.['testScore'] ??
-              r.score?.scores?.['test'] ??
-              r.score?.scores?.['knowledgeScore'] ??
-              r.score?.scores?.['scienceScore'];
+    const s = normalizeScore(
+      r.score?.scores?.['percent'] ?? 
+      r.score?.scores?.['Percent'] ?? 
+      r.score?.scores?.['tScore'] ?? 
+      r.score?.scores?.['T Score'] ?? 
+      r.score?.scores?.['detailing'] ??
+      r.score?.scores?.['Detailing'] ??
+      r.score?.scores?.['score'] ?? 
+      r.score?.scores?.['Score'] ??
+      r.score?.scores?.['testScore'] ??
+      r.score?.scores?.['test'] ??
+      r.score?.scores?.['knowledgeScore'] ??
+      r.score?.scores?.['scienceScore']
+    );
+
     if (s == null) return;
     
     // Normalize team name to match map keys reliably
@@ -123,69 +122,73 @@ export function buildIPAggregates(ds: UnifiedRecord[]): IPAggregates {
 
     // ---- CLUSTER LEVEL ----
     if (!clusterMonthMap[cluster]) {
-      clusterMonthMap[cluster] = { total: 0, high: 0, medium: 0, low: 0, months: {} };
+      clusterMonthMap[cluster] = { total: 0, elite: 0, high: 0, medium: 0, low: 0, months: {} };
     }
     if (!clusterMonthMap[cluster].months[month]) {
-      clusterMonthMap[cluster].months[month] = { high: 0, medium: 0, low: 0, total: 0 };
+      clusterMonthMap[cluster].months[month] = { elite: 0, high: 0, medium: 0, low: 0, total: 0 };
     }
 
     clusterMonthMap[cluster].total += 1;
     clusterMonthMap[cluster].months[month].total += 1;
 
-    if (bucket === 'HIGH') { clusterMonthMap[cluster].high++; clusterMonthMap[cluster].months[month].high++; }
-    if (bucket === 'MEDIUM') { clusterMonthMap[cluster].medium++; clusterMonthMap[cluster].months[month].medium++; }
-    if (bucket === 'LOW') { clusterMonthMap[cluster].low++; clusterMonthMap[cluster].months[month].low++; }
+    if (bucket === 'ELITE') { clusterMonthMap[cluster].elite++; clusterMonthMap[cluster].months[month].elite++; }
+    else if (bucket === 'HIGH') { clusterMonthMap[cluster].high++; clusterMonthMap[cluster].months[month].high++; }
+    else if (bucket === 'MEDIUM') { clusterMonthMap[cluster].medium++; clusterMonthMap[cluster].months[month].medium++; }
+    else if (bucket === 'LOW') { clusterMonthMap[cluster].low++; clusterMonthMap[cluster].months[month].low++; }
 
     // ---- TEAM LEVEL ----
     if (!teamMonthMap[cluster]) teamMonthMap[cluster] = {};
     if (!teamMonthMap[cluster][team]) {
-      teamMonthMap[cluster][team] = { total: 0, high: 0, medium: 0, low: 0, months: {} };
+      teamMonthMap[cluster][team] = { total: 0, elite: 0, high: 0, medium: 0, low: 0, months: {} };
     }
     if (!teamMonthMap[cluster][team].months[month]) {
-      teamMonthMap[cluster][team].months[month] = { high: 0, medium: 0, low: 0, total: 0 };
+      teamMonthMap[cluster][team].months[month] = { elite: 0, high: 0, medium: 0, low: 0, total: 0 };
     }
 
     teamMonthMap[cluster][team].total += 1;
     teamMonthMap[cluster][team].months[month].total += 1;
 
-    if (bucket === 'HIGH') { teamMonthMap[cluster][team].high++; teamMonthMap[cluster][team].months[month].high++; }
-    if (bucket === 'MEDIUM') { teamMonthMap[cluster][team].medium++; teamMonthMap[cluster][team].months[month].medium++; }
-    if (bucket === 'LOW') { teamMonthMap[cluster][team].low++; teamMonthMap[cluster][team].months[month].low++; }
+    if (bucket === 'ELITE') { teamMonthMap[cluster][team].elite++; teamMonthMap[cluster][team].months[month].elite++; }
+    else if (bucket === 'HIGH') { teamMonthMap[cluster][team].high++; teamMonthMap[cluster][team].months[month].high++; }
+    else if (bucket === 'MEDIUM') { teamMonthMap[cluster][team].medium++; teamMonthMap[cluster][team].months[month].medium++; }
+    else if (bucket === 'LOW') { teamMonthMap[cluster][team].low++; teamMonthMap[cluster][team].months[month].low++; }
   });
 
   // KPI Calculations
   const totalCandidates = dedupedRecords.length;
-  let gH = 0, gM = 0, gL = 0;
+  let gE = 0, gH = 0, gM = 0, gL = 0;
   dedupedRecords.forEach(r => {
-    if (r.bucket === 'HIGH') gH++;
+    if (r.bucket === 'ELITE') gE++;
+    else if (r.bucket === 'HIGH') gH++;
     else if (r.bucket === 'MEDIUM') gM++;
     else gL++;
   });
   
-  const hPct = totalCandidates > 0 ? (gH / totalCandidates) * 100 : 0;
+  const hPct = totalCandidates > 0 ? ((gE + gH) / totalCandidates) * 100 : 0;
   const mPct = totalCandidates > 0 ? (gM / totalCandidates) * 100 : 0;
   const lPct = totalCandidates > 0 ? (gL / totalCandidates) * 100 : 0;
-  const gScore = calculateWeightedScore(gH, gM, gL, totalCandidates);
+  const gScore = calculateWeightedScore(gE, gH, gM, gL, totalCandidates);
 
   return {
     clusterMonthMap,
     teamMonthMap,
     globalKPIs: {
       totalCandidates,
-      highPct: hPct,
-      medPct: mPct,
-      lowPct: lPct,
+      elitePct: totalCandidates > 0 ? (gE / totalCandidates) * 100 : 0,
+      highPct: totalCandidates > 0 ? (gH / totalCandidates) * 100 : 0,
+      medPct: totalCandidates > 0 ? (gM / totalCandidates) * 100 : 0,
+      lowPct: totalCandidates > 0 ? (gL / totalCandidates) * 100 : 0,
       weightedScore: gScore,
       bestTeam: Object.keys(teamMonthMap).length > 0 
         ? Object.entries(teamMonthMap).reduce((best, [cluster, teams]) => {
-            const teamScores = Object.entries(teams).map(([name, data]) => ({ name, score: calculateWeightedScore(data.high, data.medium, data.low, data.total) }));
+            const teamScores = Object.entries(teams).map(([name, data]) => ({ name, score: calculateWeightedScore(data.elite, data.high, data.medium, data.low, data.total) }));
             const localBest = teamScores.sort((a, b) => b.score - a.score)[0];
             return !best || localBest.score > best.score ? localBest : best;
           }, null as any)?.name || '—' 
         : '—', 
       worstTeam: Object.keys(teamMonthMap).length > 0 
         ? Object.entries(teamMonthMap).reduce((worst, [cluster, teams]) => {
-            const teamScores = Object.entries(teams).map(([name, data]) => ({ name, score: calculateWeightedScore(data.high, data.medium, data.low, data.total) }));
+            const teamScores = Object.entries(teams).map(([name, data]) => ({ name, score: calculateWeightedScore(data.elite, data.high, data.medium, data.low, data.total) }));
             const localWorst = teamScores.sort((a, b) => a.score - b.score)[0];
             return !worst || localWorst.score < worst.score ? localWorst : worst;
           }, null as any)?.name || '—' 
@@ -197,13 +200,13 @@ export function buildIPAggregates(ds: UnifiedRecord[]): IPAggregates {
 
 // ─── RANKING CONFIG ───────────────────────────────────────────────
 export const IP_RANK_CONFIG = {
-  bucketA: 90,    // ≥90
-  bucketB: 75,    // 75–89
-  bucketC: 50,    // 50–74
-  weightA: 95,
-  weightB: 82.5,
-  weightC: 62.5,
-  penaltyD: 25,   // <50
+  bucketElite: 90,    // >90%
+  bucketHigh: 75,     // 75–90%
+  bucketMedium: 50,   // 50–75%
+  weightElite: 95,
+  weightHigh: 82.5,
+  weightMedium: 62.5,
+  penaltyLow: 25,     // <50%
 };
 
 // Competition ranking: same score → same rank, next rank skips
@@ -253,15 +256,17 @@ export function buildIPMonthlyTeamRanks(ds: UnifiedRecord[], fyMonths?: string[]
     }
 
     // Score: prefer schema camelCase keys → fallback to legacy Title Case
-    const rawScore = Number(
-      r.score?.scores?.['score'] ??
+    const rawScore = normalizeScore(
       r.score?.scores?.['percent'] ??
-      r.score?.scores?.['tScore'] ??
-      r.score?.scores?.['Score'] ??
       r.score?.scores?.['Percent'] ??
+      r.score?.scores?.['tScore'] ??
       r.score?.scores?.['T Score'] ??
+      r.score?.scores?.['detailing'] ??
+      r.score?.scores?.['Detailing'] ??
+      r.score?.scores?.['score'] ??
+      r.score?.scores?.['Score'] ??
       0
-    );
+    ) || 0;
 
     const key = `${month}__${team}`;
     if (!monthTeamMap[key]) {
@@ -270,24 +275,31 @@ export function buildIPMonthlyTeamRanks(ds: UnifiedRecord[], fyMonths?: string[]
 
     const t = monthTeamMap[key];
     t.total++;
-    if (rawScore >= IP_RANK_CONFIG.bucketA)      t.a90++;
-    else if (rawScore >= IP_RANK_CONFIG.bucketB) t.b75++;
-    else if (rawScore >= IP_RANK_CONFIG.bucketC) t.c50++;
-    else                                          t.dBelow50++;
+    if (rawScore > IP_RANK_CONFIG.bucketElite)        t.a90++;
+    else if (rawScore >= IP_RANK_CONFIG.bucketHigh)   t.b75++;
+    else if (rawScore >= IP_RANK_CONFIG.bucketMedium) t.c50++;
+    else                                              t.dBelow50++;
   });
 
   // ── STEP 3: Calculate weighted score per team-month ──
-  const monthlyList: IPMonthlyTeamRank[] = Object.values(monthTeamMap).map(t => ({
-    ...t,
-    score: t.total === 0
-      ? 0
-      : Math.round(
-          (t.a90   * IP_RANK_CONFIG.weightA +
-           t.b75   * IP_RANK_CONFIG.weightB +
-           t.c50   * IP_RANK_CONFIG.weightC -
-           t.dBelow50 * IP_RANK_CONFIG.penaltyD) / t.total
-        )
-  }));
+  const monthlyList: IPMonthlyTeamRank[] = Object.values(monthTeamMap).map(t => {
+    // PART 5 - New SUM-based score (no division by total)
+    const finalScore = (t.a90   * IP_RANK_CONFIG.weightElite) +
+                       (t.b75   * IP_RANK_CONFIG.weightHigh) +
+                       (t.c50   * IP_RANK_CONFIG.weightMedium) -
+                       (t.dBelow50 * IP_RANK_CONFIG.penaltyLow);
+
+    // PART 5 - DEBUG LOGGING
+    console.log(`[IP Rank] Team: ${t.team}, Month: ${t.month}`, {
+      eliteCount: t.a90,
+      highCount: t.b75,
+      mediumCount: t.c50,
+      lowCount: t.dBelow50,
+      finalScore
+    });
+
+    return { ...t, score: finalScore };
+  });
 
   // ── STEP 4: Group by month → apply competition ranking independently ──
   const monthGroups: Record<string, IPMonthlyTeamRank[]> = {};

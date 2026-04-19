@@ -1,4 +1,5 @@
 import { normalizeText } from '../utils/textNormalizer';
+import { normalizeScore } from '../utils/scoreNormalizer';
 
 /**
  * Robust Training Type Normalizer (STRICT)
@@ -162,21 +163,28 @@ export function calcIP(recs: UnifiedRecord[]) {
   const p = recs.filter(r => r.attendance.attendanceStatus === 'Present');
   let h = 0, med = 0, l = 0;
   p.forEach(r => {
-    const s = r.score?.scores?.['score'] ?? 
-              r.score?.scores?.['percent'] ?? 
-              r.score?.scores?.['tScore'] ?? 
-              r.score?.scores?.['Score'] ?? 
-              r.score?.scores?.['Percent'] ?? 
-              r.score?.scores?.['T Score'] ??
-              r.score?.scores?.['testScore'] ??
-              r.score?.scores?.['test'] ??
-              r.score?.scores?.['knowledgeScore'] ??
-              r.score?.scores?.['scienceScore'];
-    if (s != null) {
+    // Extraction list for IP scores: strictly follow schema + common variations
+    const s = normalizeScore(
+      r.score?.scores?.['percent'] ?? 
+      r.score?.scores?.['Percent'] ??
+      r.score?.scores?.['tScore'] ?? 
+      r.score?.scores?.['T Score'] ??
+      r.score?.scores?.['detailing'] ??
+      r.score?.scores?.['Detailing'] ??
+      r.score?.scores?.['score'] ?? 
+      r.score?.scores?.['Score'] ??
+      r.score?.scores?.['testScore'] ??
+      r.score?.scores?.['test'] ??
+      r.score?.scores?.['knowledgeScore'] ??
+      r.score?.scores?.['scienceScore']
+    );
+
+    if (s !== null) {
       if (s >= 75) h++;
       else if (s >= 50) med++;
       else l++;
-    } else l++;
+    }
+    // else: skip missing scores instead of counting as 'low'
   });
   const t = h + med + l;
   return {
@@ -184,7 +192,7 @@ export function calcIP(recs: UnifiedRecord[]) {
     high: h,
     medium: med,
     low: l,
-    weighted: t > 0 ? ((h * 95) + (med * 82.5) + (l * 62.5)) / t : 0,
+    weighted: t > 0 ? ((h * 95) + (med * 75) + (l * 40)) / t : 0, // Adjusted midpoints for realism
     highPct: t > 0 ? (h / t) * 100 : 0
   };
 }

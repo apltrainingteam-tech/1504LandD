@@ -43,6 +43,7 @@ import { Employee } from './types/employee';
 import { Attendance, TrainingScore, TrainingNomination, Demographics as DemoType } from './types/attendance';
 import { parseAnyDate } from './utils/dateParser';
 import { getSchema } from './services/trainingSchemas';
+import { normalizeScore } from './utils/scoreNormalizer';
 
 type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'notified' | 'gap-analysis' | 'performance' | 'srm';
 
@@ -129,11 +130,9 @@ const App = () => {
           if (!source) return;
           schema.scoreFields.forEach(field => {
             const val = source[field];
-            if (val !== undefined && val !== null) {
-              const num = typeof val === 'number' ? val : parseFloat(val);
-              if (!isNaN(num)) {
-                scoresObj[field] = num;
-              }
+            const normalized = normalizeScore(val);
+            if (normalized !== null) {
+              scoresObj[field] = normalized;
             }
           });
 
@@ -142,9 +141,9 @@ const App = () => {
             const kl = k.toLowerCase();
             if ((kl.includes('score') || kl.includes('percent')) && !scoresObj[k]) {
               const val = source[k];
-              const num = typeof val === 'number' ? val : parseFloat(val);
-              if (!isNaN(num) && num !== null) {
-                scoresObj[k] = num;
+              const normalized = normalizeScore(val);
+              if (normalized !== null) {
+                scoresObj[k] = normalized;
               }
             }
           });
