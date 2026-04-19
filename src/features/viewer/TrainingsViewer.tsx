@@ -13,7 +13,7 @@ import { formatDateForDisplay } from '../../utils/dateParser';
 import { displayScore } from '../../utils/scoreNormalizer';
 import TopRightControls from '../../components/TopRightControls';
 import { GlobalFilters, getActiveFilterCount } from '../../context/filterContext';
-import { getPrimaryMetricRaw } from '../../services/reportService';
+import { getPrimaryMetricRaw, normalizeTrainingType } from '../../services/reportService';
 import { GlobalFilterPanel } from '../../components/GlobalFilterPanel';
 import { getFiscalYears, getFiscalYearFromDate } from '../../utils/fiscalYear';
 import { TEAM_CLUSTER_MAP } from '../../services/clusterMap';
@@ -27,21 +27,7 @@ const trainingTypeMap: Record<string, string> = {
   'CAPSULE': 'Capsule',
 };
 
-const normalizeTrainingType = (value?: string): string => {
-  if (!value) return '';
-  const upper = value.toUpperCase().trim();
-  // Standardize naming
-  if (upper === 'PRE_AP') return 'PreAP';
-  return trainingTypeMap[upper] || upper;
-};
-
-const normalizeType = (value?: string) => {
-  if (!value) return '';
-  const upper = value.toUpperCase().trim();
-  if (upper === 'PRE_AP') return 'PreAP';
-  if (upper === 'REFRESHER_SO' || upper === 'REFRESHER_MANAGER') return 'Refresher';
-  return upper;
-};
+const normalizeType = (value?: string) => normalizeTrainingType(value || '');
 
 // Zone lookup from state
 const getZoneFromState = (state?: string): string => {
@@ -75,10 +61,9 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
 
   // ─── SINGLE SOURCE OF TRUTH: FILTERED DATASET ──────────────────────────
   const filtered = useMemo(() => {
-    // 1. Filter by training type (normalized)
     const normalizedTab = normalizeTrainingType(tab);
-    let data = attendance.filter(a => normalizeType(a.trainingType) === tab);
-    const scs = scores.filter(s => normalizeType(s.trainingType) === tab);
+    let data = attendance.filter(a => normalizeTrainingType(a.trainingType) === normalizedTab);
+    const scs = scores.filter(s => normalizeTrainingType(s.trainingType) === normalizedTab);
     
     // Build initial unified dataset for this tab
     let ds = buildUnifiedDataset(employees, data, scs, []).map(r => {
@@ -211,7 +196,7 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
       <div style={{ marginBottom: '24px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
         {/* Training Type Tabs */}
         <Filters 
-          options={['IP', 'AP', 'MIP', 'Refresher', 'Capsule']} 
+          options={['IP', 'AP', 'MIP', 'REFRESHER', 'CAPSULE', 'PRE_AP']} 
           activeOption={tab} 
           onChange={setTab} 
         />

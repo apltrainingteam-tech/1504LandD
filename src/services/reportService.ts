@@ -1,4 +1,22 @@
-import { Employee } from '../types/employee';
+import { normalizeText } from '../utils/textNormalizer';
+
+/**
+ * Robust Training Type Normalizer (STRICT)
+ * Handles "Pre-AP", "Pre AP", "preap", "IP ", etc.
+ */
+export function normalizeTrainingType(type: string): string {
+  if (!type) return '';
+  const t = String(type).toLowerCase().replace(/[\s\-_]/g, '');
+
+  if (t.includes('ip')) return 'IP';
+  if (t.includes('ap') && !t.includes('pre')) return 'AP';
+  if (t.includes('pre')) return 'PRE_AP';
+  if (t.includes('mip')) return 'MIP';
+  if (t.includes('ref')) return 'REFRESHER';
+  if (t.includes('cap')) return 'CAPSULE';
+
+  return type.toUpperCase().trim();
+}
 import { Attendance, TrainingScore, TrainingNomination } from '../types/attendance';
 import { UnifiedRecord, GroupedData, ViewByOption, TimeSeriesRow, TrainerStat, DrilldownNode, ReportFilter, SCORE_SCHEMAS } from '../types/reports';
 import { EligibilityResult } from './eligibilityService';
@@ -27,26 +45,33 @@ export function buildUnifiedDataset(
 
   const scoreMap = new Map<string, TrainingScore>();
   for (const s of scs) {
-    const key = `${s.employeeId}::${s.trainingType}::${s.dateStr}`;
+    const tid = String(s.employeeId).trim();
+    const type = String(s.trainingType).toUpperCase();
+    const key = `${tid}::${type}::${s.dateStr}`;
     scoreMap.set(key, s);
   }
 
   const nominationMap = new Map<string, TrainingNomination>();
   for (const n of noms) {
-    const key = `${n.employeeId}::${n.trainingType}`;
+    const tid = String(n.employeeId).trim();
+    const type = String(n.trainingType).toUpperCase();
+    const key = `${tid}::${type}`;
     nominationMap.set(key, n);
   }
 
   const eligibilityMap = new Map<string, EligibilityResult>();
   for (const el of eligibilityResults) {
-    eligibilityMap.set(el.employeeId, el);
+    const tid = String(el.employeeId).trim();
+    eligibilityMap.set(tid, el);
   }
 
   return att.map(a => {
-    const empKey = a.employeeId;
-    const emp = empMap.get(empKey) || {
-      id: a.employeeId,
-      employeeId: a.employeeId,
+    const tid = String(a.employeeId).trim();
+    const type = normalizeTrainingType(a.trainingType);
+    
+    const emp = empMap.get(tid) || {
+      id: tid,
+      employeeId: tid,
       name: a.name || '—',
       team: a.team || '—',
       state: a.state || '-',
@@ -59,19 +84,19 @@ export function buildUnifiedDataset(
       status: 'Active' as const,
     };
 
-    const sc = scoreMap.get(`${a.employeeId}::${a.trainingType}::${a.attendanceDate}`) || null;
-    const nm = nominationMap.get(`${a.employeeId}::${a.trainingType}`) || null;
-    const el = eligibilityMap.get(a.employeeId);
+    const sc = scoreMap.get(`${tid}::${type}::${a.attendanceDate}`) || null;
+    const nm = nominationMap.get(`${tid}::${type}`) || null;
+    const el = eligibilityMap.get(tid);
 
     return {
       employee: emp as Employee,
-      attendance: a,
+      attendance: { ...a, trainingType: type },
       score: sc,
       nomination: nm,
       eligibilityStatus: el?.eligibilityStatus,
       eligibilityReason: el?.reasonIfNotEligible
     };
-  });
+  }).filter(r => r.employee);
 }
 
 // ─── FILTER ENGINE ─────────────────────────────────────────────────────────

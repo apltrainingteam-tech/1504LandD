@@ -11,7 +11,7 @@ import {
   buildUnifiedDataset, groupData, rankGroups,
   calcIP, calcAP, calcMIP, calcRefresher, calcCapsule, calcPreAP, calcGeneric,
   buildTimeSeries, calcTrainerStats, buildDrilldown,
-  getGapData, getPrimaryMetric, applyFilters, exportToCSV
+  getGapData, getPrimaryMetric, applyFilters, exportToCSV, normalizeTrainingType
 } from '../../services/reportService';
 import { buildIPAggregates, FISCAL_YEARS, getFiscalMonths, getCurrentFY, buildIPMonthlyTeamRanks } from '../../services/ipIntelligenceService';
 import { buildEmployeeTimelines, buildAPMonthlyMatrix, filterTimelines } from '../../services/apIntelligenceService';
@@ -44,7 +44,7 @@ import { flagScore, flagClass, flagLabel } from '../../utils/scoreNormalizer';
 import { normalizeText } from '../../utils/textNormalizer';
 import { useGroupedData, useRankedGroups, useTrainerStats, useDrilldownNodes, useTimeSeries, useGapMetrics, useMonthsFromData, useFilterOptions } from '../../utils/computationHooks';
 
-const ALL_TRAINING_TYPES = ['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'Pre_AP'];
+const ALL_TRAINING_TYPES = ['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'PRE_AP'];
 
 const FY_OPTIONS = getFiscalYears(2015);
 
@@ -106,7 +106,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
       MIP: getFYForType('MIP'),
       Refresher: getFYForType('Refresher'),
       Capsule: getFYForType('Capsule'),
-      Pre_AP: getFYForType('Pre_AP')
+      PRE_AP: getFYForType('PRE_AP')
     };
   });
   
@@ -215,32 +215,43 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
   const { allTeams, allTrainers } = useFilterOptions(employees, attendance);
   const allClusters = useMemo(() => [...new Set(Object.values(TEAM_CLUSTER_MAP).filter((c): c is string => Boolean(c)))].sort(), []);
 
-  const normalizeType = (value?: string) => (value || '').toUpperCase();
+  const normalizeType = (value?: string) => normalizeTrainingType(value || '');
 
   // Build filtered base dataset for current tab
   const rawUnified = useMemo(() => {
-    const att = attendance.filter(a => normalizeType(a.trainingType) === tab);
-    const scs = scores.filter(s => normalizeType(s.trainingType) === tab);
-    const noms = nominations.filter(n => normalizeType(n.trainingType) === tab);
-    const rule = rules.find(r => normalizeType(r.trainingType) === tab);
+    const normalizedTab = normalizeType(tab);
+    const att = attendance.filter(a => normalizeType(a.trainingType) === normalizedTab);
+    const scs = scores.filter(s => normalizeType(s.trainingType) === normalizedTab);
+    const noms = nominations.filter(n => normalizeType(n.trainingType) === normalizedTab);
+    const rule = rules.find(r => normalizeType(r.trainingType) === normalizedTab);
+    
+    console.log(`📊 [REPORTS-UI] Mode=${pageMode}, Tab=${tab}, RawAtt=${attendance.length}, TabAtt=${att.length}, TabScores=${scs.length}`);
+    
     const eligResults = getEligibleEmployees(tab as TrainingType, rule, employees, attendance, nominations);
-    return buildUnifiedDataset(employees, att, scs, noms, eligResults).map(r => {
+    const unifiedRes = buildUnifiedDataset(employees, att, scs, noms, eligResults).map(r => {
       if (r.employee) {
-        r.employee = { ...r.employee, state: clusterMapping[r.employee.team] || r.employee.state };
+        r.employee = { ...r.employee, state: clusterMapping[normalizeText(r.employee.team)] || r.employee.state };
       }
       return r;
     });
-  }, [tab, attendance, scores, nominations, employees, rules, clusterMapping]);
+
+    console.log(`📊 [REPORTS-UI] Unified Dataset Size: ${unifiedRes.length}`);
+    return unifiedRes;
+  }, [tab, attendance, scores, nominations, employees, rules, clusterMapping, pageMode]);
 
   const unified = useMemo(() => {
     let ds = applyFilters(rawUnified, filter);
     // Apply Fiscal Year filter (MONTHS) to unified dataset for relevant training types
-    if (['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'Pre_AP'].includes(tab)) {
+    if (['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'PRE_AP'].includes(tab)) {
       ds = ds.filter(r => {
         const m = r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7);
         return MONTHS.includes(m);
       });
     }
+    
+    console.log(`📊 [REPORTS-UI] Training Types Found:`, [...new Set(rawUnified.map(r => r.attendance.trainingType))]);
+    console.log(`📊 [REPORTS-UI] Active Tab: ${tab}, Final Filtered Count: ${ds.length}`);
+    
     return ds;
   }, [rawUnified, filter, tab, MONTHS]);
 

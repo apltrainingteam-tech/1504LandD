@@ -84,23 +84,33 @@ const App = () => {
 
       (trainingDataRaw as any[]).forEach((row) => {
         if (!row) return;
+
+        // UNWRAP: Some records might be nested in 'mapped' or 'data' due to enrichment/legacy storage
+        const r = row.mapped || row.data || row;
         
+        // Ensure root-level fields like attendanceDate/trainingType are preserved if they were outside 'mapped'
+        const attendanceDate = r.attendanceDate || row.attendanceDate;
+        const trainingType = r.trainingType || row.trainingType;
+        const employeeId = r.employeeId || r.aadhaarNumber || row.employeeId || row.aadhaarNumber;
+        
+        if (!employeeId) return;
+
         // Populate Attendance
-        if (row.attendanceDate) {
+        if (attendanceDate) {
           a.push({
             id: row._id || Math.random().toString(),
-            employeeId: row.employeeId,
-            trainingType: row.trainingType,
-            attendanceDate: row.attendanceDate,
-            attendanceStatus: row.attendanceStatus || 'Present',
-            employeeStatus: row.employeeStatus || 'Active',
-            aadhaarNumber: row.aadhaarNumber,
-            mobileNumber: row.mobileNumber,
-            name: row.name,
-            team: row.team,
-            designation: row.designation,
-            hq: row.hq,
-            state: row.state,
+            employeeId: String(employeeId),
+            trainingType: trainingType,
+            attendanceDate: attendanceDate,
+            attendanceStatus: r.attendanceStatus || 'Present',
+            employeeStatus: r.employeeStatus || 'Active',
+            aadhaarNumber: r.aadhaarNumber || row.aadhaarNumber,
+            mobileNumber: r.mobileNumber || row.mobileNumber,
+            name: r.name || row.name,
+            team: r.team || row.team,
+            designation: r.designation || row.designation,
+            hq: r.hq || row.hq,
+            state: r.state || row.state,
           } as Attendance);
         }
 
@@ -109,37 +119,38 @@ const App = () => {
         
         const scoresObj: Record<string, number> = {};
         scoreKeys.forEach(k => {
-          if (row[k] !== undefined && row[k] !== null) {
-            scoresObj[k.replace('Score', '')] = row[k];
+          const val = r[k] !== undefined ? r[k] : row[k];
+          if (val !== undefined && val !== null) {
+            scoresObj[k.replace('Score', '')] = val;
           }
         });
 
         if (Object.keys(scoresObj).length > 0) {
           s.push({
             id: row._id || Math.random().toString(),
-            employeeId: row.employeeId,
-            trainingType: row.trainingType,
-            dateStr: row.attendanceDate,
+            employeeId: String(employeeId),
+            trainingType: trainingType,
+            dateStr: attendanceDate,
             scores: scoresObj
           } as TrainingScore);
         }
 
         // Populate Nominations
-        if (row.trainingType === 'PreAP' || row.notified) {
+        if (trainingType === 'PreAP' || r.notified || row.notified) {
           n.push({
             id: row._id || Math.random().toString(),
-            employeeId: row.employeeId,
-            trainingType: row.trainingType,
-            notificationDate: row.apDate || row.attendanceDate || '',
-            month: (row.apDate || row.attendanceDate || '').substring(0, 7),
+            employeeId: String(employeeId),
+            trainingType: trainingType,
+            notificationDate: r.apDate || attendanceDate || '',
+            month: (r.apDate || attendanceDate || '').substring(0, 7),
             notificationCount: 1,
-            aadhaarNumber: row.aadhaarNumber || '',
-            mobileNumber: row.mobileNumber || '',
-            name: row.name || '',
-            designation: row.designation || '',
-            team: row.team || '',
-            hq: row.hq || '',
-            state: row.state || '',
+            aadhaarNumber: r.aadhaarNumber || row.aadhaarNumber || '',
+            mobileNumber: r.mobileNumber || row.mobileNumber || '',
+            name: r.name || row.name || '',
+            designation: r.designation || row.designation || '',
+            team: r.team || row.team || '',
+            hq: r.hq || row.hq || '',
+            state: r.state || row.state || '',
           } as TrainingNomination);
         }
       });
