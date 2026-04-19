@@ -18,16 +18,34 @@ async function initializeConnection(): Promise<Db> {
     }
 
     console.log('Initializing MongoDB connection...');
-    mongoClient = new MongoClient(MONGO_URI);
+    const mongoOptions = {
+      retryWrites: true,
+      w: 'majority',
+      serverSelectionTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
+      connectTimeoutMS: 15000,
+      tls: true,
+      tlsAllowInvalidCertificates: true,
+      tlsAllowInvalidHostnames: true,
+      ssl: true,
+    };
+    
+    console.log('[MONGO] Connecting to:', MONGO_URI);
+    mongoClient = new MongoClient(MONGO_URI, mongoOptions);
+    
+    console.log('[MONGO] Calling connect...');
     await mongoClient.connect();
+    console.log('[MONGO] Connected successfully');
+    
     mongoDb = mongoClient.db(DB_NAME);
     
     // Verify connection
+    console.log('[MONGO] Running ping...');
     await mongoDb.admin().ping();
-    console.log('MongoDB connected successfully to database:', DB_NAME);
+    console.log('✅ MongoDB connected successfully to database:', DB_NAME);
     return mongoDb;
   } catch (error) {
-    console.error('Failed to connect to MongoDB:', error);
+    console.error('❌ Failed to connect to MongoDB:', error);
     throw error;
   }
 }

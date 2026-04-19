@@ -117,16 +117,20 @@ export async function addBatch(path: string, items: any[]): Promise<void> {
       if (doc.id && !doc._id) {
         doc._id = doc.id;
       }
+      // Convert string _id to ObjectId if valid, otherwise use as-is
+      const _id = doc._id || new ObjectId();
+      const filter = { _id: (typeof _id === 'string' && ObjectId.isValid(_id)) ? new ObjectId(_id) : _id };
+      
       return {
         updateOne: {
-          filter: { _id: doc._id || new ObjectId() },
+          filter,
           update: { $set: doc },
           upsert: true
         }
       };
     });
 
-    await collection.bulkWrite(operations);
+    await collection.bulkWrite(operations as any);
     console.log(`Successfully batch wrote ${items.length} items to ${path}`);
   } catch (error) {
     console.error(`Error batch writing to ${path}:`, error);
@@ -188,11 +192,11 @@ export async function upsertDoc(
     const collection = await getCollection_internal(path);
     const doc = { ...data };
     
-    // Use provided id or generate new ObjectId
-    const _id = id || new ObjectId().toString();
+    // Use provided id or generate new ObjectId - convert to ObjectId for _id queries
+    const _id = id ? (ObjectId.isValid(id) ? new ObjectId(id) : id) : new ObjectId();
     
     await collection.updateOne(
-      { _id },
+      { _id } as any,
       { $set: doc },
       { upsert: true }
     );
@@ -212,7 +216,9 @@ export async function deleteDocument(path: string, id: string): Promise<void> {
   console.log(`Deleting document ${id} from ${path}`);
   try {
     const collection = await getCollection_internal(path);
-    await collection.deleteOne({ _id: id });
+    // Convert string to ObjectId for _id queries if valid, otherwise use as filter
+    const _id = ObjectId.isValid(id) ? new ObjectId(id) : id;
+    await collection.deleteOne({ _id } as any);
     console.log(`Successfully deleted document ${id} from ${path}`);
   } catch (error) {
     console.error(`Error deleting document ${id} from ${path}:`, error);
@@ -248,7 +254,9 @@ export async function getDocumentById(path: string, id: string): Promise<any> {
   console.log(`Fetching document ${id} from ${path}`);
   try {
     const collection = await getCollection_internal(path);
-    const doc = await collection.findOne({ _id: id });
+    // Convert string to ObjectId for _id queries if valid, otherwise use as filter
+    const _id = ObjectId.isValid(id) ? new ObjectId(id) : id;
+    const doc = await collection.findOne({ _id } as any);
     
     if (!doc) {
       console.log(`Document ${id} not found in ${path}`);
@@ -276,7 +284,7 @@ export async function insertDocument(path: string, data: any): Promise<string> {
     
     // If no _id provided, MongoDB will generate one
     const result = await collection.insertOne(doc);
-    const insertedId = result.insertedId?.toString?.() || result.insertedId;
+    const insertedId = (result.insertedId instanceof ObjectId) ? result.insertedId.toString() : String(result.insertedId);
     
     console.log(`Successfully inserted document ${insertedId} into ${path}`);
     return insertedId;
@@ -285,6 +293,7 @@ export async function insertDocument(path: string, data: any): Promise<string> {
     throw error;
   }
 }
+
 
 /**
  * FIND BY QUERY (MongoDB)

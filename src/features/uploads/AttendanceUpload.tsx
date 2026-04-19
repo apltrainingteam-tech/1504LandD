@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { UploadCloud, CheckCircle, X, Check, AlertTriangle, XCircle, Upload, Info } from 'lucide-react';
+import { UploadCloud, CheckCircle, X, Check, AlertTriangle, XCircle, Upload, Info, Download } from 'lucide-react';
 import { parseExcelFile, ParsedRow } from '../../services/parsingService';
 import { uploadAttendanceData, UploadProgressState, UploadResult } from '../../services/attendanceUploadService';
 import { UploadPreview } from './components/UploadPreview';
@@ -7,6 +7,8 @@ import { UploadProgressIndicator } from '../../components/UploadProgressIndicato
 import { UploadResultSummary } from '../../components/UploadResultSummary';
 import { getSchema } from '../../services/trainingSchemas';
 import { validateFileSize, MAX_UPLOAD_SIZE_BYTES } from '../../utils/fileValidation';
+import { getTemplate, generateSampleTemplateData } from '../../services/uploadTemplates';
+import * as XLSX from 'xlsx';
 
 import { Employee } from '../../types/employee';
 
@@ -92,6 +94,32 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
       processFile(f);
     }
   }, [processFile]);
+
+  // ✅ DOWNLOAD TEMPLATE HANDLER
+  const handleDownloadTemplate = useCallback(() => {
+    try {
+      const template = getTemplate(selectedUploadType);
+      const sampleData = generateSampleTemplateData(selectedUploadType, 5);
+      
+      // Create workbook with template and sample data
+      const wsData = [
+        template.columns.map(col => col.excelHeader),
+        template.columns.map(col => col.description),
+        ...sampleData.map(row => template.columns.map(col => row[col.excelHeader]))
+      ];
+      
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Template');
+      
+      // Save file
+      XLSX.writeFile(wb, template.fileName);
+      console.log(`[UI] Downloaded template: ${template.fileName}`);
+    } catch (err: any) {
+      alert(`Failed to download template: ${err.message}`);
+      console.error(err);
+    }
+  }, [selectedUploadType]);
 
   const doUpload = useCallback(async () => {
     try {
@@ -458,6 +486,18 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
         <input id="file-input" type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={handleFileInput} />
       </div>
 
+      {/* ✅ DOWNLOAD TEMPLATE BUTTON */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: '24px', gap: '12px' }}>
+        <button 
+          className="btn btn-secondary"
+          onClick={handleDownloadTemplate}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px' }}
+        >
+          <Download size={18} />
+          📥 Download {selectedUploadType} Template
+        </button>
+      </div>
+
       {/* DATA STANDARDS — Dynamic based on selected training type */}
       <div className="glass-panel mt-8" style={{ padding: '24px' }}>
         <h4 style={{ fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '16px', letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -466,11 +506,43 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
 
         {/* Required base fields */}
         <div style={{ marginBottom: '14px' }}>
-          <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: 600 }}>Required Fields</div>
+          <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: 600 }}>Required Columns</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-            {['Aadhaar Number', 'Employee ID', 'Mobile Number', 'Name', 'Trainer', 'Team', 'Designation', 'HQ', 'State', 'Attendance Date', 'Attendance Status'].map(tag => (
-              <span key={tag} className="badge badge-info">{tag}</span>
-            ))}
+            {(() => {
+              try {
+                const template = getTemplate(selectedUploadType);
+                return template.columns
+                  .filter(col => col.required)
+                  .map(col => (
+                    <span key={col.excelHeader} className="badge badge-danger">
+                      {col.excelHeader}
+                    </span>
+                  ));
+              } catch {
+                return <span className="text-muted">Template not available</span>;
+              }
+            })()}
+          </div>
+        </div>
+
+        {/* Optional columns */}
+        <div style={{ marginBottom: '14px' }}>
+          <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: 600 }}>Optional Columns</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+            {(() => {
+              try {
+                const template = getTemplate(selectedUploadType);
+                return template.columns
+                  .filter(col => !col.required)
+                  .map(col => (
+                    <span key={col.excelHeader} className="badge badge-info">
+                      {col.excelHeader}
+                    </span>
+                  ));
+              } catch {
+                return <span className="text-muted">Template not available</span>;
+              }
+            })()}
           </div>
         </div>
 
@@ -481,7 +553,7 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
           if (scoreLabels.length === 0) return null;
           return (
             <div style={{ marginBottom: '14px' }}>
-              <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: 600 }}>Score Fields</div>
+              <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: 600 }}>Score Fields (Legacy)</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {scoreLabels.map(label => (
                   <span key={label} className="badge" style={{ background: 'rgba(34,45,104,0.15)', color: 'var(--accent-primary)', border: '1px solid rgba(34,45,104,0.3)' }}>{label}</span>
@@ -491,9 +563,10 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
           );
         })()}
 
-        <p className="text-muted" style={{ fontSize: '13px', marginTop: '12px' }}>
-          Our intelligence layer automatically maps headers, parses disparate date formats, and normalizes scoring data.
-          Rows with missing dates will be rejected. Missing identity markers or scores will trigger warnings.
+        <p className="text-muted" style={{ fontSize: '13px', marginTop: '12px', lineHeight: '1.6' }}>
+          <strong>✅ Strict Template Validation:</strong> Your file MUST use exact column headers from the official template. 
+          Download the template using the button above to ensure your columns match exactly. 
+          Missing required columns will be rejected with clear error messages.
         </p>
       </div>
     </div>

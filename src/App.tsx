@@ -29,7 +29,7 @@ const logoUrl = new URL('./assets/ajanta-pharma-logo.svg', import.meta.url).href
 // Feature Pages
 import { ReportsAnalytics } from './features/dashboard/ReportsAnalytics';
 import { TrainingsViewer } from './features/viewer/TrainingsViewer';
-import { AttendanceUpload } from './features/uploads/AttendanceUpload';
+import { AttendanceUploadStrict } from './features/uploads/AttendanceUploadStrict';
 import { Employees } from './features/employees/Employees';
 import { Demographics } from './features/eligibility/Demographics';
 import { Notified } from './features/notifications/Notified';
@@ -134,7 +134,7 @@ const App = () => {
       case 'performance': return <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} pageMode="performance-insights" />;
       case 'srm': return <RecruitmentQuality employees={emps} attendance={att} scores={scs} />;
       case 'trainings': return <TrainingsViewer employees={emps} attendance={att} scores={scs} />;
-      case 'attendance': return <AttendanceUpload onUploadComplete={() => setRefreshKey(k => k + 1)} masterEmployees={emps} />;
+      case 'attendance': return <AttendanceUploadStrict onUploadComplete={() => setRefreshKey(k => k + 1)} />;
       case 'notified': return <Notified employees={emps} attendance={att} nominations={noms} onUploadComplete={() => setRefreshKey(k => k + 1)} />;
       case 'employees': return <Employees employees={emps} onUploadComplete={() => setRefreshKey(k => k + 1)} />;
       case 'demographics': return <Demographics />;

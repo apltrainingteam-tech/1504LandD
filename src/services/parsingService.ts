@@ -4,6 +4,7 @@ import { normalizeScore } from '../utils/scoreNormalizer';
 import { normalizeText } from '../utils/textNormalizer';
 import { normalizeTrainerName, standardizeTrainer } from '../utils/trainerMapper';
 import { getSchema, mapHeader } from './trainingSchemas';
+import { buildTemplateColumnMap, validateRowAgainstTemplate, getTemplate } from './uploadTemplates';
 import { STATE_ZONE } from '../seed/masterData';
 import { getFiscalYearFromDate } from '../utils/fiscalYear';
 
@@ -14,6 +15,48 @@ export interface ParsedRow {
   status: 'valid' | 'warn' | 'error';
   messages: string[];
   rowNum: number;
+}
+
+// ─── STRICT TEMPLATE VALIDATION ─────────────────────────────────────────────
+/**
+ * Validates Excel headers against template requirements
+ * Returns: { valid, errors, columnMap }
+ */
+export function validateHeadersAgainstTemplate(
+  excelHeaders: string[],
+  trainingType: string
+): { valid: boolean; errors: string[]; columnMap: Record<string, string> } {
+  const template = getTemplate(trainingType);
+  const errors: string[] = [];
+  const columnMap: Record<string, string> = {};
+
+  // Build set of required headers (exact match)
+  const requiredHeaders = new Set(template.columns.map(col => col.excelHeader));
+  
+  // Find missing required headers
+  template.columns.forEach(col => {
+    const found = excelHeaders.some(h => h.trim() === col.excelHeader);
+    if (!found && col.required) {
+      errors.push(
+        `❌ Required column missing: "${col.excelHeader}". ` +
+        `Make sure you're using the official template.`
+      );
+    }
+  });
+
+  // Build column map (strict matching)
+  template.columns.forEach(col => {
+    const found = excelHeaders.find(h => h.trim() === col.excelHeader);
+    if (found) {
+      columnMap[found] = col.dbField;
+    }
+  });
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    columnMap
+  };
 }
 
 // ─── NORMALIZATION HELPER ───────────────────────────────────────────────────
@@ -252,7 +295,7 @@ export const parseNominationExcel = (file: File, trainingType: string, masterEmp
   });
 };
 
-// ─── ATTENDANCE + SCORE PARSER (SCHEMA-DRIVEN WITH SMART MATCHING) ───────────
+// ─── ATTENDANCE + SCORE PARSER (STRICT TEMPLATE VALIDATION) ──────────────────
 export const parseExcelFile = (
   file: File,
   trainingType: string,
@@ -269,54 +312,53 @@ export const parseExcelFile = (
 
         if (json.length === 0) throw new Error('The Excel sheet is empty.');
 
-        // Build column map from raw headers using schema-aware header normalization
-        const rawCols = Object.keys(json[0]);
-        const colMap = buildColMap(rawCols);
+        // ✅ STEP 1: VALIDATE HEADERS AGAINST TEMPLATE (STRICT MODE)
+        const rawHeaders = Object.keys(json[0]);
+        const headerValidation = validateHeadersAgainstTemplate(rawHeaders, trainingType);
 
-        // Get schema for this training type
-        const schema = getSchema(trainingType);
+        if (!headerValidation.valid) {
+          const errorMsg =
+            `❌ COLUMN HEADERS DO NOT MATCH TEMPLATE!\n` +
+            `Required columns: ${getTemplate(trainingType).columns.map(c => `"${c.excelHeader}"`).join(', ')}\n` +
+            `Errors:\n${headerValidation.errors.map(e => `  • ${e}`).join('\n')}`;
+          throw new Error(errorMsg);
+        }
 
-        // 🔥 NORMALIZATION HELPER
-        const normalize = (val?: string | number) =>
-          String(val ?? '')
-            .trim()
-            .replace(/\s+/g, '')
-            .toLowerCase();
+        console.log(`[PARSER] ✅ Headers validated against ${trainingType} template`);
+        console.log('[PARSER] Column mapping:', headerValidation.columnMap);
 
-        // 🔥 BUILD MULTI-IDENTIFIER INDEXES FOR FAST LOOKUP
+        // ✅ STEP 2: BUILD MULTI-IDENTIFIER INDEXES FOR LOOKUP
         const empById = new Map(masterEmployees.map(e => [normalize(e.employeeId), e]));
         const empByAadhaar = new Map(masterEmployees.map(e => [normalize(e.aadhaarNumber), e]));
         const empByMobile = new Map(masterEmployees.map(e => [normalize(e.mobileNumber), e]));
 
+        // ✅ STEP 3: PARSE ROWS WITH STRICT VALIDATION
         const processed: ParsedRow[] = json.map((raw, idx) => {
-          // Remap all raw keys to camelCase via schema-aware mapper
+          // ✅ REMAP COLUMNS USING STRICT TEMPLATE MAPPING
           const m: any = {};
-          Object.entries(raw).forEach(([k, v]) => {
-            const mappedKey = colMap[k] || k;
-            m[mappedKey] = v;
+          Object.entries(raw).forEach(([rawHeader, value]) => {
+            const dbField = headerValidation.columnMap[rawHeader];
+            if (dbField) {
+              m[dbField] = value;
+            }
           });
 
-          // 🔥 EXTRACT & NORMALIZE INPUT VALUES
           const rawEmpId = normalize(m.employeeId);
-          const rawAadhaar = normalize(m.aadhaarNumber);
-          const rawMobile = normalize(m.mobileNumber);
-
-          // 🔥 MATCH PRIORITY: ID → Aadhaar → Mobile
-          let masterData = null;
+          let masterData: Employee | null = null;
           let matchedBy = '';
 
+          // Priority 1: Employee ID
           if (rawEmpId && empById.has(rawEmpId)) {
-            masterData = empById.get(rawEmpId);
+            masterData = empById.get(rawEmpId) || null;
             matchedBy = 'ID';
-          } else if (rawAadhaar && empByAadhaar.has(rawAadhaar)) {
-            masterData = empByAadhaar.get(rawAadhaar);
+          } else if (m.aadhaarNumber && empByAadhaar.has(normalize(m.aadhaarNumber))) {
+            masterData = empByAadhaar.get(normalize(m.aadhaarNumber)) || null;
             matchedBy = 'Aadhaar';
-          } else if (rawMobile && empByMobile.has(rawMobile)) {
-            masterData = empByMobile.get(rawMobile);
+          } else if (m.mobileNumber && empByMobile.has(normalize(m.mobileNumber))) {
+            masterData = empByMobile.get(normalize(m.mobileNumber)) || null;
             matchedBy = 'Mobile';
           }
 
-          // 🔥 CALCULATE MATCH QUALITY (for strict mode)
           const isPerfectMatch =
             masterData &&
             matchedBy === 'ID' &&
@@ -324,144 +366,70 @@ export const parseExcelFile = (
 
           const matchQuality = !masterData ? 'NONE' : isPerfectMatch ? 'PERFECT' : 'PARTIAL';
 
-          const rawTrainer = String(m.trainerId || '').trim();
-          const normalizedTrainer = normalizeTrainerName(rawTrainer);
-          const standardizedTrainer = standardizeTrainer(rawTrainer);
+          // Parse date (STRICT: must be valid YYYY-MM-DD)
+          let parsedDate = parseAnyDate(m.attendanceDate);
+          let dateError = '';
+          if (!parsedDate && m.attendanceDate) {
+            dateError = `Invalid date: "${m.attendanceDate}" - use YYYY-MM-DD format`;
+          }
 
-          // Build base record — STRICT MASTER OVERRIDE when matched
+          // Build record
           const rec: any = {
-            // 🔥 ALWAYS USE MASTER IF MATCHED (ignore uploaded identifiers)
-            employeeId: masterData?.employeeId || rawEmpId,
-            aadhaarNumber: masterData?.aadhaarNumber || rawAadhaar,
-            mobileNumber: masterData?.mobileNumber || rawMobile,
-            
-            name: masterData ? masterData.name : normalizeText(m.name),
-            designation: masterData ? masterData.designation : normalizeText(m.designation),
-            team: masterData ? masterData.team : normalizeText(m.team),
-            hq: masterData ? masterData.hq : normalizeText(m.hq),
-            state: masterData ? masterData.state : normalizeText(m.state),
-            cluster: masterData ? masterData.cluster : normalizeText(m.cluster || m.state || ''),
-            zone: masterData ? (masterData.zone || getZoneFromState(masterData.state)) : getZoneFromState(m.state),
-            doj: masterData ? masterData.doj : '',
-            trainerRaw: rawTrainer,
-            trainerNormalized: normalizedTrainer,
-            trainerName: standardizedTrainer,
-            trainerId: standardizedTrainer,
+            employeeId: masterData?.employeeId || m.employeeId || '',
+            aadhaarNumber: masterData?.aadhaarNumber || m.aadhaarNumber || '',
+            mobileNumber: masterData?.mobileNumber || m.mobileNumber || '',
+            name: masterData?.name || m.name || '',
+            designation: masterData?.designation || m.designation || '',
+            team: masterData?.team || m.team || '',
+            hq: masterData?.hq || m.hq || '',
+            state: masterData?.state || m.state || '',
+            cluster: masterData?.cluster || m.cluster || '',
+            zone: masterData?.zone || '',
             trainingType,
-            attendanceDate: null,
-            attendanceStatus: 'Present',
-            month: null,
-            _scores: {} as Record<string, number | null>,
-            _hasScores: false,
-            _matchedBy: matchedBy, // Track which field matched (ID, Aadhaar, Mobile, or '')
-            _matchQuality: matchQuality, // PERFECT | PARTIAL | NONE
+            attendanceDate: parsedDate || null,
+            attendanceStatus: normalizeAttendanceStatus(m.attendanceStatus),
+            month: parsedDate ? parsedDate.substring(0, 7) : null,
+            batch: m.batch || '',
+            trainerName: m.trainerName || '',
+            region: m.region || '',
+            score: m.score ? parseInt(m.score) : null,
+            _matchedBy: matchedBy,
+            _matchQuality: matchQuality,
             _matchStrength: matchedBy === 'ID' ? 'HIGH' : matchedBy === 'Aadhaar' ? 'MEDIUM' : matchedBy === 'Mobile' ? 'LOW' : 'NONE',
             isHistorical: !masterData,
-            employeeStatus: masterData ? 'ACTIVE' : 'INACTIVE',
-            _mismatches: [] as string[] // Track any mismatches
+            employeeStatus: masterData ? 'ACTIVE' : 'INACTIVE'
           };
 
-          // Validate mismatches if matched
-          if (masterData) {
-            rec._mismatches = validateMismatch(m, masterData);
-          }
+          // ✅ VALIDATION AGAINST TEMPLATE
+          const templateValidation = validateRowAgainstTemplate(rec, trainingType);
+          const messages: string[] = [...templateValidation.errors];
+          let status: 'valid' | 'warn' | 'error' = templateValidation.valid ? 'valid' : 'error';
 
-          // Normalize attendance status
-          if (m.attendanceStatus !== undefined && m.attendanceStatus !== '') {
-            const st = String(m.attendanceStatus).trim().toLowerCase();
-            rec.attendanceStatus = (st === 'present' || st === 'p' || st === 'yes' || st === '1') ? 'Present' : 'Absent';
-          }
-
-          // Parse date
-          const parsedDate = parseAnyDate(m.attendanceDate);
-          rec.attendanceDate = parsedDate || null;
-          rec.month = parsedDate ? parsedDate.substring(0, 7) : null;
-          rec.fiscalYear = getFiscalYearFromDate(parsedDate || undefined);
-
-          // ── Schema-driven score extraction ────────────────────────────────
-          schema.scoreFields.forEach(scoreKey => {
-            const rawVal = m[scoreKey];
-            if (rawVal !== undefined && rawVal !== '' && rawVal !== null) {
-              const norm = normalizeScore(rawVal);
-              if (norm !== null) {
-                rec._scores[scoreKey] = norm;
-              }
-            }
-          });
-
-          rec._hasScores = Object.keys(rec._scores).length > 0;
-
-          // ── VALIDATION WITH SMART MATCHING & MATCH QUALITY ────────────────
-          const messages: string[] = [];
-          let status: 'valid' | 'warn' | 'error' = 'valid';
-
-          // Hard error: date missing
-          if (!rec.attendanceDate) {
-            messages.push('Date missing or invalid');
-            status = 'error';
-          }
-
-          // Hard error: No identifier fields at all
-          if (!m.employeeId && !m.aadhaarNumber && !m.mobileNumber) {
-            messages.push('No identifier (ID, Aadhaar, or Mobile)');
-            status = 'error';
-          }
-
-          // Trainer missing should not block upload
-          if (!rawTrainer) {
-            messages.push('Trainer name missing');
-            if (status === 'valid') status = 'warn';
-          }
-
-          if (rawTrainer && normalizedTrainer.length > 0 && normalizedTrainer.length < 3) {
-            messages.push('Trainer name may be incomplete');
-            if (status === 'valid') status = 'warn';
-          }
-
-          // Historical record: employee not found in active master
+          // Additional warnings
           if (!masterData) {
-            rec.employeeStatus = 'INACTIVE';
-            messages.push('Employee not found in active master → marked as INACTIVE');
+            messages.push('Employee not found in Master (historical record)');
             if (status === 'valid') status = 'warn';
-          } else {
-            rec.employeeStatus = 'ACTIVE';
-          }
-
-          // Warning: ID override (matched by non-ID, uploaded ID differs from master)
-          if (masterData && matchedBy && matchedBy !== 'ID' && rawEmpId && status !== 'error') {
-            if (rawEmpId !== normalize(masterData.employeeId)) {
-              messages.push(`⚠️ Employee ID overridden by Master (matched via ${matchedBy})`);
-              if (status === 'valid') status = 'warn';
-            }
-          }
-
-          // Warning: Found by non-ID match (partial match)
-          if (masterData && matchedBy && matchedBy !== 'ID' && status !== 'error') {
-            messages.push(`⚠️ Matched via ${matchedBy} → identity auto-filled from Master`);
+          } else if (matchedBy !== 'ID') {
+            messages.push(`⚠️ Matched via ${matchedBy} (not by Employee ID)`);
             if (status === 'valid') status = 'warn';
           }
 
-          // Warning: Mismatches detected
-          if (rec._mismatches.length > 0 && status !== 'error') {
-            rec._mismatches.forEach((m: string) => messages.push(m));
-            if (status === 'valid') status = 'warn';
-          }
-
-          // Warning: no scores found (only relevant for types that have scores)
-          if (schema.scoreFields.length > 0 && !rec._hasScores && status !== 'error') {
-            const missingFields = schema.scoreFields
-              .filter(f => rec._scores[f] === undefined)
-              .map(f => schema.scoreLabels[f] || f)
-              .join(', ');
-            messages.push(`Score fields missing: ${missingFields}`);
-            if (status === 'valid') status = 'warn';
+          if (dateError) {
+            messages.push(dateError);
+            status = 'error';
           }
 
           return { data: rec, status, messages, rowNum: idx + 2 };
         });
 
+        console.log(`[PARSER] ✅ Parsed ${processed.length} rows from Excel`);
+        const errorCount = processed.filter(r => r.status === 'error').length;
+        const warnCount = processed.filter(r => r.status === 'warn').length;
+        console.log(`[PARSER] Results: ${errorCount} errors, ${warnCount} warnings, ${processed.filter(r => r.status === 'valid').length} valid`);
+
         resolve({ rows: processed, trainingType });
       } catch (err: any) {
+        console.error('[PARSER] Error:', err.message);
         reject(err);
       }
     };
@@ -469,3 +437,16 @@ export const parseExcelFile = (
     reader.readAsArrayBuffer(file);
   });
 };
+
+/**
+ * Normalize attendance status to Present/Absent
+ */
+function normalizeAttendanceStatus(value: any): string {
+  if (!value) return 'Present'; // Default
+  const normalized = String(value).trim().toLowerCase();
+  return (normalized === 'present' || normalized === 'p' || normalized === 'yes' || normalized === '1')
+    ? 'Present'
+    : 'Absent';
+}
+
+// ─── END OF FILE ───────────────────────────────────────────────────────────

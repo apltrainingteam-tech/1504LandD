@@ -43,18 +43,21 @@ export function mapToMongoDB(row: any): Record<string, any> {
   // Whitelist ONLY these fields
   const mongoPayload: Record<string, any> = {};
 
-  // String fields
+  // ✅ CRITICAL FIELDS - always include (even if empty)
+  if (d.employeeId !== undefined) mongoPayload.employeeId = String(d.employeeId).trim();
+  if (d.attendanceDate !== undefined) mongoPayload.attendanceDate = String(d.attendanceDate).trim();
+
+  // ✅ OPTIONAL FIELDS - only include if present
   if (d.aadhaarNumber) mongoPayload.aadhaarNumber = String(d.aadhaarNumber).trim();
   if (d.mobileNumber) mongoPayload.mobileNumber = String(d.mobileNumber).trim();
   if (d.cluster) mongoPayload.cluster = String(d.cluster).trim();
   if (d.designation) mongoPayload.designation = String(d.designation).trim();
-  if (d.employeeId) mongoPayload.employeeId = String(d.employeeId).trim();
   if (d.hq) mongoPayload.hq = String(d.hq).trim();
   if (d.attendanceStatus) mongoPayload.attendanceStatus = String(d.attendanceStatus).trim();
-  if (d.attendanceDate) mongoPayload.attendanceDate = String(d.attendanceDate).trim();
   if (d.month) mongoPayload.month = String(d.month).trim();
+  if (d.trainerName) mongoPayload.trainerName = String(d.trainerName).trim();
 
-  // ID field (required)
+  // ID field (for deduplication)
   if (d.id) mongoPayload.id = String(d.id);
 
   // ✅ EXCLUDED (never sent):
@@ -125,18 +128,31 @@ async function processBatchChunk(
 
   const attPayloads: any[] = [];
   const scorePayloads: any[] = [];
+  const rowErrors: Array<{ rowIndex: number; error: string }> = [];
 
-  for (const row of rows) {
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
     try {
       const cleanData = mapToMongoDB(row);
+      const rawData = row.data || row;
 
-      // Skip if critical fields missing
-      if (!cleanData.employeeId || !cleanData.attendanceDate) {
-        console.warn(`[BATCH] Skipping row in chunk ${chunkIndex}: missing employeeId or date`, cleanData);
-        continue;
+      // ✅ STRICT VALIDATION - throw error instead of silently skip
+      if (!cleanData.employeeId) {
+        throw new Error(
+          `Row ${row.rowNum || i + 1}: Missing required field "Employee ID". ` +
+          `Raw value: "${rawData.employeeId}"`
+        );
       }
 
-      // Generate deterministic ID for deduplication in append mode
+      if (!cleanData.attendanceDate) {
+        throw new Error(
+          `Row ${row.rowNum || i + 1}: Missing required field "Training Date". ` +
+          `Raw value: "${rawData.attendanceDate}". ` +
+          `Required format: YYYY-MM-DD`
+        );
+      }
+
+      // Generate deterministic ID for deduplication
       const attId = `${cleanData.employeeId}_${trainingType}_${cleanData.attendanceDate}`;
 
       // Add attendance record
@@ -168,9 +184,25 @@ async function processBatchChunk(
         scoreCount++;
       }
     } catch (rowError: any) {
-      console.error(`[BATCH] Error processing row in chunk ${chunkIndex}:`, rowError.message);
-      // Continue to next row instead of crashing
+      const errorMsg = rowError?.message || String(rowError);
+      console.error(`[BATCH] Row ${i + 1} error:`, errorMsg);
+      rowErrors.push({ rowIndex: i, error: errorMsg });
+      // Continue to next row for other validation  
     }
+  }
+
+  // If we collected errors, report them
+  if (rowErrors.length > 0) {
+    const errorSummary = rowErrors
+      .slice(0, 3) // Show first 3 errors
+      .map(e => `  Line ${e.rowIndex + 2}: ${e.error}`)
+      .join('\n');
+    
+    const moreErrors = rowErrors.length > 3 ? `\n  ... and ${rowErrors.length - 3} more errors` : '';
+    
+    console.error(
+      `[BATCH] ❌ ${rowErrors.length} rows with errors:\n${errorSummary}${moreErrors}`
+    );
   }
 
   // Only execute if there are operations
