@@ -224,7 +224,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
       }
     } else if (tab === 'AP') {
       if (!['ap_performance', 'grouped', 'gap', 'timeseries', 'trainer', 'drilldown'].includes(subView)) {
-        setSubView('ap_performance');
+        setSubView('grouped');
       }
     } else if (tab === 'MIP') {
       if (!['mip_attendance', 'mip_performance', 'timeseries', 'trainer', 'drilldown', 'gap'].includes(subView)) {

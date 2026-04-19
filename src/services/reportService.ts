@@ -229,8 +229,8 @@ export function calcMIP(recs: UnifiedRecord[]) {
   let sS = 0, cS = 0, sK = 0, cK = 0;
   p.forEach(r => {
     if (r.score?.scores) {
-      const sc = r.score.scores['Science Score'];
-      const sk = r.score.scores['Skill Score'];
+      const sc = r.score.scores['scienceScore'];
+      const sk = r.score.scores['skillScore'];
       if (sc != null) { sS += safe(sc); cS++; }
       if (sk != null) { sK += safe(sk); cK++; }
     }
@@ -241,18 +241,18 @@ export function calcMIP(recs: UnifiedRecord[]) {
 // ─── REFRESHER ENGINE ──────────────────────────────────────────────────────
 export function calcRefresher(recs: UnifiedRecord[]) {
   const p = recs.filter(r => r.attendance.attendanceStatus === 'Present');
-  const schema = ['Knowledge', 'Situation Handling', 'Presentation'];
+  const schemaFields = ['knowledge', 'situationHandling', 'presentation'];
   const totals: Record<string, { sum: number; count: number }> = {};
-  schema.forEach(k => { totals[k] = { sum: 0, count: 0 }; });
+  schemaFields.forEach(k => { totals[k] = { sum: 0, count: 0 }; });
   p.forEach(r => {
-    schema.forEach(k => {
+    schemaFields.forEach(k => {
       const v = r.score?.scores?.[k];
       if (v != null && !isNaN(v as number)) { totals[k].sum += v as number; totals[k].count++; }
     });
   });
   const avgs: Record<string, number> = {};
-  schema.forEach(k => { avgs[k] = totals[k].count > 0 ? totals[k].sum / totals[k].count : 0; });
-  const overallAvg = schema.reduce((a, k) => a + avgs[k], 0) / schema.length;
+  schemaFields.forEach(k => { avgs[k] = totals[k].count > 0 ? totals[k].sum / totals[k].count : 0; });
+  const overallAvg = schemaFields.reduce((a, k) => a + avgs[k], 0) / schemaFields.length;
   return { count: p.length, avgs, overallAvg };
 }
 
@@ -261,7 +261,7 @@ export function calcCapsule(recs: UnifiedRecord[]) {
   const p = recs.filter(r => r.attendance.attendanceStatus === 'Present');
   let scoreSum = 0, scoredCount = 0;
   p.forEach(r => {
-    const v = r.score?.scores?.['Score'];
+    const v = r.score?.scores?.['score'];
     if (v != null) { scoreSum += safe(v); scoredCount++; }
   });
   return { count: p.length, avgScore: scoredCount > 0 ? scoreSum / scoredCount : 0 };

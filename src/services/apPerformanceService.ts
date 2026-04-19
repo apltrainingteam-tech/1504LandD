@@ -68,14 +68,14 @@ export function getAPPerformanceAggregates(
 
   // For Lowest Parameter
   const bseParamTotals: Record<string, { sum: number; count: number }> = {
-    'Grasping': { sum: 0, count: 0 },
-    'Detailing': { sum: 0, count: 0 },
-    'Situation Handling': { sum: 0, count: 0 },
-    'English': { sum: 0, count: 0 },
-    'Local Language': { sum: 0, count: 0 },
-    'Involvement': { sum: 0, count: 0 },
-    'Effort': { sum: 0, count: 0 },
-    'Confidence': { sum: 0, count: 0 }
+    'grasping': { sum: 0, count: 0 },
+    'detailing': { sum: 0, count: 0 },
+    'situationHandling': { sum: 0, count: 0 },
+    'english': { sum: 0, count: 0 },
+    'localLanguage': { sum: 0, count: 0 },
+    'involvement': { sum: 0, count: 0 },
+    'effort': { sum: 0, count: 0 },
+    'confidence': { sum: 0, count: 0 }
   };
 
   for (const timeline of filteredTimelines.values()) {
@@ -109,7 +109,7 @@ export function getAPPerformanceAggregates(
       uniqueCandidateIds.add(timeline.employeeId);
 
       // Knowledge extraction
-      const kVal = att.scores['Knowledge'];
+      const kVal = att.scores['knowledge'];
       let hasKnowledge = false;
       if (typeof kVal === 'number') {
         globalKnowledgeSum += kVal;
@@ -119,8 +119,8 @@ export function getAPPerformanceAggregates(
 
       // BSE extraction
       const bseKeys = [
-        'Grasping', 'Detailing', 'Situation Handling', 
-        'English', 'Local Language', 'Involvement', 'Effort', 'Confidence'
+        'grasping', 'detailing', 'situationHandling', 
+        'english', 'localLanguage', 'involvement', 'effort', 'confidence'
       ];
       
       let bseSum = 0;
@@ -143,9 +143,11 @@ export function getAPPerformanceAggregates(
       const cMonth: any = clusterMap[cluster].months[month];
       const tMonth: any = clusterMap[cluster].teams[team].months[month];
 
-      if (!cMonth._kSum) {
+      if (!cMonth._kSum && cMonth._kSum !== 0) {
         cMonth._kSum = 0; cMonth._kCount = 0;
         cMonth._bseSum = 0; cMonth._bseCount = 0;
+      }
+      if (!tMonth._kSum && tMonth._kSum !== 0) {
         tMonth._kSum = 0; tMonth._kCount = 0;
         tMonth._bseSum = 0; tMonth._bseCount = 0;
       }
@@ -217,11 +219,11 @@ export function getDrilldownList(
       if (att.status !== 'Present' || att.month !== filters.month) continue;
 
       const scores = att.scores;
-      const kVal = typeof scores['Knowledge'] === 'number' ? scores['Knowledge'] : null;
+      const kVal = typeof scores['knowledge'] === 'number' ? scores['knowledge'] : null;
       
       const bseKeys = [
-        'Grasping', 'Detailing', 'Situation Handling', 
-        'English', 'Local Language', 'Involvement', 'Effort', 'Confidence'
+        'grasping', 'detailing', 'situationHandling', 
+        'english', 'localLanguage', 'involvement', 'effort', 'confidence'
       ];
       let bSum = 0; let bCount = 0;
       for (const key of bseKeys) {
@@ -241,14 +243,14 @@ export function getDrilldownList(
         attendanceDate: att.date,
         knowledge: kVal,
         bse: bseVal,
-        grasping: typeof scores['Grasping'] === 'number' ? scores['Grasping'] : null,
-        detailing: typeof scores['Detailing'] === 'number' ? scores['Detailing'] : null,
-        situationHandling: typeof scores['Situation Handling'] === 'number' ? scores['Situation Handling'] : null,
-        english: typeof scores['English'] === 'number' ? scores['English'] : null,
-        localLanguage: typeof scores['Local Language'] === 'number' ? scores['Local Language'] : null,
-        involvement: typeof scores['Involvement'] === 'number' ? scores['Involvement'] : null,
-        effort: typeof scores['Effort'] === 'number' ? scores['Effort'] : null,
-        confidence: typeof scores['Confidence'] === 'number' ? scores['Confidence'] : null,
+        grasping: typeof scores['grasping'] === 'number' ? scores['grasping'] : null,
+        detailing: typeof scores['detailing'] === 'number' ? scores['detailing'] : null,
+        situationHandling: typeof scores['situationHandling'] === 'number' ? scores['situationHandling'] : null,
+        english: typeof scores['english'] === 'number' ? scores['english'] : null,
+        localLanguage: typeof scores['localLanguage'] === 'number' ? scores['localLanguage'] : null,
+        involvement: typeof scores['involvement'] === 'number' ? scores['involvement'] : null,
+        effort: typeof scores['effort'] === 'number' ? scores['effort'] : null,
+        confidence: typeof scores['confidence'] === 'number' ? scores['confidence'] : null,
       });
     }
   }

@@ -42,7 +42,7 @@ import { seedDatabase, seedMasterData } from './seed';
 import { Employee } from './types/employee';
 import { Attendance, TrainingScore, TrainingNomination, Demographics as DemoType } from './types/attendance';
 import { parseAnyDate } from './utils/dateParser';
-import { getSchema } from './services/trainingSchemas';
+import { getSchema, mapHeader } from './services/trainingSchemas';
 import { normalizeScore } from './utils/scoreNormalizer';
 
 type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'notified' | 'gap-analysis' | 'performance' | 'srm';
@@ -128,22 +128,15 @@ const App = () => {
         
         const extractBySchema = (source: any) => {
           if (!source) return;
-          schema.scoreFields.forEach(field => {
-            const val = source[field];
-            const normalized = normalizeScore(val);
-            if (normalized !== null) {
-              scoresObj[field] = normalized;
-            }
-          });
-
-          // Fallback: Also try common variations if schema field is missing
-          Object.keys(source).forEach(k => {
-            const kl = k.toLowerCase();
-            if ((kl.includes('score') || kl.includes('percent')) && !scoresObj[k]) {
-              const val = source[k];
+          // Strategy: Scan all keys in source, map them using mapHeader, 
+          // and if they match a scoreField in our schema, extract them.
+          Object.keys(source).forEach(rawKey => {
+            const canonicalKey = mapHeader(rawKey);
+            if (schema.scoreFields.includes(canonicalKey)) {
+              const val = source[rawKey];
               const normalized = normalizeScore(val);
               if (normalized !== null) {
-                scoresObj[k] = normalized;
+                scoresObj[canonicalKey] = normalized;
               }
             }
           });
