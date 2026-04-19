@@ -17,6 +17,7 @@ import { getPrimaryMetricRaw } from '../../services/reportService';
 import { GlobalFilterPanel } from '../../components/GlobalFilterPanel';
 import { getFiscalYears, getFiscalYearFromDate } from '../../utils/fiscalYear';
 import { TEAM_CLUSTER_MAP } from '../../services/clusterMap';
+import { normalizeText } from '../../utils/textNormalizer';
 
 // Training type normalization
 const trainingTypeMap: Record<string, string> = {
@@ -80,7 +81,14 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
     const scs = scores.filter(s => normalizeType(s.trainingType) === tab);
     
     // Build initial unified dataset for this tab
-    let ds = buildUnifiedDataset(employees, data, scs, []);
+    let ds = buildUnifiedDataset(employees, data, scs, []).map(r => {
+      if (r.employee) {
+        // Ensure cluster is always populated from master map if empty
+        const effectiveCluster = r.employee.cluster || TEAM_CLUSTER_MAP[normalizeText(r.employee.team)];
+        r.employee = { ...r.employee, cluster: effectiveCluster };
+      }
+      return r;
+    });
 
     // 2. Filter by Fiscal Year
     if (selectedFY) {
@@ -144,7 +152,16 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
   }, [filtered, tab]);
 
   const allTeams = useMemo(() => [...new Set(employees.map(e => e.team).filter(Boolean))].sort(), [employees]);
-  const allClusters = useMemo(() => [...new Set(employees.map(e => e.cluster).filter(Boolean))].sort(), [employees]);
+  const allClusters = useMemo(() => {
+    // Derive from both employee data and master map to ensure dropdown isn't empty
+    const s = new Set<string>();
+    employees.forEach(e => {
+      if (e.cluster) s.add(e.cluster);
+      const mapped = TEAM_CLUSTER_MAP[normalizeText(e.team)];
+      if (mapped) s.add(mapped);
+    });
+    return [...s].sort();
+  }, [employees]);
   const allTrainers = useMemo(() => [...new Set(attendance.map(a => a.trainerId).filter(Boolean))].sort(), [attendance]);
   const months = useMemo(() => {
     const s = new Set<string>();
