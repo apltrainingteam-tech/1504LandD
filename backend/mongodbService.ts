@@ -1,5 +1,7 @@
 import { MongoClient, Db, Collection, ObjectId } from 'mongodb';
 
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 // Connection state
 let mongoClient: MongoClient | null = null;
 let mongoDb: Db | null = null;
@@ -31,51 +33,87 @@ export async function getDb(): Promise<Db> {
     // 3. Start a new connection attempt
     console.log('[DB] Starting new MongoDB connection attempt...');
     connectionPromise = (async () => {
-      const uri = process.env.MONGO_URI || 'mongodb+srv://apltrainingteam_db_user:qbaHn8Ld0hZzdUEU@cluster0.qluikx6.mongodb.net/Ajanta?appName=Cluster0';
+      let uri = process.env.MONGO_URI || 'mongodb+srv://apltrainingteam_db_user:qbaHn8Ld0hZzdUEU@cluster0.qluikx6.mongodb.net/Ajanta?appName=Cluster0';
       const dbName = 'Ajanta';
 
+      // Password Encoding
+      const pwdMatch = uri.match(/mongodb(?:\+srv)?:\/\/[^:]+:([^@]+)@/);
+      if (pwdMatch && pwdMatch[1]) {
+        const originalPassword = pwdMatch[1];
+        if (!originalPassword.includes('%')) {
+          const encodedPassword = originalPassword
+            .replace(/@/g, '%40')
+            .replace(/#/g, '%23')
+            .replace(/\//g, '%2F');
+          uri = uri.replace(`:${originalPassword}@`, `:${encodedPassword}@`);
+        }
+      }
+
+      // Check DB missing and append /ajanta
+      const parts = uri.split('?');
+      const pathPart = parts[0];
+      if (pathPart.endsWith('.net') || pathPart.endsWith('.net/')) {
+        const cleanPath = pathPart.endsWith('/') ? pathPart.slice(0, -1) : pathPart;
+        parts[0] = cleanPath + '/ajanta';
+        uri = parts.join('?');
+      }
+
+      // Ensure write concern / retryable in query
+      if (!uri.includes('retryWrites=')) {
+        uri += uri.includes('?') ? '&retryWrites=true&w=majority' : '?retryWrites=true&w=majority';
+      }
+
+      // Support debug mode (directConnection)
+      if (process.env.DEBUG === 'true' && !uri.includes('directConnection=')) {
+        uri += '&directConnection=true';
+      }
+
+      const safeUri = uri.replace(/:([^@]+)@/, ':****@');
+      console.log(`[DB] Sanitized URI: ${safeUri}`);
+      
+      const clusterHost = uri.split('@')[1]?.split('/')[0] || 'unknown-cluster';
+      console.log(`[DB] Connecting to ${clusterHost}...`);
+
       const mongoOptions = {
-        retryWrites: true,
-        w: 'majority',
         serverSelectionTimeoutMS: 10000,
         socketTimeoutMS: 45000,
-        connectTimeoutMS: 15000,
-        tls: true,
-        tlsAllowInvalidCertificates: true,
-        tlsAllowInvalidHostnames: true,
-        ssl: true,
+        family: 4, // FORCE IPv4 (CRITICAL FIX)
       } as any;
 
-      console.log('[MONGO] Connecting to:', uri.replace(/:([^@]+)@/, ':****@')); // Hide password in logs
-      mongoClient = new MongoClient(uri, mongoOptions);
-      
-      await mongoClient.connect();
-      const db = mongoClient.db(dbName);
-      
-      // Verify connection
-      await db.admin().ping();
-      console.log('✅ MongoDB connected successfully');
-      
-      mongoDb = db;
-      dbStatus = 'connected';
-      return db;
+      for (let i = 1; i <= 3; i++) {
+        try {
+          mongoClient = new MongoClient(uri, mongoOptions);
+          await mongoClient.connect();
+          
+          const db = mongoClient.db(dbName);
+          await db.admin().ping();
+          console.log('[DB] Connected successfully');
+          
+          mongoDb = db;
+          dbStatus = 'connected';
+          return db;
+        } catch (err: any) {
+          console.error(`❌ Attempt ${i} failed`, err.message);
+          
+          if (i === 3) {
+            throw new Error(`MongoDB connection failed after retries: ${err.message}`);
+          }
+          await delay(2000); // Delay between retries
+        }
+      }
+      throw new Error("MongoDB connection failed after retries");
     })();
 
     return await connectionPromise;
   } catch (error: any) {
     const errorMsg = error.message || 'Unknown connection error';
-    console.error('❌ MongoDB Connection Failed:', errorMsg);
+    console.error('[DB] Connection failed:', errorMsg);
     
     // 🔥 CRITICAL: Reset state on failure to allow future retries
     mongoClient = null;
     mongoDb = null;
     connectionPromise = null;
     dbStatus = 'failed';
-
-    if (errorMsg.includes('Server selection timed out') || errorMsg.includes('ReplicaSetNoPrimary')) {
-      console.error('\n[DIAGNOSTIC] This error usually indicates an IP Whitelist issue in MongoDB Atlas.');
-      console.error('[DIAGNOSTIC] Please verify your IP address is whitelisted in Atlas Network Access settings.\n');
-    }
 
     throw error;
   }

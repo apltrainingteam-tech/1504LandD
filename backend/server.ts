@@ -60,6 +60,47 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 });
 
 /**
+ * Health check endpoint
+ */
+app.get('/api/health', (req: Request, res: Response) => {
+  const isConnected = getDbStatus() === 'connected';
+  const status = isConnected ? 200 : 503;
+  
+  res.status(status).json({
+    server: "running",
+    database: isConnected ? "connected" : "disconnected",
+    timestamp: new Date().toISOString()
+  });
+});
+
+/**
+ * FAIL-SAFE FOR API ROUTES
+ * Ensure DB is connected before any DB operations
+ */
+app.use('/api', async (req: Request, res: Response, next: NextFunction) => {
+  // Allow health endpoints to bypass strict db check
+  if (req.path === '/health' || req.path === '/test-db') {
+    return next();
+  }
+
+  try {
+    const db = await getDb();
+    if (!db || getDbStatus() !== 'connected') {
+      return res.status(503).json({
+        success: false,
+        error: "Database not connected"
+      });
+    }
+    next();
+  } catch (error) {
+    return res.status(503).json({
+      success: false,
+      error: "Database not connected"
+    });
+  }
+});
+
+/**
  * GET /api/:collection
  * Fetch entire collection or query by field
  * Query params:
