@@ -18,7 +18,8 @@ import {
   updateByQuery,
   closeConnection,
   getDb,
-  getDbStatus
+  getDbStatus,
+  initializeConnection
 } from './mongodbService';
 
 const app: Express = express();
@@ -368,9 +369,12 @@ app.get('/health', (req: Request, res: Response) => {
 /**
  * Start server
  */
-const server = app.listen(PORT, async () => {
-  const timestamp = new Date().toISOString();
-  console.log(`
+const startServer = async () => {
+  await initializeConnection();
+
+  const server = app.listen(PORT, () => {
+    const timestamp = new Date().toISOString();
+    console.log(`
 ╔════════════════════════════════════════════════════════════╗
 ║                                                            ║
 ║   ✅ PharmaIntel Backend Server Started Successfully       ║
@@ -390,36 +394,37 @@ const server = app.listen(PORT, async () => {
 Ready to accept connections!
   `);
 
-  // Test MongoDB connection on startup
-  try {
-    console.log('[STARTUP] Testing MongoDB connection...');
-    const db = await getDb();
-    console.log('[STARTUP] ✅ MongoDB connection verified');
-    console.log('[STARTUP] ✅ Backend fully initialized and ready');
-  } catch (error) {
-    console.error('[STARTUP] ❌ MongoDB connection failed:', error);
-    console.error('[STARTUP] Backend started but database operations will fail');
-    console.error('[STARTUP] Check backend/.env for MONGO_URI and verify MongoDB Atlas network access');
-  }
-});
-
-/**
- * Graceful shutdown
- */
-process.on('SIGINT', async () => {
-  console.log('Shutting down gracefully...');
-  server.close(async () => {
-    await closeConnection();
-    console.log('Server closed');
-    process.exit(0);
+    if (getDbStatus() === 'connected') {
+      console.log('[STARTUP] ✅ MongoDB connection verified');
+      console.log('[STARTUP] ✅ Backend fully initialized and ready');
+    } else {
+      console.error('[STARTUP] ❌ MongoDB connection failed');
+      console.error('[STARTUP] Backend started but database operations will fail');
+      console.error('[STARTUP] Check backend/.env for MONGO_URI and verify MongoDB Atlas network access');
+    }
   });
-});
 
-process.on('SIGTERM', async () => {
-  console.log('Shutting down gracefully...');
-  server.close(async () => {
-    await closeConnection();
-    console.log('Server closed');
-    process.exit(0);
+  /**
+   * Graceful shutdown
+   */
+  process.on('SIGINT', async () => {
+    console.log('Shutting down gracefully...');
+    server.close(async () => {
+      await closeConnection();
+      console.log('Server closed');
+      process.exit(0);
+    });
   });
-});
+
+  process.on('SIGTERM', async () => {
+    console.log('Shutting down gracefully...');
+    server.close(async () => {
+      await closeConnection();
+      console.log('Server closed');
+      process.exit(0);
+    });
+  });
+};
+
+startServer();
+

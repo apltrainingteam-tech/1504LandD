@@ -4,7 +4,7 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Connection state
 let mongoClient: MongoClient | null = null;
-let mongoDb: Db | null = null;
+let db: Db | null = null;
 let connectionPromise: Promise<Db> | null = null;
 let dbStatus: 'disconnected' | 'connected' | 'failed' = 'disconnected';
 
@@ -22,7 +22,7 @@ export function getDbStatus() {
 export async function getDb(): Promise<Db> {
   try {
     // 1. If already connected, return the DB
-    if (mongoDb) return mongoDb;
+    if (db) return db;
 
     // 2. If connection is in progress, wait for it
     if (connectionPromise) {
@@ -31,10 +31,10 @@ export async function getDb(): Promise<Db> {
     }
 
     // 3. Start a new connection attempt
-    console.log('[DB] Starting new MongoDB connection attempt...');
+    console.log('[DB] Connecting...');
     connectionPromise = (async () => {
       let uri = process.env.MONGO_URI || 'mongodb+srv://apltrainingteam_db_user:qbaHn8Ld0hZzdUEU@cluster0.qluikx6.mongodb.net/Ajanta?appName=Cluster0';
-      const dbName = 'Ajanta';
+      // dbName local variable is removed
 
       // Password Encoding
       const pwdMatch = uri.match(/mongodb(?:\+srv)?:\/\/[^:]+:([^@]+)@/);
@@ -85,11 +85,10 @@ export async function getDb(): Promise<Db> {
           mongoClient = new MongoClient(uri, mongoOptions);
           await mongoClient.connect();
           
-          const db = mongoClient.db(dbName);
+          db = mongoClient.db("ajanta");
           await db.admin().ping();
           console.log('[DB] Connected successfully');
           
-          mongoDb = db;
           dbStatus = 'connected';
           return db;
         } catch (err: any) {
@@ -111,11 +110,23 @@ export async function getDb(): Promise<Db> {
     
     // 🔥 CRITICAL: Reset state on failure to allow future retries
     mongoClient = null;
-    mongoDb = null;
+    db = null;
     connectionPromise = null;
     dbStatus = 'failed';
 
     throw error;
+  }
+}
+
+/**
+ * Initialize connection directly (called at server startup)
+ */
+export async function initializeConnection(): Promise<Db | null> {
+  try {
+    return await getDb();
+  } catch (error: any) {
+    // Error is already logged in getDb
+    return null;
   }
 }
 
@@ -133,7 +144,7 @@ async function getCollection_internal(collectionName: string): Promise<Collectio
 export async function closeConnection(): Promise<void> {
   if (mongoClient) {
     await mongoClient.close();
-    mongoDb = null;
+    db = null;
     mongoClient = null;
     console.log('MongoDB connection closed');
   }
@@ -421,5 +432,6 @@ export default {
   updateByQuery,
   getDb,
   getDbStatus,
+  initializeConnection,
   closeConnection
 };
