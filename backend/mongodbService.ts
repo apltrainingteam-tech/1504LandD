@@ -54,7 +54,7 @@ export async function getDb(): Promise<Db> {
       const pathPart = parts[0];
       if (pathPart.endsWith('.net') || pathPart.endsWith('.net/')) {
         const cleanPath = pathPart.endsWith('/') ? pathPart.slice(0, -1) : pathPart;
-        parts[0] = cleanPath + '/ajanta';
+        parts[0] = cleanPath + '/Ajanta';
         uri = parts.join('?');
       }
 
@@ -85,7 +85,7 @@ export async function getDb(): Promise<Db> {
           mongoClient = new MongoClient(uri, mongoOptions);
           await mongoClient.connect();
           
-          db = mongoClient.db("ajanta");
+          db = mongoClient.db("Ajanta");
           await db.admin().ping();
           console.log('[DB] Connected successfully');
           
