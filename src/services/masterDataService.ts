@@ -56,17 +56,20 @@ export async function loadMasterData(): Promise<MasterDataCache> {
     for (const emp of employees) {
       // Map by Employee ID
       if (emp.employeeId) {
-        cache.byEmployeeId.set(String(emp.employeeId).toUpperCase().trim(), emp);
+        const key = String(emp.employeeId).trim();
+        cache.byEmployeeId.set(key, emp);
       }
 
       // Map by Aadhaar Number
       if (emp.aadhaarNumber) {
-        cache.byAadhaarNumber.set(String(emp.aadhaarNumber).trim(), emp);
+        const key = String(emp.aadhaarNumber).trim();
+        cache.byAadhaarNumber.set(key, emp);
       }
 
       // Map by Mobile Number
       if (emp.mobileNumber) {
-        cache.byMobileNumber.set(String(emp.mobileNumber).trim(), emp);
+        const key = String(emp.mobileNumber).trim();
+        cache.byMobileNumber.set(key, emp);
       }
     }
 
@@ -120,28 +123,34 @@ export async function findEmployeeByAnyId(
 
   // Search by Employee ID
   if (employeeId) {
-    const emp = cache.byEmployeeId.get(String(employeeId).toUpperCase().trim());
+    const key = String(employeeId).trim();
+    const emp = cache.byEmployeeId.get(key);
+    console.log(`[MASTER] Lookup by EmployeeId: "${key}" (Type: ${typeof employeeId}) -> ${emp ? 'FOUND' : 'NOT FOUND'}`);
     if (emp) {
       matches.add(emp);
-      sources.push(`Employee ID: ${employeeId}`);
+      sources.push(`Employee ID: ${key}`);
     }
   }
 
   // Search by Aadhaar Number
   if (aadhaarNumber) {
-    const emp = cache.byAadhaarNumber.get(String(aadhaarNumber).trim());
+    const key = String(aadhaarNumber).trim();
+    const emp = cache.byAadhaarNumber.get(key);
+    console.log(`[MASTER] Lookup by Aadhaar: "${key}" (Type: ${typeof aadhaarNumber}) -> ${emp ? 'FOUND' : 'NOT FOUND'}`);
     if (emp) {
       matches.add(emp);
-      sources.push(`Aadhaar: ${aadhaarNumber}`);
+      sources.push(`Aadhaar: ${key}`);
     }
   }
 
   // Search by Mobile Number
   if (mobileNumber) {
-    const emp = cache.byMobileNumber.get(String(mobileNumber).trim());
+    const key = String(mobileNumber).trim();
+    const emp = cache.byMobileNumber.get(key);
+    console.log(`[MASTER] Lookup by Mobile: "${key}" (Type: ${typeof mobileNumber}) -> ${emp ? 'FOUND' : 'NOT FOUND'}`);
     if (emp) {
       matches.add(emp);
-      sources.push(`Mobile: ${mobileNumber}`);
+      sources.push(`Mobile: ${key}`);
     }
   }
 

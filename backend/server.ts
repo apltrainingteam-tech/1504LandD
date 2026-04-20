@@ -1,6 +1,8 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import {
   getCollection,
   getDocumentById,
@@ -15,11 +17,9 @@ import {
   findByQuery,
   updateByQuery,
   closeConnection,
-  getDb
+  getDb,
+  getDbStatus
 } from './mongodbService';
-
-// Load environment variables
-dotenv.config();
 
 const app: Express = express();
 const PORT = process.env.PORT || 5000;
@@ -126,6 +126,15 @@ app.post('/api/:collection', async (req: Request, res: Response) => {
     if (batch && items) {
       if (!Array.isArray(items) || items.length === 0) {
         throw new Error('Batch items are empty or invalid');
+      }
+
+      // Check DB Status before proceeding with upload
+      if (getDbStatus() !== 'connected') {
+        return res.status(503).json({
+          success: false,
+          error: 'Database is not connected. Upload aborted.',
+          dbStatus: getDbStatus()
+        });
       }
 
       await addBatch(collection, items);
@@ -282,10 +291,37 @@ app.patch('/api/:collection', async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/test-db
+ * Ping the database to verify connectivity
+ */
+app.get('/api/test-db', async (req: Request, res: Response) => {
+  try {
+    const db = await getDb();
+    await db.command({ ping: 1 });
+    res.json({
+      success: true,
+      message: 'Database ping successful',
+      status: getDbStatus(),
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      status: getDbStatus()
+    });
+  }
+});
+
+/**
  * Health check endpoint
  */
 app.get('/health', (req: Request, res: Response) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'ok',
+    database: getDbStatus(),
+    timestamp: new Date().toISOString()
+  });
 });
 
 /**

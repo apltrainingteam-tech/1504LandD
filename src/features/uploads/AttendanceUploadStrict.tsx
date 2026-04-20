@@ -339,7 +339,7 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
             </h4>
             <div style={{ fontSize: '13px', lineHeight: '1.8', color: 'var(--text-secondary)' }}>
               {uploadResult.warnings.slice(0, 5).map((w, i) => (
-                <div key={i}>Row {w.rowNum}: {w.message}</div>
+                <div key={i}>{w}</div>
               ))}
               {uploadResult.warnings.length > 5 && (
                 <div style={{ marginTop: '8px', fontStyle: 'italic' }}>

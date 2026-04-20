@@ -94,7 +94,6 @@ export const COLUMN_MAPPING: Record<string, string> = {
   'BSE': 'bse',
   'Grasping': 'grasping',
   'Participation': 'participation',
-  'Detailing': 'detailing',
   'Presentation': 'presentation',
   'Detailing & Presentation': 'detailing',
   'Situation Handling': 'situationHandling',
@@ -111,15 +110,10 @@ export const COLUMN_MAPPING: Record<string, string> = {
   // PreAP template
   'AP Date': 'apDate',
   'Notified': 'notified',
-  'Test Score': 'percent',
-
   // MIP template
   'Science Score': 'scienceScore',
   'Skill Score': 'skillScore',
 
-  // Refresher template
-  'Situation Handling': 'situationHandling',
-  'Presentation': 'presentation'
 };
 
 // ─── VALIDATION ──────────────────────────────────────────────────────────────

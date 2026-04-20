@@ -1,63 +1,84 @@
 import { MongoClient, Db, Collection, ObjectId } from 'mongodb';
 
-// MongoDB connection details
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://apltrainingteam_db_user:qbaHn8Ld0hZzdUEU@cluster0.qluikx6.mongodb.net/?appName=Cluster0';
-const DB_NAME = 'Ajanta';
-
+// Connection state
 let mongoClient: MongoClient | null = null;
 let mongoDb: Db | null = null;
+let connectionPromise: Promise<Db> | null = null;
+let dbStatus: 'disconnected' | 'connected' | 'failed' = 'disconnected';
 
 /**
- * Initialize MongoDB connection
+ * Get current database connection status
  */
-async function initializeConnection(): Promise<Db> {
-  try {
-    if (mongoDb) {
-      console.log('MongoDB connection already established');
-      return mongoDb;
-    }
-
-    console.log('Initializing MongoDB connection...');
-    const mongoOptions = {
-      retryWrites: true,
-      w: 'majority',
-      serverSelectionTimeoutMS: 10000,
-      socketTimeoutMS: 45000,
-      connectTimeoutMS: 15000,
-      tls: true,
-      tlsAllowInvalidCertificates: true,
-      tlsAllowInvalidHostnames: true,
-      ssl: true,
-    };
-    
-    console.log('[MONGO] Connecting to:', MONGO_URI);
-    mongoClient = new MongoClient(MONGO_URI, mongoOptions);
-    
-    console.log('[MONGO] Calling connect...');
-    await mongoClient.connect();
-    console.log('[MONGO] Connected successfully');
-    
-    mongoDb = mongoClient.db(DB_NAME);
-    
-    // Verify connection
-    console.log('[MONGO] Running ping...');
-    await mongoDb.admin().ping();
-    console.log('✅ MongoDB connected successfully to database:', DB_NAME);
-    return mongoDb;
-  } catch (error) {
-    console.error('❌ Failed to connect to MongoDB:', error);
-    throw error;
-  }
+export function getDbStatus() {
+  return dbStatus;
 }
 
 /**
- * Get database instance
+ * Get database instance with robust connection logic
+ * Implements a singleton promise pattern that resets on failure
  */
 export async function getDb(): Promise<Db> {
-  if (!mongoDb) {
-    await initializeConnection();
+  try {
+    // 1. If already connected, return the DB
+    if (mongoDb) return mongoDb;
+
+    // 2. If connection is in progress, wait for it
+    if (connectionPromise) {
+      console.log('[DB] Waiting for existing connection promise...');
+      return await connectionPromise;
+    }
+
+    // 3. Start a new connection attempt
+    console.log('[DB] Starting new MongoDB connection attempt...');
+    connectionPromise = (async () => {
+      const uri = process.env.MONGO_URI || 'mongodb+srv://apltrainingteam_db_user:qbaHn8Ld0hZzdUEU@cluster0.qluikx6.mongodb.net/Ajanta?appName=Cluster0';
+      const dbName = 'Ajanta';
+
+      const mongoOptions = {
+        retryWrites: true,
+        w: 'majority',
+        serverSelectionTimeoutMS: 10000,
+        socketTimeoutMS: 45000,
+        connectTimeoutMS: 15000,
+        tls: true,
+        tlsAllowInvalidCertificates: true,
+        tlsAllowInvalidHostnames: true,
+        ssl: true,
+      } as any;
+
+      console.log('[MONGO] Connecting to:', uri.replace(/:([^@]+)@/, ':****@')); // Hide password in logs
+      mongoClient = new MongoClient(uri, mongoOptions);
+      
+      await mongoClient.connect();
+      const db = mongoClient.db(dbName);
+      
+      // Verify connection
+      await db.admin().ping();
+      console.log('✅ MongoDB connected successfully');
+      
+      mongoDb = db;
+      dbStatus = 'connected';
+      return db;
+    })();
+
+    return await connectionPromise;
+  } catch (error: any) {
+    const errorMsg = error.message || 'Unknown connection error';
+    console.error('❌ MongoDB Connection Failed:', errorMsg);
+    
+    // 🔥 CRITICAL: Reset state on failure to allow future retries
+    mongoClient = null;
+    mongoDb = null;
+    connectionPromise = null;
+    dbStatus = 'failed';
+
+    if (errorMsg.includes('Server selection timed out') || errorMsg.includes('ReplicaSetNoPrimary')) {
+      console.error('\n[DIAGNOSTIC] This error usually indicates an IP Whitelist issue in MongoDB Atlas.');
+      console.error('[DIAGNOSTIC] Please verify your IP address is whitelisted in Atlas Network Access settings.\n');
+    }
+
+    throw error;
   }
-  return mongoDb!;
 }
 
 /**
@@ -137,7 +158,7 @@ export async function addBatch(path: string, items: any[]): Promise<void> {
       }
       return {
         updateOne: {
-          filter: { _id: doc._id || new ObjectId() },
+          filter: { _id: (doc._id || new ObjectId()) as any },
           update: { $set: doc },
           upsert: true
         }
@@ -210,7 +231,7 @@ export async function upsertDoc(
     const _id = id || new ObjectId().toString();
     
     await collection.updateOne(
-      { _id },
+      { _id: _id as any },
       { $set: doc },
       { upsert: true }
     );
@@ -230,7 +251,7 @@ export async function deleteDocument(path: string, id: string): Promise<void> {
   console.log(`Deleting document ${id} from ${path}`);
   try {
     const collection = await getCollection_internal(path);
-    await collection.deleteOne({ _id: id });
+    await collection.deleteOne({ _id: id as any });
     console.log(`Successfully deleted document ${id} from ${path}`);
   } catch (error) {
     console.error(`Error deleting document ${id} from ${path}:`, error);
@@ -266,7 +287,7 @@ export async function getDocumentById(path: string, id: string): Promise<any> {
   console.log(`Fetching document ${id} from ${path}`);
   try {
     const collection = await getCollection_internal(path);
-    const doc = await collection.findOne({ _id: id });
+    const doc = await collection.findOne({ _id: id as any });
     
     if (!doc) {
       console.log(`Document ${id} not found in ${path}`);
@@ -297,7 +318,7 @@ export async function insertDocument(path: string, data: any): Promise<string> {
     const insertedId = result.insertedId?.toString?.() || result.insertedId;
     
     console.log(`Successfully inserted document ${insertedId} into ${path}`);
-    return insertedId;
+    return String(insertedId);
   } catch (error) {
     console.error(`Error inserting document into ${path}:`, error);
     throw error;
@@ -361,5 +382,6 @@ export default {
   findByQuery,
   updateByQuery,
   getDb,
+  getDbStatus,
   closeConnection
 };

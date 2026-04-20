@@ -167,19 +167,30 @@ export async function parseExcelFileEnriched(file: File): Promise<EnrichedParseR
           rowObject[headers[i]] = rowData[i];
         }
 
-        // Extract identity fields
-        const employeeId = rowObject['Employee ID'];
-        const aadhaarNumber = rowObject['Aadhaar Number'];
-        const mobileNumber = rowObject['Mobile Number'];
+        // Step 6a: NORMALIZE IDENTIFIERS (Fix for numeric ID lookup failure)
+        const rawEmployeeId = rowObject['Employee ID'];
+        const rawAadhaar = rowObject['Aadhaar Number'];
+        const rawMobile = rowObject['Mobile Number'];
 
-        // Step 6a: FLEXIBLE IDENTITY VALIDATION
+        const employeeId = rawEmployeeId ? String(rawEmployeeId).trim() : null;
+        const aadhaarNumber = rawAadhaar ? String(rawAadhaar).trim() : null;
+        const mobileNumber = rawMobile ? String(rawMobile).trim() : null;
+
+        // Step 6b: FLEXIBLE IDENTITY VALIDATION
         // Row is valid if ANY ONE identifier is present
         const hasAnyId = employeeId || aadhaarNumber || mobileNumber;
         if (!hasAnyId) {
           throw new Error('No identifier present (need Employee ID, Aadhaar, or Mobile)');
         }
 
-        // Step 6b: Parse and validate date
+        // Trim all values in rowObject for consistency
+        Object.keys(rowObject).forEach(key => {
+          if (typeof rowObject[key] === 'string') {
+            rowObject[key] = rowObject[key].trim();
+          }
+        });
+
+        // Step 6c: Parse and validate date
         const attendanceDateRaw = rowObject['Attendance Date'];
         let attendanceDate: string;
         try {
@@ -188,13 +199,13 @@ export async function parseExcelFileEnriched(file: File): Promise<EnrichedParseR
           throw new Error(`Date parsing failed: ${err.message}`);
         }
 
-        // Step 6c: Map to MongoDB field names
+        // Step 6d: Map to MongoDB field names
         const mapResult = mapRowToMongoDB(rowObject, headers, templateType);
         const mappedRow = mapResult.mapped;
         mappedRow.attendanceDate = attendanceDate;
         mappedRow.trainingType = templateType;
 
-        // Step 6d: Master data enrichment (if available)
+        // Step 6e: Master data enrichment (if available)
         let employeeStatus: 'Active' | 'Inactive' = 'Inactive';
         let enrichmentSource = 'Not enriched (master data unavailable)';
 

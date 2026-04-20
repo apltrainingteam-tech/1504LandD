@@ -78,6 +78,7 @@ export interface IPRecord {
   bucket: 'ELITE' | 'HIGH' | 'MEDIUM' | 'LOW';
 }
 
+export interface IPHeritageMapCell {
   elite: number;
   high: number;
   medium: number;
@@ -99,6 +100,7 @@ export interface IPAggregates {
   teamMonthMap: Record<string, Record<string, IPMonthMapNode>>;
   globalKPIs: {
     totalCandidates: number;
+    elitePct: number;
     highPct: number;
     medPct: number;
     lowPct: number;

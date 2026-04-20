@@ -87,7 +87,7 @@ export async function uploadTrainingDataEnriched(
 
   log('[UPLOAD] Starting upload with enrichment...');
 
-  const chunkSize = options.chunkSize || 500;
+  const chunkSize = options.chunkSize || 100;
   const progressCallback = options.onProgress;
 
   try {
@@ -182,17 +182,10 @@ export async function uploadTrainingDataEnriched(
       const totalChunks = Math.ceil(validRows.length / chunkSize);
 
       try {
-        log(`[UPLOAD] Chunk ${chunkNum}/${totalChunks}: Uploading ${chunk.length} rows...`);
-        
-        // DEBUG: Log chunk details
-        log(`[UPLOAD] DEBUG: Chunk ${chunkNum} contains ${chunk.length} records`);
-        if (chunk.length > 0) {
-          log(`[UPLOAD] DEBUG: Chunk sample record:`, JSON.stringify(chunk[0], null, 2));
-          log(`[UPLOAD] DEBUG: Chunk record keys: ${Object.keys(chunk[0]).join(', ')}`);
-        }
+        log(`[UPLOAD] Chunk ${chunkNum}/${totalChunks}: Processing ${chunk.length} records...`);
         
         const batchResult = await createBatch('training_data', chunk);
-        log(`[UPLOAD] DEBUG: Batch API response:`, JSON.stringify(batchResult));
+        log(`[UPLOAD] ✅ Chunk ${chunkNum}/${totalChunks} SUCCESS: ${chunk.length} records uploaded`);
         
         uploadedCount += chunk.length;
         
@@ -206,8 +199,8 @@ export async function uploadTrainingDataEnriched(
           });
         }
       } catch (err: any) {
-        log(`[UPLOAD] ❌ Chunk ${chunkNum} failed: ${err.message}`);
-        throw new Error(`Chunk upload failed: ${err.message}`);
+        log(`[UPLOAD] ❌ Chunk ${chunkNum}/${totalChunks} FAILED: ${err.message}`);
+        throw new Error(`Chunk ${chunkNum} upload failed: ${err.message}`);
       }
     }
 

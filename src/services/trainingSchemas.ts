@@ -168,7 +168,6 @@ export const HEADER_ALIAS_MAP: Record<string, string> = {
   'science': 'scienceScore',
   'skillscore': 'skillScore',
   'skill': 'skillScore',
-  'presentation': 'presentation',
 };
 
 /** Given a raw Excel column header, return the canonical camelCase key. */

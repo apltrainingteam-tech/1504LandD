@@ -1,5 +1,6 @@
 import { normalizeText } from '../utils/textNormalizer';
 import { normalizeScore } from '../utils/scoreNormalizer';
+import { Employee } from '../types/employee';
 
 /**
  * Robust Training Type Normalizer (STRICT)
@@ -11,10 +12,10 @@ export function normalizeTrainingType(type: string): string {
 
   if (t.includes('ip')) return 'IP';
   if (t.includes('ap') && !t.includes('pre')) return 'AP';
-  if (t.includes('pre')) return 'PRE_AP';
+  if (t.includes('pre')) return 'Pre_AP';
   if (t.includes('mip')) return 'MIP';
-  if (t.includes('ref')) return 'REFRESHER';
-  if (t.includes('cap')) return 'CAPSULE';
+  if (t.includes('ref')) return 'Refresher';
+  if (t.includes('cap')) return 'Capsule';
 
   return type.toUpperCase().trim();
 }
@@ -91,7 +92,7 @@ export function buildUnifiedDataset(
 
     return {
       employee: emp as Employee,
-      attendance: { ...a, trainingType: type },
+      attendance: { ...a, trainingType: type as any },
       score: sc,
       nomination: nm,
       eligibilityStatus: el?.eligibilityStatus,
