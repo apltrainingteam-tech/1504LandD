@@ -38,6 +38,7 @@ import { Demographics } from './features/eligibility/Demographics';
 import { Notified } from './features/notifications/Notified';
 import { GapAnalysis } from './features/gap-analysis/GapAnalysis';
 import { RecruitmentQuality } from './features/srm/RecruitmentQuality';
+import { TrainingCalendar } from './features/calendar/TrainingCalendar';
 
 // Services & Types
 import { getCollection, deleteRecordsByQuery } from './services/apiClient';
@@ -60,7 +61,7 @@ const sidebarSections = [
   {
     title: "PLANNING",
     items: [
-      { label: "Training Calendar", view: "calendar", disabled: true, icon: CalendarCheck }
+      { label: "Training Calendar", view: "calendar", icon: CalendarCheck }
     ]
   },
   {
@@ -286,6 +287,7 @@ const App = () => {
       case 'performance': return <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} pageMode="performance-insights" />;
       case 'srm': return <RecruitmentQuality employees={emps} attendance={att} scores={scs} />;
       case 'trainings': return <TrainingsViewer employees={emps} attendance={att} scores={scs} />;
+      case 'calendar': return <TrainingCalendar employees={emps} attendance={att} />;
       case 'attendance': return <AttendanceUploadStrict onUploadComplete={() => setRefreshKey(k => k + 1)} />;
       case 'notified': return <Notified employees={emps} attendance={att} nominations={noms} onUploadComplete={() => setRefreshKey(k => k + 1)} />;
       case 'employees': return <Employees employees={emps} onUploadComplete={() => setRefreshKey(k => k + 1)} />;
