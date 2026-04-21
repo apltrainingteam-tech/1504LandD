@@ -4,8 +4,10 @@ import { Team } from '../context/MasterDataContext';
  * Maps a team code or team name to its stable teamId.
  * Used during data loading and migration.
  */
-export function getTeamId(teamReference: string | undefined, masterTeams: Team[]): string {
-  if (!teamReference) return 'UNKNOWN';
+const warnedTeams = new Set<string>();
+
+export function getTeamId(teamReference: string | undefined, masterTeams: Team[]): string | undefined {
+  if (!teamReference) return undefined;
   
   // Normalize
   const ref = teamReference.trim().toUpperCase();
@@ -22,7 +24,15 @@ export function getTeamId(teamReference: string | undefined, masterTeams: Team[]
   const byId = masterTeams.find(t => t.id.toUpperCase() === ref);
   if (byId) return byId.id;
 
-  return 'UNKNOWN';
+  if (!warnedTeams.has(ref)) {
+    console.warn(`mapTeamCodeToId FAILED: Unmapped team reference '${teamReference}'. Future warnings for this team will be suppressed.`);
+    warnedTeams.add(ref);
+  }
+  return undefined;
+}
+
+export function mapTeamCodeToId(teamCode: string | undefined, masterTeams: Team[]): string | undefined {
+  return getTeamId(teamCode, masterTeams);
 }
 
 /**

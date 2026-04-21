@@ -51,7 +51,7 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
   const FY_OPTIONS = getFiscalYears(2015);
   const [selectedFY, setSelectedFY] = useState<string>(FY_OPTIONS[0]);
 
-  const { selectionSession, consumedTeams, consumedTrainers, addConsumed, removeConsumed, addDraftNomination, resetConsumed, removeDraftNomination } = usePlanningFlow();
+  const { selectionSession, consumedTeams, consumedTrainers, addConsumed, removeConsumed, saveDraft, resetConsumed, removeDraft } = usePlanningFlow();
 
   useEffect(() => {
     if (selectionSession) {
@@ -199,8 +199,38 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
     setDragEnd(null);
   };
 
-  const handleCreatePlan = () => {
-    if (!formTeam || !formTrainer) return alert('Team and Trainer are required.');
+  const generateNominationDraft = async ({ teamId, trainingId, trainingType }: { teamId: string, trainingId: string, trainingType: string }) => {
+    if (!teamId) throw new Error("Assertion failed: teamId must be defined");
+    console.log("PLAN INPUT", { teamId, trainingId, trainingType });
+
+    const teamObj = masterTeams.find(t => t.id === teamId);
+    const teamLabel = teamObj ? teamObj.teamName : teamId;
+    
+    // Simplistic eligible candidates logic for demonstration matching previous behaviour
+    const eligible = employees.filter(e => e.teamId === teamId);
+    const top40 = eligible.slice(0, 40).map(e => String(e.employeeId));
+
+    saveDraft({
+      id: trainingId,
+      teamId,
+      trainingId,
+      trainingType,
+      team: teamLabel,
+      trainer: formTrainer,
+      startDate: modalStart,
+      endDate: modalEnd,
+      candidates: top40,
+      status: "DRAFT"
+    });
+    console.log("DRAFT SAVED", teamId, top40.length);
+  };
+
+  const handleCreatePlan = async () => {
+    if (!formTeam) {
+      console.error("BLOCKED: Missing teamId at plan creation");
+      return alert('Team is required.');
+    }
+    if (!formTrainer) return alert('Trainer is required.');
     
     // Find team details for display/nomination
     const teamObj = masterTeams.find(t => t.id === formTeam);
@@ -223,19 +253,7 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
     addConsumed(teamLabel, formTrainer);
 
     // Auto-generate Nomination Draft
-    const untrainedTop40 = employees.filter(e => e.team === teamLabel).map(e => String(e.employeeId)).slice(0, 40);
-    addDraftNomination({
-      id: newId,
-      trainingId: newId,
-      trainingType: tab,
-      team: teamLabel,
-      teamId: formTeam,
-      trainer: formTrainer,
-      startDate: modalStart,
-      endDate: modalEnd,
-      status: 'Draft',
-      selectedEmployees: untrainedTop40,
-    });
+    await generateNominationDraft({ teamId: formTeam, trainingId: newId, trainingType: tab });
 
     setShowCreateModal(false);
   };
@@ -245,7 +263,7 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
     const plan = plans.find(p => p.id === id);
     if (plan) {
       removeConsumed(plan.team, plan.trainer);
-      removeDraftNomination(plan.id);
+      removeDraft(plan.id);
     }
     setPlans(plans.filter(p => p.id !== id));
     setSelectedPlanId(null);

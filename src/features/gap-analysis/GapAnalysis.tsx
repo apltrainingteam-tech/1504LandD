@@ -84,10 +84,15 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
     let filteredEmployees = employees;
     if (pageFilters.cluster) {
       filteredEmployees = filteredEmployees.filter(emp => {
-        if (!teamMap[emp.teamId || '']) {
-          console.warn("Unmapped teamId:", emp.teamId);
+        if (!emp.teamId) {
+          console.error("Assertion failed: teamId must be defined for employee", emp.employeeId);
+          return false;
         }
-        const cluster = teamMap[emp.teamId || '']?.cluster || "Unknown";
+        const cluster = teamMap[emp.teamId]?.cluster;
+        if (!cluster) {
+          console.error("Unmapped teamId:", emp.teamId);
+          return false;
+        }
         return cluster === pageFilters.cluster;
       });
     }
@@ -361,7 +366,8 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
             className="btn" 
             style={{ background: 'white', color: 'var(--accent-primary)', fontWeight: 600, border: 'none' }}
             onClick={() => {
-              setSelectionSession({ trainingType: tab, fiscalYear: selectedFY, teams: selectedTeams });
+              const selectedTeamNames = selectedTeams.map(id => masterTeams.find(t => t.id === id)?.teamName || 'Unknown');
+              setSelectionSession({ trainingType: tab, fiscalYear: selectedFY, teams: selectedTeamNames, teamIds: selectedTeams });
               onNavigate?.('calendar');
             }}
           >

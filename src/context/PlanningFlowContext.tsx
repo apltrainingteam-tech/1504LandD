@@ -3,7 +3,8 @@ import React, { createContext, useContext, useState, ReactNode } from 'react';
 export interface SelectionSession {
   trainingType: string;
   fiscalYear: string;
-  teams: string[];
+  teams: string[]; // names for display
+  teamIds: string[]; // actual IDs
 }
 
 export interface NominationDraft {
@@ -12,11 +13,11 @@ export interface NominationDraft {
   trainingType: string;
   team: string; // display
   teamId: string; // stable
-  trainer: string;
-  startDate: string;
-  endDate: string;
-  status: 'Draft' | 'Finalized';
-  selectedEmployees: string[]; // employeeIds
+  trainer?: string; // display
+  startDate?: string;
+  endDate?: string;
+  status: 'DRAFT' | 'FINALIZED';
+  candidates: string[]; // employeeIds
 }
 
 interface PlanningFlowContextType {
@@ -29,10 +30,11 @@ interface PlanningFlowContextType {
   removeConsumed: (team: string, trainer: string) => void;
   resetConsumed: () => void;
   
-  draftNominations: NominationDraft[];
-  addDraftNomination: (draft: NominationDraft) => void;
-  updateDraftNomination: (id: string, updates: Partial<NominationDraft>) => void;
-  removeDraftNomination: (id: string) => void;
+  drafts: NominationDraft[];
+  saveDraft: (draft: NominationDraft) => void;
+  updateDraft: (id: string, updates: Partial<NominationDraft>) => void;
+  removeDraft: (id: string) => void;
+  getDrafts: (filter: { teamIds?: string[] }) => NominationDraft[];
 }
 
 const PlanningFlowContext = createContext<PlanningFlowContextType | undefined>(undefined);
@@ -42,7 +44,7 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
   
   const [consumedTeams, setConsumedTeams] = useState<Set<string>>(new Set());
   const [consumedTrainers, setConsumedTrainers] = useState<Set<string>>(new Set());
-  const [draftNominations, setDraftNominations] = useState<NominationDraft[]>([]);
+  const [drafts, setDrafts] = useState<NominationDraft[]>([]);
 
   const addConsumed = (team: string, trainer: string) => {
     setConsumedTeams(prev => new Set(prev).add(team));
@@ -68,23 +70,29 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
     setSelectionSession(null);
   };
 
-  const addDraftNomination = (draft: NominationDraft) => {
-    setDraftNominations(prev => [...prev, draft]);
+  const saveDraft = (draft: NominationDraft) => {
+    setDrafts(prev => [...prev, draft]);
   };
 
-  const updateDraftNomination = (id: string, updates: Partial<NominationDraft>) => {
-    setDraftNominations(prev => prev.map(d => d.id === id ? { ...d, ...updates } : d));
+  const updateDraft = (id: string, updates: Partial<NominationDraft>) => {
+    setDrafts(prev => prev.map(d => d.id === id ? { ...d, ...updates } : d));
   };
 
-  const removeDraftNomination = (id: string) => {
-    setDraftNominations(prev => prev.filter(d => d.id !== id));
+  const removeDraft = (id: string) => {
+    setDrafts(prev => prev.filter(d => d.id !== id));
+  };
+
+  const getDrafts = (filter: { teamIds?: string[] }) => {
+    const validDrafts = drafts.filter(d => Boolean(d.teamId));
+    if (!filter.teamIds || filter.teamIds.length === 0) return validDrafts;
+    return validDrafts.filter(d => filter.teamIds!.includes(d.teamId));
   };
 
   return (
     <PlanningFlowContext.Provider value={{
       selectionSession, setSelectionSession,
       consumedTeams, consumedTrainers, addConsumed, removeConsumed, resetConsumed,
-      draftNominations, addDraftNomination, updateDraftNomination, removeDraftNomination
+      drafts, saveDraft, updateDraft, removeDraft, getDrafts
     }}>
       {children}
     </PlanningFlowContext.Provider>

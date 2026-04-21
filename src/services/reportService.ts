@@ -23,7 +23,7 @@ import { Attendance, TrainingScore, TrainingNomination } from '../types/attendan
 import { UnifiedRecord, GroupedData, ViewByOption, TimeSeriesRow, TrainerStat, DrilldownNode, ReportFilter, SCORE_SCHEMAS } from '../types/reports';
 import { EligibilityResult } from './eligibilityService';
 import { Team } from '../context/MasterDataContext';
-import { getTeamId } from '../utils/teamIdMapper';
+import { getTeamId, mapTeamCodeToId } from '../utils/teamIdMapper';
 import { groupByKey, groupByTwoLevels, groupByField } from '../utils/mapGrouping';
 
 const safe = (v: any): number => (typeof v === 'number' && !isNaN(v)) ? v : 0;
@@ -97,7 +97,11 @@ export function buildUnifiedDataset(
     const el = eligibilityMap.get(tid);
     
     // Ensure employee has teamId and cluster resolved even if placeholder
-    const teamId = emp.teamId || getTeamId(emp.team, masterTeams);
+    const teamId = emp.teamId || mapTeamCodeToId(emp.team, masterTeams);
+    if (!teamId) {
+      console.error("Assertion failed: teamId must be defined for report calculation");
+      return; // Skip employee lacking team mapping
+    }
     const cluster = emp.cluster || teamMap[teamId]?.cluster || 'Unknown';
 
     return {
@@ -120,7 +124,8 @@ export function applyFilters(ds: UnifiedRecord[], filter: ReportFilter, masterTe
     if (filter.monthFrom && month < filter.monthFrom) return false;
     if (filter.monthTo && month > filter.monthTo) return false;
     
-    const teamId = r.attendance.teamId || getTeamId(r.employee.team, masterTeams);
+    const teamId = r.attendance.teamId || mapTeamCodeToId(r.employee.team, masterTeams);
+    if (!teamId) return; // Skip properly
 
     if (filter.teams.length > 0 && !filter.teams.includes(teamId)) return false;
     
@@ -156,7 +161,10 @@ export function groupData(
     else if (by === 'Team') k = r.employee.team || '—';
     else {
       const teamId = r.attendance.teamId || r.employee.teamId;
-      k = teamMap[teamId || '']?.cluster || 'Unknown';
+      if (!teamId) return;
+
+      k = teamMap[teamId]?.cluster;
+      if (!k) return;
     }
 
     if (!m.has(k)) m.set(k, { key: k, records: [], nominations: [], metric: 0 });
@@ -177,7 +185,9 @@ export function groupData(
     else if (by === 'Team') k = n.team || '—';
     else {
       const teamId = n.teamId;
-      k = teamMap[teamId || '']?.cluster || 'Unknown';
+      if (!teamId) return; // Skip if no valid teamId
+      k = teamMap[teamId]?.cluster;
+      if (!k) return;
     }
 
     if (!m.has(k)) m.set(k, { key: k, records: [], nominations: [], metric: 0 });

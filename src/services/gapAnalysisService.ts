@@ -97,11 +97,15 @@ export const groupByClusterTeam = (employees: Employee[], masterTeams: Team[]): 
   const teamMap = Object.fromEntries(masterTeams.map(t => [t.id, t]));
 
   employees.forEach(emp => {
-    // RESOLVE CLUSTER FROM MASTER DATA (Source of Truth)
-    if (!teamMap[emp.teamId || '']) {
-      console.warn("Unmapped teamId:", emp.teamId);
+    if (!emp.teamId) {
+      console.error("Assertion failed: teamId must be defined for employee", emp.employeeId);
+      return; // skip
     }
-    const cluster = teamMap[emp.teamId || '']?.cluster || 'Unknown';
+    const cluster = teamMap[emp.teamId]?.cluster;
+    if (!cluster) {
+      console.error("Unmapped teamId:", emp.teamId);
+      return; // skip
+    }
     const team = emp.team || 'Unknown';
 
     if (!grouped.has(cluster)) grouped.set(cluster, new Map());
@@ -181,17 +185,22 @@ export const computeGapAnalysis = (
 
   // Enrich employees
   const enrichedEmployees = employees.map(emp => {
-     if (!teamMap[emp.teamId || '']) {
-       console.warn("Unmapped teamId:", emp.teamId);
+     if (!emp.teamId) {
+       console.error("Assertion failed: teamId must be defined for employee", emp.employeeId);
+       return null; // Skip this employee completely
      }
-     const cluster = teamMap[emp.teamId || '']?.cluster || "Unknown";
+     const cluster = teamMap[emp.teamId]?.cluster;
+     if (!cluster) {
+       console.error("Unmapped teamId:", emp.teamId);
+       return null;
+     }
 
      return {
        ...emp,
        cluster,
        zone: emp.zone || getZoneFromState(emp.state)
      };
-  });
+  }).filter((emp): emp is (Employee & { cluster: string, zone: string }) => emp !== null);
 
   // 🔥 STEP 3: USE ONLY ACTIVE EMPLOYEES
   const baseEmployees = enrichedEmployees.filter(e =>

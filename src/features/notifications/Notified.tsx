@@ -109,12 +109,12 @@ export const Notified: React.FC<NotifiedProps> = ({ employees, attendance, nomin
 
   // Drafts Integration
   const { teams: masterTeams } = useMasterData();
-  const { draftNominations, updateDraftNomination, selectionSession, resetConsumed } = usePlanningFlow();
+  const { getDrafts, updateDraft, selectionSession: activePlanningSession, resetConsumed } = usePlanningFlow();
   
   const hasPlanningContext = Boolean(
-    selectionSession &&
-    Array.isArray(selectionSession.teams) &&
-    selectionSession.teams.length > 0
+    activePlanningSession &&
+    Array.isArray(activePlanningSession.teams) &&
+    activePlanningSession.teams.length > 0
   );
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
 
@@ -317,7 +317,7 @@ export const Notified: React.FC<NotifiedProps> = ({ employees, attendance, nomin
       {hasPlanningContext && (
         <div style={{ background: 'rgba(34, 197, 94, 0.1)', border: '1px solid var(--success)', color: 'var(--success)', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ fontSize: '14px', fontWeight: 600 }}>
-            Planning for: {selectionSession!.teams.join(', ')}
+            Planning for: {activePlanningSession!.teams.join(', ')}
           </div>
           <button className="btn btn-secondary" onClick={() => {
              if (window.confirm("Reset all blocked Teams and Trainers?")) resetConsumed();
@@ -341,7 +341,7 @@ export const Notified: React.FC<NotifiedProps> = ({ employees, attendance, nomin
               padding: '8px 16px', cursor: 'pointer'
             }}
           >
-            {t === 'drafts' && `Nominations (${draftNominations.length})`}
+            {t === 'drafts' && `Nominations (${getDrafts({}).length})`}
             {t === 'upload' && 'Upload Legacy'}
             {t === 'summary' && 'Summary Metrics'}
             {t === 'defaulters' && `Defaulters (${stats.defaulterCount})`}
@@ -372,22 +372,20 @@ export const Notified: React.FC<NotifiedProps> = ({ employees, attendance, nomin
         </div>
       )}
 
-      {/* DRAFTS TAB */}
       {tab === 'drafts' && (() => {
-        const teamFilter = selectionSession?.teams || [];
-        const viewableDrafts = draftNominations.filter(d => teamFilter.length === 0 || teamFilter.includes(d.team));
+        const viewableDrafts = getDrafts({});
         
         return (
           <div className="space-y-4">
             {hasPlanningContext && (
               <div style={{ marginBottom: '16px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                Filtering natively via Active Planning Session ({teamFilter.length} active teams)
+                Filtering natively via Active Planning Session ({activePlanningSession!.teams.length} active teams)
               </div>
             )}
             
             {viewableDrafts.length === 0 ? (
               <div className="glass-panel text-center" style={{ padding: '60px' }}>
-                <p className="text-muted">No pending nomination drafts awaiting review.</p>
+                <p className="text-muted">No drafts found. Create a training plan to generate nominations.</p>
               </div>
             ) : (
               <div className="glass-panel text-left">
@@ -399,11 +397,11 @@ export const Notified: React.FC<NotifiedProps> = ({ employees, attendance, nomin
                       <td>{d.team}</td>
                       <td>{d.trainer}</td>
                       <td>
-                        {d.status === 'Finalized' ? <span className="badge badge-success">Finalized</span> : <span className="badge badge-warning">Draft</span>}
+                        {d.status === 'FINALIZED' ? <span className="badge badge-success">Finalized</span> : <span className="badge badge-warning">Draft</span>}
                       </td>
                       <td>
                         <button className="btn btn-secondary" onClick={() => setEditingDraftId(d.id)}>
-                          Edit ({d.selectedEmployees.length}/40)
+                          Edit ({d.candidates.length}/40)
                         </button>
                       </td>
                     </tr>
@@ -416,18 +414,18 @@ export const Notified: React.FC<NotifiedProps> = ({ employees, attendance, nomin
               const draft = viewableDrafts.find(d => d.id === editingDraftId);
               if (!draft) return null;
               
-              const teamEmps = employees.filter(e => e.team === draft.team);
+              const teamEmps = employees.filter(e => e.teamId === draft.teamId);
 
               const toggleEmp = (empId: string) => {
-                if (draft.status === 'Finalized') return;
-                let newSelected = [...draft.selectedEmployees];
+                if (draft.status === 'FINALIZED') return;
+                let newSelected = [...draft.candidates];
                 if (newSelected.includes(empId)) {
                   newSelected = newSelected.filter(id => id !== empId);
                 } else {
                   if (newSelected.length >= 40) return alert('Max 40 trainees allowed per execution plan');
                   newSelected.push(empId);
                 }
-                updateDraftNomination(draft.id, { selectedEmployees: newSelected });
+                updateDraft(draft.id, { candidates: newSelected });
               };
 
               return (
@@ -435,7 +433,7 @@ export const Notified: React.FC<NotifiedProps> = ({ employees, attendance, nomin
                   <div style={{ padding: '24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                      <div>
                         <h2 style={{ margin: 0, fontSize: '20px' }}>Review Nominations</h2>
-                        <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{draft.selectedEmployees.length} of 40 selected</span>
+                        <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{draft.candidates.length} of 40 selected</span>
                      </div>
                      <button className="btn" onClick={() => setEditingDraftId(null)}><X size={20} /></button>
                   </div>
@@ -443,12 +441,12 @@ export const Notified: React.FC<NotifiedProps> = ({ employees, attendance, nomin
                   <div style={{ flex: 1, padding: '24px', overflowY: 'auto' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       {teamEmps.map(emp => {
-                        const isSelected = draft.selectedEmployees.includes(String(emp.employeeId));
+                        const isSelected = draft.candidates.includes(String(emp.employeeId));
                         return (
                           <div 
                             key={emp.employeeId} 
                             onClick={() => toggleEmp(String(emp.employeeId))}
-                            style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: isSelected ? 'var(--bg)' : 'transparent', borderRadius: '8px', cursor: draft.status === 'Finalized' ? 'not-allowed' : 'pointer', border: '1px solid var(--border-color)' }}
+                            style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: isSelected ? 'var(--bg)' : 'transparent', borderRadius: '8px', cursor: draft.status === 'FINALIZED' ? 'not-allowed' : 'pointer', border: '1px solid var(--border-color)' }}
                           >
                              <input type="checkbox" checked={isSelected} readOnly style={{ pointerEvents: 'none' }} />
                              <div>
@@ -462,14 +460,14 @@ export const Notified: React.FC<NotifiedProps> = ({ employees, attendance, nomin
                   </div>
 
                   <div style={{ padding: '24px', borderTop: '1px solid var(--border-color)', display: 'flex', gap: '12px' }}>
-                    <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setEditingDraftId(null)} disabled={draft.status === 'Finalized'}>Save Draft</button>
+                    <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setEditingDraftId(null)} disabled={draft.status === 'FINALIZED'}>Save Draft</button>
                     <button 
                       className="btn btn-primary" 
-                      style={{ flex: 1, background: draft.status === 'Finalized' ? 'var(--success)' : 'var(--accent-primary)' }}
-                      disabled={draft.status === 'Finalized'}
-                      onClick={() => updateDraftNomination(draft.id, { status: 'Finalized' })}
+                      style={{ flex: 1, background: draft.status === 'FINALIZED' ? 'var(--success)' : 'var(--accent-primary)' }}
+                      disabled={draft.status === 'FINALIZED'}
+                      onClick={() => updateDraft(draft.id, { status: 'FINALIZED' })}
                     >
-                      {draft.status === 'Finalized' ? 'Locked & Finalized' : 'Finalize & Lock'}
+                      {draft.status === 'FINALIZED' ? 'Locked & Finalized' : 'Finalize & Lock'}
                     </button>
                   </div>
                 </div>

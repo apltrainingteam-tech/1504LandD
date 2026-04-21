@@ -53,7 +53,7 @@ import { parseAnyDate } from './utils/dateParser';
 import { normalizeScore } from './utils/scoreNormalizer';
 import { getSchema, mapHeader } from './services/trainingSchemas';
 import { normalizeText } from './utils/textNormalizer';
-import { getTeamId } from './utils/teamIdMapper';
+import { getTeamId, mapTeamCodeToId } from './utils/teamIdMapper';
 
 type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'notified' | 'gap-analysis' | 'performance' | 'srm' | 'calendar' | 'master-settings';
 interface SidebarItem {
@@ -175,23 +175,28 @@ const App = () => {
 
         // Populate Attendance
         if (attendanceDate) {
-          a.push({
-            id: row._id || Math.random().toString(),
-            employeeId: String(employeeId),
-            trainingType: trainingType,
-            attendanceDate: attendanceDate,
-            month: (attendanceDate as string).substring(0, 7),
-            attendanceStatus: r.attendanceStatus || 'Present',
-            employeeStatus: r.employeeStatus || 'Active',
-            aadhaarNumber: r.aadhaarNumber || row.aadhaarNumber,
-            mobileNumber: r.mobileNumber || row.mobileNumber,
-            name: r.name || row.name,
-            team: r.team || row.team,
-            teamId: getTeamId(r.team || row.team, masterTeams),
-            designation: r.designation || row.designation,
-            hq: r.hq || row.hq,
-            state: r.state || row.state,
-          } as Attendance);
+          const teamId = mapTeamCodeToId(r.team || row.team, masterTeams);
+          if (teamId) {
+            a.push({
+              id: row._id || Math.random().toString(),
+              employeeId: String(employeeId),
+              trainingType: trainingType,
+              attendanceDate: attendanceDate,
+              month: (attendanceDate as string).substring(0, 7),
+              attendanceStatus: r.attendanceStatus || 'Present',
+              employeeStatus: r.employeeStatus || 'Active',
+              aadhaarNumber: r.aadhaarNumber || row.aadhaarNumber,
+              mobileNumber: r.mobileNumber || row.mobileNumber,
+              name: r.name || row.name,
+              team: r.team || row.team,
+              teamId: teamId,
+              designation: r.designation || row.designation,
+              hq: r.hq || row.hq,
+              state: r.state || row.state,
+            } as Attendance);
+          } else {
+            // Unmapped team, quietly skip since teamIdMapper logs uniquely.
+          }
         }
 
         // Populate Scores - Using official training schema definitions
@@ -234,22 +239,27 @@ const App = () => {
             notificationDate = parseAnyDate(notificationDate) || notificationDate;
           }
           
-          n.push({
-            id: row._id || Math.random().toString(),
-            employeeId: String(employeeId),
-            trainingType: trainingType,
-            notificationDate: notificationDate,
-            month: (notificationDate as string).substring(0, 7),
-            notificationCount: 1,
-            aadhaarNumber: r.aadhaarNumber || row.aadhaarNumber || '',
-            mobileNumber: r.mobileNumber || row.mobileNumber || '',
-            name: r.name || row.name || '',
-            designation: r.designation || row.designation || '',
-            team: r.team || row.team || '',
-            teamId: getTeamId(r.team || row.team, masterTeams),
-            hq: r.hq || row.hq || '',
-            state: r.state || row.state || '',
-          } as TrainingNomination);
+          const teamId = mapTeamCodeToId(r.team || row.team, masterTeams);
+          if (teamId) {
+            n.push({
+              id: row._id || Math.random().toString(),
+              employeeId: String(employeeId),
+              trainingType: trainingType,
+              notificationDate: notificationDate,
+              month: (notificationDate as string).substring(0, 7),
+              notificationCount: 1,
+              aadhaarNumber: r.aadhaarNumber || row.aadhaarNumber || '',
+              mobileNumber: r.mobileNumber || row.mobileNumber || '',
+              name: r.name || row.name || '',
+              designation: r.designation || row.designation || '',
+              team: r.team || row.team || '',
+              teamId: teamId,
+              hq: r.hq || row.hq || '',
+              state: r.state || row.state || '',
+            } as TrainingNomination);
+          } else {
+            // Unmapped team, quietly skip since teamIdMapper logs uniquely.
+          }
         }
       });
 
@@ -261,16 +271,16 @@ const App = () => {
         demographics: d.length
       });
       
-      setEmps((e as any[]).map(row => {
-        const teamId = row.teamId || getTeamId(row.team, masterTeams);
-        console.assert(teamId !== undefined && teamId !== 'UNKNOWN', "teamId must be defined");
+      setEmps(((e as any[]).map(row => {
+        const teamId = row.teamId || mapTeamCodeToId(row.team, masterTeams);
+        if (!teamId) return null;
         return {
           ...row,
           id: row.id || row._id,
           employeeId: String(row.employeeId),
           teamId
         };
-      }) as Employee[]);
+      })).filter(Boolean) as Employee[]);
       setAtt(a);
       setScs(s);
       setNoms(n);
