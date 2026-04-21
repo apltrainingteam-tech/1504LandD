@@ -1,5 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronRight, ChevronDown, Users, CheckCircle2, AlertTriangle, TrendingUp, Search, X, MapPin } from 'lucide-react';
+import { useFilters } from '../../context/FilterProvider';
+import { usePlanningFlow } from '../../context/PlanningFlowContext';
 import { Employee } from '../../types/employee';
 import { Attendance, TrainingScore, TrainingNomination } from '../../types/attendance';
 import { STATE_ZONE } from '../../seed/masterData';
@@ -25,20 +27,26 @@ interface GapAnalysisProps {
   employees: Employee[];
   attendance: Attendance[];
   nominations: TrainingNomination[];
+  onNavigate?: (view: any) => void;
 }
 
 type TrainingTab = 'AP' | 'MIP' | 'Refresher' | 'Capsule';
 
-const GapAnalysis = ({ employees, attendance, nominations }: GapAnalysisProps) => {
+export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance, nominations, onNavigate }) => {
+  const { pageFilters } = useFilters();
+  const { setSelectionSession } = usePlanningFlow();
   const [tab, setTab] = useState<TrainingTab>('AP');
   const [expanded, setExpanded] = useState(new Set<string>());
   const [zoneFilter, setZoneFilter] = useState<string>('');
   const FY_OPTIONS = getFiscalYears(2015);
   const [selectedFY, setSelectedFY] = useState<string>(FY_OPTIONS[0]);
-  const [pageFilters, setPageFilters] = useState<GlobalFilters>({ cluster: '', team: '', trainer: '', month: '' });
-  const activeFilterCount = getActiveFilterCount(pageFilters);
+  const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
   const [showGlobalFilters, setShowGlobalFilters] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: 'total' | 'mr90', direction: 'asc' | 'desc' }>({ key: 'total', direction: 'desc' });
+
+  useEffect(() => {
+    setSelectedTeams([]);
+  }, [tab]);
 
   // Get unique zones from masterData
   const zones = useMemo(() => {
@@ -123,6 +131,10 @@ const GapAnalysis = ({ employees, attendance, nominations }: GapAnalysisProps) =
     if (newExpanded.has(key)) newExpanded.delete(key);
     else newExpanded.add(key);
     setExpanded(newExpanded);
+  };
+
+  const toggleTeamSelection = (team: string) => {
+    setSelectedTeams(prev => prev.includes(team) ? prev.filter(t => t !== team) : [...prev, team]);
   };
 
   const sortedData = useMemo(() => {
@@ -253,13 +265,20 @@ const GapAnalysis = ({ employees, attendance, nominations }: GapAnalysisProps) =
                   style={{ background: isCluster ? 'rgba(0,0,0,0.1)' : 'transparent' }}
                 >
                   <td>
-                    {isCluster && (
+                    {isCluster ? (
                       <button
                         onClick={() => toggleExpanded(row.cluster)}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}
                       >
                         {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                       </button>
+                    ) : (
+                      <input 
+                        type="checkbox" 
+                        checked={selectedTeams.includes(row.team)}
+                        onChange={() => toggleTeamSelection(row.team)}
+                        style={{ cursor: 'pointer', marginLeft: '12px' }}
+                      />
                     )}
                   </td>
                   <td 
@@ -318,6 +337,22 @@ const GapAnalysis = ({ employees, attendance, nominations }: GapAnalysisProps) =
           </button>
         ))}
       </div>
+
+      {selectedTeams.length > 0 && (
+        <div style={{ background: 'var(--accent-primary)', color: 'white', padding: '16px 24px', borderRadius: '8px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>Selected Teams: <strong>{selectedTeams.length}</strong></div>
+          <button 
+            className="btn" 
+            style={{ background: 'white', color: 'var(--accent-primary)', fontWeight: 600, border: 'none' }}
+            onClick={() => {
+              setSelectionSession({ trainingType: tab, fiscalYear: selectedFY, teams: selectedTeams });
+              onNavigate?.('calendar');
+            }}
+          >
+            Proceed to Planning →
+          </button>
+        </div>
+      )}
 
       {renderZoneFilter()}
 

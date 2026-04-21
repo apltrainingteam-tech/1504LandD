@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, X, AlertTriangle, Trash2, Calendar as CalIcon, Save } from 'lucide-react';
 import TopRightControls from '../../components/TopRightControls';
 import { getFiscalYears, getFiscalYearFromDate, parseFiscalYear, getCurrentFiscalYear } from '../../utils/fiscalYear';
+import { usePlanningFlow } from '../../context/PlanningFlowContext';
 import { Employee } from '../../types/employee';
 import { Attendance } from '../../types/attendance';
 
@@ -45,6 +46,18 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
   const FY_OPTIONS = getFiscalYears(2015);
   const [selectedFY, setSelectedFY] = useState<string>(FY_OPTIONS[0]);
 
+  const { selectionSession, consumedTeams, consumedTrainers, addConsumed, removeConsumed, addDraftNomination, resetConsumed, removeDraftNomination } = usePlanningFlow();
+
+  useEffect(() => {
+    if (selectionSession) {
+      setTab(selectionSession.trainingType as TrainingTab);
+      // Ensure we don't trigger a recursive change lock, just set the state once if it differs
+      if (selectionSession.fiscalYear !== selectedFY) {
+         handleFYChange(selectionSession.fiscalYear);
+      }
+    }
+  }, [selectionSession]);
+
   const handleFYChange = (newFY: string) => {
     setSelectedFY(newFY);
     const fyStartYear = parseFiscalYear(newFY);
@@ -84,6 +97,7 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
   const [formTeam, setFormTeam] = useState('');
   const [formTrainer, setFormTrainer] = useState('');
   const [formRemarks, setFormRemarks] = useState('');
+  const [overrideTrainer, setOverrideTrainer] = useState(false);
 
   const allTeams = useMemo(() => [...new Set(employees.map(e => e.team).filter(Boolean))].sort(), [employees]);
   const allTrainers = useMemo(() => [...new Set(attendance.map(a => a.trainerId).filter(Boolean))].sort(), [attendance]);
@@ -141,8 +155,9 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
   const handleCreatePlan = () => {
     if (!formTeam || !formTrainer) return alert('Team and Trainer are required.');
     
+    const newId = Math.random().toString(36).substr(2, 9);
     const newPlan: TrainingPlan = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: newId,
       trainingType: tab,
       team: formTeam,
       trainer: formTrainer,
@@ -153,11 +168,32 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
     };
 
     setPlans([...plans, newPlan]);
+    addConsumed(formTeam, formTrainer);
+
+    // Auto-generate Nomination Draft
+    const untrainedTop40 = employees.filter(e => e.team === formTeam).map(e => String(e.employeeId)).slice(0, 40);
+    addDraftNomination({
+      id: newId,
+      trainingId: newId,
+      trainingType: tab,
+      team: formTeam,
+      trainer: formTrainer,
+      startDate: modalStart,
+      endDate: modalEnd,
+      status: 'Draft',
+      selectedEmployees: untrainedTop40,
+    });
+
     setShowCreateModal(false);
   };
 
   const handleDeletePlan = (id: string) => {
     if (!window.confirm("Delete this training plan?")) return;
+    const plan = plans.find(p => p.id === id);
+    if (plan) {
+      removeConsumed(plan.team, plan.trainer);
+      removeDraftNomination(plan.id);
+    }
     setPlans(plans.filter(p => p.id !== id));
     setSelectedPlanId(null);
   };
@@ -215,16 +251,25 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
       </div>
 
       {/* TABS */}
-      <div className="gap-tabs" style={{ marginBottom: '16px' }}>
-        {(['IP', 'AP', 'MIP', 'Capsule', 'Refresher', 'Pre-AP'] as TrainingTab[]).map(t => (
-          <button
-            key={t}
-            className={`gap-tab ${tab === t ? 'gap-tab-active' : ''}`}
-            onClick={() => { setTab(t); setSelectedPlanId(null); }}
-          >
-            {t}
-          </button>
-        ))}
+      <div className="gap-tabs" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          {(['IP', 'AP', 'MIP', 'Capsule', 'Refresher', 'Pre-AP'] as TrainingTab[]).map(t => (
+            <button
+              key={t}
+              className={`gap-tab ${tab === t ? 'gap-tab-active' : ''}`}
+              onClick={() => { setTab(t); setSelectedPlanId(null); }}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+        
+        {/* RESET SELECTION OPTION */}
+        <button className="btn btn-secondary" onClick={() => {
+          if (window.confirm("Reset all blocked Teams and Trainers?")) resetConsumed();
+        }} style={{ fontSize: '12px', padding: '6px 12px' }}>
+          Reset Selection
+        </button>
       </div>
 
       {/* FILTER BAR & MONTH CONTROLS */}
@@ -350,15 +395,27 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Team <span style={{ color: 'var(--danger)' }}>*</span></label>
                 <select value={formTeam} onChange={e => setFormTeam(e.target.value)} className="form-input">
                   <option value="">Select Team...</option>
-                  {allTeams.map(t => <option key={t} value={t}>{t}</option>)}
+                  {(selectionSession ? selectionSession.teams : allTeams).map(t => {
+                    const isUsed = consumedTeams.has(t);
+                    return <option key={t} value={t} disabled={isUsed} title={isUsed ? 'Already used in this planning session' : ''} style={{ textDecoration: isUsed ? 'line-through' : 'none', color: isUsed ? 'var(--text-secondary)' : 'inherit' }}>{t} {isUsed ? '(Used)' : ''}</option>
+                  })}
                 </select>
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Trainer <span style={{ color: 'var(--danger)' }}>*</span></label>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 600 }}>Trainer <span style={{ color: 'var(--danger)' }}>*</span></label>
+                  <label style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontWeight: 500 }}>
+                    <input type="checkbox" checked={overrideTrainer} onChange={e => setOverrideTrainer(e.target.checked)} />
+                    Show Used Trainers
+                  </label>
+                </div>
                 <select value={formTrainer} onChange={e => setFormTrainer(e.target.value)} className="form-input">
                   <option value="">Select Trainer...</option>
-                  {allTrainers.map(t => <option key={t} value={t}>{t}</option>)}
+                  {allTrainers.map(t => {
+                    const isUsed = !overrideTrainer && consumedTrainers.has(t);
+                    return <option key={t} value={t} disabled={isUsed} title={isUsed ? 'Already used in this planning session' : ''} style={{ textDecoration: isUsed ? 'line-through' : 'none', color: isUsed ? 'var(--text-secondary)' : 'inherit' }}>{t} {isUsed ? '(Used)' : ''}</option>
+                  })}
                 </select>
                 {hasConflict(formTrainer, modalStart, modalEnd) && (
                   <div style={{ color: 'var(--warning)', fontSize: '11px', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>

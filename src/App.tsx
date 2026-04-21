@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from './context/ThemeContext';
 import { FilterProvider } from './context/FilterProvider';
+import { PlanningFlowProvider } from './context/PlanningFlowContext';
 import { PageTransition } from './components/PageTransition';
 import { SkeletonDashboard } from './components/SkeletonDashboard';
 import './index.css';
@@ -292,14 +293,15 @@ const App = () => {
       case 'notified': return <Notified employees={emps} attendance={att} nominations={noms} onUploadComplete={() => setRefreshKey(k => k + 1)} />;
       case 'employees': return <Employees employees={emps} onUploadComplete={() => setRefreshKey(k => k + 1)} />;
       case 'demographics': return <Demographics />;
-      case 'gap-analysis': return <GapAnalysis employees={emps} attendance={att} nominations={noms} />;
+      case 'gap-analysis': return <GapAnalysis employees={emps} attendance={att} nominations={noms} onNavigate={setView} />;
       default: return <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} />;
     }
   };
 
   return (
-    <FilterProvider>
-      <div className="app-container">
+    <PlanningFlowProvider>
+      <FilterProvider>
+        <div className="app-container">
         {/* Sidebar Navigation */}
         <aside className="sidebar">
         <div className="sidebar-logo">
@@ -401,10 +403,9 @@ const App = () => {
         </PageTransition>
       </main>
       </div>
-    </FilterProvider>
+      </FilterProvider>
+    </PlanningFlowProvider>
   );
 };
 
 export default App;
-
-

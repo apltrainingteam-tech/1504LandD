@@ -4,6 +4,7 @@ import { ParsedRow, parseNominationExcel } from '../../services/parsingService';
 import { validateFileSize, MAX_UPLOAD_SIZE_BYTES } from '../../utils/fileValidation';
 import { addBatch } from '../../services/apiClient';
 import { TEAM_CLUSTER_MAP } from '../../services/clusterMap';
+import { usePlanningFlow } from '../../context/PlanningFlowContext';
 import { Employee } from '../../types/employee';
 import { Attendance, TrainingNomination } from '../../types/attendance';
 import { DataTable } from '../../components/DataTable';
@@ -88,7 +89,7 @@ type ClusterGroup = {
 };
 
 export const Notified: React.FC<NotifiedProps> = ({ employees, attendance, nominations, onUploadComplete }) => {
-  const [tab, setTab] = useState<'upload' | 'summary' | 'defaulters' | 'drilldown'>('upload');
+  const [tab, setTab] = useState<'drafts' | 'upload' | 'summary' | 'defaulters' | 'drilldown'>('drafts');
   const [trainingFilter, setTrainingFilter] = useState<string>('AP');
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
 
@@ -104,6 +105,10 @@ export const Notified: React.FC<NotifiedProps> = ({ employees, attendance, nomin
   // Expand state
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
+
+  // Drafts Integration
+  const { draftNominations, updateDraftNomination, selectionSession } = usePlanningFlow();
+  const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
 
   // Core statistics
   const stats = useMemo(() => {
@@ -300,7 +305,7 @@ export const Notified: React.FC<NotifiedProps> = ({ employees, attendance, nomin
 
       {/* TABS */}
       <div className="tabs mb-8" style={{ display: 'flex', gap: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
-        {['upload', 'summary', 'defaulters', 'drilldown'].map(t => (
+        {['drafts', 'upload', 'summary', 'defaulters', 'drilldown'].map(t => (
           <button key={t}
             className={`tab ${tab === t ? 'active' : ''}`}
             onClick={() => setTab(t as any)}
@@ -312,7 +317,8 @@ export const Notified: React.FC<NotifiedProps> = ({ employees, attendance, nomin
               padding: '8px 16px', cursor: 'pointer'
             }}
           >
-            {t === 'upload' && 'Upload Nominations'}
+            {t === 'drafts' && `Nominations (${draftNominations.length})`}
+            {t === 'upload' && 'Upload Legacy'}
             {t === 'summary' && 'Summary Metrics'}
             {t === 'defaulters' && `Defaulters (${stats.defaulterCount})`}
             {t === 'drilldown' && 'Drilldown Log'}
@@ -321,7 +327,7 @@ export const Notified: React.FC<NotifiedProps> = ({ employees, attendance, nomin
       </div>
 
       {/* TRAINING FILTER */}
-      {tab !== 'upload' && (
+      {(tab === 'summary' || tab === 'defaulters' || tab === 'drilldown') && (
         <div style={{ marginBottom: '24px', display: 'flex', gap: '12px', alignItems: 'center' }}>
           <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Focus Training:</span>
           <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: '8px', padding: '4px' }}>
@@ -341,6 +347,114 @@ export const Notified: React.FC<NotifiedProps> = ({ employees, attendance, nomin
           </div>
         </div>
       )}
+
+      {/* DRAFTS TAB */}
+      {tab === 'drafts' && (() => {
+        const teamFilter = selectionSession?.teams || [];
+        const viewableDrafts = draftNominations.filter(d => teamFilter.length === 0 || teamFilter.includes(d.team));
+        
+        return (
+          <div className="space-y-4">
+            {teamFilter.length > 0 && (
+              <div style={{ marginBottom: '16px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                Filtering natively via Active Planning Session ({teamFilter.length} active teams)
+              </div>
+            )}
+            
+            {viewableDrafts.length === 0 ? (
+              <div className="glass-panel text-center" style={{ padding: '60px' }}>
+                <p className="text-muted">No pending nomination drafts awaiting review.</p>
+              </div>
+            ) : (
+              <div className="glass-panel text-left">
+                <DataTable headers={['Dates', 'Training', 'Team', 'Trainer', 'Status', 'Action']}>
+                  {viewableDrafts.map(d => (
+                    <tr key={d.id}>
+                      <td style={{ fontWeight: 600 }}>{d.startDate}</td>
+                      <td><span className="badge">{d.trainingType}</span></td>
+                      <td>{d.team}</td>
+                      <td>{d.trainer}</td>
+                      <td>
+                        {d.status === 'Finalized' ? <span className="badge badge-success">Finalized</span> : <span className="badge badge-warning">Draft</span>}
+                      </td>
+                      <td>
+                        <button className="btn btn-secondary" onClick={() => setEditingDraftId(d.id)}>
+                          Edit ({d.selectedEmployees.length}/40)
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </DataTable>
+              </div>
+            )}
+
+            {editingDraftId && (() => {
+              const draft = viewableDrafts.find(d => d.id === editingDraftId);
+              if (!draft) return null;
+              
+              const teamEmps = employees.filter(e => e.team === draft.team);
+
+              const toggleEmp = (empId: string) => {
+                if (draft.status === 'Finalized') return;
+                let newSelected = [...draft.selectedEmployees];
+                if (newSelected.includes(empId)) {
+                  newSelected = newSelected.filter(id => id !== empId);
+                } else {
+                  if (newSelected.length >= 40) return alert('Max 40 trainees allowed per execution plan');
+                  newSelected.push(empId);
+                }
+                updateDraftNomination(draft.id, { selectedEmployees: newSelected });
+              };
+
+              return (
+                <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: '450px', background: 'var(--bg-card)', boxShadow: '-4px 0 24px rgba(0,0,0,0.1)', zIndex: 1000, display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ padding: '24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                     <div>
+                        <h2 style={{ margin: 0, fontSize: '20px' }}>Review Nominations</h2>
+                        <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{draft.selectedEmployees.length} of 40 selected</span>
+                     </div>
+                     <button className="btn" onClick={() => setEditingDraftId(null)}><X size={20} /></button>
+                  </div>
+                  
+                  <div style={{ flex: 1, padding: '24px', overflowY: 'auto' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {teamEmps.map(emp => {
+                        const isSelected = draft.selectedEmployees.includes(String(emp.employeeId));
+                        return (
+                          <div 
+                            key={emp.employeeId} 
+                            onClick={() => toggleEmp(String(emp.employeeId))}
+                            style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: isSelected ? 'var(--bg)' : 'transparent', borderRadius: '8px', cursor: draft.status === 'Finalized' ? 'not-allowed' : 'pointer', border: '1px solid var(--border-color)' }}
+                          >
+                             <input type="checkbox" checked={isSelected} readOnly style={{ pointerEvents: 'none' }} />
+                             <div>
+                               <div style={{ fontSize: '14px', fontWeight: 600 }}>{emp.name}</div>
+                               <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{emp.designation} • {emp.employeeId}</div>
+                             </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  <div style={{ padding: '24px', borderTop: '1px solid var(--border-color)', display: 'flex', gap: '12px' }}>
+                    <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setEditingDraftId(null)} disabled={draft.status === 'Finalized'}>Save Draft</button>
+                    <button 
+                      className="btn btn-primary" 
+                      style={{ flex: 1, background: draft.status === 'Finalized' ? 'var(--success)' : 'var(--accent-primary)' }}
+                      disabled={draft.status === 'Finalized'}
+                      onClick={() => updateDraftNomination(draft.id, { status: 'Finalized' })}
+                    >
+                      {draft.status === 'Finalized' ? 'Locked & Finalized' : 'Finalize & Lock'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+
+          </div>
+        );
+      })()}
 
       {/* UPLOAD TAB */}
       {tab === 'upload' && (
