@@ -249,7 +249,12 @@ const App = () => {
         demographics: d.length
       });
       
-      setEmps(e as Employee[]);
+      setEmps((e as any[]).map(row => ({
+        ...row,
+        id: row.id || row._id,
+        employeeId: String(row.employeeId),
+        teamId: getTeamId(row.team, masterTeams)
+      })) as Employee[]);
       setAtt(a);
       setScs(s);
       setNoms(n);

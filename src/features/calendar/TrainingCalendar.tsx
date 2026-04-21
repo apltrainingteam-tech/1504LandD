@@ -7,6 +7,7 @@ import { getAvailableTrainers, Trainer } from '../../services/trainerService';
 import { Employee } from '../../types/employee';
 import { Attendance } from '../../types/attendance';
 import { useMasterData } from '../../context/MasterDataContext';
+import { getTeamName } from '../../utils/teamIdMapper';
 
 interface ChecklistItem { name: string; completed: boolean; }
 interface TrainingPlan {
@@ -399,6 +400,9 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
                   {visiblePlans.map(p => {
                     const status = getStatus(p);
                     const color = status === 'Completed' ? 'var(--success)' : 'var(--text-secondary)';
+                    const displayTeam = getTeamName(p.teamId, masterTeams);
+                    const trainerObj = masterTrainers.find(mt => mt.id === p.trainer);
+                    const displayTrainer = trainerObj ? trainerObj.trainerName : p.trainer;
                     
                     return (
                       <div 
@@ -417,8 +421,8 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
                       >
                         <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           <span style={{ fontWeight: 700, marginRight: '4px' }}>{p.trainingType}</span>
-                          <span style={{ fontWeight: 500, marginRight: '4px' }}>{p.team}</span>
-                          <span style={{ opacity: 0.7 }}>{p.trainer}</span>
+                          <span style={{ fontWeight: 500, marginRight: '4px' }}>{displayTeam}</span>
+                          <span style={{ opacity: 0.7 }}>{displayTrainer}</span>
                         </div>
                         <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: color, flexShrink: 0 }}></div>
                       </div>

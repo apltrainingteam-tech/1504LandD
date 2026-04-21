@@ -93,6 +93,8 @@ export const MasterSettings: React.FC = () => {
             setShowModal(null);
           }}
           clusters={clusters}
+          existingTrainers={trainers}
+          existingTeams={teams}
         />
       )}
     </div>
@@ -187,7 +189,7 @@ const TeamsList = ({ teams, clusters, onAdd, onEdit, onDelete, onAddCluster }: a
   </div>
 );
 
-const MasterModal = ({ config, onClose, onSubmit, clusters }: any) => {
+const MasterModal = ({ config, onClose, onSubmit, clusters, existingTrainers, existingTeams }: any) => {
   const [formData, setFormData] = useState(config.data || {
     trainerName: '',
     code: '',
@@ -198,6 +200,27 @@ const MasterModal = ({ config, onClose, onSubmit, clusters }: any) => {
   });
 
   const isTrainer = config.type === 'trainer';
+  const originalCode = config.data?.code || '';
+
+  const handleSave = () => {
+    const code = formData.code.trim().toUpperCase();
+    if (code.length < 2) return alert("Code must be at least 2 characters.");
+
+    // Uniqueness check
+    const isDuplicate = isTrainer 
+      ? existingTrainers.some((t: any) => t.code === code && t.id !== config.data?.id)
+      : existingTeams.some((t: any) => t.code === code && t.id !== config.data?.id);
+
+    if (isDuplicate) return alert(`Code "${code}" already exists in the system.`);
+
+    if (config.mode === 'edit' && code !== originalCode) {
+      if (!confirm(`Are you sure you want to change the code from "${originalCode}" to "${code}"? This will update the display code across all dashboards.`)) {
+        return;
+      }
+    }
+
+    onSubmit({ ...formData, code });
+  };
 
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -215,7 +238,7 @@ const MasterModal = ({ config, onClose, onSubmit, clusters }: any) => {
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>Code (Short Form)</label>
-                <input className="form-input" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value.toUpperCase()})} placeholder="e.g. SUN" disabled={config.mode === 'edit'} />
+                <input className="form-input" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value.toUpperCase()})} placeholder="e.g. SUN" />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>Category</label>
@@ -233,14 +256,14 @@ const MasterModal = ({ config, onClose, onSubmit, clusters }: any) => {
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>Code</label>
-                <input className="form-input" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value.toUpperCase()})} placeholder="e.g. RVA" disabled={config.mode === 'edit'} />
+                <input className="form-input" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value.toUpperCase()})} placeholder="e.g. RVA" />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>Cluster</label>
                 <select className="form-input" value={formData.cluster} onChange={e => setFormData({...formData, cluster: e.target.value})}>
                   {clusters.map((c: Cluster) => (
                     <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
+                   ))}
                 </select>
               </div>
             </>
@@ -257,7 +280,7 @@ const MasterModal = ({ config, onClose, onSubmit, clusters }: any) => {
         </div>
         <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
            <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-           <button className="btn btn-primary" onClick={() => onSubmit(formData)}><Save size={16} /> Save Changes</button>
+           <button className="btn btn-primary" onClick={handleSave}><Save size={16} /> Save Changes</button>
         </div>
       </div>
     </div>

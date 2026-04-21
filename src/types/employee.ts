@@ -6,6 +6,7 @@ export interface Employee {
   name: string;
   designation: string;
   team: string;
+  teamId?: string;
   cluster?: string; // Derived from team
   zone?: string; // Derived from state
   hq: string;
