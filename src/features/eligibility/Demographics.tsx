@@ -149,6 +149,7 @@ export const Demographics = () => {
           values: existing?.previousTraining?.values || [] 
         },
         aplExperience: { 
+          mode: existing?.aplExperience?.mode || 'ALL',
           min: existing?.aplExperience?.min || 0, 
           max: existing?.aplExperience?.max || 10 
         },
@@ -491,16 +492,29 @@ export const Demographics = () => {
 
             <div className="rule-section mb-6">
               <h4>3. APL Experience Bracket</h4>
-              <div className="flex gap-8 mt-3">
-                <div className="form-group flex-1">
-                  <label>Min Years</label>
-                  <input type="number" className="form-input" value={editingRule.aplExperience.min} onChange={e => setEditingRule({ ...editingRule, aplExperience: { ...editingRule.aplExperience, min: parseInt(e.target.value) } })} />
-                </div>
-                <div className="form-group flex-1">
-                  <label>Max Years</label>
-                  <input type="number" className="form-input" value={editingRule.aplExperience.max} onChange={e => setEditingRule({ ...editingRule, aplExperience: { ...editingRule.aplExperience, max: parseInt(e.target.value) } })} />
-                </div>
+              <div className="flex gap-4 mt-3">
+                {['ALL', 'RANGE'].map(m => (
+                  <button 
+                    key={m} 
+                    className={`btn ${editingRule.aplExperience.mode === m ? 'btn-primary' : 'btn-secondary'}`}
+                    onClick={() => setEditingRule({ ...editingRule, aplExperience: { ...editingRule.aplExperience, mode: m as any } })}
+                  >
+                    {m}
+                  </button>
+                ))}
               </div>
+              {editingRule.aplExperience.mode === 'RANGE' && (
+                <div className="flex gap-8 mt-4">
+                  <div className="form-group flex-1">
+                    <label>Min Years</label>
+                    <input type="number" className="form-input" value={editingRule.aplExperience.min} onChange={e => setEditingRule({ ...editingRule, aplExperience: { ...editingRule.aplExperience, min: parseInt(e.target.value) } })} />
+                  </div>
+                  <div className="form-group flex-1">
+                    <label>Max Years</label>
+                    <input type="number" className="form-input" value={editingRule.aplExperience.max} onChange={e => setEditingRule({ ...editingRule, aplExperience: { ...editingRule.aplExperience, max: parseInt(e.target.value) } })} />
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="rule-section">

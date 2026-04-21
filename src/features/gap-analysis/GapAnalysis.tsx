@@ -78,7 +78,7 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
     setShowGlobalFilters(false);
   };
 
-  const { data, drilldownMap } = useMemo(() => {
+  const { data, drilldownData } = useMemo(() => {
     // Apply page-scoped filters to employees/attendance/nominations prior to gap computation
     let filteredEmployees = employees;
     if (pageFilters.cluster) filteredEmployees = filteredEmployees.filter(emp => (emp.state || '') === pageFilters.cluster);
@@ -102,7 +102,6 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
     });
 
     const filteredNominations = nominations.filter(n => {
-      if (pageFilters.trainer && n.trainerId !== pageFilters.trainer) return false;
       if (pageFilters.month) {
         const m = n.notificationDate ? n.notificationDate.substring(0,7) : '';
         if (m !== pageFilters.month) return false;

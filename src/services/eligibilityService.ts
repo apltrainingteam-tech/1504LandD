@@ -174,7 +174,7 @@ export const isEligibleHardcoded = (
   ninetyDaysFromNow.setDate(now.getDate() + 90);
 
   // 1. Designation check
-  if (rule.designations !== "ALL") {
+  if (rule.designations !== "ALL" && Array.isArray(rule.designations)) {
     const empDesignation = standardizeDesignation(employee.designation);
     const allowedDesignations = rule.designations.map(d => d.toUpperCase());
     if (!allowedDesignations.includes(empDesignation)) {
@@ -201,7 +201,7 @@ export const isEligibleHardcoded = (
     let appliesToEmployee = false;
     if (rule.preTrainingApplicableTo === "ALL") {
       appliesToEmployee = true;
-    } else {
+    } else if (Array.isArray(rule.preTrainingApplicableTo)) {
       const empDesignation = standardizeDesignation(employee.designation);
       appliesToEmployee = rule.preTrainingApplicableTo.some(d => d.toUpperCase() === empDesignation);
     }

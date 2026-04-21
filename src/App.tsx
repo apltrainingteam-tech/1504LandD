@@ -50,13 +50,25 @@ import { seedDatabase, seedMasterData } from './seed';
 import { Employee } from './types/employee';
 import { Attendance, TrainingScore, TrainingNomination, Demographics as DemoType } from './types/attendance';
 import { parseAnyDate } from './utils/dateParser';
+import { normalizeScore } from './utils/scoreNormalizer';
 import { getSchema, mapHeader } from './services/trainingSchemas';
 import { normalizeText } from './utils/textNormalizer';
 import { getTeamId } from './utils/teamIdMapper';
 
 type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'notified' | 'gap-analysis' | 'performance' | 'srm' | 'calendar' | 'master-settings';
+interface SidebarItem {
+  label: string;
+  view: string;
+  icon: React.ElementType;
+  disabled?: boolean;
+}
 
-const sidebarSections = [
+interface SidebarSection {
+  title: string;
+  items: SidebarItem[];
+}
+
+const sidebarSections: SidebarSection[] = [
   {
     title: "REQUIREMENT",
     items: [
