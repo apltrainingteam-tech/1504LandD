@@ -22,6 +22,8 @@ export function normalizeTrainingType(type: string): string {
 import { Attendance, TrainingScore, TrainingNomination } from '../types/attendance';
 import { UnifiedRecord, GroupedData, ViewByOption, TimeSeriesRow, TrainerStat, DrilldownNode, ReportFilter, SCORE_SCHEMAS } from '../types/reports';
 import { EligibilityResult } from './eligibilityService';
+import { Team } from '../context/MasterDataContext';
+import { getTeamId } from '../utils/teamIdMapper';
 import { groupByKey, groupByTwoLevels, groupByField } from '../utils/mapGrouping';
 
 const safe = (v: any): number => (typeof v === 'number' && !isNaN(v)) ? v : 0;
@@ -38,11 +40,15 @@ export function buildUnifiedDataset(
   att: Attendance[],
   scs: TrainingScore[],
   noms: TrainingNomination[],
-  eligibilityResults: EligibilityResult[] = []
+  eligibilityResults: EligibilityResult[] = [],
+  masterTeams: Team[]
 ): UnifiedRecord[] {
+  const teamMap = Object.fromEntries(masterTeams.map(t => [t.id, t]));
   const empMap = new Map<string, Employee>();
   for (const e of emps) {
-    empMap.set(e.employeeId || e.id, e);
+    const teamId = getTeamId(e.team, masterTeams);
+    const cluster = teamMap[teamId]?.cluster || 'Unknown';
+    empMap.set(e.employeeId || e.id, { ...e, teamId, cluster });
   }
 
   const scoreMap = new Map<string, TrainingScore>();
@@ -89,10 +95,14 @@ export function buildUnifiedDataset(
     const sc = scoreMap.get(`${tid}::${type}::${a.attendanceDate}`) || null;
     const nm = nominationMap.get(`${tid}::${type}`) || null;
     const el = eligibilityMap.get(tid);
+    
+    // Ensure employee has teamId and cluster resolved even if placeholder
+    const teamId = emp.teamId || getTeamId(emp.team, masterTeams);
+    const cluster = emp.cluster || teamMap[teamId]?.cluster || 'Unknown';
 
     return {
-      employee: emp as Employee,
-      attendance: { ...a, trainingType: type as any },
+      employee: { ...emp, teamId, cluster } as Employee,
+      attendance: { ...a, trainingType: type as any, teamId: teamId },
       score: sc,
       nomination: nm,
       eligibilityStatus: el?.eligibilityStatus,
@@ -102,13 +112,23 @@ export function buildUnifiedDataset(
 }
 
 // ─── FILTER ENGINE ─────────────────────────────────────────────────────────
-export function applyFilters(ds: UnifiedRecord[], filter: ReportFilter): UnifiedRecord[] {
+export function applyFilters(ds: UnifiedRecord[], filter: ReportFilter, masterTeams: Team[]): UnifiedRecord[] {
+  const teamMap = Object.fromEntries(masterTeams.map(t => [t.id, t]));
+
   return ds.filter(r => {
     const month = r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7);
     if (filter.monthFrom && month < filter.monthFrom) return false;
     if (filter.monthTo && month > filter.monthTo) return false;
-    if (filter.teams.length > 0 && !filter.teams.includes(r.attendance.teamId || '')) return false;
-    if (filter.clusters.length > 0 && !filter.clusters.includes(r.employee.state)) return false;
+    
+    const teamId = r.attendance.teamId || getTeamId(r.employee.team, masterTeams);
+
+    if (filter.teams.length > 0 && !filter.teams.includes(teamId)) return false;
+    
+    if (filter.clusters.length > 0) {
+      const cluster = teamMap[teamId]?.cluster || "Unknown";
+      if (!filter.clusters.includes(cluster)) return false;
+    }
+
     if (filter.trainer && r.attendance.trainerId !== filter.trainer) return false;
     return true;
   });
@@ -123,16 +143,21 @@ export function groupData(
   ds: UnifiedRecord[],
   by: ViewByOption,
   noms: TrainingNomination[],
-  emps: Employee[]
+  emps: Employee[],
+  masterTeams: Team[]
 ): GroupedData[] {
   const m = new Map<string, GroupedData>();
+  const teamMap = Object.fromEntries(masterTeams.map(t => [t.id, t]));
 
   // Single pass through records
   for (const r of ds) {
     let k = '—';
     if (by === 'Month') k = r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7) || '—';
     else if (by === 'Team') k = r.employee.team || '—';
-    else k = r.employee.state || '—';
+    else {
+      const teamId = r.attendance.teamId || getTeamId(r.employee.team, masterTeams);
+      k = teamMap[teamId]?.cluster || 'Unknown';
+    }
 
     if (!m.has(k)) m.set(k, { key: k, records: [], nominations: [], metric: 0 });
     m.get(k)!.records.push(r);
@@ -149,8 +174,11 @@ export function groupData(
     const e = empMap.get(n.employeeId);
     let k = '—';
     if (by === 'Month') k = (n.notificationDate || '').substring(0, 7) || '—';
-    else if (by === 'Team') k = e?.team || '—';
-    else k = e?.state || '—';
+    else if (by === 'Team') k = n.team || '—';
+    else {
+      const teamId = n.teamId || getTeamId(n.team, masterTeams);
+      k = teamMap[teamId]?.cluster || 'Unknown';
+    }
 
     if (!m.has(k)) m.set(k, { key: k, records: [], nominations: [], metric: 0 });
     m.get(k)!.nominations.push(n);

@@ -1,6 +1,7 @@
 import { Attendance, TrainingNomination, TrainingScore } from '../types/attendance';
-import { TEAM_CLUSTER_MAP } from './clusterMap';
 import { normalizeText } from '../utils/textNormalizer';
+import { Team } from '../context/MasterDataContext';
+import { getTeamId } from '../utils/teamIdMapper';
 
 // --- EVENT LAYER ---
 export type EmployeeEventTimeline = {
@@ -15,14 +16,18 @@ export type EmployeeEventTimeline = {
 export function buildEmployeeTimelines(
   attendances: Attendance[],
   nominations: TrainingNomination[],
+  masterTeams: Team[],
   targetType: string = 'AP',
   scores: TrainingScore[] = []
 ): Map<string, EmployeeEventTimeline> {
   const map = new Map<string, EmployeeEventTimeline>();
+  const teamMap = Object.fromEntries(masterTeams.map(t => [t.id, t]));
+
   const getTimeline = (empId: string, empName: string, teamRaw: string | undefined): EmployeeEventTimeline => {
     if (!map.has(empId)) {
       const team = normalizeText(teamRaw || 'Unknown');
-      const cluster = TEAM_CLUSTER_MAP[team] || 'Unmapped';
+      const teamId = getTeamId(team, masterTeams);
+      const cluster = teamMap[teamId]?.cluster || 'Unmapped';
       map.set(empId, { employeeId: empId, name: empName || 'Unknown', team, cluster, notifications: [], attendances: [] });
     }
     return map.get(empId)!;

@@ -15,6 +15,8 @@ import { TrainingNomination, EligibilityResult, Demographics } from '../types/at
 import { Employee } from '../types/employee';
 import { getAvailableTrainers, Trainer } from '../services/trainerService';
 
+import { Team } from '../context/MasterDataContext';
+
 /**
  * Hook: Compute grouped data independently
  * Memoizes grouping logic to prevent recomputation when other props change
@@ -23,11 +25,12 @@ export function useGroupedData(
   unified: UnifiedRecord[],
   viewBy: ViewByOption,
   tabNoms: TrainingNomination[],
-  employees: Employee[]
+  employees: Employee[],
+  masterTeams: Team[]
 ) {
   return useMemo(() => {
-    return groupData(unified, viewBy, tabNoms, employees);
-  }, [unified, viewBy, tabNoms, employees]);
+    return groupData(unified, viewBy, tabNoms, employees, masterTeams);
+  }, [unified, viewBy, tabNoms, employees, masterTeams]);
 }
 
 /**

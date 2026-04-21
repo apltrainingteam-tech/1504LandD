@@ -1,8 +1,6 @@
 import { Employee } from '../types/employee';
 import { Attendance, TrainingType, TrainingNomination, EligibilityRule } from '../types/attendance';
 import { getEligibleEmployees, EligibilityResult } from './eligibilityService';
-import { TEAM_CLUSTER, STATE_ZONE } from '../seed/masterData';
-import { normalizeText } from '../utils/textNormalizer';
 import { standardizeDesignation } from '../utils/designationMapper';
 import { getTeamId } from '../utils/teamIdMapper';
 import { Team } from '../context/MasterDataContext';
@@ -91,11 +89,22 @@ export const calculateDaysSinceDOJ = (employee: Employee): number => {
   return Math.floor((today.getTime() - doj.getTime()) / (1000 * 60 * 60 * 24));
 };
 
-export const groupByClusterTeam = (employees: Employee[]): Map<string, Map<string, Employee[]>> => {
+export const groupByClusterTeam = (employees: Employee[], masterTeams: Team[]): Map<string, Map<string, Employee[]>> => {
   const grouped = new Map<string, Map<string, Employee[]>>();
+  
+  // Build a lookup map for faster resolution
+  const teamMap = Object.fromEntries(masterTeams.map(t => [t.id, t]));
+
   employees.forEach(emp => {
-    const cluster = emp.cluster || 'Unknown';
+    // RESOLVE CLUSTER FROM MASTER DATA (Source of Truth)
+    const teamId = emp.teamId || getTeamId(emp.team, masterTeams);
+    const cluster = teamMap[teamId]?.cluster || 'Unknown';
     const team = emp.team || 'Unknown';
+
+    if (!teamMap[teamId]) {
+      console.warn("Unmapped teamId during grouping:", teamId, "for team:", emp.team);
+    }
+
     if (!grouped.has(cluster)) grouped.set(cluster, new Map());
     if (!grouped.get(cluster)!.has(team)) grouped.get(cluster)!.set(team, []);
     grouped.get(cluster)!.get(team)!.push(emp);
@@ -136,22 +145,7 @@ export const aggregateClusterMetrics = (groupedData: Map<string, Map<string, Gap
   return clusterAggregates;
 };
 
-// Enrich employees with cluster and zone
-const enrichEmployees = (employees: Employee[]): Employee[] => {
-  return employees.map(emp => {
-    const normalizedTeam = normalizeText(emp.team || '');
-    const teamMapping = TEAM_CLUSTER.find(tc => normalizeText(tc.team) === normalizedTeam);
-    const normalizedState = emp.state?.trim().toUpperCase();
-    const stateMapping = STATE_ZONE.find(sz => sz.state === normalizedState);
-    return {
-      ...emp,
-      team: normalizedTeam || emp.team,
-      teamId: '', // To be filled by computeGapAnalysis with context
-      cluster: teamMapping?.cluster || 'Unknown',
-      zone: stateMapping?.zone || 'Unknown'
-    };
-  });
-};
+// enrichEmployees removed - using Master Data directly in computeGapAnalysis
 
 // Main function to compute gap analysis
 export const computeGapAnalysis = (
@@ -184,13 +178,24 @@ export const computeGapAnalysis = (
       .map(a => normalizeId(a.employeeId))
   );
 
+  const teamMap = Object.fromEntries(masterTeams.map(t => [t.id, t]));
+
   // Enrich employees
-  const enrichedEmployees = employees.map(emp => ({
-     ...emp,
-     teamId: getTeamId(emp.team, masterTeams),
-     cluster: emp.cluster || 'Unknown',
-     zone: emp.zone || getZoneFromState(emp.state)
-  }));
+  const enrichedEmployees = employees.map(emp => {
+     const teamId = getTeamId(emp.team, masterTeams);
+     const cluster = teamMap[teamId]?.cluster || "Unknown";
+     
+     if (!teamMap[teamId]) {
+       console.warn("Unmapped teamId during enrichment:", teamId, "for team:", emp.team);
+     }
+
+     return {
+       ...emp,
+       teamId,
+       cluster,
+       zone: emp.zone || getZoneFromState(emp.state)
+     };
+  });
 
   // 🔥 STEP 3: USE ONLY ACTIVE EMPLOYEES
   const baseEmployees = enrichedEmployees.filter(e =>
@@ -254,7 +259,8 @@ export const computeGapAnalysis = (
     eligibleEmployees.map(e => {
       const emp = filteredEmployees.find(fe => normalizeId(fe.employeeId) === normalizeId(e.employeeId));
       return emp || (e as any);
-    })
+    }),
+    masterTeams
   );
 
   const data: GapAnalysisData[] = [];

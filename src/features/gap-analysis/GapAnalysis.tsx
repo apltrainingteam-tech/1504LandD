@@ -12,7 +12,6 @@ import TopRightControls from '../../components/TopRightControls';
 import { GlobalFilterPanel } from '../../components/GlobalFilterPanel';
 import { GlobalFilters, getActiveFilterCount } from '../../context/filterContext';
 import { getFiscalYears } from '../../utils/fiscalYear';
-import { TEAM_CLUSTER_MAP } from '../../services/clusterMap';
 import { useFilterOptions } from '../../utils/computationHooks';
 import { useMasterData } from '../../context/MasterDataContext';
 
@@ -79,10 +78,27 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
   };
 
   const { data, drilldownData } = useMemo(() => {
+    const teamMap = Object.fromEntries(masterTeams.map(t => [t.id, t]));
+
     // Apply page-scoped filters to employees/attendance/nominations prior to gap computation
     let filteredEmployees = employees;
-    if (pageFilters.cluster) filteredEmployees = filteredEmployees.filter(emp => (emp.state || '') === pageFilters.cluster);
-    if (pageFilters.team) filteredEmployees = filteredEmployees.filter(emp => (emp.team || '') === pageFilters.team);
+    if (pageFilters.cluster) {
+      filteredEmployees = filteredEmployees.filter(emp => {
+        const teamId = getTeamId(emp.team, masterTeams);
+        const cluster = teamMap[teamId]?.cluster || "Unknown";
+        return cluster === pageFilters.cluster;
+      });
+    }
+    
+    if (pageFilters.team) {
+      filteredEmployees = filteredEmployees.filter(emp => {
+        const teamId = getTeamId(emp.team, masterTeams);
+        // Compare by teamId for stability if pageFilters.team is an ID, 
+        // or resolve ID from masterTeams if it's a name.
+        // Assuming global filter provides team name or ID consistently.
+        return teamId === pageFilters.team || emp.team === pageFilters.team;
+      });
+    }
 
     // Filter by zone if Refresher tab and zone filter selected
     if (tab === 'Refresher' && zoneFilter) {

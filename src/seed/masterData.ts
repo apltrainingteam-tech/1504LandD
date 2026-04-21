@@ -31,36 +31,6 @@ export const STATE_ZONE = [
   { state: "GOA", zone: "WEST" }
 ];
 
-export const TEAM_CLUSTER = [
-  { id: "RVA", team: "REVANCE", cluster: "CARDIAC" },
-  { id: "NVA", team: "NUVENTA", cluster: "CARDIAC" },
-  { id: "SLS", team: "SOLESTA", cluster: "CARDIAC" },
-  { id: "CDC", team: "CDC", cluster: "CARDIAC" },
-  { id: "RED", team: "REDEXIS", cluster: "CARDIAC" },
-  { id: "INO", team: "INOVIO", cluster: "CARDIAC" },
-
-  { id: "AVX", team: "ANVAXX", cluster: "OPHTHAL" },
-  { id: "INX", team: "INYX", cluster: "OPHTHAL" },
-  { id: "ILA", team: "ILLUMA", cluster: "OPHTHAL" },
-  { id: "ASC", team: "ANSCA", cluster: "OPHTHAL" },
-
-  { id: "ZLN", team: "ZILLION", cluster: "DERMA" },
-  { id: "ACA", team: "AVECEA", cluster: "DERMA" },
-  { id: "AXS", team: "AXYS", cluster: "DERMA" },
-  { id: "MAX", team: "MAXCOR", cluster: "DERMA" },
-  { id: "ADV", team: "ADVANTOR", cluster: "DERMA" },
-
-  { id: "ALR", team: "AXELAR", cluster: "MAX" },
-  { id: "AMO", team: "ALMIRON", cluster: "MAX" },
-  { id: "MXN", team: "MEXLON", cluster: "MAX" },
-
-  { id: "NEP", team: "AJANTA NEPHRO", cluster: "NEPHRO" },
-  { id: "VLN", team: "VALENSIA", cluster: "GYNAEC" },
-
-  { id: "DTF", team: "DTF", cluster: "CARDIAC" },
-  { id: "DTL", team: "DENTAL", cluster: "DENTAL" }
-];
-
 export const DESIGNATIONS = [
   "SALES OFFICER",
   "DISTRICT MANAGER",

@@ -1,7 +1,6 @@
 import { UnifiedRecord } from '../types/reports';
 import { IPRecord, IPAggregates, IPMonthMapNode, IPHeritageMapCell, IPMonthlyTeamRank, IPMonthlyRankMatrix } from '../types/reports';
 
-import { TEAM_CLUSTER_MAP } from './clusterMap';
 import { normalizeText } from '../utils/textNormalizer';
 import { getFiscalYears } from '../utils/fiscalYear';
 import { normalizeScore } from '../utils/scoreNormalizer';
@@ -85,12 +84,8 @@ export function normalizeToIPRecords(ds: UnifiedRecord[]): IPRecord[] {
     // DEFENSIVE: Skip known dummy/orphaned data entirely
     if (['Team A', 'Unknown', '—', 'Unknown Team', 'Unmapped'].includes(team)) return;
 
-    const cluster = TEAM_CLUSTER_MAP[team];
+    const cluster = r.employee.cluster || 'Unmapped';
     
-    if (!cluster && team) {
-      console.warn('Unmapped team after normalization:', team);
-    }
-
     const month = r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7);
     records.push({
       employeeId: r.employee.employeeId,
@@ -249,11 +244,7 @@ export function buildIPMonthlyTeamRanks(ds: UnifiedRecord[], fyMonths?: string[]
 
     if (!team || DUMMY_TEAMS.has(team)) return;
 
-    const cluster = TEAM_CLUSTER_MAP[team];
-    if (!cluster) {
-      console.warn('[IP Rank] Unmapped team:', team);
-      return;
-    }
+    const cluster = r.employee.cluster || 'Unmapped';
 
     // Score: prefer schema camelCase keys → fallback to legacy Title Case
     const rawScore = normalizeScore(

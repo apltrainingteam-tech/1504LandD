@@ -1,6 +1,6 @@
 import { upsertDoc } from './services/apiClient';
 import { mockEmployees, mockAttendance, mockScores, mockNominations, mockDemographics } from './api.mock';
-import { STATE_ZONE, TEAM_CLUSTER, DESIGNATIONS, TRAINERS } from './seed/masterData';
+import { STATE_ZONE, DESIGNATIONS, TRAINERS } from './seed/masterData';
 
 /**
  * Sequential batch write with delays
@@ -44,7 +44,6 @@ export const seedMasterData = async () => {
     console.log("Master Data Seeding started...");
 
     await batchWrite(STATE_ZONE, 'state_zone', 'state');
-    await batchWrite(TEAM_CLUSTER, 'team_cluster_mapping', 'id');
 
     for (const d of DESIGNATIONS) {
       await upsertDoc('designations', d, { name: d });

@@ -3,8 +3,9 @@ import { Mail, CheckCircle, AlertCircle, Users, BarChart2, ChevronDown, ChevronR
 import { ParsedRow, parseNominationExcel } from '../../services/parsingService';
 import { validateFileSize, MAX_UPLOAD_SIZE_BYTES } from '../../utils/fileValidation';
 import { addBatch } from '../../services/apiClient';
-import { TEAM_CLUSTER_MAP } from '../../services/clusterMap';
 import { usePlanningFlow } from '../../context/PlanningFlowContext';
+import { useMasterData } from '../../context/MasterDataContext';
+import { getTeamId } from '../../utils/teamIdMapper';
 import { Employee } from '../../types/employee';
 import { Attendance, TrainingNomination } from '../../types/attendance';
 import { DataTable } from '../../components/DataTable';
@@ -107,6 +108,7 @@ export const Notified: React.FC<NotifiedProps> = ({ employees, attendance, nomin
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
 
   // Drafts Integration
+  const { teams: masterTeams } = useMasterData();
   const { draftNominations, updateDraftNomination, selectionSession, resetConsumed } = usePlanningFlow();
   
   const hasPlanningContext = Boolean(
@@ -137,15 +139,18 @@ export const Notified: React.FC<NotifiedProps> = ({ employees, attendance, nomin
     const defaulters: DefaulterRecord[] = [];
     const drilldown: any[] = [];
 
+    const teamMap = Object.fromEntries(masterTeams.map(t => [t.id, t]));
+
     nomMap.forEach((userNoms, empId) => {
       const isAttended = attSet.has(empId);
       if (isAttended) attendedCount++;
 
       const empData = employees.find(e => e.employeeId === empId) || userNoms[0];
       const nCount = userNoms.length;
+
       const teamName = empData.team || 'Unknown';
-      const normalizedTeam = normalizeText(teamName);
-      const cluster = TEAM_CLUSTER_MAP[normalizedTeam] || 'Unmapped';
+      const teamId = getTeamId(teamName, masterTeams);
+      const cluster = teamMap[teamId]?.cluster || 'Unknown';
 
       if (nCount >= 3 && !isAttended) {
         defaulters.push({

@@ -16,7 +16,6 @@ import { GlobalFilters, getActiveFilterCount } from '../../context/filterContext
 import { getPrimaryMetricRaw, normalizeTrainingType } from '../../services/reportService';
 import { GlobalFilterPanel } from '../../components/GlobalFilterPanel';
 import { getFiscalYears, getFiscalYearFromDate } from '../../utils/fiscalYear';
-import { TEAM_CLUSTER_MAP } from '../../services/clusterMap';
 import { normalizeText } from '../../utils/textNormalizer';
 import { getSchema } from '../../services/trainingSchemas';
 import { useFilterOptions } from '../../utils/computationHooks';
@@ -70,14 +69,7 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
     const scs = scores.filter(s => normalizeTrainingType(s.trainingType) === normalizedTab);
     
     // Build initial unified dataset for this tab
-    let ds = buildUnifiedDataset(employees, data, scs, []).map(r => {
-      if (r.employee) {
-        // Ensure cluster is always populated from master map if empty
-        const effectiveCluster = r.employee.cluster || TEAM_CLUSTER_MAP[normalizeText(r.employee.team)];
-        r.employee = { ...r.employee, cluster: effectiveCluster };
-      }
-      return r;
-    });
+    let ds = buildUnifiedDataset(employees, data, scs, [], [], masterTeams);
 
     // 2. Filter by Fiscal Year
     if (selectedFY) {

@@ -24,7 +24,6 @@ import { buildCapsuleAttendanceMatrix } from '../../services/capsuleAttendanceSe
 import { getCapsulePerformanceAggregates } from '../../services/capsulePerformanceService';
 import { getEligibleEmployees, EligibilityResult } from '../../services/eligibilityService';
 import { getFiscalYears } from '../../utils/fiscalYear';
-import { TEAM_CLUSTER_MAP } from '../../services/clusterMap';
 
 import { getCollection } from '../../services/apiClient';
 import { scheduleIdle, StagedComputationManager } from '../../utils/stagedComputation';
@@ -75,7 +74,6 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
   const [subView, setSubView] = useState<SubView>('ip_matrix');
   const [expanded, setExpanded] = useState(new Set<string>());
   const [rules, setRules] = useState<EligibilityRule[]>([]);
-  const [clusterMapping, setClusterMapping] = useState<Record<string, string>>({});
   const [selectedFYs, setSelectedFYs] = useState<Record<string, string>>({
     IP: getCurrentFY(),
     AP: getCurrentFY(),
@@ -151,15 +149,6 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
 
   useEffect(() => {
     getCollection('eligibility_rules').then(data => setRules(data as EligibilityRule[]));
-    getCollection('team_cluster_mapping').then(data => {
-      const map: Record<string, string> = {};
-      (data as any[]).forEach(d => {
-        if (d.team && d.cluster) {
-          map[normalizeText(d.team)] = normalizeText(d.cluster);
-        }
-      });
-      setClusterMapping(map);
-    });
   }, []);
 
   // ─── LAZY LOAD MATRIX TRACKING ───
@@ -262,22 +251,15 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
     const noms = nominations.filter(n => normalizeType(n.trainingType) === normalizedTab);
     const rule = rules.find(r => normalizeType(r.trainingType) === normalizedTab);
     
-    console.log(`📊 [REPORTS-UI] Mode=${pageMode}, Tab=${tab}, RawAtt=${attendance.length}, TabAtt=${att.length}, TabScores=${scs.length}`);
-    
     const eligResults = getEligibleEmployees(tab as TrainingType, rule, employees, attendance, nominations);
-    const unifiedRes = buildUnifiedDataset(employees, att, scs, noms, eligResults).map(r => {
-      if (r.employee) {
-        r.employee = { ...r.employee, state: clusterMapping[normalizeText(r.employee.team)] || r.employee.state };
-      }
-      return r;
-    });
+    const unifiedRes = buildUnifiedDataset(employees, att, scs, noms, eligResults, masterTeams);
 
     console.log(`📊 [REPORTS-UI] Unified Dataset Size: ${unifiedRes.length}`);
     return unifiedRes;
-  }, [tab, attendance, scores, nominations, employees, rules, clusterMapping, pageMode]);
+  }, [tab, attendance, scores, nominations, employees, rules, pageMode]);
 
   const unified = useMemo(() => {
-    let ds = applyFilters(rawUnified, filter);
+    let ds = applyFilters(rawUnified, filter, masterTeams);
     // Apply Fiscal Year filter (MONTHS) to unified dataset for relevant training types
     if (['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'PRE_AP'].includes(tab)) {
       ds = ds.filter(r => {
@@ -290,7 +272,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
     console.log(`📊 [REPORTS-UI] Active Tab: ${tab}, Final Filtered Count: ${ds.length}`);
     
     return ds;
-  }, [rawUnified, filter, tab, MONTHS]);
+  }, [rawUnified, filter, tab, MONTHS, masterTeams]);
 
   // -- IP Engine --
   const ipData = useMemo(() => {
@@ -332,6 +314,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
       return buildEmployeeTimelines(
         attendance.filter(a => a.trainingType === tab),
         nominations.filter(n => n.trainingType === tab),
+        masterTeams,
         tab,
         scores.filter(s => s.trainingType === tab)
       );
@@ -397,7 +380,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
   const tabNoms = useMemo(() => nominations.filter(n => n.trainingType === tab), [nominations, tab]);
 
   const gapMetrics = useGapMetrics(tab, eligibilityResults, attendance);
-  const groups = useGroupedData(unified, viewBy, tabNoms, employees);
+  const groups = useGroupedData(unified, viewBy, tabNoms, employees, masterTeams);
   const ranked = useRankedGroups(groups, tab);
   const trainerStats = useTrainerStats(unified);
   const drilldownNodes = useDrilldownNodes(unified, tab);
