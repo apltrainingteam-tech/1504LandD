@@ -4,6 +4,7 @@ import { getEligibleEmployees, EligibilityResult } from './eligibilityService';
 import { standardizeDesignation } from '../utils/designationMapper';
 import { getTeamId } from '../utils/teamIdMapper';
 import { Team } from '../context/MasterDataContext';
+import { STATE_ZONE } from '../seed/masterData';
 
 // Zone lookup from state
 const getZoneFromState = (state?: string): string => {
