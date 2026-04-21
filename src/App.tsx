@@ -16,7 +16,9 @@ import {
   AlertCircle,
   Target,
   Sun,
-  Moon
+  Moon,
+  Crosshair,
+  ListChecks
 } from 'lucide-react';
 import { useTheme } from './context/ThemeContext';
 import { FilterProvider } from './context/FilterProvider';
@@ -45,7 +47,48 @@ import { parseAnyDate } from './utils/dateParser';
 import { getSchema, mapHeader } from './services/trainingSchemas';
 import { normalizeScore } from './utils/scoreNormalizer';
 
-type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'notified' | 'gap-analysis' | 'performance' | 'srm';
+type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'notified' | 'gap-analysis' | 'performance' | 'srm' | 'calendar';
+
+const sidebarSections = [
+  {
+    title: "REQUIREMENT",
+    items: [
+      { label: "Training Requirements", view: "gap-analysis", icon: Crosshair }
+    ]
+  },
+  {
+    title: "PLANNING",
+    items: [
+      { label: "Training Calendar", view: "calendar", disabled: true, icon: CalendarCheck }
+    ]
+  },
+  {
+    title: "EXECUTION",
+    items: [
+      { label: "Training Execution", view: "trainings", icon: ListChecks },
+      { label: "Nominations", view: "notified", icon: Mail }
+    ]
+  },
+  {
+    title: "PERFORMANCE",
+    items: [
+      { label: "Performance", view: "performance", icon: BarChart3 }
+    ]
+  },
+  {
+    title: "STRATEGY",
+    items: [
+      { label: "SRM Dashboard", view: "srm", icon: Target }
+    ]
+  },
+  {
+    title: "FOUNDATION",
+    items: [
+      { label: "Employee Master", view: "employees", icon: Users },
+      { label: "Eligibility Rules", view: "demographics", icon: ShieldCheck }
+    ]
+  }
+];
 
 const App = () => {
   const { theme, toggleTheme } = useTheme();
@@ -267,59 +310,29 @@ const App = () => {
         </div>
 
         <nav className="sidebar-nav">
-          {/* INTELLIGENCE SECTION */}
-          <div className="nav-section-header">Intelligence</div>
-
-          <button className={`nav-item ${view === 'reports' ? 'active' : ''}`} onClick={() => setView('reports')}>
-            <BarChart3 size={20} />
-            <span>Overview</span>
-          </button>
-
-          <button className={`nav-item ${view === 'gap-analysis' ? 'active' : ''}`} onClick={() => setView('gap-analysis')}>
-            <Target size={20} />
-            <span>Training Requirements</span>
-          </button>
-
-          <button className={`nav-item ${view === 'performance' ? 'active' : ''}`} onClick={() => setView('performance')}>
-            <Activity size={20} />
-            <span>Performance Insights</span>
-          </button>
-
-          <button className={`nav-item ${view === 'srm' ? 'active' : ''}`} onClick={() => setView('srm')}>
-            <Target size={20} />
-            <span>SRM (Recruitment Quality)</span>
-          </button>
-
-          {/* OPERATIONS SECTION */}
-          <div className="nav-section-header" style={{ marginTop: '24px' }}>Operations</div>
-
-          <button className={`nav-item ${view === 'attendance' ? 'active' : ''}`} onClick={() => setView('attendance')}>
-            <CalendarCheck size={20} />
-            <span>Upload Portal</span>
-          </button>
-
-          <button className={`nav-item ${view === 'trainings' ? 'active' : ''}`} onClick={() => setView('trainings')}>
-            <FileText size={20} />
-            <span>Training Data</span>
-          </button>
-
-          <button className={`nav-item ${view === 'notified' ? 'active' : ''}`} onClick={() => setView('notified')}>
-            <Mail size={20} />
-            <span>Nominations</span>
-          </button>
-
-          {/* FOUNDATION SECTION */}
-          <div className="nav-section-header" style={{ marginTop: '24px' }}>Foundation</div>
-
-          <button className={`nav-item ${view === 'employees' ? 'active' : ''}`} onClick={() => setView('employees')}>
-            <Users size={20} />
-            <span>Employee Master</span>
-          </button>
-
-          <button className={`nav-item ${view === 'demographics' ? 'active' : ''}`} onClick={() => setView('demographics')}>
-            <ShieldCheck size={20} />
-            <span>Eligibility Rules</span>
-          </button>
+          {sidebarSections.map((section, idx) => (
+            <div key={section.title} className="sidebar-section">
+              <div className="section-title">
+                {section.title}
+              </div>
+              {section.items.map(item => {
+                const Icon = item.icon;
+                return (
+                  <button 
+                    key={item.view}
+                    className={`nav-item ${view === item.view ? 'active' : ''}`}
+                    onClick={() => !item.disabled && setView(item.view as ViewMode)}
+                    disabled={item.disabled}
+                    title={item.disabled ? "Training Calendar – Coming Soon" : ""}
+                    style={item.disabled ? { opacity: 0.5, cursor: 'not-allowed', backgroundColor: 'transparent' } : {}}
+                  >
+                    <Icon size={20} />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         <div className="user-profile">

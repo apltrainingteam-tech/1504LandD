@@ -173,15 +173,19 @@ button {
   flex-direction: column;
 }
 
-.nav-section-header {
+.sidebar-section {
+  margin-bottom: 18px;
+}
+
+.sidebar-section .section-title {
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-secondary);
-  margin-bottom: 12px;
+  letter-spacing: 1px;
+  color: #6b7280;
+  margin-top: 16px;
+  margin-bottom: 6px;
   padding-left: 12px;
-  margin-top: 0;
 }
 
 .nav-item {
@@ -280,7 +284,7 @@ button {
   background: rgb(34, 45, 104);
 }
 
-.light-theme .nav-section-header {
+.light-theme .sidebar-section .section-title {
   color: var(--text-secondary);
 }
 
