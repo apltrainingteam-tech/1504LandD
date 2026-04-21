@@ -261,12 +261,16 @@ const App = () => {
         demographics: d.length
       });
       
-      setEmps((e as any[]).map(row => ({
-        ...row,
-        id: row.id || row._id,
-        employeeId: String(row.employeeId),
-        teamId: getTeamId(row.team, masterTeams)
-      })) as Employee[]);
+      setEmps((e as any[]).map(row => {
+        const teamId = row.teamId || getTeamId(row.team, masterTeams);
+        console.assert(teamId !== undefined && teamId !== 'UNKNOWN', "teamId must be defined");
+        return {
+          ...row,
+          id: row.id || row._id,
+          employeeId: String(row.employeeId),
+          teamId
+        };
+      }) as Employee[]);
       setAtt(a);
       setScs(s);
       setNoms(n);

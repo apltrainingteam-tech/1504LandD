@@ -155,8 +155,8 @@ export function groupData(
     if (by === 'Month') k = r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7) || '—';
     else if (by === 'Team') k = r.employee.team || '—';
     else {
-      const teamId = r.attendance.teamId || getTeamId(r.employee.team, masterTeams);
-      k = teamMap[teamId]?.cluster || 'Unknown';
+      const teamId = r.attendance.teamId || r.employee.teamId;
+      k = teamMap[teamId || '']?.cluster || 'Unknown';
     }
 
     if (!m.has(k)) m.set(k, { key: k, records: [], nominations: [], metric: 0 });
@@ -176,8 +176,8 @@ export function groupData(
     if (by === 'Month') k = (n.notificationDate || '').substring(0, 7) || '—';
     else if (by === 'Team') k = n.team || '—';
     else {
-      const teamId = n.teamId || getTeamId(n.team, masterTeams);
-      k = teamMap[teamId]?.cluster || 'Unknown';
+      const teamId = n.teamId;
+      k = teamMap[teamId || '']?.cluster || 'Unknown';
     }
 
     if (!m.has(k)) m.set(k, { key: k, records: [], nominations: [], metric: 0 });

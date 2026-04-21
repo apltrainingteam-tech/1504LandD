@@ -97,13 +97,11 @@ export const groupByClusterTeam = (employees: Employee[], masterTeams: Team[]): 
 
   employees.forEach(emp => {
     // RESOLVE CLUSTER FROM MASTER DATA (Source of Truth)
-    const teamId = emp.teamId || getTeamId(emp.team, masterTeams);
-    const cluster = teamMap[teamId]?.cluster || 'Unknown';
-    const team = emp.team || 'Unknown';
-
-    if (!teamMap[teamId]) {
-      console.warn("Unmapped teamId during grouping:", teamId, "for team:", emp.team);
+    if (!teamMap[emp.teamId || '']) {
+      console.warn("Unmapped teamId:", emp.teamId);
     }
+    const cluster = teamMap[emp.teamId || '']?.cluster || 'Unknown';
+    const team = emp.team || 'Unknown';
 
     if (!grouped.has(cluster)) grouped.set(cluster, new Map());
     if (!grouped.get(cluster)!.has(team)) grouped.get(cluster)!.set(team, []);
@@ -182,16 +180,13 @@ export const computeGapAnalysis = (
 
   // Enrich employees
   const enrichedEmployees = employees.map(emp => {
-     const teamId = getTeamId(emp.team, masterTeams);
-     const cluster = teamMap[teamId]?.cluster || "Unknown";
-     
-     if (!teamMap[teamId]) {
-       console.warn("Unmapped teamId during enrichment:", teamId, "for team:", emp.team);
+     if (!teamMap[emp.teamId || '']) {
+       console.warn("Unmapped teamId:", emp.teamId);
      }
+     const cluster = teamMap[emp.teamId || '']?.cluster || "Unknown";
 
      return {
        ...emp,
-       teamId,
        cluster,
        zone: emp.zone || getZoneFromState(emp.state)
      };

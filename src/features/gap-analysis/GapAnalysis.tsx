@@ -84,19 +84,18 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
     let filteredEmployees = employees;
     if (pageFilters.cluster) {
       filteredEmployees = filteredEmployees.filter(emp => {
-        const teamId = getTeamId(emp.team, masterTeams);
-        const cluster = teamMap[teamId]?.cluster || "Unknown";
+        if (!teamMap[emp.teamId || '']) {
+          console.warn("Unmapped teamId:", emp.teamId);
+        }
+        const cluster = teamMap[emp.teamId || '']?.cluster || "Unknown";
         return cluster === pageFilters.cluster;
       });
     }
     
     if (pageFilters.team) {
       filteredEmployees = filteredEmployees.filter(emp => {
-        const teamId = getTeamId(emp.team, masterTeams);
-        // Compare by teamId for stability if pageFilters.team is an ID, 
-        // or resolve ID from masterTeams if it's a name.
-        // Assuming global filter provides team name or ID consistently.
-        return teamId === pageFilters.team || emp.team === pageFilters.team;
+        // Assume global filter provides team name or ID consistently.
+        return emp.teamId === pageFilters.team || emp.team === pageFilters.team;
       });
     }
 
