@@ -390,8 +390,12 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
     <div className="animate-fade-in">
       <div className="header">
         <div>
-          <h2 style={{ fontSize: '24px' }}>📊 Enriched Training Data Upload</h2>
-          <p className="text-muted">Zero ambiguity. Master data enrichment. Flexible ID validation. Conflict detection.</p>
+          <h2 style={{ fontSize: '24px', marginBottom: '12px' }}>📊 Training Attendance Upload</h2>
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+            <span className="badge badge-info">✓ Attendance</span>
+          </div>
+          <p className="text-muted">Upload attendance</p>
+          <p className="text-muted" style={{ marginTop: '4px', fontSize: '13px' }}></p>
         </div>
       </div>
 

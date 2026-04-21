@@ -18,7 +18,8 @@ import {
   Sun,
   Moon,
   Crosshair,
-  ListChecks
+  ListChecks,
+  UploadCloud
 } from 'lucide-react';
 import { useTheme } from './context/ThemeContext';
 import { FilterProvider } from './context/FilterProvider';
@@ -65,8 +66,8 @@ const sidebarSections = [
   {
     title: "EXECUTION",
     items: [
-      { label: "Training Execution", view: "trainings", icon: ListChecks },
-      { label: "Nominations", view: "notified", icon: Mail }
+      { label: "Nominations", view: "notified", icon: Mail },
+      { label: "Training Data", view: "trainings", icon: ListChecks }
     ]
   },
   {
@@ -79,6 +80,12 @@ const sidebarSections = [
     title: "STRATEGY",
     items: [
       { label: "SRM Dashboard", view: "srm", icon: Target }
+    ]
+  },
+  {
+    title: "OPERATIONS",
+    items: [
+      { label: "Upload Portal", view: "attendance", icon: UploadCloud }
     ]
   },
   {
