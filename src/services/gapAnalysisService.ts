@@ -4,6 +4,8 @@ import { getEligibleEmployees, EligibilityResult } from './eligibilityService';
 import { TEAM_CLUSTER, STATE_ZONE } from '../seed/masterData';
 import { normalizeText } from '../utils/textNormalizer';
 import { standardizeDesignation } from '../utils/designationMapper';
+import { getTeamId } from '../utils/teamIdMapper';
+import { Team } from '../context/MasterDataContext';
 
 // Zone lookup from state
 const getZoneFromState = (state?: string): string => {
@@ -30,6 +32,7 @@ const normalize = (val?: string): string => val?.toLowerCase().trim() || '';
 export interface GapAnalysisData {
   cluster: string;
   team: string;
+  teamId?: string;
   totalActive: number;
   eligible: number;
   untrained: number;
@@ -143,6 +146,7 @@ const enrichEmployees = (employees: Employee[]): Employee[] => {
     return {
       ...emp,
       team: normalizedTeam || emp.team,
+      teamId: '', // To be filled by computeGapAnalysis with context
       cluster: teamMapping?.cluster || 'Unknown',
       zone: stateMapping?.zone || 'Unknown'
     };
@@ -155,6 +159,7 @@ export const computeGapAnalysis = (
   employees: Employee[],
   attendance: Attendance[],
   nominations: TrainingNomination[],
+  masterTeams: Team[],
   zoneFilter?: string
 ): { data: GapAnalysisData[], drilldownData: Map<string, EmployeeGapDetail[]> } => {
   // Training type mapping for common variations
@@ -180,7 +185,12 @@ export const computeGapAnalysis = (
   );
 
   // Enrich employees
-  const enrichedEmployees = enrichEmployees(employees);
+  const enrichedEmployees = employees.map(emp => ({
+     ...emp,
+     teamId: getTeamId(emp.team, masterTeams),
+     cluster: emp.cluster || 'Unknown',
+     zone: emp.zone || getZoneFromState(emp.state)
+  }));
 
   // 🔥 STEP 3: USE ONLY ACTIVE EMPLOYEES
   const baseEmployees = enrichedEmployees.filter(e =>
@@ -271,6 +281,7 @@ export const computeGapAnalysis = (
       const teamData: GapAnalysisData = {
         cluster,
         team,
+        teamId: getTeamId(team, masterTeams),
         totalActive: emps.length,
         eligible: 0,
         untrained: 0,

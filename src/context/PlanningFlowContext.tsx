@@ -10,7 +10,8 @@ export interface NominationDraft {
   id: string; // matches trainingId
   trainingId: string;
   trainingType: string;
-  team: string;
+  team: string; // display
+  teamId: string; // stable
   trainer: string;
   startDate: string;
   endDate: string;

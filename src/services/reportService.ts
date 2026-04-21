@@ -107,7 +107,7 @@ export function applyFilters(ds: UnifiedRecord[], filter: ReportFilter): Unified
     const month = r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7);
     if (filter.monthFrom && month < filter.monthFrom) return false;
     if (filter.monthTo && month > filter.monthTo) return false;
-    if (filter.teams.length > 0 && !filter.teams.includes(r.employee.team)) return false;
+    if (filter.teams.length > 0 && !filter.teams.includes(r.attendance.teamId || '')) return false;
     if (filter.clusters.length > 0 && !filter.clusters.includes(r.employee.state)) return false;
     if (filter.trainer && r.attendance.trainerId !== filter.trainer) return false;
     return true;

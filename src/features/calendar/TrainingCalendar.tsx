@@ -12,7 +12,8 @@ interface ChecklistItem { name: string; completed: boolean; }
 interface TrainingPlan {
   id: string;
   trainingType: string;
-  team: string;
+  teamId: string;
+  team: string; // Keep for display / label
   trainer: string;
   startDate: string;
   endDate: string;
@@ -178,11 +179,14 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
       
       // Prefill Logic
       // 1. If a team is selected in filter, use it. Else if only 1 team option exists (Planning Context), use it.
-      let teamToPrefill = filterTeam;
-      if (!teamToPrefill && teamOptions.length === 1) {
-        teamToPrefill = teamOptions[0];
+      let teamToPrefillId = filterTeam;
+      if (!teamToPrefillId && hasPlanningContext) {
+        // Find the team object from masterTeams that matches names in planning context
+        const firstTeamName = selectionSession!.teams[0];
+        const teamObj = masterTeams.find(t => t.teamName === firstTeamName);
+        if (teamObj) teamToPrefillId = teamObj.id;
       }
-      setFormTeam(teamToPrefill || '');
+      setFormTeam(teamToPrefillId || '');
       
       // 2. If a trainer is selected in filter, use it.
       setFormTrainer(filterTrainer || '');
@@ -197,11 +201,16 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
   const handleCreatePlan = () => {
     if (!formTeam || !formTrainer) return alert('Team and Trainer are required.');
     
+    // Find team details for display/nomination
+    const teamObj = masterTeams.find(t => t.id === formTeam);
+    const teamLabel = teamObj ? teamObj.teamName : formTeam;
+
     const newId = Math.random().toString(36).substr(2, 9);
     const newPlan: TrainingPlan = {
       id: newId,
       trainingType: tab,
-      team: formTeam,
+      teamId: formTeam,
+      team: teamLabel,
       trainer: formTrainer,
       startDate: modalStart,
       endDate: modalEnd,
@@ -210,15 +219,16 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
     };
 
     setPlans([...plans, newPlan]);
-    addConsumed(formTeam, formTrainer);
+    addConsumed(teamLabel, formTrainer);
 
     // Auto-generate Nomination Draft
-    const untrainedTop40 = employees.filter(e => e.team === formTeam).map(e => String(e.employeeId)).slice(0, 40);
+    const untrainedTop40 = employees.filter(e => e.team === teamLabel).map(e => String(e.employeeId)).slice(0, 40);
     addDraftNomination({
       id: newId,
       trainingId: newId,
       trainingType: tab,
-      team: formTeam,
+      team: teamLabel,
+      teamId: formTeam,
       trainer: formTrainer,
       startDate: modalStart,
       endDate: modalEnd,
@@ -265,7 +275,7 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
 
   const filteredPlans = plans.filter(p => {
     if (p.trainingType !== tab) return false;
-    if (filterTeam && p.team !== filterTeam) return false;
+    if (filterTeam && p.teamId !== filterTeam) return false;
     if (filterTrainer && p.trainer !== filterTrainer) return false;
     if (getFiscalYearFromDate(p.startDate) !== selectedFY) return false;
     return true;
@@ -324,7 +334,9 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
       <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap', alignItems: 'center' }}>
         <select value={filterTeam} onChange={e => setFilterTeam(e.target.value)} className="form-input" style={{ width: '200px' }}>
           {!hasPlanningContext && <option value="">All Teams</option>}
-          {teamOptions.map(t => <option key={t} value={t}>{t}</option>)}
+          {masterTeams.filter(t => t.status === 'Active').map(t => (
+            <option key={t.id} value={t.id}>{t.teamName}</option>
+          ))}
         </select>
         
         <select value={filterTrainer} onChange={e => setFilterTrainer(e.target.value)} className="form-input" style={{ width: '200px' }}>
@@ -443,9 +455,9 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Team <span style={{ color: 'var(--danger)' }}>*</span></label>
                 <select value={formTeam} onChange={e => setFormTeam(e.target.value)} className="form-input">
                   <option value="">Select Team...</option>
-                  {teamOptions.map(t => {
-                    const isUsed = consumedTeams.has(t);
-                    return <option key={t} value={t} disabled={isUsed} title={isUsed ? 'Already used in this planning session' : ''} style={{ textDecoration: isUsed ? 'line-through' : 'none', color: isUsed ? 'var(--text-secondary)' : 'inherit' }}>{t} {isUsed ? '(Used)' : ''}</option>
+                  {masterTeams.filter(t => t.status === 'Active').map(t => {
+                    const isUsed = consumedTeams.has(t.teamName);
+                    return <option key={t.id} value={t.id} disabled={isUsed} title={isUsed ? 'Already used in this planning session' : ''} style={{ textDecoration: isUsed ? 'line-through' : 'none', color: isUsed ? 'var(--text-secondary)' : 'inherit' }}>{t.teamName} {isUsed ? '(Used)' : ''}</option>
                   })}
                 </select>
               </div>

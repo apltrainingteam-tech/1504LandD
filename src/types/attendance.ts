@@ -14,6 +14,7 @@ export interface Attendance {
   mobileNumber?: string;
   name?: string;
   team?: string;
+  teamId?: string;
   designation?: string;
   cluster?: string;
   hq?: string;
@@ -36,6 +37,7 @@ export interface TrainingNomination {
   name: string;
   designation: string;
   team: string;
+  teamId: string;
   hq: string;
   state: string;
 

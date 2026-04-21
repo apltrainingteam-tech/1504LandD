@@ -110,11 +110,15 @@ export function useFilterOptions(
     if (masterTeams && masterTeams.length > 0) {
       return masterTeams
         .filter(t => t.status === 'Active')
-        .map(t => t.teamName)
-        .sort();
+        .map(t => ({ 
+          id: t.id, 
+          label: t.teamName 
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label));
     }
     // Fallback to extraction from employees
-    return [...new Set(employees.map(e => e.team).filter((t): t is string => Boolean(t)))].sort();
+    const uniqueNames = [...new Set(employees.map(e => e.team).filter((t): t is string => Boolean(t)))].sort();
+    return uniqueNames.map(name => ({ id: name, label: name }));
   }, [employees, masterTeams]);
   
   const allTrainers = useMemo(() => {

@@ -119,14 +119,14 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
       filteredNominations
     );
 
-    const result = computeGapAnalysis(tab, strictlyEligibleEmployees, filteredAttendance, filteredNominations, zoneFilter);
+    const result = computeGapAnalysis(tab, strictlyEligibleEmployees, filteredAttendance, filteredNominations, masterTeams, zoneFilter);
     console.log(`✓ RESULT for ${tab}: ${result.data.length} rows`);
     if (result.data.length > 0) {
       console.log(`  - Total Active: ${result.data.reduce((s, d) => s + d.totalActive, 0)}`);
       console.log(`  - Total Eligible: ${result.data.reduce((s, d) => s + d.eligible, 0)}`);
     }
     return result;
-  }, [tab, employees, attendance, nominations, zoneFilter]);
+  }, [tab, employees, attendance, nominations, zoneFilter, masterTeams]);
 
   const toggleExpanded = (key: string) => {
     const newExpanded = new Set(expanded);
@@ -135,8 +135,8 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
     setExpanded(newExpanded);
   };
 
-  const toggleTeamSelection = (team: string) => {
-    setSelectedTeams(prev => prev.includes(team) ? prev.filter(t => t !== team) : [...prev, team]);
+  const toggleTeamSelection = (teamId: string) => {
+    setSelectedTeams(prev => prev.includes(teamId) ? prev.filter(t => t !== teamId) : [...prev, teamId]);
   };
 
   const sortedData = useMemo(() => {
@@ -277,8 +277,8 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
                     ) : (
                       <input 
                         type="checkbox" 
-                        checked={selectedTeams.includes(row.team)}
-                        onChange={() => toggleTeamSelection(row.team)}
+                        checked={selectedTeams.includes(row.teamId || '')}
+                        onChange={() => toggleTeamSelection(row.teamId || '')}
                         style={{ cursor: 'pointer', marginLeft: '12px' }}
                       />
                     )}

@@ -25,7 +25,7 @@ import {
 import { useTheme } from './context/ThemeContext';
 import { FilterProvider } from './context/FilterProvider';
 import { PlanningFlowProvider } from './context/PlanningFlowContext';
-import { MasterDataProvider } from './context/MasterDataContext';
+import { MasterDataProvider, useMasterData } from './context/MasterDataContext';
 import { PageTransition } from './components/PageTransition';
 import { SkeletonDashboard } from './components/SkeletonDashboard';
 import './index.css';
@@ -51,7 +51,8 @@ import { Employee } from './types/employee';
 import { Attendance, TrainingScore, TrainingNomination, Demographics as DemoType } from './types/attendance';
 import { parseAnyDate } from './utils/dateParser';
 import { getSchema, mapHeader } from './services/trainingSchemas';
-import { normalizeScore } from './utils/scoreNormalizer';
+import { normalizeText } from './utils/textNormalizer';
+import { getTeamId } from './utils/teamIdMapper';
 
 type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'notified' | 'gap-analysis' | 'performance' | 'srm' | 'calendar' | 'master-settings';
 
@@ -110,6 +111,7 @@ const App = () => {
   const [refreshKey, setRefreshKey] = useState(0);
   const [isSeeding, setIsSeeding] = useState(false);
   const [isCleaning, setIsCleaning] = useState(false);
+  const { teams: masterTeams, loading: masterLoading } = useMasterData();
 
   // Global State
   const [emps, setEmps] = useState<Employee[]>([]);
@@ -129,6 +131,7 @@ const App = () => {
   };
 
   const loadAll = async () => {
+    if (masterLoading) return; // Wait for master teams to map IDs
     setLoading(true);
     try {
       const [e, trainingDataRaw, d] = await Promise.all([
@@ -172,6 +175,7 @@ const App = () => {
             mobileNumber: r.mobileNumber || row.mobileNumber,
             name: r.name || row.name,
             team: r.team || row.team,
+            teamId: getTeamId(r.team || row.team, masterTeams),
             designation: r.designation || row.designation,
             hq: r.hq || row.hq,
             state: r.state || row.state,
@@ -230,6 +234,7 @@ const App = () => {
             name: r.name || row.name || '',
             designation: r.designation || row.designation || '',
             team: r.team || row.team || '',
+            teamId: getTeamId(r.team || row.team, masterTeams),
             hq: r.hq || row.hq || '',
             state: r.state || row.state || '',
           } as TrainingNomination);
@@ -258,7 +263,7 @@ const App = () => {
 
   useEffect(() => {
     loadAll();
-  }, [refreshKey]);
+  }, [refreshKey, masterLoading]);
 
   const handlePurge = async () => {
     if (!window.confirm("This will PERMANENTLY delete all records for 'Team A' and 'Unknown' categories. Proceed?")) return;
@@ -304,9 +309,8 @@ const App = () => {
   };
 
   return (
-    <MasterDataProvider>
-      <PlanningFlowProvider>
-        <FilterProvider>
+    <PlanningFlowProvider>
+      <FilterProvider>
         <div className="app-container">
         {/* Sidebar Navigation */}
         <aside className="sidebar">
@@ -411,7 +415,6 @@ const App = () => {
         </div>
         </FilterProvider>
       </PlanningFlowProvider>
-    </MasterDataProvider>
   );
 };
 
