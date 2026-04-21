@@ -9,7 +9,7 @@ interface GlobalFilterPanelProps {
   initialFilters: GlobalFilters;
   clusterOptions: string[];
   teamOptions: string[];
-  trainerOptions: string[];
+  trainerOptions: { id: string, label: string }[];
   monthOptions: string[];
   onClearAll: () => void;
 }
@@ -230,8 +230,8 @@ export const GlobalFilterPanel: React.FC<GlobalFilterPanelProps> = memo(({
             >
               <option value="" style={{ background: '#0f172a', color: '#fff' }}>All Trainers</option>
               {trainerOptions.map((trainer) => (
-                <option key={trainer} value={trainer} style={{ background: '#0f172a', color: '#fff' }}>
-                  {trainer}
+                <option key={trainer.id} value={trainer.id} style={{ background: '#0f172a', color: '#fff' }}>
+                  {trainer.label}
                 </option>
               ))}
             </select>

@@ -43,6 +43,7 @@ import { CapsuleAttendanceMatrix, CapsulePerformanceMatrix } from '../../compone
 import { flagScore, flagClass, flagLabel } from '../../utils/scoreNormalizer';
 import { normalizeText } from '../../utils/textNormalizer';
 import { useGroupedData, useRankedGroups, useTrainerStats, useDrilldownNodes, useTimeSeries, useGapMetrics, useMonthsFromData, useFilterOptions } from '../../utils/computationHooks';
+import { useMasterData } from '../../context/MasterDataContext';
 
 const ALL_TRAINING_TYPES = ['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'PRE_AP'];
 
@@ -62,6 +63,8 @@ type SubView = 'grouped' | 'timeseries' | 'trainer' | 'drilldown' | 'gap' | 'ip_
 const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
   employees, attendance, scores, nominations, demographics, pageMode = 'overview'
 }) => {
+  const { trainers: masterTrainers, teams: masterTeams, clusters: masterClusters } = useMasterData();
+
   // Page-scoped global filter UI state (filters apply only to this page)
   const [pageFilters, setPageFilters] = useState<GlobalFilters>({ cluster: '', team: '', trainer: '', month: '' });
   const activeFilterCount = getActiveFilterCount(pageFilters);
@@ -246,8 +249,8 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
   }, [tab, subView]);
 
   // Dynamic options for filter dropdowns
-  const { allTeams, allTrainers } = useFilterOptions(employees, attendance);
-  const allClusters = useMemo(() => [...new Set(Object.values(TEAM_CLUSTER_MAP).filter((c): c is string => Boolean(c)))].sort(), []);
+  const { allTeams, allTrainers } = useFilterOptions(employees, attendance, tab, masterTeams, masterTrainers);
+  const allClusters = useMemo(() => masterClusters.map(c => c.name), [masterClusters]);
 
   const normalizeType = (value?: string) => normalizeTrainingType(value || '');
 

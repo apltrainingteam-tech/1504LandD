@@ -19,11 +19,13 @@ import {
   Moon,
   Crosshair,
   ListChecks,
-  UploadCloud
+  UploadCloud,
+  Settings
 } from 'lucide-react';
 import { useTheme } from './context/ThemeContext';
 import { FilterProvider } from './context/FilterProvider';
 import { PlanningFlowProvider } from './context/PlanningFlowContext';
+import { MasterDataProvider } from './context/MasterDataContext';
 import { PageTransition } from './components/PageTransition';
 import { SkeletonDashboard } from './components/SkeletonDashboard';
 import './index.css';
@@ -40,6 +42,7 @@ import { Notified } from './features/notifications/Notified';
 import { GapAnalysis } from './features/gap-analysis/GapAnalysis';
 import { RecruitmentQuality } from './features/srm/RecruitmentQuality';
 import { TrainingCalendar } from './features/calendar/TrainingCalendar';
+import { MasterSettings } from './features/settings/MasterSettings';
 
 // Services & Types
 import { getCollection, deleteRecordsByQuery } from './services/apiClient';
@@ -50,7 +53,7 @@ import { parseAnyDate } from './utils/dateParser';
 import { getSchema, mapHeader } from './services/trainingSchemas';
 import { normalizeScore } from './utils/scoreNormalizer';
 
-type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'notified' | 'gap-analysis' | 'performance' | 'srm' | 'calendar';
+type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'notified' | 'gap-analysis' | 'performance' | 'srm' | 'calendar' | 'master-settings';
 
 const sidebarSections = [
   {
@@ -94,7 +97,8 @@ const sidebarSections = [
     title: "FOUNDATION",
     items: [
       { label: "Employee Master", view: "employees", icon: Users },
-      { label: "Eligibility Rules", view: "demographics", icon: ShieldCheck }
+      { label: "Eligibility Rules", view: "demographics", icon: ShieldCheck },
+      { label: "Master Settings", view: "master-settings", icon: Settings }
     ]
   }
 ];
@@ -294,13 +298,15 @@ const App = () => {
       case 'employees': return <Employees employees={emps} onUploadComplete={() => setRefreshKey(k => k + 1)} />;
       case 'demographics': return <Demographics />;
       case 'gap-analysis': return <GapAnalysis employees={emps} attendance={att} nominations={noms} onNavigate={setView} />;
+      case 'master-settings': return <MasterSettings />;
       default: return <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} />;
     }
   };
 
   return (
-    <PlanningFlowProvider>
-      <FilterProvider>
+    <MasterDataProvider>
+      <PlanningFlowProvider>
+        <FilterProvider>
         <div className="app-container">
         {/* Sidebar Navigation */}
         <aside className="sidebar">
@@ -402,9 +408,10 @@ const App = () => {
           {renderView()}
         </PageTransition>
       </main>
-      </div>
-      </FilterProvider>
-    </PlanningFlowProvider>
+        </div>
+        </FilterProvider>
+      </PlanningFlowProvider>
+    </MasterDataProvider>
   );
 };
 

@@ -13,6 +13,8 @@ import { GlobalFilterPanel } from '../../components/GlobalFilterPanel';
 import { GlobalFilters, getActiveFilterCount } from '../../context/filterContext';
 import { getFiscalYears } from '../../utils/fiscalYear';
 import { TEAM_CLUSTER_MAP } from '../../services/clusterMap';
+import { useFilterOptions } from '../../utils/computationHooks';
+import { useMasterData } from '../../context/MasterDataContext';
 
 // Zone lookup from state
 const getZoneFromState = (state?: string): string => {
@@ -32,6 +34,7 @@ interface GapAnalysisProps {
 type TrainingTab = 'AP' | 'MIP' | 'Refresher' | 'Capsule';
 
 export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance, nominations, onNavigate }) => {
+  const { trainers: masterTrainers, teams: masterTeams, clusters: masterClusters } = useMasterData();
   const { setSelectionSession } = usePlanningFlow();
   const [tab, setTab] = useState<TrainingTab>('AP');
   const [expanded, setExpanded] = useState(new Set<string>());
@@ -55,9 +58,8 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
   }, []);
 
   // dynamic lists for global filters
-  const allTeams = useMemo(() => [...new Set(employees.map(e => e.team).filter(Boolean))].sort(), [employees]);
-  const allClusters = useMemo(() => [...new Set(Object.values(TEAM_CLUSTER_MAP).filter(Boolean))].sort(), []);
-  const allTrainers = useMemo(() => [...new Set(attendance.map(a => a.trainerId).filter(Boolean))].sort(), [attendance]);
+  const { allTeams, allTrainers } = useFilterOptions(employees, attendance, tab as any, masterTeams, masterTrainers);
+  const allClusters = useMemo(() => masterClusters.map(c => c.name), [masterClusters]);
   const months = useMemo(() => {
     const m = new Set<string>();
     attendance.forEach(a => { if (a.month) m.add(a.month); if (a.attendanceDate) m.add((a.attendanceDate || '').substring(0,7)); });

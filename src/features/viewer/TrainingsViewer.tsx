@@ -19,6 +19,8 @@ import { getFiscalYears, getFiscalYearFromDate } from '../../utils/fiscalYear';
 import { TEAM_CLUSTER_MAP } from '../../services/clusterMap';
 import { normalizeText } from '../../utils/textNormalizer';
 import { getSchema } from '../../services/trainingSchemas';
+import { useFilterOptions } from '../../utils/computationHooks';
+import { useMasterData } from '../../context/MasterDataContext';
 
 // Training type normalization
 const trainingTypeMap: Record<string, string> = {
@@ -45,6 +47,7 @@ interface TrainingsViewerProps {
 }
 
 export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, attendance, scores }) => {
+  const { trainers: masterTrainers, teams: masterTeams, clusters: masterClusters } = useMasterData();
   const [tab, setTab] = useState('IP');
   const [search, setSearch] = useState('');
   const [selectedZone, setSelectedZone] = useState('All Zones');
@@ -137,18 +140,8 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
     };
   }, [filtered, tab]);
 
-  const allTeams = useMemo(() => [...new Set(employees.map(e => e.team).filter(Boolean))].sort(), [employees]);
-  const allClusters = useMemo(() => {
-    // Derive from both employee data and master map to ensure dropdown isn't empty
-    const s = new Set<string>();
-    employees.forEach(e => {
-      if (e.cluster) s.add(e.cluster);
-      const mapped = TEAM_CLUSTER_MAP[normalizeText(e.team)];
-      if (mapped) s.add(mapped);
-    });
-    return [...s].sort();
-  }, [employees]);
-  const allTrainers = useMemo(() => [...new Set(attendance.map(a => a.trainerId).filter(Boolean))].sort(), [attendance]);
+  const { allTeams, allTrainers } = useFilterOptions(employees, attendance, tab, masterTeams, masterTrainers);
+  const allClusters = useMemo(() => masterClusters.map(c => c.name), [masterClusters]);
   const months = useMemo(() => {
     const s = new Set<string>();
     attendance.forEach(a => { 

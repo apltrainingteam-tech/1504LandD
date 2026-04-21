@@ -13,6 +13,7 @@ import {
 } from '../services/reportService';
 import { TrainingNomination, EligibilityResult, Demographics } from '../types/attendance';
 import { Employee } from '../types/employee';
+import { getAvailableTrainers, Trainer } from '../services/trainerService';
 
 /**
  * Hook: Compute grouped data independently
@@ -97,16 +98,43 @@ export function useMonthsFromData(unified: UnifiedRecord[]) {
  * Hook: Get dynamic filter options
  * Separate from main component to avoid inline mapping
  */
-export function useFilterOptions(employees: Employee[], attendance: any[]) {
-  const allTeams = useMemo(
-    () => [...new Set(employees.map(e => e.team).filter((t): t is string => Boolean(t)))].sort(),
-    [employees]
-  );
+export function useFilterOptions(
+  employees: Employee[], 
+  attendance: any[], 
+  trainingType?: string,
+  masterTeams?: any[],
+  masterTrainers?: Trainer[]
+) {
+  const allTeams = useMemo(() => {
+    // If masterTeams provided, use Active teams from there
+    if (masterTeams && masterTeams.length > 0) {
+      return masterTeams
+        .filter(t => t.status === 'Active')
+        .map(t => t.teamName)
+        .sort();
+    }
+    // Fallback to extraction from employees
+    return [...new Set(employees.map(e => e.team).filter((t): t is string => Boolean(t)))].sort();
+  }, [employees, masterTeams]);
   
-  const allTrainers = useMemo(
-    () => [...new Set(attendance.map(a => a.trainerId).filter((tr): tr is string => Boolean(tr)))].sort(),
-    [attendance]
-  );
+  const allTrainers = useMemo(() => {
+    // If trainingType and masterTrainers provided, use dynamic service logic
+    if (trainingType) {
+      return getAvailableTrainers(trainingType, masterTrainers).map(t => ({
+        id: t.id,
+        label: `${t.trainerName} (${t.category})`
+      }));
+    }
+    // Fallback to active trainers from master list if no training type
+    if (masterTrainers && masterTrainers.length > 0) {
+      return masterTrainers
+        .filter(t => t.status === 'Active')
+        .map(t => ({ id: t.id, label: `${t.trainerName} (${t.category})` }));
+    }
+    // Deep fallback to existing data extraction
+    const uniqueIds = [...new Set(attendance.map(a => a.trainerId).filter((tr): tr is string => Boolean(tr)))].sort();
+    return uniqueIds.map(id => ({ id, label: id }));
+  }, [attendance, trainingType, masterTrainers]);
   
   return { allTeams, allTrainers };
 }

@@ -3,8 +3,10 @@ import { ChevronLeft, ChevronRight, X, AlertTriangle, Trash2, Calendar as CalIco
 import TopRightControls from '../../components/TopRightControls';
 import { getFiscalYears, getFiscalYearFromDate, parseFiscalYear, getCurrentFiscalYear } from '../../utils/fiscalYear';
 import { usePlanningFlow } from '../../context/PlanningFlowContext';
+import { getAvailableTrainers, Trainer } from '../../services/trainerService';
 import { Employee } from '../../types/employee';
 import { Attendance } from '../../types/attendance';
+import { useMasterData } from '../../context/MasterDataContext';
 
 interface ChecklistItem { name: string; completed: boolean; }
 interface TrainingPlan {
@@ -42,6 +44,7 @@ const getStatus = (plan: TrainingPlan) => {
 };
 
 export const TrainingCalendar = ({ employees, attendance }: { employees: Employee[], attendance: Attendance[] }) => {
+  const { trainers: masterTrainers, teams: masterTeams } = useMasterData();
   const [tab, setTab] = useState<TrainingTab>('AP');
   const FY_OPTIONS = getFiscalYears(2015);
   const [selectedFY, setSelectedFY] = useState<string>(FY_OPTIONS[0]);
@@ -99,8 +102,19 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
   const [formRemarks, setFormRemarks] = useState('');
   const [overrideTrainer, setOverrideTrainer] = useState(false);
 
-  const allTeams = useMemo(() => [...new Set(employees.map(e => e.team).filter(Boolean))].sort(), [employees]);
-  const allTrainers = useMemo(() => [...new Set(attendance.map(a => a.trainerId).filter(Boolean))].sort(), [attendance]);
+  const allTeams = useMemo(() => {
+    // Priority 1: Planning Context selected teams
+    if (selectionSession && selectionSession.teams.length > 0) return selectionSession.teams;
+    // Priority 2: Master Data Active Teams
+    if (masterTeams && masterTeams.length > 0) return masterTeams.filter(t => t.status === 'Active').map(t => t.teamName).sort();
+    // Fallback: Data extraction
+    return [...new Set(employees.map(e => e.team).filter(Boolean))].sort();
+  }, [employees, masterTeams, selectionSession]);
+
+  const trainerOptions = useMemo(() => {
+    const activeTrainers = masterTrainers.filter(t => t.status === 'Active');
+    return getAvailableTrainers(tab, activeTrainers);
+  }, [tab, masterTrainers]);
 
   const hasPlanningContext = Boolean(
     selectionSession &&
@@ -161,8 +175,18 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
       const end = dragStart <= dragEnd ? dragEnd : dragStart;
       setModalStart(start);
       setModalEnd(end);
-      setFormTeam('');
-      setFormTrainer('');
+      
+      // Prefill Logic
+      // 1. If a team is selected in filter, use it. Else if only 1 team option exists (Planning Context), use it.
+      let teamToPrefill = filterTeam;
+      if (!teamToPrefill && teamOptions.length === 1) {
+        teamToPrefill = teamOptions[0];
+      }
+      setFormTeam(teamToPrefill || '');
+      
+      // 2. If a trainer is selected in filter, use it.
+      setFormTrainer(filterTrainer || '');
+      
       setFormRemarks('');
       setShowCreateModal(true);
     }
@@ -305,7 +329,7 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
         
         <select value={filterTrainer} onChange={e => setFilterTrainer(e.target.value)} className="form-input" style={{ width: '200px' }}>
           <option value="">All Trainers</option>
-          {allTrainers.map(t => <option key={t} value={t}>{t}</option>)}
+          {trainerOptions.map(t => <option key={t.id} value={t.id}>{t.trainerName} ({t.category})</option>)}
         </select>
 
         <div style={{ flex: 1 }}></div>
@@ -436,9 +460,9 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
                 </div>
                 <select value={formTrainer} onChange={e => setFormTrainer(e.target.value)} className="form-input">
                   <option value="">Select Trainer...</option>
-                  {allTrainers.map(t => {
-                    const isUsed = !overrideTrainer && consumedTrainers.has(t);
-                    return <option key={t} value={t} disabled={isUsed} title={isUsed ? 'Already used in this planning session' : ''} style={{ textDecoration: isUsed ? 'line-through' : 'none', color: isUsed ? 'var(--text-secondary)' : 'inherit' }}>{t} {isUsed ? '(Used)' : ''}</option>
+                  {trainerOptions.map(t => {
+                    const isUsed = !overrideTrainer && consumedTrainers.has(t.id);
+                    return <option key={t.id} value={t.id} disabled={isUsed} title={isUsed ? 'Already used in this planning session' : ''} style={{ textDecoration: isUsed ? 'line-through' : 'none', color: isUsed ? 'var(--text-secondary)' : 'inherit' }}>{t.trainerName} ({t.category}) {isUsed ? '(Used)' : ''}</option>
                   })}
                 </select>
                 {hasConflict(formTrainer, modalStart, modalEnd) && (
