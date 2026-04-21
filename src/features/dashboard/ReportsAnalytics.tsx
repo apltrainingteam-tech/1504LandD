@@ -174,11 +174,11 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
   }, [tab, subView]);
 
   // --- BUCKET HELPERS ---
-  const renderPerformanceCell = (data: any) => {
-    if (!data || data.total === 0) return <td style={{ textAlign: 'center', opacity: 0.4 }}>—</td>;
+  const renderPerformanceCell = (data: any, keyVal: string) => {
+    if (!data || data.total === 0) return <td key={keyVal} style={{ textAlign: 'center', opacity: 0.4 }}>—</td>;
     
     return (
-      <td style={{ textAlign: 'center' }} title={`>90%: ${data.elite}\n75–90%: ${data.high}\n50–75%: ${data.medium}\n<50%: ${data.low}`}>
+      <td key={keyVal} style={{ textAlign: 'center' }} title={`>90%: ${data.elite}\n75–90%: ${data.high}\n50–75%: ${data.medium}\n<50%: ${data.low}`}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', fontSize: '12px' }}>
           <span style={{ color: '#22c55e', fontWeight: 600 }}>{data.elite}</span>
           <span style={{ opacity: 0.2 }}>/</span>
@@ -900,7 +900,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                             {renderSummaryPercent(clusterData.high, clusterData.total, 50, 'text-success')}
                             {renderSummaryPercent(clusterData.medium, clusterData.total, 40, 'text-warning')}
                             {renderSummaryPercent(clusterData.low, clusterData.total, 30, 'text-danger')}
-                            {MONTHS.map(mo => renderPerformanceCell(clusterData.months[mo]))}
+                            {MONTHS.map(mo => renderPerformanceCell(clusterData.months[mo], mo))}
                           </tr>
 
                           {isOpen && Object.keys(ipData.teamMonthMap[clusterName] || {}).map(teamName => {
@@ -917,7 +917,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                                 {renderSummaryPercent(teamData.high, teamData.total, 50, 'text-success')}
                                 {renderSummaryPercent(teamData.medium, teamData.total, 40, 'text-warning')}
                                 {renderSummaryPercent(teamData.low, teamData.total, 30, 'text-danger')}
-                                {MONTHS.map(mo => renderPerformanceCell(teamData.months[mo]))}
+                                {MONTHS.map(mo => renderPerformanceCell(teamData.months[mo], mo))}
                               </tr>
                             );
                           })}

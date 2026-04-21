@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronRight, ChevronDown, Users, CheckCircle2, AlertTriangle, TrendingUp, Search, X, MapPin } from 'lucide-react';
-import { useFilters } from '../../context/FilterProvider';
 import { usePlanningFlow } from '../../context/PlanningFlowContext';
 import { Employee } from '../../types/employee';
 import { Attendance, TrainingScore, TrainingNomination } from '../../types/attendance';
@@ -33,7 +32,6 @@ interface GapAnalysisProps {
 type TrainingTab = 'AP' | 'MIP' | 'Refresher' | 'Capsule';
 
 export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance, nominations, onNavigate }) => {
-  const { pageFilters } = useFilters();
   const { setSelectionSession } = usePlanningFlow();
   const [tab, setTab] = useState<TrainingTab>('AP');
   const [expanded, setExpanded] = useState(new Set<string>());
@@ -41,6 +39,8 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
   const FY_OPTIONS = getFiscalYears(2015);
   const [selectedFY, setSelectedFY] = useState<string>(FY_OPTIONS[0]);
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
+  const [pageFilters, setPageFilters] = useState<GlobalFilters>({ cluster: '', team: '', trainer: '', month: '' });
+  const activeFilterCount = getActiveFilterCount(pageFilters);
   const [showGlobalFilters, setShowGlobalFilters] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: 'total' | 'mr90', direction: 'asc' | 'desc' }>({ key: 'total', direction: 'desc' });
 
@@ -372,6 +372,4 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
     </div>
   );
 };
-
-export { GapAnalysis };
 
