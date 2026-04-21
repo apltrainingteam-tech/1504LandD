@@ -35,9 +35,13 @@ export interface GapAnalysisData {
   untrained: number;
   untrainedPercent: number;
   over90Days: number;
-  // For MIP: designation breakdowns
+  
+  mrUntrained?: number;
+  mrOver90?: number;
   flmUntrained?: number;
+  flmOver90?: number;
   slmUntrained?: number;
+  slmOver90?: number;
   srManagerUntrained?: number;
 }
 
@@ -114,8 +118,12 @@ export const aggregateClusterMetrics = (groupedData: Map<string, Map<string, Gap
         clusterAgg.eligible += d.eligible;
         clusterAgg.untrained += d.untrained;
         clusterAgg.over90Days += d.over90Days;
+        if (d.mrUntrained) clusterAgg.mrUntrained = (clusterAgg.mrUntrained || 0) + d.mrUntrained;
+        if (d.mrOver90) clusterAgg.mrOver90 = (clusterAgg.mrOver90 || 0) + d.mrOver90;
         if (d.flmUntrained) clusterAgg.flmUntrained = (clusterAgg.flmUntrained || 0) + d.flmUntrained;
+        if (d.flmOver90) clusterAgg.flmOver90 = (clusterAgg.flmOver90 || 0) + d.flmOver90;
         if (d.slmUntrained) clusterAgg.slmUntrained = (clusterAgg.slmUntrained || 0) + d.slmUntrained;
+        if (d.slmOver90) clusterAgg.slmOver90 = (clusterAgg.slmOver90 || 0) + d.slmOver90;
         if (d.srManagerUntrained) clusterAgg.srManagerUntrained = (clusterAgg.srManagerUntrained || 0) + d.srManagerUntrained;
       });
     });
@@ -283,7 +291,8 @@ export const computeGapAnalysis = (
           if (isUntrained) {
             teamData.untrained++;
             const daysSince = calculateDaysSinceDOJ(emp);
-            if (daysSince > 90) teamData.over90Days++;
+            const isOver90 = daysSince > 90;
+            if (isOver90) teamData.over90Days++;
 
             untrainedDetails.push({
               employeeId: emp.employeeId,
@@ -296,16 +305,19 @@ export const computeGapAnalysis = (
               trainingType: normalizedTrainingType
             });
 
-            // For MIP, count by designation
-            if (trainingType === 'MIP') {
-              const des = standardizeDesignation(emp.designation);
-              if (des === 'FLM') {
-                teamData.flmUntrained = (teamData.flmUntrained || 0) + 1;
-              } else if (des === 'SLM') {
-                teamData.slmUntrained = (teamData.slmUntrained || 0) + 1;
-              } else if (des === 'SR MANAGER') {
-                teamData.srManagerUntrained = (teamData.srManagerUntrained || 0) + 1;
-              }
+            // Breakdown by designation for all training types globally
+            const des = standardizeDesignation(emp.designation);
+            if (des === 'MR') {
+              teamData.mrUntrained = (teamData.mrUntrained || 0) + 1;
+              if (isOver90) teamData.mrOver90 = (teamData.mrOver90 || 0) + 1;
+            } else if (des === 'FLM') {
+              teamData.flmUntrained = (teamData.flmUntrained || 0) + 1;
+              if (isOver90) teamData.flmOver90 = (teamData.flmOver90 || 0) + 1;
+            } else if (des === 'SLM') {
+              teamData.slmUntrained = (teamData.slmUntrained || 0) + 1;
+              if (isOver90) teamData.slmOver90 = (teamData.slmOver90 || 0) + 1;
+            } else if (des === 'SR MANAGER') {
+              teamData.srManagerUntrained = (teamData.srManagerUntrained || 0) + 1;
             }
           }
         }
@@ -315,8 +327,12 @@ export const computeGapAnalysis = (
       clusterData.eligible += teamData.eligible;
       clusterData.untrained += teamData.untrained;
       clusterData.over90Days += teamData.over90Days;
+      if (teamData.mrUntrained) clusterData.mrUntrained = (clusterData.mrUntrained || 0) + teamData.mrUntrained;
+      if (teamData.mrOver90) clusterData.mrOver90 = (clusterData.mrOver90 || 0) + teamData.mrOver90;
       if (teamData.flmUntrained) clusterData.flmUntrained = (clusterData.flmUntrained || 0) + teamData.flmUntrained;
+      if (teamData.flmOver90) clusterData.flmOver90 = (clusterData.flmOver90 || 0) + teamData.flmOver90;
       if (teamData.slmUntrained) clusterData.slmUntrained = (clusterData.slmUntrained || 0) + teamData.slmUntrained;
+      if (teamData.slmOver90) clusterData.slmOver90 = (clusterData.slmOver90 || 0) + teamData.slmOver90;
       if (teamData.srManagerUntrained) clusterData.srManagerUntrained = (clusterData.srManagerUntrained || 0) + teamData.srManagerUntrained;
 
       teamData.untrainedPercent = teamData.eligible > 0 ? (teamData.untrained / teamData.eligible) * 100 : 0;
