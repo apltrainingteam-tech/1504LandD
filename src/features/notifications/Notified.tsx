@@ -107,7 +107,13 @@ export const Notified: React.FC<NotifiedProps> = ({ employees, attendance, nomin
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
 
   // Drafts Integration
-  const { draftNominations, updateDraftNomination, selectionSession } = usePlanningFlow();
+  const { draftNominations, updateDraftNomination, selectionSession, resetConsumed } = usePlanningFlow();
+  
+  const hasPlanningContext = Boolean(
+    selectionSession &&
+    Array.isArray(selectionSession.teams) &&
+    selectionSession.teams.length > 0
+  );
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
 
   // Core statistics
@@ -303,6 +309,19 @@ export const Notified: React.FC<NotifiedProps> = ({ employees, attendance, nomin
         </div>
       </div>
 
+      {hasPlanningContext && (
+        <div style={{ background: 'rgba(34, 197, 94, 0.1)', border: '1px solid var(--success)', color: 'var(--success)', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: '14px', fontWeight: 600 }}>
+            Planning for: {selectionSession!.teams.join(', ')}
+          </div>
+          <button className="btn btn-secondary" onClick={() => {
+             if (window.confirm("Reset all blocked Teams and Trainers?")) resetConsumed();
+          }} style={{ fontSize: '12px', padding: '6px 12px', background: 'white', color: 'var(--success)' }}>
+            Reset Selection
+          </button>
+        </div>
+      )}
+
       {/* TABS */}
       <div className="tabs mb-8" style={{ display: 'flex', gap: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
         {['drafts', 'upload', 'summary', 'defaulters', 'drilldown'].map(t => (
@@ -355,7 +374,7 @@ export const Notified: React.FC<NotifiedProps> = ({ employees, attendance, nomin
         
         return (
           <div className="space-y-4">
-            {teamFilter.length > 0 && (
+            {hasPlanningContext && (
               <div style={{ marginBottom: '16px', fontSize: '13px', color: 'var(--text-secondary)' }}>
                 Filtering natively via Active Planning Session ({teamFilter.length} active teams)
               </div>

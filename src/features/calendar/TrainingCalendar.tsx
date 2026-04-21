@@ -102,6 +102,24 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
   const allTeams = useMemo(() => [...new Set(employees.map(e => e.team).filter(Boolean))].sort(), [employees]);
   const allTrainers = useMemo(() => [...new Set(attendance.map(a => a.trainerId).filter(Boolean))].sort(), [attendance]);
 
+  const hasPlanningContext = Boolean(
+    selectionSession &&
+    Array.isArray(selectionSession.teams) &&
+    selectionSession.teams.length > 0
+  );
+  
+  const teamOptions = hasPlanningContext ? selectionSession!.teams : allTeams;
+
+  useEffect(() => {
+    if (hasPlanningContext && selectionSession) {
+      if (!selectionSession.teams.includes(filterTeam)) {
+        setFilterTeam(selectionSession.teams[0] || '');
+      }
+    } else if (!hasPlanningContext && filterTeam && !allTeams.includes(filterTeam)) {
+      setFilterTeam('');
+    }
+  }, [hasPlanningContext, selectionSession, filterTeam, allTeams]);
+
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
@@ -263,20 +281,26 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
             </button>
           ))}
         </div>
-        
-        {/* RESET SELECTION OPTION */}
-        <button className="btn btn-secondary" onClick={() => {
-          if (window.confirm("Reset all blocked Teams and Trainers?")) resetConsumed();
-        }} style={{ fontSize: '12px', padding: '6px 12px' }}>
-          Reset Selection
-        </button>
       </div>
+
+      {hasPlanningContext && (
+        <div style={{ background: 'rgba(34, 197, 94, 0.1)', border: '1px solid var(--success)', color: 'var(--success)', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: '14px', fontWeight: 600 }}>
+            Planning for: {selectionSession!.teams.join(', ')}
+          </div>
+          <button className="btn btn-secondary" onClick={() => {
+             if (window.confirm("Reset all blocked Teams and Trainers?")) resetConsumed();
+          }} style={{ fontSize: '12px', padding: '6px 12px', background: 'white', color: 'var(--success)' }}>
+            Reset Selection
+          </button>
+        </div>
+      )}
 
       {/* FILTER BAR & MONTH CONTROLS */}
       <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap', alignItems: 'center' }}>
         <select value={filterTeam} onChange={e => setFilterTeam(e.target.value)} className="form-input" style={{ width: '200px' }}>
-          <option value="">All Teams</option>
-          {allTeams.map(t => <option key={t} value={t}>{t}</option>)}
+          {!hasPlanningContext && <option value="">All Teams</option>}
+          {teamOptions.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
         
         <select value={filterTrainer} onChange={e => setFilterTrainer(e.target.value)} className="form-input" style={{ width: '200px' }}>
@@ -395,7 +419,7 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Team <span style={{ color: 'var(--danger)' }}>*</span></label>
                 <select value={formTeam} onChange={e => setFormTeam(e.target.value)} className="form-input">
                   <option value="">Select Team...</option>
-                  {(selectionSession ? selectionSession.teams : allTeams).map(t => {
+                  {teamOptions.map(t => {
                     const isUsed = consumedTeams.has(t);
                     return <option key={t} value={t} disabled={isUsed} title={isUsed ? 'Already used in this planning session' : ''} style={{ textDecoration: isUsed ? 'line-through' : 'none', color: isUsed ? 'var(--text-secondary)' : 'inherit' }}>{t} {isUsed ? '(Used)' : ''}</option>
                   })}

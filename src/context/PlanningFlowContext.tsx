@@ -64,6 +64,7 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
   const resetConsumed = () => {
     setConsumedTeams(new Set());
     setConsumedTrainers(new Set());
+    setSelectionSession(null);
   };
 
   const addDraftNomination = (draft: NominationDraft) => {
