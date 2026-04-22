@@ -56,10 +56,17 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
   useEffect(() => {
     if (selectionSession) {
       setTab(selectionSession.trainingType as TrainingTab);
-      // Ensure we don't trigger a recursive change lock, just set the state once if it differs
       if (selectionSession.fiscalYear !== selectedFY) {
-         handleFYChange(selectionSession.fiscalYear);
+        handleFYChange(selectionSession.fiscalYear);
       }
+      // Initialize planning team from session (preserve current selection if still valid)
+      if (selectionSession.teamIds?.length > 0) {
+        setSelectedPlanningTeamId(prev =>
+          selectionSession.teamIds.includes(prev) ? prev : selectionSession.teamIds[0]
+        );
+      }
+    } else {
+      setSelectedPlanningTeamId('');
     }
   }, [selectionSession]);
 
@@ -98,20 +105,16 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
   const [modalEnd, setModalEnd] = useState('');
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
 
-  // Form State
-  const [formTeam, setFormTeam] = useState('');
+  // PLANNING SOURCE OF TRUTH — driven by selectionSession, never by view filters or modal state
+  const [selectedPlanningTeamId, setSelectedPlanningTeamId] = useState<string>('');
+
+  // Modal-only form state (no planning decisions made from these)
   const [formTrainer, setFormTrainer] = useState('');
   const [formRemarks, setFormRemarks] = useState('');
   const [overrideTrainer, setOverrideTrainer] = useState(false);
 
-  const allTeams = useMemo(() => {
-    // Priority 1: Planning Context selected teams
-    if (selectionSession && selectionSession.teams.length > 0) return selectionSession.teams;
-    // Priority 2: Master Data Active Teams
-    if (masterTeams && masterTeams.length > 0) return masterTeams.filter(t => t.status === 'Active').map(t => t.teamName).sort();
-    // Fallback: Data extraction
-    return [...new Set(employees.map(e => e.team).filter(Boolean))].sort();
-  }, [employees, masterTeams, selectionSession]);
+  // Derived: resolved teamId for the current plan action (read-only; never mutated inside modal)
+  const resolvedPlanningTeamId = selectedPlanningTeamId || selectionSession?.teamIds?.[0] || '';
 
   const trainerOptions = useMemo(() => {
     const activeTrainers = masterTrainers.filter(t => t.status === 'Active');
@@ -120,21 +123,9 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
 
   const hasPlanningContext = Boolean(
     selectionSession &&
-    Array.isArray(selectionSession.teams) &&
-    selectionSession.teams.length > 0
+    Array.isArray(selectionSession.teamIds) &&
+    selectionSession.teamIds.length > 0
   );
-  
-  const teamOptions = hasPlanningContext ? selectionSession!.teams : allTeams;
-
-  useEffect(() => {
-    if (hasPlanningContext && selectionSession) {
-      if (!selectionSession.teams.includes(filterTeam)) {
-        setFilterTeam(selectionSession.teams[0] || '');
-      }
-    } else if (!hasPlanningContext && filterTeam && !allTeams.includes(filterTeam)) {
-      setFilterTeam('');
-    }
-  }, [hasPlanningContext, selectionSession, filterTeam, allTeams]);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -173,25 +164,23 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
   const handleMouseUp = () => {
     if (isDragging && dragStart && dragEnd) {
       setIsDragging(false);
+
+      if (!hasPlanningContext) {
+        alert('Select team(s) from Training Requirement');
+        setDragStart(null);
+        setDragEnd(null);
+        return;
+      }
+
       const start = dragStart <= dragEnd ? dragStart : dragEnd;
       const end = dragStart <= dragEnd ? dragEnd : dragStart;
       setModalStart(start);
       setModalEnd(end);
-      
-      // Prefill Logic
-      // 1. If a team is selected in filter, use it. Else if only 1 team option exists (Planning Context), use it.
-      let teamToPrefillId = filterTeam;
-      if (!teamToPrefillId && hasPlanningContext) {
-        // Find the team object from masterTeams that matches names in planning context
-        const firstTeamName = selectionSession!.teams[0];
-        const teamObj = masterTeams.find(t => t.teamName === firstTeamName);
-        if (teamObj) teamToPrefillId = teamObj.id;
-      }
-      setFormTeam(teamToPrefillId || '');
-      
-      // 2. If a trainer is selected in filter, use it.
-      setFormTrainer(filterTrainer || '');
-      
+
+      // Log for debugging — resolvedPlanningTeamId is the ONLY source used
+      console.log('[Calendar] Opening modal. Session teamIds:', selectionSession!.teamIds, '→ resolved teamId:', resolvedPlanningTeamId);
+
+      setFormTrainer('');
       setFormRemarks('');
       setShowCreateModal(true);
     }
@@ -199,14 +188,15 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
     setDragEnd(null);
   };
 
-  const generateNominationDraft = async ({ teamId, trainingId, trainingType }: { teamId: string, trainingId: string, trainingType: string }) => {
-    if (!teamId) throw new Error("Assertion failed: teamId must be defined");
-    console.log("PLAN INPUT", { teamId, trainingId, trainingType });
+  const generateNominationDraft = async ({
+    teamId, trainingId, trainingType, trainer, startDate, endDate
+  }: { teamId: string; trainingId: string; trainingType: string; trainer: string; startDate: string; endDate: string }) => {
+    if (!teamId) throw new Error('Assertion failed: teamId must be defined for draft generation');
+    console.log('[Draft] Generating nomination. teamId:', teamId, 'trainingType:', trainingType);
 
     const teamObj = masterTeams.find(t => t.id === teamId);
     const teamLabel = teamObj ? teamObj.teamName : teamId;
-    
-    // Simplistic eligible candidates logic for demonstration matching previous behaviour
+
     const eligible = employees.filter(e => e.teamId === teamId);
     const top40 = eligible.slice(0, 40).map(e => String(e.employeeId));
 
@@ -216,31 +206,32 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
       trainingId,
       trainingType,
       team: teamLabel,
-      trainer: formTrainer,
-      startDate: modalStart,
-      endDate: modalEnd,
+      trainer,
+      startDate,
+      endDate,
       candidates: top40,
-      status: "DRAFT"
+      status: 'DRAFT'
     });
-    console.log("DRAFT SAVED", teamId, top40.length);
+    console.log('[Draft] Saved. teamId:', teamId, 'candidates:', top40.length);
   };
 
   const handleCreatePlan = async () => {
-    if (!formTeam) {
-      console.error("BLOCKED: Missing teamId at plan creation");
-      return alert('Team is required.');
+    // STRICT: team always comes from selectedPlanningTeamId — never from modal state
+    const teamId = resolvedPlanningTeamId;
+    if (!teamId) {
+      console.error('[Calendar] BLOCKED: No planning teamId resolved. Session:', selectionSession?.teamIds);
+      return alert('No planning team selected. Please choose a team from Training Requirement.');
     }
     if (!formTrainer) return alert('Trainer is required.');
-    
-    // Find team details for display/nomination
-    const teamObj = masterTeams.find(t => t.id === formTeam);
-    const teamLabel = teamObj ? teamObj.teamName : formTeam;
+
+    const teamObj = masterTeams.find(t => t.id === teamId);
+    const teamLabel = teamObj ? teamObj.teamName : teamId;
 
     const newId = Math.random().toString(36).substr(2, 9);
     const newPlan: TrainingPlan = {
       id: newId,
       trainingType: tab,
-      teamId: formTeam,
+      teamId,
       team: teamLabel,
       trainer: formTrainer,
       startDate: modalStart,
@@ -252,8 +243,8 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
     setPlans([...plans, newPlan]);
     addConsumed(teamLabel, formTrainer);
 
-    // Auto-generate Nomination Draft
-    await generateNominationDraft({ teamId: formTeam, trainingId: newId, trainingType: tab });
+    // Always pass teamId explicitly — never read from modal or view filter state
+    await generateNominationDraft({ teamId, trainingId: newId, trainingType: tab, trainer: formTrainer, startDate: modalStart, endDate: modalEnd });
 
     setShowCreateModal(false);
   };
@@ -338,11 +329,27 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
 
       {hasPlanningContext && (
         <div style={{ background: 'rgba(34, 197, 94, 0.1)', border: '1px solid var(--success)', color: 'var(--success)', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: '14px', fontWeight: 600 }}>
-            Planning for: {selectionSession!.teams.join(', ')}
+          <div style={{ fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            Planning for:
+            {selectionSession!.teamIds.length > 1 ? (
+              // Multi-team: selectedPlanningTeamId is the ONLY source of truth for which team is active
+              <select
+                className="form-input"
+                style={{ background: 'white', color: 'var(--success)', border: '1px solid var(--success)', padding: '4px 8px', height: 'auto', minHeight: 'auto', marginTop: '-2px' }}
+                value={selectedPlanningTeamId}
+                onChange={e => setSelectedPlanningTeamId(e.target.value)}
+              >
+                {selectionSession!.teamIds.map(id => {
+                  const t = masterTeams.find(mt => mt.id === id);
+                  return <option key={id} value={id}>{t ? t.teamName : id}</option>;
+                })}
+              </select>
+            ) : (
+              <span>{masterTeams.find(mt => mt.id === selectionSession!.teamIds[0])?.teamName || selectionSession!.teams[0]}</span>
+            )}
           </div>
           <button className="btn btn-secondary" onClick={() => {
-             if (window.confirm("Reset all blocked Teams and Trainers?")) resetConsumed();
+            if (window.confirm('Reset all blocked Teams and Trainers?')) resetConsumed();
           }} style={{ fontSize: '12px', padding: '6px 12px', background: 'white', color: 'var(--success)' }}>
             Reset Selection
           </button>
@@ -351,16 +358,19 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
 
       {/* FILTER BAR & MONTH CONTROLS */}
       <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-secondary)' }}>View:</span>
         <select value={filterTeam} onChange={e => setFilterTeam(e.target.value)} className="form-input" style={{ width: '200px' }}>
-          {!hasPlanningContext && <option value="">All Teams</option>}
-          {masterTeams.filter(t => t.status === 'Active').map(t => (
+          <option value="">All Teams</option>
+          {masterTeams.filter(t => t.status === 'Active').sort((a,b)=>a.teamName.localeCompare(b.teamName)).map(t => (
             <option key={t.id} value={t.id}>{t.teamName}</option>
           ))}
         </select>
         
         <select value={filterTrainer} onChange={e => setFilterTrainer(e.target.value)} className="form-input" style={{ width: '200px' }}>
           <option value="">All Trainers</option>
-          {trainerOptions.map(t => <option key={t.id} value={t.id}>{t.trainerName} ({t.category})</option>)}
+          {masterTrainers.filter(t => t.status === 'Active').sort((a,b)=>a.trainerName.localeCompare(b.trainerName)).map(t => (
+            <option key={t.id} value={t.id}>{t.trainerName} ({t.category})</option>
+          ))}
         </select>
 
         <div style={{ flex: 1 }}></div>
@@ -474,14 +484,11 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Team <span style={{ color: 'var(--danger)' }}>*</span></label>
-                <select value={formTeam} onChange={e => setFormTeam(e.target.value)} className="form-input">
-                  <option value="">Select Team...</option>
-                  {masterTeams.filter(t => t.status === 'Active').map(t => {
-                    const isUsed = consumedTeams.has(t.teamName);
-                    return <option key={t.id} value={t.id} disabled={isUsed} title={isUsed ? 'Already used in this planning session' : ''} style={{ textDecoration: isUsed ? 'line-through' : 'none', color: isUsed ? 'var(--text-secondary)' : 'inherit' }}>{t.teamName} {isUsed ? '(Used)' : ''}</option>
-                  })}
-                </select>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Team</label>
+                {/* Read-only: value always comes from selectedPlanningTeamId, never from modal input */}
+                <div style={{ background: 'var(--bg)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '14px', fontWeight: 600 }}>
+                  {masterTeams.find(t => t.id === resolvedPlanningTeamId)?.teamName || resolvedPlanningTeamId || '—'}
+                </div>
               </div>
 
               <div>

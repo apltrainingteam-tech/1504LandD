@@ -224,7 +224,7 @@ export const computeGapAnalysis = (
     requiresTrainingNomination: false,
     excludeIfAlreadyTrained: false,
     ignoreTrainingStatus: true // For gap analysis, we want to see all eligible regardless of training
-  } as EligibilityRule;
+  } as unknown as EligibilityRule;
 
   const eligibilityResults = getEligibleEmployees(
     normalizedTrainingType,
