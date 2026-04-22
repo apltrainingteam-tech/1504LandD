@@ -89,11 +89,12 @@ const buildHtml = (draft: NominationDraft, teamName: string, trainerName: string
 // ─── Email Preview Modal ──────────────────────────────────────────────────────
 
 const EmailModal: React.FC<{
-  html: string; subject: string; mailto: string;
+  html: string; subject: string; mailto: string; tableHtml: string;
   onClose: () => void; onSent: () => void;
-}> = ({ html, subject, mailto, onClose, onSent }) => {
-  const [cHtml, setCHtml]   = useState(false);
-  const [cSubj, setCSubj]   = useState(false);
+}> = ({ html, subject, mailto, tableHtml, onClose, onSent }) => {
+  const [cHtml,  setCHtml]  = useState(false);
+  const [cSubj,  setCSubj]  = useState(false);
+  const [cTable, setCTable] = useState(false);
 
   const copy = async (text: string, set: (v:boolean)=>void) => {
     try { await navigator.clipboard.writeText(text); } catch { /* noop */ }
@@ -103,10 +104,14 @@ const EmailModal: React.FC<{
   return (
     <div style={{ position:'fixed',inset:0,zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(0,0,0,.55)',backdropFilter:'blur(4px)' }}>
       <div style={{ background:'var(--bg-card)',borderRadius:'12px',width:'92vw',maxWidth:'1020px',maxHeight:'92vh',display:'flex',flexDirection:'column',boxShadow:'0 24px 80px rgba(0,0,0,.3)' }}>
+
+        {/* Header */}
         <div style={{ padding:'14px 22px',borderBottom:'1px solid var(--border-color)',display:'flex',justifyContent:'space-between',alignItems:'center',background:'var(--bg)' }}>
           <div style={{ fontSize:'15px',fontWeight:700,display:'flex',alignItems:'center',gap:'8px' }}><Mail size={16} color="var(--accent-primary)"/>Email Preview</div>
           <button onClick={onClose} style={{ background:'none',border:'none',cursor:'pointer' }}><X size={19} color="var(--text-secondary)"/></button>
         </div>
+
+        {/* Subject row */}
         <div style={{ padding:'10px 22px',borderBottom:'1px solid var(--border-color)',background:'rgba(99,102,241,.04)',display:'flex',alignItems:'center',gap:'10px' }}>
           <span style={{ fontSize:'11px',fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.05em',whiteSpace:'nowrap' }}>Subject:</span>
           <span style={{ fontSize:'13px',fontWeight:600,flex:1 }}>{subject}</span>
@@ -114,28 +119,50 @@ const EmailModal: React.FC<{
             {cSubj?<><Check size={10}/>Copied</>:<><Copy size={10}/>Copy</>}
           </button>
         </div>
-        <div style={{ flex:1,overflow:'hidden' }}>
-          <iframe srcDoc={html} title="Email Preview" style={{ width:'100%',height:'100%',border:'none',display:'block' }} sandbox="allow-same-origin"/>
+
+        {/* Instruction banner */}
+        <div style={{ padding:'8px 22px',background:'rgba(245,158,11,.07)',borderBottom:'1px solid rgba(245,158,11,.2)',fontSize:'12px',color:'#92400e',display:'flex',alignItems:'center',gap:'8px' }}>
+          <span style={{ fontWeight:700 }}>💡 Workflow:</span>
+          <span>1&nbsp;&nbsp;Click <strong>Open in Outlook</strong> to create a draft with subject &amp; summary.&nbsp;&nbsp;2&nbsp;&nbsp;Then click <strong>Copy Table</strong> and paste into the email body for the full candidate table.</span>
         </div>
-        <div style={{ padding:'12px 22px',borderTop:'1px solid var(--border-color)',display:'flex',gap:'10px',justifyContent:'flex-end',background:'var(--bg)' }}>
+
+        {/* iframe preview */}
+        <div style={{ flex:1,overflow:'hidden' }}>
+          <iframe srcDoc={html} title="Email Preview" style={{ width:'100%',height:'100%',border:'none',display:'block' }}/>
+        </div>
+
+        {/* Footer actions */}
+        <div style={{ padding:'12px 22px',borderTop:'1px solid var(--border-color)',display:'flex',gap:'8px',justifyContent:'flex-end',flexWrap:'wrap',background:'var(--bg)' }}>
           <button onClick={onClose} className="btn btn-secondary">Cancel</button>
+
+          {/* Copy full HTML */}
           <button onClick={()=>copy(html,setCHtml)} style={{ display:'inline-flex',alignItems:'center',gap:'6px',padding:'7px 14px',borderRadius:'8px',cursor:'pointer',background:cHtml?'rgba(34,197,94,.1)':'var(--bg)',border:`1px solid ${cHtml?'var(--success)':'var(--border-color)'}`,color:cHtml?'var(--success)':'var(--text-primary)',fontSize:'12px',fontWeight:600 }}>
-            {cHtml?<><Check size={13}/>Copied!</>:<><Copy size={13}/>Copy HTML</>}
+            {cHtml?<><Check size={13}/>Copied!</>:<><Copy size={13}/>Copy Full HTML</>}
           </button>
+
+          {/* Copy Table only */}
+          <button
+            onClick={()=>copy(tableHtml,setCTable)}
+            title="Copies just the candidate table HTML — paste directly into Outlook body"
+            style={{ display:'inline-flex',alignItems:'center',gap:'6px',padding:'7px 14px',borderRadius:'8px',cursor:'pointer',background:cTable?'rgba(99,102,241,.12)':'var(--bg)',border:`1px solid ${cTable?'var(--accent-primary)':'var(--border-color)'}`,color:cTable?'var(--accent-primary)':'var(--text-primary)',fontSize:'12px',fontWeight:700 }}
+          >
+            {cTable?<><Check size={13}/>Table Copied!</>:<><Copy size={13}/>Copy Table</>}
+          </button>
+
+          {/* Open in Outlook */}
           <button
             onClick={() => {
-              // Use a hidden anchor click — avoids SPA navigation and browser hang
               const a = document.createElement('a');
               a.href = mailto;
               a.style.display = 'none';
               document.body.appendChild(a);
               a.click();
               document.body.removeChild(a);
-              // Mark as sent immediately, don't wait for OS response
               onSent();
               onClose();
             }}
-            style={{ display:'inline-flex',alignItems:'center',gap:'6px',padding:'7px 18px',borderRadius:'8px',cursor:'pointer',background:'var(--accent-primary)',border:'none',color:'white',fontSize:'12px',fontWeight:700 }}>
+            style={{ display:'inline-flex',alignItems:'center',gap:'6px',padding:'7px 18px',borderRadius:'8px',cursor:'pointer',background:'var(--accent-primary)',border:'none',color:'white',fontSize:'12px',fontWeight:700 }}
+          >
             <ExternalLink size={13}/>Open in Outlook
           </button>
         </div>
@@ -151,7 +178,7 @@ export const NotificationPage: React.FC<Props> = ({ employees }) => {
   const { teams: masterTeams, trainers: masterTrainers } = useMasterData();
 
   const sessionTeamIds = selectionSession?.teamIds ?? [];
-  const [emailModal, setEmailModal] = useState<{ html:string; subject:string; mailto:string; draftId:string }|null>(null);
+  const [emailModal, setEmailModal] = useState<{ html:string; subject:string; mailto:string; tableHtml:string; draftId:string }|null>(null);
   const [expanded, setExpanded]     = useState<Set<string>>(new Set());
 
   const resolveTeam    = (id?:string, fb?:string) => masterTeams.find(t=>t.id===id)?.teamName||(fb||id||'—');
@@ -186,22 +213,64 @@ export const NotificationPage: React.FC<Props> = ({ employees }) => {
     const subject = buildSubject(draft.trainingType, tName, draft.startDate);
     const html    = buildHtml(draft, tName, trName, cEmps);
 
-    // Cap plain-text body to 20 names to avoid OS mailto URL-length hang.
-    // Full list is always available via Copy HTML → paste into Outlook body.
-    const preview = cEmps.slice(0, 20);
-    const truncNote = cEmps.length > 20
-      ? `\n...and ${cEmps.length - 20} more. (Copy HTML for the full list.)`
-      : '';
-    const plainBody =
-      `Dear Team,\n\n${draft.trainingType} Training – ${tName} (${monthYear(draft.startDate)})` +
-      `\nDates: ${fmtDate(draft.startDate)} to ${fmtDate(draft.endDate)}` +
-      `\nCandidates: ${cEmps.length}\n\n` +
-      preview.map((e, i) => `${i + 1}. ${e.name} (${e.employeeId})`).join('\n') +
-      truncNote +
-      '\n\nRegards,\nL&D Team';
+    // ── Build inline-styled HTML candidate table ──────────────────────────────
+    // This is used for both the mailto body and the dedicated "Copy Table" button.
+    const thStyle = 'padding:7px 10px;border:1px solid #c5c5c5;background:#1e40af;color:#ffffff;font-size:12px;text-align:left;white-space:nowrap';
+    const tdStyle = (alt: boolean) =>
+      `padding:7px 10px;border:1px solid #c5c5c5;font-size:12px;background:${alt ? '#f0f4ff' : '#ffffff'}`;
 
-    const mailto = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(plainBody)}`;
-    setEmailModal({ html, subject, mailto, draftId: draft.id });
+    const headerRow = `<tr>
+      <th style="${thStyle};text-align:center">#</th>
+      <th style="${thStyle}">Emp ID</th>
+      <th style="${thStyle}">Trainer</th>
+      <th style="${thStyle}">Team</th>
+      <th style="${thStyle}">Name</th>
+      <th style="${thStyle}">Designation</th>
+      <th style="${thStyle}">HQ</th>
+      <th style="${thStyle}">State</th>
+    </tr>`;
+
+    const dataRows = cEmps.map((e, i) => {
+      const td = tdStyle(i % 2 !== 0);
+      return `<tr>
+        <td style="${td};text-align:center;font-weight:600">${i + 1}</td>
+        <td style="${td};font-family:monospace;font-weight:600">${e.employeeId}</td>
+        <td style="${td}">${trName}</td>
+        <td style="${td}">${e.team || tName}</td>
+        <td style="${td};font-weight:500">${e.name}</td>
+        <td style="${td}">${e.designation || '—'}</td>
+        <td style="${td}">${e.hq || '—'}</td>
+        <td style="${td}">${e.state || '—'}</td>
+      </tr>`;
+    }).join('');
+
+    const tableHtml =
+      `<table border="1" cellpadding="5" cellspacing="0" style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:12px;width:100%">
+        <thead>${headerRow}</thead>
+        <tbody>${dataRows || '<tr><td colspan="8" style="padding:12px;text-align:center">No candidates.</td></tr>'}</tbody>
+      </table>`;
+
+    // ── mailto body: PLAIN TEXT ONLY ─────────────────────────────────────────
+    // The mailto: protocol only supports plain text — HTML tags cause Outlook
+    // to fail to open the compose window entirely. Keep this short and simple.
+    // The formatted HTML table is available via the "Copy Table" button instead.
+    const dateRange = draft.startDate
+      ? fmtDate(draft.startDate) + (draft.endDate && draft.endDate !== draft.startDate ? ` to ${fmtDate(draft.endDate)}` : '')
+      : '—';
+
+    const mailtoBody =
+      `Dear Sir / Ma'am,\n\n` +
+      `Please find the shortlisted candidates for the upcoming ${draft.trainingType} Training.\n\n` +
+      `Team: ${tName}\n` +
+      `Trainer: ${trName}\n` +
+      `Date: ${dateRange}\n` +
+      `Candidates: ${cEmps.length}\n\n` +
+      `[Paste the formatted candidate table here — use "Copy Table" from the email preview]\n\n` +
+      `Warm regards,\n` +
+      `L&D Team — APL`;
+
+    const mailto = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(mailtoBody)}`;
+    setEmailModal({ html, subject, mailto, tableHtml, draftId: draft.id });
   };
 
   const handleSent = (draftId: string) => {
@@ -309,6 +378,7 @@ export const NotificationPage: React.FC<Props> = ({ employees }) => {
           html={emailModal.html}
           subject={emailModal.subject}
           mailto={emailModal.mailto}
+          tableHtml={emailModal.tableHtml}
           onClose={()=>setEmailModal(null)}
           onSent={()=>handleSent(emailModal.draftId)}
         />
