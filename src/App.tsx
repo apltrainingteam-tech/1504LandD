@@ -19,6 +19,7 @@ import {
   Moon,
   Crosshair,
   ListChecks,
+  ClipboardList,
   UploadCloud,
   Settings
 } from 'lucide-react';
@@ -38,7 +39,9 @@ import { TrainingsViewer } from './features/viewer/TrainingsViewer';
 import { AttendanceUploadStrict } from './features/uploads/AttendanceUploadStrict';
 import { Employees } from './features/employees/Employees';
 import { Demographics } from './features/eligibility/Demographics';
-import { Notified } from './features/notifications/Notified';
+import { NominationsPage }  from './features/notifications/NominationsPage';
+import { NotificationPage } from './features/notifications/NotificationPage';
+import { TrainingDataPage } from './features/notifications/TrainingDataPage';
 import { GapAnalysis } from './features/gap-analysis/GapAnalysis';
 import { RecruitmentQuality } from './features/srm/RecruitmentQuality';
 import { TrainingCalendar } from './features/calendar/TrainingCalendar';
@@ -55,7 +58,7 @@ import { getSchema, mapHeader } from './services/trainingSchemas';
 import { normalizeText } from './utils/textNormalizer';
 import { getTeamId, mapTeamCodeToId } from './utils/teamIdMapper';
 
-type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'notified' | 'gap-analysis' | 'performance' | 'srm' | 'calendar' | 'master-settings';
+type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'nominations' | 'notification' | 'training-data' | 'gap-analysis' | 'performance' | 'srm' | 'calendar' | 'master-settings';
 interface SidebarItem {
   label: string;
   view: string;
@@ -84,8 +87,9 @@ const sidebarSections: SidebarSection[] = [
   {
     title: "EXECUTION",
     items: [
-      { label: "Nominations", view: "notified", icon: Mail },
-      { label: "Training Data", view: "trainings", icon: ListChecks }
+      { label: "Nominations",   view: "nominations",   icon: ClipboardList },
+      { label: "Notification",  view: "notification",  icon: Mail          },
+      { label: "Training Data", view: "training-data", icon: ListChecks    }
     ]
   },
   {
@@ -330,7 +334,9 @@ const App = () => {
       case 'trainings': return <TrainingsViewer employees={emps} attendance={att} scores={scs} />;
       case 'calendar': return <TrainingCalendar employees={emps} attendance={att} />;
       case 'attendance': return <AttendanceUploadStrict onUploadComplete={() => setRefreshKey(k => k + 1)} />;
-      case 'notified': return <Notified employees={emps} attendance={att} nominations={noms} onUploadComplete={() => setRefreshKey(k => k + 1)} />;
+      case 'nominations':   return <NominationsPage  employees={emps} nominations={noms} />;
+      case 'notification':  return <NotificationPage employees={emps} />;
+      case 'training-data': return <TrainingDataPage  employees={emps} attendance={att} />;
       case 'employees': return <Employees employees={emps} onUploadComplete={() => setRefreshKey(k => k + 1)} />;
       case 'demographics': return <Demographics />;
       case 'gap-analysis': return <GapAnalysis employees={emps} attendance={att} nominations={noms} onNavigate={setView} />;

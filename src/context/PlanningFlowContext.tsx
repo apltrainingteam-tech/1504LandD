@@ -13,11 +13,16 @@ export interface NominationDraft {
   trainingType: string;
   team: string; // display
   teamId: string; // stable
-  trainer?: string; // display
+  trainer?: string; // trainer id
   startDate?: string;
   endDate?: string;
-  status: 'DRAFT' | 'FINALIZED' | 'SENT' | 'COMPLETED';
+  status: 'DRAFT' | 'APPROVED' | 'SENT' | 'COMPLETED';
   candidates: string[]; // employeeIds
+  // Audit trail
+  approvedBy?: string;
+  approvedAt?: string;
+  sentBy?: string;
+  sentAt?: string;
 }
 
 interface PlanningFlowContextType {
