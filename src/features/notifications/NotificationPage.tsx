@@ -174,7 +174,7 @@ const EmailModal: React.FC<{
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export const NotificationPage: React.FC<Props> = ({ employees }) => {
-  const { getDrafts, updateDraft, selectionSession } = usePlanningFlow();
+  const { getDrafts, updateDraft, commitBatch, selectionSession } = usePlanningFlow();
   const { teams: masterTeams, trainers: masterTrainers } = useMasterData();
 
   const sessionTeamIds = selectionSession?.teamIds ?? [];
@@ -274,6 +274,9 @@ export const NotificationPage: React.FC<Props> = ({ employees }) => {
   };
 
   const handleSent = (draftId: string) => {
+    // Find the draft before status changes, then commit an immutable batch
+    const draft = approvedDrafts.find(d => d.id === draftId);
+    if (draft) commitBatch(draft);
     updateDraft(draftId, { status: 'SENT', sentBy: 'Trainer', sentAt: new Date().toISOString() });
     setEmailModal(null);
   };
