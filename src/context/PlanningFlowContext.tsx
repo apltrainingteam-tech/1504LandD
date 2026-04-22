@@ -16,7 +16,7 @@ export interface NominationDraft {
   trainer?: string; // display
   startDate?: string;
   endDate?: string;
-  status: 'DRAFT' | 'FINALIZED';
+  status: 'DRAFT' | 'FINALIZED' | 'SENT' | 'COMPLETED';
   candidates: string[]; // employeeIds
 }
 

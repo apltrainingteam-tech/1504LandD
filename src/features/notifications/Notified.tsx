@@ -1,16 +1,13 @@
-import React, { useState, useMemo } from 'react';
-import { Mail, CheckCircle, AlertCircle, Users, BarChart2, ChevronDown, ChevronRight } from 'lucide-react';
-import { ParsedRow, parseNominationExcel } from '../../services/parsingService';
-import { validateFileSize, MAX_UPLOAD_SIZE_BYTES } from '../../utils/fileValidation';
-import { addBatch } from '../../services/apiClient';
-import { usePlanningFlow } from '../../context/PlanningFlowContext';
+import React, { useState } from 'react';
+import {
+  Mail, CheckCircle, Users, X, Edit2, Lock, Send,
+  ChevronRight, Eye, Calendar, Layers, UserCheck, Clock,
+  Copy, Check, ExternalLink
+} from 'lucide-react';
+import { usePlanningFlow, NominationDraft } from '../../context/PlanningFlowContext';
 import { useMasterData } from '../../context/MasterDataContext';
-import { getTeamId } from '../../utils/teamIdMapper';
 import { Employee } from '../../types/employee';
 import { Attendance, TrainingNomination } from '../../types/attendance';
-import { DataTable } from '../../components/DataTable';
-import { KPIBox } from '../../components/KPIBox';
-import { normalizeText } from '../../utils/textNormalizer';
 
 interface NotifiedProps {
   employees: Employee[];
@@ -19,653 +16,834 @@ interface NotifiedProps {
   onUploadComplete?: () => void;
 }
 
-const TRAINING_TYPES = ['IP', 'AP', 'MIP', 'Capsule'];
-const normalizeType = (value?: string) => (value || '').toUpperCase();
+type DraftStatus = 'DRAFT' | 'FINALIZED' | 'SENT' | 'COMPLETED';
 
-// Pre-process and map designations to standardized abbreviations
-const standardizeDesignation = (designation?: string) => {
-  if (!designation) return 'OTHER';
+// ─── STATUS UI ──────────────────────────────────────────────────────────────
 
-  // Step 1: Remove bracket content and normalize
-  const normalized = designation
-    .toUpperCase()
-    .replace(/\(.*?\)/g, '') // remove brackets and content
-    .trim();
+const STATUS_META: Record<DraftStatus, { label: string; color: string; bg: string }> = {
+  DRAFT:     { label: 'Draft',     color: 'var(--warning)',        bg: 'rgba(245,158,11,0.12)' },
+  FINALIZED: { label: 'Finalized', color: 'var(--accent-primary)', bg: 'rgba(99,102,241,0.12)' },
+  SENT:      { label: 'Sent',      color: 'var(--success)',        bg: 'rgba(34,197,94,0.12)'  },
+  COMPLETED: { label: 'Completed', color: 'var(--text-secondary)', bg: 'rgba(0,0,0,0.06)'      },
+};
 
-  // Step 2: Map to predefined abbreviations
-  const designationMap: Record<string, string> = {
-    "REGIONAL SALES MANAGER": "SLM",
-    "SR. REGIONAL SALES MANAGER": "SLM",
+const StatusBadge: React.FC<{ status: DraftStatus }> = ({ status }) => {
+  const m = STATUS_META[status] || STATUS_META.DRAFT;
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: '5px',
+      padding: '3px 10px', borderRadius: '20px',
+      background: m.bg, color: m.color,
+      fontSize: '12px', fontWeight: 700, whiteSpace: 'nowrap'
+    }}>
+      {status === 'DRAFT'     && <Clock size={11} />}
+      {status === 'FINALIZED' && <Lock size={11} />}
+      {status === 'SENT'      && <Send size={11} />}
+      {status === 'COMPLETED' && <CheckCircle size={11} />}
+      {m.label}
+    </span>
+  );
+};
 
-    "AREA SALES MANAGER": "FLM",
-    "DISTRICT MANAGER": "FLM",
+// ─── DATE HELPERS ────────────────────────────────────────────────────────────
 
-    "TERRITORY EXECUTIVE": "MR",
-    "AREA BUSINESS EXECUTIVE": "MR",
-    "SALES OFFICER": "MR",
-    "TRAINEE SALES OFFICER": "MR",
+const addDays = (dateStr: string, n: number): string => {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() + n);
+  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+};
 
-    "SALES MANAGER": "SR. MANAGER",
-    "SR. SALES MANAGER": "SR. MANAGER",
-    "DIVISIONAL SALES MANAGER": "SR. MANAGER"
+const formatDate = (dateStr?: string): string => {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+const getMonthYear = (dateStr?: string): string => {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+};
+
+// ─── HTML EMAIL BUILDER ──────────────────────────────────────────────────────
+
+interface EmailData {
+  trainingType: string;
+  teamName: string;
+  trainerName: string;
+  startDate: string;
+  endDate: string;
+  candidates: Employee[];
+}
+
+function buildEmailSubject(data: EmailData): string {
+  return `${data.trainingType} Training Notice: ${data.teamName} ${getMonthYear(data.startDate)}`;
+}
+
+function buildEmailHtml(data: EmailData): string {
+  const checkInDate = addDays(data.startDate, -1);
+  const returnDate  = formatDate(data.endDate);
+  const fmtStart    = formatDate(data.startDate);
+  const fmtEnd      = formatDate(data.endDate);
+
+  const candidateRows = data.candidates.map((emp, idx) => `
+    <tr style="background:${idx % 2 === 0 ? '#ffffff' : '#f9f9fb'}">
+      <td style="padding:8px 10px;border:1px solid #e5e7eb;text-align:center;font-weight:600">${idx + 1}</td>
+      <td style="padding:8px 10px;border:1px solid #e5e7eb;font-weight:600">${emp.employeeId}</td>
+      <td style="padding:8px 10px;border:1px solid #e5e7eb">${emp.team || '—'}</td>
+      <td style="padding:8px 10px;border:1px solid #e5e7eb;font-weight:500">${emp.name}</td>
+      <td style="padding:8px 10px;border:1px solid #e5e7eb">${emp.designation || '—'}</td>
+      <td style="padding:8px 10px;border:1px solid #e5e7eb">${emp.hq || '—'}</td>
+      <td style="padding:8px 10px;border:1px solid #e5e7eb">${emp.state || '—'}</td>
+      <td style="padding:8px 10px;border:1px solid #e5e7eb">${emp.email || '—'}</td>
+      <td style="padding:8px 10px;border:1px solid #e5e7eb">${emp.mobileNumber || '—'}</td>
+    </tr>`).join('');
+
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8" /><title>${buildEmailSubject(data)}</title></head>
+<body style="font-family:Calibri,Arial,sans-serif;font-size:14px;color:#1f2937;background:#f3f4f6;margin:0;padding:24px">
+<div style="max-width:900px;margin:0 auto;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08)">
+
+  <!-- HEADER -->
+  <div style="background:linear-gradient(135deg,#1e40af,#3b82f6);padding:28px 32px">
+    <div style="font-size:22px;font-weight:700;color:#ffffff;margin-bottom:4px">
+      ${data.trainingType} Training — Nomination Notice
+    </div>
+    <div style="font-size:14px;color:rgba(255,255,255,0.82)">${data.teamName} | ${getMonthYear(data.startDate)}</div>
+  </div>
+
+  <!-- BODY -->
+  <div style="padding:28px 32px">
+
+    <p style="margin:0 0 20px 0">Dear Sir / Ma'am,</p>
+    <p style="margin:0 0 24px 0">
+      Please refer to the below details &amp; shortlisted candidates for the upcoming
+      <strong>${data.trainingType} Training</strong>.
+    </p>
+
+    <!-- TRAINING DETAILS TABLE -->
+    <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:14px">
+      <thead>
+        <tr style="background:#1e40af">
+          <th colspan="2" style="padding:10px 14px;color:#ffffff;text-align:left;font-size:13px;text-transform:uppercase;letter-spacing:0.05em">
+            Training Details
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="background:#f9fafb">
+          <td style="padding:9px 14px;border:1px solid #e5e7eb;font-weight:600;width:35%">Training Type</td>
+          <td style="padding:9px 14px;border:1px solid #e5e7eb">${data.trainingType}</td>
+        </tr>
+        <tr>
+          <td style="padding:9px 14px;border:1px solid #e5e7eb;font-weight:600">Team</td>
+          <td style="padding:9px 14px;border:1px solid #e5e7eb">${data.teamName}</td>
+        </tr>
+        <tr style="background:#f9fafb">
+          <td style="padding:9px 14px;border:1px solid #e5e7eb;font-weight:600">Trainer</td>
+          <td style="padding:9px 14px;border:1px solid #e5e7eb">${data.trainerName}</td>
+        </tr>
+        <tr>
+          <td style="padding:9px 14px;border:1px solid #e5e7eb;font-weight:600">Training Date</td>
+          <td style="padding:9px 14px;border:1px solid #e5e7eb">${fmtStart}${fmtStart !== fmtEnd ? ` to ${fmtEnd}` : ''}</td>
+        </tr>
+        <tr style="background:#f9fafb">
+          <td style="padding:9px 14px;border:1px solid #e5e7eb;font-weight:600">Check-In Date</td>
+          <td style="padding:9px 14px;border:1px solid #e5e7eb">${checkInDate}</td>
+        </tr>
+        <tr>
+          <td style="padding:9px 14px;border:1px solid #e5e7eb;font-weight:600">Return Date</td>
+          <td style="padding:9px 14px;border:1px solid #e5e7eb">${returnDate}</td>
+        </tr>
+        <tr style="background:#f9fafb">
+          <td style="padding:9px 14px;border:1px solid #e5e7eb;font-weight:600">No. of Candidates</td>
+          <td style="padding:9px 14px;border:1px solid #e5e7eb;font-weight:700;color:#1e40af">${data.candidates.length}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- HIGHLIGHT NOTE -->
+    <div style="background:#fef9c3;border-left:4px solid #f59e0b;padding:12px 16px;border-radius:4px;margin-bottom:24px;font-size:13px;color:#78350f">
+      <strong>📌 Note:</strong> Kindly ensure all nominated candidates are informed and confirm their attendance by
+      <strong>${checkInDate}</strong>. Any changes after finalization must be escalated to L&amp;D Team immediately.
+    </div>
+
+    <!-- CANDIDATE TABLE -->
+    <p style="font-weight:700;font-size:15px;margin:0 0 10px 0;color:#1e40af">Shortlisted Candidates (${data.candidates.length})</p>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:700px">
+        <thead>
+          <tr style="background:#1e40af;color:#ffffff">
+            <th style="padding:9px 10px;border:1px solid #2563eb;text-align:center;white-space:nowrap">Sr No</th>
+            <th style="padding:9px 10px;border:1px solid #2563eb;text-align:left;white-space:nowrap">Emp No</th>
+            <th style="padding:9px 10px;border:1px solid #2563eb;text-align:left;white-space:nowrap">Team</th>
+            <th style="padding:9px 10px;border:1px solid #2563eb;text-align:left;white-space:nowrap">Name</th>
+            <th style="padding:9px 10px;border:1px solid #2563eb;text-align:left;white-space:nowrap">Designation</th>
+            <th style="padding:9px 10px;border:1px solid #2563eb;text-align:left;white-space:nowrap">HQ</th>
+            <th style="padding:9px 10px;border:1px solid #2563eb;text-align:left;white-space:nowrap">State</th>
+            <th style="padding:9px 10px;border:1px solid #2563eb;text-align:left;white-space:nowrap">Email</th>
+            <th style="padding:9px 10px;border:1px solid #2563eb;text-align:left;white-space:nowrap">Mobile</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${candidateRows || '<tr><td colspan="9" style="padding:16px;text-align:center;color:#9ca3af">No candidates selected.</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- FOOTER -->
+    <div style="margin-top:32px;padding-top:20px;border-top:1px solid #e5e7eb;font-size:13px;color:#6b7280">
+      <p style="margin:0 0 4px 0">Warm regards,</p>
+      <p style="margin:0;font-weight:700;color:#1f2937">L&amp;D Team — APL</p>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>`;
+}
+
+// ─── EMAIL PREVIEW MODAL ─────────────────────────────────────────────────────
+
+interface EmailPreviewModalProps {
+  html: string;
+  subject: string;
+  mailto: string;
+  onClose: () => void;
+  onConfirmSent: () => void;
+}
+
+const EmailPreviewModal: React.FC<EmailPreviewModalProps> = ({ html, subject, mailto, onClose, onConfirmSent }) => {
+  const [copied, setCopied] = useState(false);
+  const [subjectCopied, setSubjectCopied] = useState(false);
+
+  const copyHtml = async () => {
+    try {
+      await navigator.clipboard.writeText(html);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      // Fallback
+      const ta = document.createElement('textarea');
+      ta.value = html;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    }
   };
 
-  return designationMap[normalized] || 'OTHER';
+  const copySubject = async () => {
+    try {
+      await navigator.clipboard.writeText(subject);
+      setSubjectCopied(true);
+      setTimeout(() => setSubjectCopied(false), 2000);
+    } catch { /* noop */ }
+  };
+
+  const openOutlook = () => {
+    window.location.href = mailto;
+    setTimeout(() => { onConfirmSent(); onClose(); }, 800);
+  };
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 2000,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)'
+    }}>
+      <div style={{
+        background: 'var(--bg-card)', borderRadius: '12px',
+        width: '90vw', maxWidth: '1020px', maxHeight: '92vh',
+        display: 'flex', flexDirection: 'column',
+        boxShadow: '0 24px 80px rgba(0,0,0,0.3)'
+      }}>
+
+        {/* Modal Header */}
+        <div style={{
+          padding: '18px 24px', borderBottom: '1px solid var(--border-color)',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          background: 'var(--bg)', borderRadius: '12px 12px 0 0'
+        }}>
+          <div>
+            <div style={{ fontSize: '17px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Mail size={18} color="var(--accent-primary)" /> Email Preview
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '3px' }}>
+              Review before sending. HTML is ready to paste into Outlook.
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}>
+            <X size={22} color="var(--text-secondary)" />
+          </button>
+        </div>
+
+        {/* Subject line */}
+        <div style={{
+          padding: '12px 24px', borderBottom: '1px solid var(--border-color)',
+          background: 'rgba(99,102,241,0.04)',
+          display: 'flex', alignItems: 'center', gap: '10px'
+        }}>
+          <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
+            Subject:
+          </span>
+          <span style={{ fontSize: '14px', fontWeight: 600, flex: 1, color: 'var(--text-primary)' }}>{subject}</span>
+          <button
+            onClick={copySubject}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: '5px',
+              padding: '4px 10px', borderRadius: '6px',
+              background: 'var(--bg)', border: '1px solid var(--border-color)',
+              cursor: 'pointer', fontSize: '12px', fontWeight: 600,
+              color: subjectCopied ? 'var(--success)' : 'var(--text-secondary)', whiteSpace: 'nowrap'
+            }}
+          >
+            {subjectCopied ? <><Check size={12} /> Copied</> : <><Copy size={12} /> Copy Subject</>}
+          </button>
+        </div>
+
+        {/* iframe preview */}
+        <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+          <iframe
+            srcDoc={html}
+            title="Email Preview"
+            style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+            sandbox="allow-same-origin"
+          />
+        </div>
+
+        {/* Actions Footer */}
+        <div style={{
+          padding: '16px 24px', borderTop: '1px solid var(--border-color)',
+          display: 'flex', gap: '10px', justifyContent: 'flex-end',
+          background: 'var(--bg)', borderRadius: '0 0 12px 12px'
+        }}>
+          <button
+            onClick={onClose}
+            className="btn btn-secondary"
+            style={{ minWidth: '90px' }}
+          >
+            Cancel
+          </button>
+
+          <button
+            onClick={copyHtml}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: '6px',
+              padding: '8px 16px', borderRadius: '8px', cursor: 'pointer',
+              background: copied ? 'rgba(34,197,94,0.1)' : 'var(--bg)',
+              border: `1px solid ${copied ? 'var(--success)' : 'var(--border-color)'}`,
+              color: copied ? 'var(--success)' : 'var(--text-primary)',
+              fontSize: '13px', fontWeight: 600, transition: 'all 0.2s'
+            }}
+          >
+            {copied ? <><Check size={14} /> Copied!</> : <><Copy size={14} /> Copy HTML</>}
+          </button>
+
+          <button
+            onClick={openOutlook}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: '6px',
+              padding: '8px 20px', borderRadius: '8px', cursor: 'pointer',
+              background: 'var(--accent-primary)', border: 'none',
+              color: 'white', fontSize: '13px', fontWeight: 700,
+              boxShadow: '0 2px 8px rgba(99,102,241,0.35)'
+            }}
+          >
+            <ExternalLink size={14} /> Open in Outlook
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 };
 
-const countDesignation = (designation?: string) => {
-  const normalized = (designation || '').toUpperCase().replace(/\(.*?\)/g, '').trim();
-  const abbreviationSet = new Set(['SLM', 'FLM', 'MR', 'SR. MANAGER']);
-  if (abbreviationSet.has(normalized)) return normalized;
-  return standardizeDesignation(designation);
-};
+// ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
 
-type DefaulterRecord = {
-  employeeId: string;
-  name: string;
-  team: string;
-  cluster: string;
-  designation: string;
-  notificationCount: number;
-};
-
-type GroupMetrics = {
-  total: number;
-  SLM: number;
-  FLM: number;
-  MR: number;
-  "SR. MANAGER": number;
-};
-
-type TeamGroup = {
-  teamName: string;
-  metrics: GroupMetrics;
-  defaulters: DefaulterRecord[];
-};
-
-type ClusterGroup = {
-  clusterName: string;
-  metrics: GroupMetrics;
-  teams: TeamGroup[];
-};
-
-export const Notified: React.FC<NotifiedProps> = ({ employees, attendance, nominations, onUploadComplete }) => {
-  const [tab, setTab] = useState<'drafts' | 'upload' | 'summary' | 'defaulters' | 'drilldown'>('drafts');
-  const [trainingFilter, setTrainingFilter] = useState<string>('AP');
-  const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
-
-  // Upload state
-  const [fileStep, setFileStep] = useState<'upload' | 'preview' | 'done'>('upload');
-  const [dragOver, setDragOver] = useState(false);
-  const [fileName, setFileName] = useState('');
-  const [selectedUploadType, setSelectedUploadType] = useState(TRAINING_TYPES[0]);
-  const [rows, setRows] = useState<ParsedRow[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-
-  // Expand state
-  const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
-  const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
-
-  // Drafts Integration
-  const { teams: masterTeams } = useMasterData();
+export const Notified: React.FC<NotifiedProps> = ({ employees }) => {
+  const { teams: masterTeams, trainers: masterTrainers } = useMasterData();
   const { getDrafts, updateDraft, selectionSession: activePlanningSession, resetConsumed } = usePlanningFlow();
-  
+
   const hasPlanningContext = Boolean(
     activePlanningSession &&
     Array.isArray(activePlanningSession.teams) &&
     activePlanningSession.teams.length > 0
   );
-  const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
 
-  // Core statistics
-  const stats = useMemo(() => {
-    const filteredNoms = nominations.filter(n => normalizeType(n.trainingType) === normalizeType(trainingFilter));
-    const nomMap = new Map<string, TrainingNomination[]>();
-    
-    filteredNoms.forEach(n => {
-      if (!nomMap.has(n.employeeId)) nomMap.set(n.employeeId, []);
-      nomMap.get(n.employeeId)!.push(n);
-    });
+  // Drawer state
+  const [candidateDrawerDraftId, setCandidateDrawerDraftId] = useState<string | null>(null);
+  const [editDrawerDraftId, setEditDrawerDraftId]           = useState<string | null>(null);
+  const [emailPreview, setEmailPreview]                     = useState<{ html: string; subject: string; mailto: string; draftId: string } | null>(null);
 
-    const filteredAtt = attendance.filter(a => 
-      normalizeType(a.trainingType) === normalizeType(trainingFilter) && 
-      normalizeType(a.attendanceStatus) === 'PRESENT'
-    );
-    const attSet = new Set(filteredAtt.map(a => a.employeeId));
+  const allDrafts = getDrafts({});
 
-    let notifiedCount = nomMap.size;
-    let attendedCount = 0;
-    const defaulters: DefaulterRecord[] = [];
-    const drilldown: any[] = [];
+  // ── Resolvers ──
+  const resolveTrainerName = (trainerId?: string) => {
+    if (!trainerId) return '—';
+    const t = masterTrainers.find(mt => mt.id === trainerId);
+    return t ? t.trainerName : trainerId;
+  };
 
-    const teamMap = Object.fromEntries(masterTeams.map(t => [t.id, t]));
+  const resolveTeamName = (teamId?: string, fallback?: string) => {
+    if (!teamId) return fallback || '—';
+    const t = masterTeams.find(mt => mt.id === teamId);
+    return t ? t.teamName : (fallback || teamId);
+  };
 
-    nomMap.forEach((userNoms, empId) => {
-      const isAttended = attSet.has(empId);
-      if (isAttended) attendedCount++;
-
-      const empData = employees.find(e => e.employeeId === empId) || userNoms[0];
-      const nCount = userNoms.length;
-
-      const teamName = empData.team || 'Unknown';
-      const teamId = getTeamId(teamName, masterTeams);
-      const cluster = teamMap[teamId]?.cluster || 'Unknown';
-
-      if (nCount >= 3 && !isAttended) {
-        defaulters.push({
-          employeeId: empId,
-          name: empData.name || 'Unknown',
-          team: teamName,
-          cluster: cluster,
-          designation: standardizeDesignation(empData.designation),
-          notificationCount: nCount
-        });
-      }
-
-      drilldown.push({
-        employeeId: empId,
-        name: empData.name || 'Unknown',
-        team: teamName,
-        designation: standardizeDesignation(empData.designation),
-        notificationCount: nCount,
-        hasAttended: isAttended
-      });
-    });
-
-    return {
-      notifiedCount,
-      attendedCount,
-      attendance: notifiedCount > 0 ? (attendedCount / notifiedCount) * 100 : 0,
-      defaulterCount: defaulters.length,
-      defaulters,
-      drilldown
-    };
-  }, [nominations, attendance, employees, trainingFilter]);
-
-  // Build cluster hierarchy
-  const clusterHierarchy = useMemo(() => {
-    const clusters = new Map<string, Map<string, DefaulterRecord[]>>();
-
-    stats.defaulters.forEach(d => {
-      if (!clusters.has(d.cluster)) {
-        clusters.set(d.cluster, new Map());
-      }
-      const teamMap = clusters.get(d.cluster)!;
-      if (!teamMap.has(d.team)) {
-        teamMap.set(d.team, []);
-      }
-      teamMap.get(d.team)!.push(d);
-    });
-
-    const result: ClusterGroup[] = [];
-    clusters.forEach((teamMap, clusterName) => {
-      let clusterMetrics: GroupMetrics = { total: 0, SLM: 0, FLM: 0, MR: 0, "SR. MANAGER": 0 };
-      const teams: TeamGroup[] = [];
-
-      teamMap.forEach((defaulters, teamName) => {
-        let teamMetrics: GroupMetrics = { total: 0, SLM: 0, FLM: 0, MR: 0, "SR. MANAGER": 0 };
-        defaulters.forEach(d => {
-          const bucket = countDesignation(d.designation);
-          teamMetrics.total += 1;
-          if (bucket !== 'OTHER') {
-            teamMetrics[bucket as keyof GroupMetrics] += 1;
-          }
-        });
-        clusterMetrics.total += teamMetrics.total;
-        clusterMetrics.SLM += teamMetrics.SLM;
-        clusterMetrics.FLM += teamMetrics.FLM;
-        clusterMetrics.MR += teamMetrics.MR;
-        clusterMetrics["SR. MANAGER"] += teamMetrics["SR. MANAGER"];
-
-        teams.push({
-          teamName,
-          metrics: teamMetrics,
-          defaulters: defaulters.sort((a, b) => b.notificationCount - a.notificationCount)
-        });
-      });
-
-      result.push({
-        clusterName,
-        metrics: clusterMetrics,
-        teams: teams.sort((a, b) => b.metrics.total - a.metrics.total)
-      });
-    });
-
-    return result.sort((a, b) => b.metrics.total - a.metrics.total);
-  }, [stats.defaulters]);
-
-  // Filter drilldown by team
-  const filteredDrilldown = useMemo(() => {
-    let result = stats.drilldown;
-    if (selectedTeam) {
-      result = result.filter(d => d.team === selectedTeam);
-    }
-    return result.sort((a, b) => b.notificationCount - a.notificationCount);
-  }, [stats.drilldown, selectedTeam]);
-
-  const availableTeams = useMemo(() => {
-    const teams = new Set(stats.drilldown.map(d => d.team));
-    return Array.from(teams).sort();
-  }, [stats.drilldown]);
-
-  // Handlers
-  const processFile = async (file: File) => {
-    const valid = validateFileSize(file);
-    if (!valid.ok) {
-      alert(valid.reason || `Please use files smaller than ${MAX_UPLOAD_SIZE_BYTES / (1024 * 1024)} MB`);
+  // ── Email generation ──
+  const handleEmailPreview = (draft: NominationDraft) => {
+    if (draft.candidates.length === 0) {
+      alert('Cannot send email: no candidates in this nomination.');
       return;
     }
-    setFileName(file.name);
-    try {
-      const { rows: processed } = await parseNominationExcel(file, selectedUploadType, employees);
-      setRows(processed);
-      setFileStep('preview');
-    } catch (err: any) {
-      alert('Parse failed: ' + err.message);
-    }
+
+    const tName  = resolveTeamName(draft.teamId, draft.team);
+    const trName = resolveTrainerName(draft.trainer);
+    const candidateEmps = employees.filter(e => draft.candidates.includes(String(e.employeeId)));
+
+    const emailData: EmailData = {
+      trainingType: draft.trainingType,
+      teamName: tName,
+      trainerName: trName,
+      startDate: draft.startDate || '',
+      endDate: draft.endDate || draft.startDate || '',
+      candidates: candidateEmps,
+    };
+
+    const subject = buildEmailSubject(emailData);
+    const html    = buildEmailHtml(emailData);
+
+    // Mailto fallback (plain text — Outlook will use the HTML copy)
+    const plainBody = encodeURIComponent(
+      `Dear Team,\n\nPlease find the nomination list for ${draft.trainingType} training — ${tName} (${getMonthYear(draft.startDate)}).\n\n` +
+      `Training : ${draft.trainingType}\nTeam : ${tName}\nTrainer : ${trName}\n` +
+      `Dates : ${formatDate(draft.startDate)} to ${formatDate(draft.endDate)}\nCandidates : ${candidateEmps.length}\n\n` +
+      candidateEmps.map((e, i) => `${i + 1}. ${e.name} (${e.employeeId})`).join('\n') +
+      '\n\nRegards,\nL&D Team'
+    );
+    const mailto = `mailto:?subject=${encodeURIComponent(subject)}&body=${plainBody}`;
+
+    setEmailPreview({ html, subject, mailto, draftId: draft.id });
   };
 
-  const doUpload = async () => {
-    setUploading(true);
-    setUploadProgress(0);
-    try {
-      const uploadable = rows.filter(r => r.status !== 'error').map(r => r.data);
-      const total = uploadable.length;
-      const chunkSize = 50;
-      for (let i = 0; i < total; i += chunkSize) {
-        const chunk = uploadable.slice(i, i + chunkSize);
-        await addBatch('training_nominations', chunk);
-        setUploadProgress(Math.round(((i + chunk.length) / total) * 100));
+  const handleConfirmSent = (draftId: string) => {
+    updateDraft(draftId, { status: 'SENT' });
+    setEmailPreview(null);
+  };
+
+  // ─── CANDIDATE VIEW DRAWER ──────────────────────────────────────────────
+
+  const CandidateViewDrawer: React.FC<{ draftId: string }> = ({ draftId }) => {
+    const draft = allDrafts.find(d => d.id === draftId);
+    if (!draft) return null;
+    const candidateEmps = employees.filter(e => draft.candidates.includes(String(e.employeeId)));
+
+    return (
+      <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: '420px', background: 'var(--bg-card)', boxShadow: '-4px 0 32px rgba(0,0,0,0.15)', zIndex: 1100, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg)' }}>
+          <div>
+            <div style={{ fontSize: '16px', fontWeight: 700 }}>Candidate List</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+              {draft.trainingType} • {resolveTeamName(draft.teamId, draft.team)} •{' '}
+              <strong style={{ color: 'var(--accent-primary)' }}>{candidateEmps.length}</strong> candidates
+            </div>
+          </div>
+          <button onClick={() => setCandidateDrawerDraftId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+            <X size={20} color="var(--text-secondary)" />
+          </button>
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+          {candidateEmps.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--text-secondary)' }}>No candidates in this draft.</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {candidateEmps.map((emp, idx) => (
+                <div key={emp.employeeId} style={{
+                  display: 'flex', alignItems: 'center', gap: '12px',
+                  padding: '10px 14px', borderRadius: '8px',
+                  background: 'var(--bg)', border: '1px solid var(--border-color)'
+                }}>
+                  <div style={{
+                    width: '28px', height: '28px', borderRadius: '50%',
+                    background: 'var(--accent-primary)', color: 'white',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '12px', fontWeight: 700, flexShrink: 0
+                  }}>{idx + 1}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '14px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{emp.name}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{emp.designation} • {emp.employeeId}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // ─── CANDIDATE EDIT DRAWER ──────────────────────────────────────────────
+
+  const CandidateEditDrawer: React.FC<{ draftId: string }> = ({ draftId }) => {
+    const draft = allDrafts.find(d => d.id === draftId);
+    if (!draft) return null;
+    const teamEmps = employees.filter(e => e.teamId === draft.teamId);
+    const isLocked = draft.status === 'FINALIZED' || draft.status === 'SENT' || draft.status === 'COMPLETED';
+
+    const toggleEmp = (empId: string) => {
+      if (isLocked) return;
+      let next = [...draft.candidates];
+      if (next.includes(empId)) {
+        next = next.filter(id => id !== empId);
+      } else {
+        if (next.length >= 40) { alert('Max 40 trainees per plan.'); return; }
+        next.push(empId);
       }
-      setFileStep('done');
-      onUploadComplete?.();
-    } catch (err: any) {
-      alert('Upload failed: ' + err.message);
-    } finally {
-      setUploading(false);
-    }
+      updateDraft(draft.id, { candidates: next });
+    };
+
+    return (
+      <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: '460px', background: 'var(--bg-card)', boxShadow: '-4px 0 32px rgba(0,0,0,0.15)', zIndex: 1100, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', background: 'var(--bg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: '16px', fontWeight: 700 }}>Edit Candidates</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+              <strong style={{ color: draft.candidates.length >= 40 ? 'var(--danger)' : 'var(--accent-primary)' }}>
+                {draft.candidates.length}/40
+              </strong> selected
+              {isLocked && <span style={{ marginLeft: '8px', color: 'var(--warning)' }}> • Locked</span>}
+            </div>
+          </div>
+          <button onClick={() => setEditDrawerDraftId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+            <X size={20} color="var(--text-secondary)" />
+          </button>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+          {teamEmps.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--text-secondary)' }}>No employees found for this team.</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {teamEmps.map(emp => {
+                const isSelected = draft.candidates.includes(String(emp.employeeId));
+                return (
+                  <div
+                    key={emp.employeeId}
+                    onClick={() => toggleEmp(String(emp.employeeId))}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '12px',
+                      padding: '10px 14px', borderRadius: '8px',
+                      background: isSelected ? 'rgba(99,102,241,0.08)' : 'var(--bg)',
+                      border: `1px solid ${isSelected ? 'var(--accent-primary)' : 'var(--border-color)'}`,
+                      cursor: isLocked ? 'not-allowed' : 'pointer', transition: 'all 0.15s',
+                      opacity: isLocked ? 0.75 : 1
+                    }}
+                  >
+                    <input type="checkbox" checked={isSelected} readOnly style={{ pointerEvents: 'none', accentColor: 'var(--accent-primary)' }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '14px', fontWeight: 600 }}>{emp.name}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{emp.designation} • {emp.employeeId}</div>
+                    </div>
+                    {isSelected && <UserCheck size={15} color="var(--accent-primary)" />}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-color)', display: 'flex', gap: '10px' }}>
+          <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setEditDrawerDraftId(null)}>Done</button>
+          {!isLocked && (
+            <button
+              className="btn btn-primary"
+              style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              onClick={() => { updateDraft(draft.id, { status: 'FINALIZED' }); setEditDrawerDraftId(null); }}
+            >
+              <Lock size={14} /> Finalize & Lock
+            </button>
+          )}
+        </div>
+      </div>
+    );
   };
 
-  const resetUpload = () => {
-    setFileStep('upload');
-    setRows([]);
-    setFileName('');
-  };
-
-  const toggleCluster = (clusterName: string) => {
-    const newSet = new Set(expandedClusters);
-    newSet.has(clusterName) ? newSet.delete(clusterName) : newSet.add(clusterName);
-    setExpandedClusters(newSet);
-  };
-
-  const toggleTeam = (teamKey: string) => {
-    const newSet = new Set(expandedTeams);
-    newSet.has(teamKey) ? newSet.delete(teamKey) : newSet.add(teamKey);
-    setExpandedTeams(newSet);
-  };
+  // ─── RENDER ─────────────────────────────────────────────────────────────
 
   return (
-    <div className="animate-fade-in">
-      <div className="header mb-8">
+    <div className="animate-fade-in" style={{ padding: '24px' }}>
+
+      {/* PAGE HEADER */}
+      <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h2 style={{ fontSize: '24px' }}>Notified Candidates Module</h2>
-          <p className="text-muted">Upload and track invited candidates against actual attendance metrics.</p>
+          <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 700 }}>Nominations</h1>
+          <p style={{ color: 'var(--text-secondary)', margin: '6px 0 0 0', fontSize: '13px' }}>
+            Manage training nominations — review candidates, finalize lists, and send invitations.
+          </p>
+        </div>
+        {/* KPI strip */}
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          {([
+            { label: 'Total',     value: allDrafts.length,                                             color: 'var(--accent-primary)', Icon: Layers },
+            { label: 'Draft',     value: allDrafts.filter(d => d.status === 'DRAFT').length,     color: 'var(--warning)',        Icon: Clock  },
+            { label: 'Finalized', value: allDrafts.filter(d => d.status === 'FINALIZED').length, color: 'var(--accent-secondary)', Icon: Lock  },
+            { label: 'Sent',      value: allDrafts.filter(d => d.status === 'SENT').length,      color: 'var(--success)',        Icon: Send   },
+          ] as const).map(k => (
+            <div key={k.label} style={{
+              background: 'var(--bg-card)', border: '1px solid var(--border-color)',
+              borderRadius: '12px', padding: '10px 18px', minWidth: '80px', textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '22px', fontWeight: 700, color: k.color }}>{k.value}</div>
+              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{k.label}</div>
+            </div>
+          ))}
         </div>
       </div>
 
+      {/* ACTIVE PLANNING SESSION BANNER */}
       {hasPlanningContext && (
-        <div style={{ background: 'rgba(34, 197, 94, 0.1)', border: '1px solid var(--success)', color: 'var(--success)', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: '14px', fontWeight: 600 }}>
-            Planning for: {activePlanningSession!.teams.join(', ')}
+        <div style={{
+          background: 'rgba(34,197,94,0.08)', border: '1px solid var(--success)',
+          color: 'var(--success)', padding: '10px 16px', borderRadius: '8px',
+          marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+        }}>
+          <div style={{ fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <CheckCircle size={15} />
+            Active Session — Planning for: <strong>{activePlanningSession!.teams.join(', ')}</strong>
+            <span style={{ fontWeight: 400, opacity: 0.75 }}>({activePlanningSession!.trainingType})</span>
           </div>
-          <button className="btn btn-secondary" onClick={() => {
-             if (window.confirm("Reset all blocked Teams and Trainers?")) resetConsumed();
-          }} style={{ fontSize: '12px', padding: '6px 12px', background: 'white', color: 'var(--success)' }}>
-            Reset Selection
+          <button
+            onClick={() => { if (window.confirm('Reset planning session?')) resetConsumed(); }}
+            style={{ fontSize: '12px', padding: '4px 12px', background: 'white', color: 'var(--success)', border: '1px solid var(--success)', borderRadius: '6px', cursor: 'pointer' }}
+          >
+            Reset Session
           </button>
         </div>
       )}
 
-      {/* TABS */}
-      <div className="tabs mb-8" style={{ display: 'flex', gap: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
-        {['drafts', 'upload', 'summary', 'defaulters', 'drilldown'].map(t => (
-          <button key={t}
-            className={`tab ${tab === t ? 'active' : ''}`}
-            onClick={() => setTab(t as any)}
-            style={{
-              background: 'none', border: 'none',
-              color: tab === t ? 'var(--text-primary)' : 'var(--text-secondary)',
-              fontWeight: tab === t ? 600 : 400,
-              borderBottom: tab === t ? '2px solid var(--accent-primary)' : 'none',
-              padding: '8px 16px', cursor: 'pointer'
-            }}
-          >
-            {t === 'drafts' && `Nominations (${getDrafts({}).length})`}
-            {t === 'upload' && 'Upload Legacy'}
-            {t === 'summary' && 'Summary Metrics'}
-            {t === 'defaulters' && `Defaulters (${stats.defaulterCount})`}
-            {t === 'drilldown' && 'Drilldown Log'}
-          </button>
+      {/* STATUS FLOW LEGEND */}
+      <div style={{ marginBottom: '20px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 600, marginRight: '4px' }}>Workflow:</span>
+        {(['DRAFT', 'FINALIZED', 'SENT', 'COMPLETED'] as DraftStatus[]).map((s, i, arr) => (
+          <React.Fragment key={s}>
+            <StatusBadge status={s} />
+            {i < arr.length - 1 && <ChevronRight size={14} color="var(--text-secondary)" />}
+          </React.Fragment>
         ))}
       </div>
 
-      {/* TRAINING FILTER */}
-      {(tab === 'summary' || tab === 'defaulters' || tab === 'drilldown') && (
-        <div style={{ marginBottom: '24px', display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Focus Training:</span>
-          <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: '8px', padding: '4px' }}>
-            {TRAINING_TYPES.map(t => (
-              <button key={t}
-                onClick={() => setTrainingFilter(t)}
-                style={{
-                  padding: '6px 16px', borderRadius: '6px',
-                  background: trainingFilter === t ? 'var(--accent-primary)' : 'transparent',
-                  color: trainingFilter === t ? '#fff' : 'var(--text-secondary)',
-                  border: 'none', fontWeight: 600, cursor: 'pointer'
-                }}
-              >
-                {t}
-              </button>
-            ))}
+      {/* MAIN TABLE */}
+      <div className="glass-panel" style={{ overflow: 'hidden' }}>
+        {allDrafts.length === 0 ? (
+          <div style={{ padding: '72px', textAlign: 'center' }}>
+            <Calendar size={48} style={{ margin: '0 auto 16px', color: 'var(--border-color)' }} />
+            <div style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>No training plans yet</div>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', maxWidth: '300px', margin: '0 auto' }}>
+              Select teams from <strong>Training Requirement</strong>, then create plans in the <strong>Calendar</strong>.
+            </p>
           </div>
-        </div>
-      )}
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: 'var(--bg)', borderBottom: '1px solid var(--border-color)' }}>
+                {['Date', 'Training', 'Team', 'Trainer', 'Candidates', 'Status', 'Actions'].map(h => (
+                  <th key={h} style={{
+                    padding: '12px 16px', textAlign: 'left',
+                    fontSize: '11px', fontWeight: 700,
+                    textTransform: 'uppercase', letterSpacing: '0.06em',
+                    color: 'var(--text-secondary)', whiteSpace: 'nowrap'
+                  }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {allDrafts.map((draft, idx) => {
+                const status = (draft.status || 'DRAFT') as DraftStatus;
+                const isLocked = status === 'FINALIZED' || status === 'SENT' || status === 'COMPLETED';
+                const tName  = resolveTeamName(draft.teamId, draft.team);
+                const trName = resolveTrainerName(draft.trainer);
+                const dateDisplay = draft.startDate
+                  ? (draft.endDate && draft.endDate !== draft.startDate
+                      ? `${formatDate(draft.startDate)} → ${formatDate(draft.endDate)}`
+                      : formatDate(draft.startDate))
+                  : '—';
+                const canEmail = draft.candidates.length > 0 && !!draft.startDate;
 
-      {tab === 'drafts' && (() => {
-        const viewableDrafts = getDrafts({});
-        
-        return (
-          <div className="space-y-4">
-            {hasPlanningContext && (
-              <div style={{ marginBottom: '16px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                Filtering natively via Active Planning Session ({activePlanningSession!.teams.length} active teams)
-              </div>
-            )}
-            
-            {viewableDrafts.length === 0 ? (
-              <div className="glass-panel text-center" style={{ padding: '60px' }}>
-                <p className="text-muted">No drafts found. Create a training plan to generate nominations.</p>
-              </div>
-            ) : (
-              <div className="glass-panel text-left">
-                <DataTable headers={['Dates', 'Training', 'Team', 'Trainer', 'Status', 'Action']}>
-                  {viewableDrafts.map(d => (
-                    <tr key={d.id}>
-                      <td style={{ fontWeight: 600 }}>{d.startDate}</td>
-                      <td><span className="badge">{d.trainingType}</span></td>
-                      <td>{d.team}</td>
-                      <td>{d.trainer}</td>
-                      <td>
-                        {d.status === 'FINALIZED' ? <span className="badge badge-success">Finalized</span> : <span className="badge badge-warning">Draft</span>}
-                      </td>
-                      <td>
-                        <button className="btn btn-secondary" onClick={() => setEditingDraftId(d.id)}>
-                          Edit ({d.candidates.length}/40)
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </DataTable>
-              </div>
-            )}
+                return (
+                  <tr
+                    key={draft.id}
+                    style={{
+                      borderBottom: '1px solid var(--border-color)',
+                      background: idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.015)',
+                      transition: 'background 0.1s'
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(99,102,241,0.04)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.015)')}
+                  >
+                    {/* Date */}
+                    <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 600 }}>{dateDisplay}</div>
+                    </td>
 
-            {editingDraftId && (() => {
-              const draft = viewableDrafts.find(d => d.id === editingDraftId);
-              if (!draft) return null;
-              
-              const teamEmps = employees.filter(e => e.teamId === draft.teamId);
+                    {/* Training Type */}
+                    <td style={{ padding: '14px 16px' }}>
+                      <span style={{
+                        display: 'inline-block', padding: '3px 10px', borderRadius: '20px',
+                        background: 'rgba(99,102,241,0.12)', color: 'var(--accent-primary)',
+                        fontSize: '12px', fontWeight: 700
+                      }}>{draft.trainingType}</span>
+                    </td>
 
-              const toggleEmp = (empId: string) => {
-                if (draft.status === 'FINALIZED') return;
-                let newSelected = [...draft.candidates];
-                if (newSelected.includes(empId)) {
-                  newSelected = newSelected.filter(id => id !== empId);
-                } else {
-                  if (newSelected.length >= 40) return alert('Max 40 trainees allowed per execution plan');
-                  newSelected.push(empId);
-                }
-                updateDraft(draft.id, { candidates: newSelected });
-              };
+                    {/* Team */}
+                    <td style={{ padding: '14px 16px', fontSize: '14px', fontWeight: 500 }}>{tName}</td>
 
-              return (
-                <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: '450px', background: 'var(--bg-card)', boxShadow: '-4px 0 24px rgba(0,0,0,0.1)', zIndex: 1000, display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ padding: '24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                     <div>
-                        <h2 style={{ margin: 0, fontSize: '20px' }}>Review Nominations</h2>
-                        <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{draft.candidates.length} of 40 selected</span>
-                     </div>
-                     <button className="btn" onClick={() => setEditingDraftId(null)}><X size={20} /></button>
-                  </div>
-                  
-                  <div style={{ flex: 1, padding: '24px', overflowY: 'auto' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {teamEmps.map(emp => {
-                        const isSelected = draft.candidates.includes(String(emp.employeeId));
-                        return (
-                          <div 
-                            key={emp.employeeId} 
-                            onClick={() => toggleEmp(String(emp.employeeId))}
-                            style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: isSelected ? 'var(--bg)' : 'transparent', borderRadius: '8px', cursor: draft.status === 'FINALIZED' ? 'not-allowed' : 'pointer', border: '1px solid var(--border-color)' }}
-                          >
-                             <input type="checkbox" checked={isSelected} readOnly style={{ pointerEvents: 'none' }} />
-                             <div>
-                               <div style={{ fontSize: '14px', fontWeight: 600 }}>{emp.name}</div>
-                               <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{emp.designation} • {emp.employeeId}</div>
-                             </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
+                    {/* Trainer */}
+                    <td style={{ padding: '14px 16px', fontSize: '14px', color: 'var(--text-secondary)' }}>{trName}</td>
 
-                  <div style={{ padding: '24px', borderTop: '1px solid var(--border-color)', display: 'flex', gap: '12px' }}>
-                    <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setEditingDraftId(null)} disabled={draft.status === 'FINALIZED'}>Save Draft</button>
-                    <button 
-                      className="btn btn-primary" 
-                      style={{ flex: 1, background: draft.status === 'FINALIZED' ? 'var(--success)' : 'var(--accent-primary)' }}
-                      disabled={draft.status === 'FINALIZED'}
-                      onClick={() => updateDraft(draft.id, { status: 'FINALIZED' })}
-                    >
-                      {draft.status === 'FINALIZED' ? 'Locked & Finalized' : 'Finalize & Lock'}
-                    </button>
-                  </div>
-                </div>
-              );
-            })()}
-
-          </div>
-        );
-      })()}
-
-      {/* UPLOAD TAB */}
-      {tab === 'upload' && (
-        <div>
-          {fileStep === 'upload' && (
-            <div className="glass-panel" style={{ padding: '32px', textAlign: 'center' }}>
-              <div style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Select Training Type</label>
-                <select className="form-input" value={selectedUploadType} onChange={e => setSelectedUploadType(e.target.value)} style={{ width: '200px', margin: '0 auto' }}>
-                  {TRAINING_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-              <div className="upload-zone" onDragOver={e => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)} onClick={() => document.getElementById('nom-file')?.click()} style={{ maxWidth: '600px', margin: '0 auto', cursor: 'pointer' }}>
-                <Mail size={32} style={{ margin: '0 auto 12px', color: 'var(--accent-primary)' }} />
-                <h3>Drop Notification List Excel</h3>
-                <input id="nom-file" type="file" accept=".xlsx" style={{ display: 'none' }} onChange={e => e.target.files?.[0] && processFile(e.target.files[0])} />
-              </div>
-            </div>
-          )}
-
-          {fileStep === 'preview' && (() => {
-            const valid = rows.filter(r => r.status === 'valid').length;
-            const warn = rows.filter(r => r.status === 'warn').length;
-            const err = rows.filter(r => r.status === 'error').length;
-            const uploadable = rows.filter(r => r.status !== 'error').length;
-            return (
-              <div className="glass-panel" style={{ padding: '32px' }}>
-                <h3 className="mb-8">Previewing: {selectedUploadType} ({fileName})</h3>
-                <div className="dashboard-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: '32px' }}>
-                  <div style={{ padding: '16px', background: 'rgba(16,185,129,0.1)', borderRadius: '12px', border: '1px solid var(--success)' }}>
-                    <div style={{ color: 'var(--success)', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase' }}>Valid</div>
-                    <div style={{ fontSize: '28px', fontWeight: 700 }}>{valid}</div>
-                  </div>
-                  <div style={{ padding: '16px', background: 'rgba(245,158,11,0.1)', borderRadius: '12px', border: '1px solid var(--warning)' }}>
-                    <div style={{ color: 'var(--warning)', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase' }}>Warnings</div>
-                    <div style={{ fontSize: '28px', fontWeight: 700 }}>{warn}</div>
-                  </div>
-                  <div style={{ padding: '16px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '12px', border: '1px solid var(--danger)' }}>
-                    <div style={{ color: 'var(--danger)', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase' }}>Errors</div>
-                    <div style={{ fontSize: '28px', fontWeight: 700 }}>{err}</div>
-                  </div>
-                </div>
-                <div className="flex-center flex-col gap-4">
-                  <button className="btn btn-primary w-full max-w-sm" onClick={doUpload} disabled={uploading || err > 0} style={{ position: 'relative', overflow: 'hidden' }}>
-                    {uploading ? <>
-                      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${uploadProgress}%`, background: 'rgba(255,255,255,0.3)', zIndex: 0 }} />
-                      <span style={{ position: 'relative', zIndex: 1 }}>Uploading... {uploadProgress}%</span>
-                    </> : `Confirm ${uploadable} Invitations`}
-                  </button>
-                  <button className="btn btn-secondary w-full max-w-sm" onClick={resetUpload} disabled={uploading}>Cancel</button>
-                </div>
-              </div>
-            );
-          })()}
-
-          {fileStep === 'done' && (
-            <div className="glass-panel text-center" style={{ padding: '60px' }}>
-              <CheckCircle size={48} color="var(--success)" style={{ margin: '0 auto 16px' }} />
-              <h2>Success!</h2>
-              <button className="btn btn-primary mt-6" onClick={resetUpload}>Upload Another</button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* SUMMARY TAB */}
-      {tab === 'summary' && (
-        <div className="dashboard-grid">
-          <KPIBox title="Total Notified" value={stats.notifiedCount} icon={Users} color="var(--accent-primary)" />
-          <KPIBox title="Total Attended" value={stats.attendedCount} icon={CheckCircle} color="var(--success)" />
-          <KPIBox title="Attendance %" value={`${stats.attendance.toFixed(1)}%`} icon={BarChart2} color="var(--accent-secondary)" />
-          <KPIBox title="Defaulters (≥3)" value={stats.defaulterCount} icon={AlertCircle} color="var(--danger)" />
-        </div>
-      )}
-
-      {/* DEFAULTERS TAB - CLUSTER VIEW */}
-      {tab === 'defaulters' && (
-        <div className="space-y-4">
-          {clusterHierarchy.length === 0 ? (
-            <div className="glass-panel text-center" style={{ padding: '60px' }}>
-              <AlertCircle size={48} style={{ margin: '0 auto 16px', color: 'var(--success)' }} />
-              <p className="text-muted">No defaulters for {trainingFilter}. Excellent performance!</p>
-            </div>
-          ) : (
-            clusterHierarchy.map(cluster => (
-              <div key={cluster.clusterName} className="glass-panel">
-                <div
-                  onClick={() => toggleCluster(cluster.clusterName)}
-                  style={{ padding: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)' }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    {expandedClusters.has(cluster.clusterName) ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
-                    <strong>{cluster.clusterName}</strong>
-                    <span className="badge">{cluster.metrics.total}</span>
-                  </div>
-                  <div style={{ display: 'flex', gap: '16px', fontSize: '13px' }}>
-                    <span><strong>SLM:</strong> {cluster.metrics.SLM}</span>
-                    <span><strong>FLM:</strong> {cluster.metrics.FLM}</span>
-                    <span><strong>MR:</strong> {cluster.metrics.MR}</span>
-                    <span><strong>SR. MANAGER:</strong> {cluster.metrics["SR. MANAGER"]}</span>
-                  </div>
-                </div>
-
-                {expandedClusters.has(cluster.clusterName) && (
-                  <div className="space-y-2" style={{ padding: '12px' }}>
-                    {cluster.teams.map(team => (
-                      <div key={team.teamName} style={{ borderLeft: '2px solid var(--border-color)', paddingLeft: '12px' }}>
-                        <div
-                          onClick={() => toggleTeam(team.teamName)}
-                          style={{ padding: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-card)', borderRadius: '8px' }}
+                    {/* Candidates */}
+                    <td style={{ padding: '14px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '4px',
+                          fontSize: '13px', fontWeight: 700,
+                          color: draft.candidates.length >= 40 ? 'var(--danger)' : 'var(--text-primary)'
+                        }}>
+                          <Users size={13} />
+                          {draft.candidates.length}
+                          <span style={{ fontWeight: 400, color: 'var(--text-secondary)', fontSize: '12px' }}>/40</span>
+                        </span>
+                        <button
+                          onClick={() => setCandidateDrawerDraftId(draft.id)}
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '4px',
+                            padding: '3px 8px', borderRadius: '6px',
+                            background: 'var(--bg)', border: '1px solid var(--border-color)',
+                            cursor: 'pointer', fontSize: '11px', fontWeight: 600,
+                            color: 'var(--text-secondary)'
+                          }}
                         >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            {expandedTeams.has(team.teamName) ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                            <span>{team.teamName}</span>
-                            <span className="badge badge-info" style={{ fontSize: '11px' }}>{team.metrics.total}</span>
-                          </div>
-                          <div style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
-                            <span>SLM: {team.metrics.SLM}</span>
-                            <span>FLM: {team.metrics.FLM}</span>
-                            <span>MR: {team.metrics.MR}</span>
-                            <span>SR. MANAGER: {team.metrics["SR. MANAGER"]}</span>
-                          </div>
-                        </div>
+                          <Eye size={11} /> View
+                        </button>
+                      </div>
+                    </td>
 
-                        {expandedTeams.has(team.teamName) && (
-                          <div style={{ marginTop: '8px', paddingLeft: '8px' }}>
-                            <DataTable headers={['Employee ID', 'Name', 'Designation', 'Invites Dropped']}>
-                              {team.defaulters.map(d => (
-                                <tr key={d.employeeId}>
-                                  <td style={{ fontWeight: 600 }}>{d.employeeId}</td>
-                                  <td>{d.name}</td>
-                                  <td>{d.designation}</td>
-                                  <td><span className="badge badge-danger">{d.notificationCount}</span></td>
-                                </tr>
-                              ))}
-                            </DataTable>
-                          </div>
+                    {/* Status */}
+                    <td style={{ padding: '14px 16px' }}><StatusBadge status={status} /></td>
+
+                    {/* Actions */}
+                    <td style={{ padding: '14px 16px' }}>
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+
+                        {/* Edit */}
+                        {!isLocked && (
+                          <button
+                            onClick={() => setEditDrawerDraftId(draft.id)}
+                            title="Edit candidates"
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '5px',
+                              padding: '5px 10px', borderRadius: '6px',
+                              background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)',
+                              cursor: 'pointer', fontSize: '12px', fontWeight: 600,
+                              color: 'var(--accent-primary)'
+                            }}
+                          >
+                            <Edit2 size={12} /> Edit
+                          </button>
+                        )}
+
+                        {/* Finalize */}
+                        {status === 'DRAFT' && (
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`Finalize and lock this ${draft.trainingType} plan for ${tName}?`)) {
+                                updateDraft(draft.id, { status: 'FINALIZED' });
+                              }
+                            }}
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '5px',
+                              padding: '5px 10px', borderRadius: '6px',
+                              background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)',
+                              cursor: 'pointer', fontSize: '12px', fontWeight: 600, color: 'var(--warning)'
+                            }}
+                          >
+                            <Lock size={12} /> Finalize
+                          </button>
+                        )}
+
+                        {/* Send Email */}
+                        {(status === 'FINALIZED' || status === 'DRAFT') && (
+                          <button
+                            onClick={() => handleEmailPreview(draft)}
+                            disabled={!canEmail}
+                            title={canEmail ? 'Preview & send email' : 'Add candidates and dates first'}
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '5px',
+                              padding: '5px 10px', borderRadius: '6px',
+                              background: canEmail ? 'rgba(34,197,94,0.08)' : 'rgba(0,0,0,0.03)',
+                              border: `1px solid ${canEmail ? 'rgba(34,197,94,0.3)' : 'var(--border-color)'}`,
+                              cursor: canEmail ? 'pointer' : 'not-allowed',
+                              fontSize: '12px', fontWeight: 600,
+                              color: canEmail ? 'var(--success)' : 'var(--text-secondary)',
+                              opacity: canEmail ? 1 : 0.6
+                            }}
+                          >
+                            <Mail size={12} /> Send Email
+                          </button>
+                        )}
+
+                        {/* Mark Completed */}
+                        {status === 'SENT' && (
+                          <button
+                            onClick={() => updateDraft(draft.id, { status: 'COMPLETED' })}
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '5px',
+                              padding: '5px 10px', borderRadius: '6px',
+                              background: 'rgba(0,0,0,0.05)', border: '1px solid var(--border-color)',
+                              cursor: 'pointer', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)'
+                            }}
+                          >
+                            <CheckCircle size={12} /> Complete
+                          </button>
                         )}
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))
-          )}
-        </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* CANDIDATE VIEW DRAWER */}
+      {candidateDrawerDraftId && (
+        <>
+          <div onClick={() => setCandidateDrawerDraftId(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 1050 }} />
+          <CandidateViewDrawer draftId={candidateDrawerDraftId} />
+        </>
       )}
 
-      {/* DRILLDOWN TAB */}
-      {tab === 'drilldown' && (
-        <div>
-          <div style={{ marginBottom: '16px', display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <label style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Filter by Team:</label>
-            <select
-              className="form-input"
-              value={selectedTeam || ''}
-              onChange={e => setSelectedTeam(e.target.value || null)}
-              style={{ width: '250px' }}
-            >
-              <option value="">All Teams ({stats.drilldown.length})</option>
-              {availableTeams.map(team => {
-                const count = stats.drilldown.filter(d => d.team === team).length;
-                return <option key={team} value={team}>{team} ({count})</option>;
-              })}
-            </select>
-          </div>
+      {/* CANDIDATE EDIT DRAWER */}
+      {editDrawerDraftId && (
+        <>
+          <div onClick={() => setEditDrawerDraftId(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 1050 }} />
+          <CandidateEditDrawer draftId={editDrawerDraftId} />
+        </>
+      )}
 
-          <div className="glass-panel">
-            <DataTable headers={['Employee ID', 'Name', 'Team', 'Designation', 'Invites', 'Status']}>
-              {filteredDrilldown.length === 0 ? (
-                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '40px' }} className="text-muted">No records</td></tr>
-              ) : (
-                filteredDrilldown.map(d => (
-                  <tr key={d.employeeId}>
-                    <td style={{ fontWeight: 600 }}>{d.employeeId}</td>
-                    <td>{d.name}</td>
-                    <td>{d.team}</td>
-                    <td>{d.designation}</td>
-                    <td><span className="badge badge-warning">{d.notificationCount}</span></td>
-                    <td>{d.hasAttended ? <span className="badge badge-success">Attended</span> : <span className="badge badge-danger">Defaulter</span>}</td>
-                  </tr>
-                ))
-              )}
-            </DataTable>
-          </div>
-        </div>
+      {/* EMAIL PREVIEW MODAL */}
+      {emailPreview && (
+        <EmailPreviewModal
+          html={emailPreview.html}
+          subject={emailPreview.subject}
+          mailto={emailPreview.mailto}
+          onClose={() => setEmailPreview(null)}
+          onConfirmSent={() => handleConfirmSent(emailPreview.draftId)}
+        />
       )}
     </div>
   );
 };
-
-
