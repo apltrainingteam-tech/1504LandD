@@ -12,7 +12,7 @@ async function getClient() {
   return client;
 }
 
-export default async function handler(req, res) {
+module.exports = async (req, res) => {
   try {
     const client = await getClient();
     const db = client.db("Ajanta");
