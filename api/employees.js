@@ -1,17 +1,14 @@
 import { MongoClient } from "mongodb";
 
-let cachedClient: MongoClient | null = null;
+let cachedClient = null;
 
 async function getClient() {
   if (cachedClient) return cachedClient;
 
-  const client = new MongoClient(process.env.MONGO_URI!, {
-    maxPoolSize: 5,
-  });
-
+  const client = new MongoClient(process.env.MONGO_URI);
   await client.connect();
-  cachedClient = client;
 
+  cachedClient = client;
   return client;
 }
 
