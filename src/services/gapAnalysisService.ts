@@ -37,7 +37,7 @@ export interface GapAnalysisData {
   untrained: number;
   untrainedPercent: number;
   over90Days: number;
-  
+
   mrUntrained?: number;
   mrOver90?: number;
   flmUntrained?: number;
@@ -92,7 +92,7 @@ export const calculateDaysSinceDOJ = (employee: Employee): number => {
 
 export const groupByClusterTeam = (employees: Employee[], masterTeams: Team[]): Map<string, Map<string, Employee[]>> => {
   const grouped = new Map<string, Map<string, Employee[]>>();
-  
+
   // Build a lookup map for faster resolution
   const teamMap = Object.fromEntries(masterTeams.map(t => [t.id, t]));
 
@@ -169,7 +169,7 @@ export const computeGapAnalysis = (
 
   // Normalize training type
   const normalizedTrainingType = trainingTypeMap[trainingType.toUpperCase()] || trainingType;
-  
+
   // 🔥 STEP 2: BUILD GLOBAL ATTENDED SET (FULL HISTORY - NO DATE FILTERING)
   const attendedSet = new Set(
     attendance
@@ -185,21 +185,21 @@ export const computeGapAnalysis = (
 
   // Enrich employees
   const enrichedEmployees = employees.map(emp => {
-     if (!emp.teamId) {
-       console.error("Assertion failed: teamId must be defined for employee", emp.employeeId);
-       return null; // Skip this employee completely
-     }
-     const cluster = teamMap[emp.teamId]?.cluster;
-     if (!cluster) {
-       console.error("Unmapped teamId:", emp.teamId);
-       return null;
-     }
+    if (!emp.teamId) {
+      console.error("Assertion failed: teamId must be defined for employee", emp.employeeId);
+      return null; // Skip this employee completely
+    }
+    const cluster = teamMap[emp.teamId]?.cluster;
+    if (!cluster) {
+      console.error("Unmapped teamId:", emp.teamId);
+      return null;
+    }
 
-     return {
-       ...emp,
-       cluster,
-       zone: emp.zone || getZoneFromState(emp.state)
-     };
+    return {
+      ...emp,
+      cluster,
+      zone: emp.zone || getZoneFromState(emp.state)
+    };
   }).filter((emp): emp is (Employee & { cluster: string, zone: string }) => emp !== null);
 
   // 🔥 STEP 3: USE ONLY ACTIVE EMPLOYEES

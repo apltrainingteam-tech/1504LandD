@@ -1,10 +1,14 @@
 /**
  * Frontend API Client
  * Communicates with backend server for all MongoDB operations
- * Base URL: http://localhost:5000/api
  */
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+import { API_BASE } from '../config/api';
+
+// Runtime URL verification – confirms which backend is active
+console.log("[API BASE]", API_BASE);
+
+const API_BASE_URL = API_BASE;
 
 interface ApiResponse<T> {
   success: boolean;
