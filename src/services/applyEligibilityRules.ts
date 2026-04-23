@@ -2,6 +2,7 @@ import { Employee } from '../types/employee';
 import { Attendance, TrainingNomination } from '../types/attendance';
 import { ELIGIBILITY_RULES } from '../config/eligibilityRules';
 import { standardizeDesignation } from '../utils/designationMapper';
+import { parseAnyDate } from '../utils/dateParser';
 
 export function applyEligibilityRules(
   trainingType: string,
@@ -42,8 +43,8 @@ export function applyEligibilityRules(
     anyNomination.add(empId);
 
     const tType = (n.trainingType || '').toUpperCase();
-    if (tType === 'AP' && n.trainingDate) {
-      const tDate = new Date(n.trainingDate);
+    if (tType === 'AP' && n.notificationDate) {
+      const tDate = new Date(n.notificationDate);
       const days = (tDate.getTime() - today.getTime()) / (1000 * 3600 * 24);
       if (days >= 0 && days <= 90) {
         apNext90.add(empId);
@@ -86,11 +87,12 @@ export function applyEligibilityRules(
       }
     }
 
-    // STEP 3: Tenure filter
+    // STEP 3: Tenure filter — use parseAnyDate to handle DD/MM/YYYY, Excel serials, etc.
     if (rule.minYears !== null || rule.maxYears !== null) {
-      if (!employee.doj) return false;
-      const dojDate = new Date(employee.doj);
-      if (isNaN(dojDate.getTime())) return false; // Fail-safe un-parseable DOJ
+      const parsedDoj = parseAnyDate(employee.doj);
+      if (!parsedDoj) return false; // no DOJ → ineligible when tenure rule applies
+      const dojDate = new Date(parsedDoj);
+      if (isNaN(dojDate.getTime())) return false;
       
       const years = (today.getTime() - dojDate.getTime()) / (1000 * 3600 * 24 * 365.25);
       if (rule.minYears !== null && years < rule.minYears) return false;

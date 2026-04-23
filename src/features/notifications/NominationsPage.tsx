@@ -2,8 +2,9 @@ import React, { useState, useMemo } from 'react';
 import { CheckCircle, Lock, AlertTriangle, Filter, Users } from 'lucide-react';
 import { usePlanningFlow, NominationDraft } from '../../context/PlanningFlowContext';
 import { Employee } from '../../types/employee';
-import { TrainingNomination } from '../../types/attendance';
+import { TrainingNomination, Attendance } from '../../types/attendance';
 import { parseAnyDate } from '../../utils/dateParser';
+import { applyEligibilityRules } from '../../services/applyEligibilityRules';
 
 /** Calculates tenure from DOJ to today → "Xyr Ym" */
 function calcTenure(doj: string | undefined | null): string {
@@ -33,6 +34,7 @@ function dojMs(doj: string | undefined | null): number {
 interface Props {
   employees: Employee[];
   nominations: TrainingNomination[];
+  attendance: Attendance[];
 }
 
 type FilterMode = 'all' | 'first' | 'repeat';
@@ -71,7 +73,7 @@ const buildNoticeHistory = (nominations: TrainingNomination[], trainingType?: st
   return map;
 };
 
-export const NominationsPage: React.FC<Props> = ({ employees, nominations }) => {
+export const NominationsPage: React.FC<Props> = ({ employees, nominations, attendance }) => {
   const { getDrafts, updateDraft, selectionSession } = usePlanningFlow();
 
   const sessionTeamIds = selectionSession?.teamIds ?? [];
@@ -89,11 +91,13 @@ export const NominationsPage: React.FC<Props> = ({ employees, nominations }) => 
   // Historical notice map
   const noticeMap = useMemo(() => buildNoticeHistory(nominations, sessionType), [nominations, sessionType]);
 
-  // All employees for the active team
-  const teamEmps = useMemo(() =>
-    employees.filter(e => e.teamId === (activeTeamId || sessionTeamIds[0])),
-    [employees, activeTeamId, sessionTeamIds]
-  );
+  // All employees for the active team — filtered by eligibility rules for the active training type
+  const teamEmps = useMemo(() => {
+    const allTeamEmps = employees.filter(e => e.teamId === (activeTeamId || sessionTeamIds[0]));
+    // Apply eligibility rules (designation + tenure + prerequisites) for this training type
+    if (!sessionType) return allTeamEmps;
+    return applyEligibilityRules(sessionType, allTeamEmps, attendance, nominations);
+  }, [employees, activeTeamId, sessionTeamIds, sessionType, attendance, nominations]);
 
   // Apply filter chip + sort oldest joiner first
   const filteredEmps = useMemo(() => {

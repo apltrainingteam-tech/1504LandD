@@ -353,7 +353,7 @@ const App = () => {
       case 'trainings': return <TrainingsViewer employees={emps} attendance={att} scores={scs} />;
       case 'calendar': return <TrainingCalendar employees={emps} attendance={att} />;
       case 'attendance': return <AttendanceUploadStrict onUploadComplete={() => setRefreshKey(k => k + 1)} />;
-      case 'nominations':   return <NominationsPage  employees={emps} nominations={noms} />;
+      case 'nominations':   return <NominationsPage  employees={emps} nominations={noms} attendance={att} />;
       case 'notification':  return <NotificationPage employees={emps} />;
       case 'training-data': return <TrainingDataPage  employees={emps} attendance={att} />;
       case 'employees': return <Employees

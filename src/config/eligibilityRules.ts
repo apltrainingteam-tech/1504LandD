@@ -15,14 +15,14 @@ export const ELIGIBILITY_RULES = {
     preTraining: ["IP"],
     preTrainingApplicableTo: ["MR"],
     minYears: null,
-    maxYears: null,
+    maxYears: 2,
     noAPInNext90Days: false,
     excludeIfAlreadyTrained: true,
     preAPOnlyIfNominated: false
   },
 
   Capsule: {
-    designations: ["MR", "FLM"],
+    designations: ["MR", "FLM", "SLM"],
     preTraining: [],
     preTrainingApplicableTo: "ALL",
     minYears: null,
@@ -34,7 +34,7 @@ export const ELIGIBILITY_RULES = {
 
   MIP: {
     designations: ["FLM", "SLM", "SR MANAGER"],
-    preTraining: ["AP"],
+    preTraining: [],
     preTrainingApplicableTo: "ALL",
     minYears: null,
     maxYears: null,
@@ -50,7 +50,7 @@ export const ELIGIBILITY_RULES = {
     minYears: 2,
     maxYears: 5,
     noAPInNext90Days: false,
-    excludeIfAlreadyTrained: false,
+    excludeIfAlreadyTrained: true,
     preAPOnlyIfNominated: false
   },
 
