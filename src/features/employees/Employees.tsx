@@ -1,23 +1,81 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Users, UploadCloud, CheckCircle, X, Check, AlertTriangle, XCircle, Upload, Search, Database } from 'lucide-react';
 import { parseEmployeeMasterExcel, ParsedRow } from '../../services/parsingService';
 import { validateFileSize, MAX_UPLOAD_SIZE_BYTES } from '../../utils/fileValidation';
 import { clearCollection, addBatch } from '../../services/apiClient';
 import { Employee } from '../../types/employee';
+import { parseAnyDate } from '../../utils/dateParser';
+
+/**
+ * Calculates tenure from a DOJ string to today.
+ * Returns e.g. "3yr 4m", "0yr 7m", or "--" if DOJ is missing/invalid.
+ */
+function calcTenure(doj: string | undefined | null): string {
+  if (!doj) return '--';
+  const parsed = parseAnyDate(doj);
+  if (!parsed) return '--';
+  const start = new Date(parsed);
+  if (isNaN(start.getTime())) return '--';
+  const today = new Date();
+  let years = today.getFullYear() - start.getFullYear();
+  let months = today.getMonth() - start.getMonth();
+  if (today.getDate() < start.getDate()) months -= 1;
+  if (months < 0) { years -= 1; months += 12; }
+  if (years < 0) return '--';
+  return `${years}yr ${months}m`;
+}
 
 interface EmployeesProps {
   employees?: Employee[];
   onUploadComplete?: () => void;
+  // Lifted filter props (controlled by App so KPI syncs)
+  filteredEmployees?: Employee[];
+  searchQuery?: string;
+  onSearchChange?: (v: string) => void;
+  filterDesignation?: string;
+  onFilterDesignationChange?: (v: string) => void;
+  filterTeam?: string;
+  onFilterTeamChange?: (v: string) => void;
+  filterZone?: string;
+  onFilterZoneChange?: (v: string) => void;
 }
 
-export const Employees: React.FC<EmployeesProps> = ({ employees = [], onUploadComplete }) => {
+export const Employees: React.FC<EmployeesProps> = ({
+  employees = [],
+  onUploadComplete,
+  filteredEmployees: filteredFromParent,
+  searchQuery = '',
+  onSearchChange,
+  filterDesignation = '',
+  onFilterDesignationChange,
+  filterTeam = '',
+  onFilterTeamChange,
+  filterZone = '',
+  onFilterZoneChange,
+}) => {
   const [step, setStep] = useState<'view' | 'upload' | 'preview' | 'done'>('view');
   const [dragOver, setDragOver] = useState(false);
   const [fileName, setFileName] = useState('');
   const [rows, setRows] = useState<ParsedRow[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [searchQuery, setSearchQuery] = useState('');
+
+  // Derive unique sorted options from the employee list
+  const designationOptions = useMemo(() =>
+    [...new Set(employees.map(e => e.designation).filter(Boolean))].sort(), [employees]);
+  const teamOptions = useMemo(() =>
+    [...new Set(employees.map(e => e.team).filter(Boolean))].sort(), [employees]);
+  const zoneOptions = useMemo(() =>
+    [...new Set(employees.map(e => e.zone).filter(Boolean))].sort(), [employees]);
+
+  const hasActiveFilters = filterDesignation || filterTeam || filterZone || searchQuery;
+
+  const resetFilters = () => {
+    onSearchChange?.('');
+    onFilterDesignationChange?.('');
+    onFilterTeamChange?.('');
+    onFilterZoneChange?.('');
+  };
 
   const processFile = async (file: File) => {
     const valid = validateFileSize(file);
@@ -79,11 +137,16 @@ export const Employees: React.FC<EmployeesProps> = ({ employees = [], onUploadCo
     setFileName('');
   };
   
-  const filteredEmployees = employees.filter(e => {
-     const nameStr = e.name || '';
-     const idStr = e.employeeId || '';
-     const q = (searchQuery || '').toLowerCase();
-     return nameStr.toLowerCase().includes(q) || idStr.toLowerCase().includes(q);
+  // Use pre-filtered list from parent if provided, otherwise compute locally (fallback)
+  const filteredEmployees = filteredFromParent ?? employees.filter(e => {
+    const q = (searchQuery || '').toLowerCase();
+    const matchesSearch = !q ||
+      (e.name || '').toLowerCase().includes(q) ||
+      (e.employeeId || '').toLowerCase().includes(q);
+    const matchesDesignation = !filterDesignation || e.designation === filterDesignation;
+    const matchesTeam = !filterTeam || e.team === filterTeam;
+    const matchesZone = !filterZone || e.zone === filterZone;
+    return matchesSearch && matchesDesignation && matchesTeam && matchesZone;
   });
 
   if (step === 'done') {
@@ -186,19 +249,67 @@ export const Employees: React.FC<EmployeesProps> = ({ employees = [], onUploadCo
 
       {/* Roster View */}
       <div className="glass-panel" style={{ overflow: 'hidden' }}>
-        <div style={{ padding: '20px', borderBottom: '1px solid var(--border-color)', display: 'flex', gap: '16px', alignItems: 'center' }}>
-          <div style={{ flex: 1, position: 'relative' }}>
-            <Search size={16} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
-            <input 
-              type="text" 
-              className="form-input" 
-              placeholder="Search by name or employee ID..." 
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center' }}>
+          {/* Search */}
+          <div style={{ flex: '1 1 220px', position: 'relative', minWidth: '180px' }}>
+            <Search size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+            <input
+              type="text"
+              className="form-input"
+              placeholder="Search name or ID…"
               value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              style={{ width: '100%', paddingLeft: '42px', border: 'none', background: 'rgba(255,255,255,0.02)' }} 
+              onChange={e => onSearchChange?.(e.target.value)}
+              style={{ width: '100%', paddingLeft: '40px', border: 'none', background: 'rgba(255,255,255,0.03)' }}
             />
           </div>
-          <div className="badge badge-info" style={{ fontWeight: 700 }}>{filteredEmployees.length} Total</div>
+
+          {/* Designation filter */}
+          <select
+            className="form-input"
+            value={filterDesignation}
+            onChange={e => onFilterDesignationChange?.(e.target.value)}
+            style={{ flex: '0 1 180px', border: 'none', background: 'rgba(255,255,255,0.03)', color: filterDesignation ? 'var(--text-primary)' : 'var(--text-secondary)' }}
+          >
+            <option value="">All Designations</option>
+            {designationOptions.map(d => <option key={d} value={d}>{d}</option>)}
+          </select>
+
+          {/* Team filter */}
+          <select
+            className="form-input"
+            value={filterTeam}
+            onChange={e => onFilterTeamChange?.(e.target.value)}
+            style={{ flex: '0 1 160px', border: 'none', background: 'rgba(255,255,255,0.03)', color: filterTeam ? 'var(--text-primary)' : 'var(--text-secondary)' }}
+          >
+            <option value="">All Teams</option>
+            {teamOptions.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+
+          {/* Zone filter */}
+          <select
+            className="form-input"
+            value={filterZone}
+            onChange={e => onFilterZoneChange?.(e.target.value)}
+            style={{ flex: '0 1 140px', border: 'none', background: 'rgba(255,255,255,0.03)', color: filterZone ? 'var(--text-primary)' : 'var(--text-secondary)' }}
+          >
+            <option value="">All Zones</option>
+            {zoneOptions.map(z => <option key={z} value={z}>{z}</option>)}
+          </select>
+
+          {/* Clear filters */}
+          {hasActiveFilters && (
+            <button
+              className="btn btn-secondary"
+              onClick={resetFilters}
+              style={{ padding: '8px 14px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
+            >
+              <X size={14} /> Clear
+            </button>
+          )}
+
+          <div className="badge badge-info" style={{ fontWeight: 700, whiteSpace: 'nowrap', marginLeft: 'auto' }}>
+            {filteredEmployees.length} / {employees.length}
+          </div>
         </div>
         <div style={{ overflowX: 'auto', maxHeight: '500px' }}>
           <table className="data-table">
@@ -212,7 +323,7 @@ export const Employees: React.FC<EmployeesProps> = ({ employees = [], onUploadCo
                 <th>HQ</th>
                 <th>State</th>
                 <th>DOJ</th>
-                <th>Exp (Yrs)</th>
+                <th>Tenure</th>
               </tr>
             </thead>
             <tbody>
@@ -226,7 +337,11 @@ export const Employees: React.FC<EmployeesProps> = ({ employees = [], onUploadCo
                   <td>{emp.hq}</td>
                   <td>{emp.state}</td>
                   <td>{emp.doj || '--'}</td>
-                  <td><span className="badge badge-info">{emp.totalExperience || 0}</span></td>
+                  <td>
+                    <span className="badge badge-info" title={emp.doj || ''}>
+                      {calcTenure(emp.doj)}
+                    </span>
+                  </td>
                 </tr>
               ))}
               {filteredEmployees.length === 0 && (

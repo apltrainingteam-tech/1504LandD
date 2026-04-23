@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Users,
   BarChart3,
@@ -135,6 +135,25 @@ const App = () => {
   const [scs, setScs] = useState<TrainingScore[]>([]);
   const [noms, setNoms] = useState<TrainingNomination[]>([]);
   const [demos, setDemos] = useState<DemoType[]>([]);
+
+  // Employee Master filter state (lifted so KPI card reflects filters)
+  const [empSearch, setEmpSearch] = useState('');
+  const [empFilterDesignation, setEmpFilterDesignation] = useState('');
+  const [empFilterTeam, setEmpFilterTeam] = useState('');
+  const [empFilterZone, setEmpFilterZone] = useState('');
+
+  const filteredEmps = useMemo(() => emps.filter(e => {
+    const q = empSearch.toLowerCase();
+    const matchesSearch = !q ||
+      (e.name || '').toLowerCase().includes(q) ||
+      (e.employeeId || '').toLowerCase().includes(q);
+    const matchesDesignation = !empFilterDesignation || e.designation === empFilterDesignation;
+    const matchesTeam = !empFilterTeam || e.team === empFilterTeam;
+    const matchesZone = !empFilterZone || e.zone === empFilterZone;
+    return matchesSearch && matchesDesignation && matchesTeam && matchesZone;
+  }), [emps, empSearch, empFilterDesignation, empFilterTeam, empFilterZone]);
+
+  const empFiltersActive = !!(empSearch || empFilterDesignation || empFilterTeam || empFilterZone);
 
   const handleSeed = async () => {
     if (!confirm('Seed database with Master Data?')) return;
@@ -337,7 +356,19 @@ const App = () => {
       case 'nominations':   return <NominationsPage  employees={emps} nominations={noms} />;
       case 'notification':  return <NotificationPage employees={emps} />;
       case 'training-data': return <TrainingDataPage  employees={emps} attendance={att} />;
-      case 'employees': return <Employees employees={emps} onUploadComplete={() => setRefreshKey(k => k + 1)} />;
+      case 'employees': return <Employees
+        employees={emps}
+        onUploadComplete={() => setRefreshKey(k => k + 1)}
+        searchQuery={empSearch}
+        onSearchChange={setEmpSearch}
+        filterDesignation={empFilterDesignation}
+        onFilterDesignationChange={setEmpFilterDesignation}
+        filterTeam={empFilterTeam}
+        onFilterTeamChange={setEmpFilterTeam}
+        filterZone={empFilterZone}
+        onFilterZoneChange={setEmpFilterZone}
+        filteredEmployees={filteredEmps}
+      />;
       case 'demographics': return <Demographics />;
       case 'gap-analysis': return <GapAnalysis employees={emps} attendance={att} nominations={noms} onNavigate={setView} />;
       case 'master-settings': return <MasterSettings />;
@@ -428,9 +459,18 @@ const App = () => {
         </header>
 
         <div style={{ marginBottom: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          <div className="glass-panel" style={{ padding: '12px 16px', minWidth: '180px' }}>
+          <div
+            className="glass-panel"
+            style={{ padding: '12px 16px', minWidth: '180px', cursor: 'pointer', borderColor: view === 'employees' ? 'var(--primary)' : undefined }}
+            onClick={() => setView('employees')}
+            title="Go to Employee Master"
+          >
             <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Employees</div>
-            <div style={{ fontSize: '18px', fontWeight: 700 }}>{emps.length}</div>
+            <div style={{ fontSize: '18px', fontWeight: 700 }}>
+              {view === 'employees' && empFiltersActive
+                ? <>{filteredEmps.length} <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 400 }}>/ {emps.length}</span></>
+                : emps.length}
+            </div>
           </div>
           <div className="glass-panel" style={{ padding: '12px 16px', minWidth: '180px' }}>
             <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Attendance</div>

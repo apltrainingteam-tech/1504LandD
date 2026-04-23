@@ -7,15 +7,20 @@ export function applyEligibilityRules(
   trainingType: string,
   employees: Employee[],
   attendance: Attendance[],
-  nominations: TrainingNomination[]
+  nominations: TrainingNomination[],
+  overrideRule?: Record<string, any> | null
 ): Employee[] {
-  const rule = (ELIGIBILITY_RULES as any)[trainingType] || (ELIGIBILITY_RULES as any)[trainingType.toUpperCase()];
+  // Use overrideRule from DB if provided, otherwise fall back to static config
+  const rule = overrideRule
+    ?? (ELIGIBILITY_RULES as any)[trainingType]
+    ?? (ELIGIBILITY_RULES as any)[trainingType.toUpperCase()];
   
   // Fail-safe: If no rule exists, assume everyone is eligible but let Gap Analysis handle trained filtering
   if (!rule) {
     console.warn(`No eligibility rule found for trainingType: ${trainingType}`);
     return employees;
   }
+
 
   // Pre-indexed optimized lookups
   const attendanceByEmp = new Map<string, Set<string>>();

@@ -6,6 +6,7 @@ import { Attendance, TrainingScore, TrainingNomination } from '../../types/atten
 import { STATE_ZONE } from '../../seed/masterData';
 import { computeGapAnalysis, GapAnalysisData, EmployeeGapDetail } from '../../services/gapAnalysisService';
 import { applyEligibilityRules } from '../../services/applyEligibilityRules';
+import { getCollection } from '../../services/apiClient';
 import { KPIBox } from '../../components/KPIBox';
 import { InsightStrip } from '../../components/InsightStrip';
 import TopRightControls from '../../components/TopRightControls';
@@ -45,6 +46,65 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
   const activeFilterCount = getActiveFilterCount(pageFilters);
   const [showGlobalFilters, setShowGlobalFilters] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: 'total' | 'mr90', direction: 'asc' | 'desc' }>({ key: 'total', direction: 'desc' });
+
+  // DB-loaded eligibility rules (loaded once on mount, reloaded when tab changes)
+  const [dbRules, setDbRules] = useState<Record<string, any>>({});
+
+  /** Convert DB rule format → flat format used by applyEligibilityRules */
+  const convertDbRule = (raw: any): Record<string, any> | null => {
+    if (!raw) return null;
+    // Designation
+    const desMode = raw.designation?.mode;
+    let designations: string[] | 'ALL' = 'ALL';
+    if (desMode === 'INCLUDE' && Array.isArray(raw.designation?.values) && raw.designation.values.length > 0) {
+      designations = raw.designation.values.map((v: string) => v.toUpperCase());
+    } else if (desMode === 'EXCLUDE') {
+      // EXCLUDE mode: treat as ALL (gap analysis shows all, designation filter is advisory only)
+      designations = 'ALL';
+    }
+    // Previous training prerequisites
+    const preTraining: string[] = [];
+    const preTrainingApplicableTo: string[] = [];
+    if (raw.previousTraining?.mode === 'INCLUDE' && Array.isArray(raw.previousTraining?.values)) {
+      raw.previousTraining.values.forEach((v: any) => {
+        const type = typeof v === 'string' ? v : v?.type;
+        if (type) preTraining.push(type.toUpperCase());
+        if (Array.isArray(v?.designations) && v.designations.length > 0) {
+          v.designations.forEach((d: string) => {
+            if (!preTrainingApplicableTo.includes(d.toUpperCase())) preTrainingApplicableTo.push(d.toUpperCase());
+          });
+        }
+      });
+    }
+    // Experience bracket
+    const aplMode = raw.aplExperience?.mode;
+    const minYears = aplMode === 'RANGE' ? (raw.aplExperience?.min ?? null) : null;
+    const maxYears = aplMode === 'RANGE' ? (raw.aplExperience?.max ?? null) : null;
+
+    return {
+      designations,
+      preTraining,
+      preTrainingApplicableTo: preTrainingApplicableTo.length > 0 ? preTrainingApplicableTo : 'ALL',
+      minYears,
+      maxYears,
+      noAPInNext90Days: raw.specialConditions?.noAPInNext90Days ?? false,
+      preAPOnlyIfNominated: raw.specialConditions?.preAPOnlyIfInvited ?? false,
+      excludeIfAlreadyTrained: false, // gap analysis always shows untrained pool
+    };
+  };
+
+  useEffect(() => {
+    getCollection('eligibility_rules')
+      .then(rows => {
+        const map: Record<string, any> = {};
+        rows.forEach((r: any) => {
+          if (r.trainingType) map[r.trainingType] = r;
+        });
+        setDbRules(map);
+        console.log('[GAP] Loaded eligibility_rules from DB:', Object.keys(map));
+      })
+      .catch(err => console.warn('[GAP] Could not load DB eligibility rules, using static fallback:', err.message));
+  }, []);
 
   useEffect(() => {
     setSelectedTeams([]);
@@ -135,7 +195,8 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
       tab,
       filteredEmployees,
       filteredAttendance,
-      filteredNominations
+      filteredNominations,
+      convertDbRule(dbRules[tab] ?? dbRules[tab.toUpperCase()] ?? null)
     );
 
     const result = computeGapAnalysis(tab, strictlyEligibleEmployees, filteredAttendance, filteredNominations, masterTeams, zoneFilter);
@@ -145,7 +206,7 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
       console.log(`  - Total Eligible: ${result.data.reduce((s, d) => s + d.eligible, 0)}`);
     }
     return result;
-  }, [tab, employees, attendance, nominations, zoneFilter, masterTeams]);
+  }, [tab, employees, attendance, nominations, zoneFilter, masterTeams, dbRules]);
 
   const toggleExpanded = (key: string) => {
     const newExpanded = new Set(expanded);

@@ -3,6 +3,32 @@ import { CheckCircle, Lock, AlertTriangle, Filter, Users } from 'lucide-react';
 import { usePlanningFlow, NominationDraft } from '../../context/PlanningFlowContext';
 import { Employee } from '../../types/employee';
 import { TrainingNomination } from '../../types/attendance';
+import { parseAnyDate } from '../../utils/dateParser';
+
+/** Calculates tenure from DOJ to today → "Xyr Ym" */
+function calcTenure(doj: string | undefined | null): string {
+  if (!doj) return '--';
+  const parsed = parseAnyDate(doj);
+  if (!parsed) return '--';
+  const start = new Date(parsed);
+  if (isNaN(start.getTime())) return '--';
+  const today = new Date();
+  let years = today.getFullYear() - start.getFullYear();
+  let months = today.getMonth() - start.getMonth();
+  if (today.getDate() < start.getDate()) months -= 1;
+  if (months < 0) { years -= 1; months += 12; }
+  if (years < 0) return '--';
+  return `${years}yr ${months}m`;
+}
+
+/** Returns DOJ as ms for sorting; missing DOJ goes to end */
+function dojMs(doj: string | undefined | null): number {
+  if (!doj) return Infinity;
+  const parsed = parseAnyDate(doj);
+  if (!parsed) return Infinity;
+  const t = new Date(parsed).getTime();
+  return isNaN(t) ? Infinity : t;
+}
 
 interface Props {
   employees: Employee[];
@@ -69,13 +95,16 @@ export const NominationsPage: React.FC<Props> = ({ employees, nominations }) => 
     [employees, activeTeamId, sessionTeamIds]
   );
 
-  // Apply filter chip
+  // Apply filter chip + sort oldest joiner first
   const filteredEmps = useMemo(() => {
+    let list: Employee[];
     switch (filterMode) {
-      case 'first':  return teamEmps.filter(e => (noticeMap.get(String(e.employeeId))?.length ?? 0) === 0);
-      case 'repeat': return teamEmps.filter(e => (noticeMap.get(String(e.employeeId))?.length ?? 0) >= 2);
-      default:       return teamEmps;
+      case 'first':  list = teamEmps.filter(e => (noticeMap.get(String(e.employeeId))?.length ?? 0) === 0); break;
+      case 'repeat': list = teamEmps.filter(e => (noticeMap.get(String(e.employeeId))?.length ?? 0) >= 2); break;
+      default:       list = [...teamEmps];
     }
+    // Sort: oldest DOJ first (smallest timestamp = joined earliest)
+    return list.sort((a, b) => dojMs(a.doj) - dojMs(b.doj));
   }, [teamEmps, noticeMap, filterMode]);
 
   const isLocked = draft ? draft.status !== 'DRAFT' : false;
@@ -199,6 +228,7 @@ export const NominationsPage: React.FC<Props> = ({ employees, nominations }) => 
               <th style={thStyle}>Designation</th>
               <th style={thStyle}>HQ</th>
               <th style={thStyle}>State</th>
+              <th style={{ ...thStyle, color: 'var(--accent-primary)' }}>Tenure</th>
               {[1,2,3,4,5].map(n => (
                 <th key={n} style={{ ...thStyle, color: n >= 3 ? 'var(--danger)' : 'var(--text-secondary)' }}>
                   Notice {n}
@@ -208,7 +238,7 @@ export const NominationsPage: React.FC<Props> = ({ employees, nominations }) => 
           </thead>
           <tbody>
             {filteredEmps.length === 0 ? (
-              <tr><td colSpan={isLocked ? 10 : 11} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>No employees match this filter.</td></tr>
+              <tr><td colSpan={isLocked ? 11 : 12} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>No employees match this filter.</td></tr>
             ) : filteredEmps.map((emp, i) => {
               const eid     = String(emp.employeeId);
               const isIn    = draft?.candidates.includes(eid) ?? false;
@@ -243,6 +273,16 @@ export const NominationsPage: React.FC<Props> = ({ employees, nominations }) => 
                   <td style={{ padding: '8px 10px' }}><DesBadge des={normDes(emp.designation)} /></td>
                   <td style={{ padding: '8px 10px' }}>{emp.hq || '—'}</td>
                   <td style={{ padding: '8px 10px' }}>{emp.state || '—'}</td>
+                  <td style={{ padding: '8px 10px' }}>
+                    <span style={{
+                      display: 'inline-block', padding: '2px 8px', borderRadius: '10px',
+                      fontSize: '11px', fontWeight: 700,
+                      background: 'rgba(99,102,241,.1)', color: 'var(--accent-primary)',
+                      whiteSpace: 'nowrap'
+                    }} title={emp.doj || ''}>
+                      {calcTenure(emp.doj)}
+                    </span>
+                  </td>
                   {[0,1,2,3,4].map(idx => (
                     <td key={idx} style={{ padding: '8px 10px', fontSize: '11px', color: idx >= 2 ? 'var(--danger)' : 'var(--text-secondary)', fontWeight: idx >= 2 ? 700 : 400 }}>
                       {fmtDate(history[idx])}
