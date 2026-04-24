@@ -1,5 +1,7 @@
 {
   "routes": [
+    { "src": "/api/([^/]+)/query", "dest": "/api/$1?query=true" },
+    { "src": "/api/([^/]+)/([^/]+)", "dest": "/api/$1?id=$2" },
     { "src": "/api/(.*)", "dest": "/api/$1" }
   ]
 }
