@@ -39,7 +39,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
  * Fetch entire collection
  */
 export async function getCollection(collection: string): Promise<any[]> {
-  const response = await fetch(`${BASE_URL}/${collection}`);
+  const response = await fetch(`${BASE_URL}?path=${collection}`);
   const result = await handleResponse<ApiResponse<any[]>>(response);
   return result.data || [];
 }
@@ -54,10 +54,11 @@ export async function queryByField(
   value: any
 ): Promise<any[]> {
   const params = new URLSearchParams({
+    path: collection,
     field,
     value: String(value)
   });
-  const response = await fetch(`${BASE_URL}/${collection}?${params}`);
+  const response = await fetch(`${BASE_URL}?${params}`);
   const result = await handleResponse<ApiResponse<any[]>>(response);
   return result.data || [];
 }
@@ -67,7 +68,7 @@ export async function queryByField(
  * Fetch single document by ID
  */
 export async function getById(collection: string, id: string): Promise<any> {
-  const response = await fetch(`${BASE_URL}/${collection}?id=${id}`);
+  const response = await fetch(`${BASE_URL}?path=${collection}&id=${id}`);
   const result = await handleResponse<ApiResponse<any>>(response);
   return result.data;
 }
@@ -80,7 +81,7 @@ export async function createDocument(
   collection: string,
   data: any
 ): Promise<{ insertedId: string }> {
-  const response = await fetch(`${BASE_URL}/${collection}`, {
+  const response = await fetch(`${BASE_URL}?path=${collection}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ data })
@@ -108,7 +109,7 @@ export async function createBatch(
   console.log(`[API] DEBUG: Sending payload with batch=true, items=${items.length}`);
   console.log(`[API] DEBUG: Payload size: ${JSON.stringify(payload).length} bytes`);
 
-  const response = await fetch(`${BASE_URL}/${collection}`, {
+  const response = await fetch(`${BASE_URL}?path=${collection}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
@@ -128,7 +129,7 @@ export async function upsertDocument(
   id: string,
   data: any
 ): Promise<{ upsertedId: string }> {
-  const response = await fetch(`${BASE_URL}/${collection}`, {
+  const response = await fetch(`${BASE_URL}?path=${collection}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ upsert: true, id, data })
@@ -145,7 +146,7 @@ export async function updateDocument(
   id: string,
   data: any
 ): Promise<{ updatedId: string }> {
-  const response = await fetch(`${BASE_URL}/${collection}?id=${id}`, {
+  const response = await fetch(`${BASE_URL}?path=${collection}&id=${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ data })
@@ -161,7 +162,7 @@ export async function deleteDocument(
   collection: string,
   id: string
 ): Promise<{ deletedId: string }> {
-  const response = await fetch(`${BASE_URL}/${collection}?id=${id}`, {
+  const response = await fetch(`${BASE_URL}?path=${collection}&id=${id}`, {
     method: 'DELETE'
   });
   return handleResponse<any>(response);
@@ -172,7 +173,7 @@ export async function deleteDocument(
  * Clear entire collection
  */
 export async function clearCollection(collection: string): Promise<void> {
-  const response = await fetch(`${BASE_URL}/${collection}?clear=true`, {
+  const response = await fetch(`${BASE_URL}?path=${collection}&clear=true`, {
     method: 'DELETE'
   });
   await handleResponse<any>(response);
@@ -188,11 +189,12 @@ export async function clearCollectionByField(
   value: any
 ): Promise<{ deletedCount: number }> {
   const params = new URLSearchParams({
+    path: collection,
     clearByField: 'true',
     field,
     value: String(value)
   });
-  const response = await fetch(`${BASE_URL}/${collection}?${params}`, {
+  const response = await fetch(`${BASE_URL}?${params}`, {
     method: 'DELETE'
   });
   return handleResponse<any>(response);
@@ -208,10 +210,11 @@ export async function deleteRecordsByQuery(
   values: any[]
 ): Promise<{ deletedCount: number }> {
   const params = new URLSearchParams({
+    path: collection,
     field,
     values: values.map(v => String(v)).join(',')
   });
-  const response = await fetch(`${BASE_URL}/${collection}?${params}`, {
+  const response = await fetch(`${BASE_URL}?${params}`, {
     method: 'DELETE'
   });
   return handleResponse<any>(response);
@@ -225,7 +228,7 @@ export async function findByQuery(
   collection: string,
   query: any
 ): Promise<any[]> {
-  const response = await fetch(`${BASE_URL}/${collection}?action=query`, {
+  const response = await fetch(`${BASE_URL}?path=${collection}&action=query`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query })
@@ -243,7 +246,7 @@ export async function updateByQuery(
   query: any,
   updateData: any
 ): Promise<{ modifiedCount: number }> {
-  const response = await fetch(`${BASE_URL}/${collection}`, {
+  const response = await fetch(`${BASE_URL}?path=${collection}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query, updateData })
@@ -256,7 +259,7 @@ export async function updateByQuery(
  */
 export async function healthCheck(): Promise<boolean> {
   try {
-    const response = await fetch(`${BASE_URL.replace('/api', '')}/health`);
+    const response = await fetch(`${BASE_URL}?path=health`);
     return response.ok;
   } catch (error) {
     console.error('[API] Health check failed:', error);
