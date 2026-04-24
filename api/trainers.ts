@@ -1,4 +1,6 @@
-import { Trainer } from './lib/db';
-import { createHandler } from './lib/handlerFactory';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { baseHandler } from './lib/handlerFactory';
 
-export default createHandler(Trainer);
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  return await baseHandler(req, res, 'Trainer', 'trainers');
+}
