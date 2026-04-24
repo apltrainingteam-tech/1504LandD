@@ -21,14 +21,14 @@ interface ApiResponse<T> {
 async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 2, delay = 2000): Promise<Response> {
   try {
     const response = await fetch(url, options);
-    
+
     // If backend is cold starting, it might return 502/503/504
     if (!response.ok && [502, 503, 504].includes(response.status) && retries > 0) {
       console.warn(`[API] Backend busy (cold start?), retrying in ${delay}ms... (${retries} left)`);
       await new Promise(resolve => setTimeout(resolve, delay));
       return fetchWithRetry(url, options, retries - 1, delay * 1.5);
     }
-    
+
     return response;
   } catch (error) {
     if (retries > 0) {
