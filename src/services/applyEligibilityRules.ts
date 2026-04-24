@@ -88,15 +88,15 @@ export function applyEligibilityRules(
     }
 
     // STEP 3: Tenure filter — use parseAnyDate to handle DD/MM/YYYY, Excel serials, etc.
-    if (rule.minYears !== null || rule.maxYears !== null) {
+    if (rule.minYears != null || rule.maxYears != null) {
       const parsedDoj = parseAnyDate(employee.doj);
       if (!parsedDoj) return false; // no DOJ → ineligible when tenure rule applies
       const dojDate = new Date(parsedDoj);
       if (isNaN(dojDate.getTime())) return false;
       
       const years = (today.getTime() - dojDate.getTime()) / (1000 * 3600 * 24 * 365.25);
-      if (rule.minYears !== null && years < rule.minYears) return false;
-      if (rule.maxYears !== null && years > rule.maxYears) return false;
+      if (rule.minYears != null && years < Number(rule.minYears)) return false;
+      if (rule.maxYears != null && years > Number(rule.maxYears)) return false;
     }
 
     // STEP 4: Special Rule — noAPInNext90Days
