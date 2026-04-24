@@ -1,9 +1,16 @@
-/**
- * Centralized API Base URL
- * Points to the Render production backend.
- */
-export const API_BASE = import.meta.env.VITE_API_URL || "https://one504landd.onrender.com/api";
+const API_BASE = import.meta.env.VITE_API_URL;
 
-// Build-safety check – visible in both dev console and Vercel Function logs
+if (!API_BASE) {
+  console.error("CRITICAL ERROR: VITE_API_URL is not defined!");
+  throw new Error("VITE_API_URL is not defined");
+}
+
+if (API_BASE.includes("vercel.app")) {
+  console.error("CRITICAL ERROR: API_BASE includes vercel.app!", API_BASE);
+  throw new Error("Invalid API base URL: pointing to frontend domain");
+}
+
+// Runtime debug logging
 console.log("FINAL API BASE:", API_BASE);
-console.log("ENV MODE:", import.meta.env.MODE);
+
+export default API_BASE;

@@ -3,7 +3,7 @@
  * Communicates with backend server for all MongoDB operations
  */
 
-import { API_BASE } from '../config/api';
+import API_BASE from '../config/api';
 
 // Runtime URL verification – confirms which backend is active
 console.log("[API BASE]", API_BASE);
@@ -41,6 +41,19 @@ async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 
 }
 
 /**
+ * Helper to parse JSON safely and handle HTML error pages
+ */
+async function safeParseJson(response: Response): Promise<any> {
+  const text = await response.text();
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    console.error(`[API] Non-JSON response from ${response.url}:`, text.substring(0, 200));
+    throw new Error(`API did not return JSON (Status ${response.status}). The server might be down or misconfigured.`);
+  }
+}
+
+/**
  * GET /api/:collection
  * Fetch entire collection or query by field
  */
@@ -52,7 +65,7 @@ export async function getCollection(collectionName: string, field?: string, valu
     }
 
     const response = await fetchWithRetry(url);
-    const data = await response.json();
+    const data = await safeParseJson(response);
 
     if (!response.ok) {
       console.error("API Error:", data);
@@ -75,7 +88,7 @@ export async function getDocumentById(collectionName: string, id: string): Promi
   try {
     const url = `${API_BASE}/${collectionName}/${id}`;
     const response = await fetchWithRetry(url);
-    const data = await response.json();
+    const data = await safeParseJson(response);
 
     if (!response.ok) {
       console.error("API Error:", data);
@@ -101,7 +114,7 @@ export async function insertDocument(collectionName: string, data: any): Promise
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ data })
     });
-    const result = await response.json();
+    const result = await safeParseJson(response);
 
     if (!response.ok) {
       console.error("API Error:", result);
@@ -128,7 +141,7 @@ export async function addBatch(collectionName: string, items: any[]): Promise<vo
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ batch: true, items })
     });
-    const data = await response.json();
+    const data = await safeParseJson(response);
 
     if (!response.ok) {
       console.error("API Error:", data);
@@ -154,7 +167,7 @@ export async function upsertDoc(collectionName: string, id: string, data: any): 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ upsert: true, id, data })
     });
-    const result = await response.json();
+    const result = await safeParseJson(response);
 
     if (!response.ok) {
       console.error("API Error:", result);
@@ -180,7 +193,7 @@ export async function updateDocument(collectionName: string, id: string, data: a
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ data })
     });
-    const result = await response.json();
+    const result = await safeParseJson(response);
 
     if (!response.ok) {
       console.error("API Error:", result);
@@ -204,7 +217,7 @@ export async function deleteDocument(collectionName: string, id: string): Promis
     const response = await fetchWithRetry(url, {
       method: 'DELETE'
     });
-    const result = await response.json();
+    const result = await safeParseJson(response);
 
     if (!response.ok) {
       console.error("API Error:", result);
@@ -228,7 +241,7 @@ export async function deleteRecordsByQuery(collectionName: string, field: string
     const response = await fetchWithRetry(url, {
       method: 'DELETE'
     });
-    const result = await response.json();
+    const result = await safeParseJson(response);
 
     if (!response.ok) {
       console.error("API Error:", result);
@@ -253,7 +266,7 @@ export async function clearCollectionByField(collectionName: string, field: stri
     const response = await fetchWithRetry(url, {
       method: 'DELETE'
     });
-    const result = await response.json();
+    const result = await safeParseJson(response);
 
     if (!response.ok) {
       console.error("API Error:", result);
@@ -278,7 +291,7 @@ export async function clearCollection(collectionName: string): Promise<void> {
     const response = await fetchWithRetry(url, {
       method: 'DELETE'
     });
-    const result = await response.json();
+    const result = await safeParseJson(response);
 
     if (!response.ok) {
       console.error("API Error:", result);
@@ -304,7 +317,7 @@ export async function findByQuery(collectionName: string, query: Record<string, 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query })
     });
-    const result = await response.json();
+    const result = await safeParseJson(response);
 
     if (!response.ok) {
       console.error("API Error:", result);
@@ -331,7 +344,7 @@ export async function updateByQuery(collectionName: string, query: Record<string
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query, updateData })
     });
-    const result = await response.json();
+    const result = await safeParseJson(response);
 
     if (!response.ok) {
       console.error("API Error:", result);

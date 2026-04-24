@@ -8,7 +8,7 @@
  * Frontend (React) → Backend API (Express) → MongoDB
  */
 
-import { API_BASE } from '../config/api';
+import API_BASE from '../config/api';
 
 // Use environment variable if available, otherwise default to localhost
 const BASE_URL = API_BASE;
@@ -49,14 +49,27 @@ async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 
 }
 
 /**
+ * Helper to parse JSON safely and handle HTML error pages
+ */
+async function safeParseJson(response: Response): Promise<any> {
+  const text = await response.text();
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    console.error(`[API] Non-JSON response from ${response.url}:`, text.substring(0, 200));
+    throw new Error(`API did not return JSON (Status ${response.status}). The server might be down or misconfigured.`);
+  }
+}
+
+/**
  * Helper to throw on API errors
  */
 async function handleResponse<T>(response: Response): Promise<T> {
+  const data = await safeParseJson(response);
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: response.statusText }));
-    throw new Error(error?.error || `API error: ${response.status}`);
+    throw new Error(data?.error || `API error: ${response.status}`);
   }
-  return response.json();
+  return data;
 }
 
 /**
