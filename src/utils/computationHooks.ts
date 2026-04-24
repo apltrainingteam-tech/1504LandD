@@ -11,11 +11,11 @@ import {
   groupData, rankGroups, calcTrainerStats, buildDrilldown,
   buildTimeSeries, getGapData
 } from '../services/reportService';
-import { TrainingNomination, EligibilityResult, Demographics } from '../types/attendance';
+import { TrainingNomination, Demographics } from '../types/attendance';
+import { EligibilityResult } from '../services/eligibilityService';
 import { Employee } from '../types/employee';
-import { getAvailableTrainers, Trainer } from '../services/trainerService';
-
-import { Team } from '../context/MasterDataContext';
+import { getAvailableTrainers } from '../services/trainerService';
+import { Team, Trainer } from '../context/MasterDataContext';
 
 /**
  * Hook: Compute grouped data independently

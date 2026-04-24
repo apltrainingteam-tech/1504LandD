@@ -115,7 +115,7 @@ export const Notified: React.FC<NotifiedProps> = ({ employees, attendance, nomin
       </div>
 
       {/* ── PAGE CONTENT ── */}
-      {tab === 'nominations'  && <NominationsPage  employees={employees} nominations={nominations} />}
+      {tab === 'nominations'  && <NominationsPage  employees={employees} nominations={nominations} attendance={attendance} />}
       {tab === 'notification' && <NotificationPage employees={employees} />}
       {tab === 'execution'    && <ExecutionPage    employees={employees} attendance={attendance} />}
     </div>

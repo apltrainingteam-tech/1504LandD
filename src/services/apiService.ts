@@ -98,22 +98,22 @@ export async function createBatch(
 ): Promise<{ insertedCount: number }> {
   console.log(`[API] createBatch() called for collection: ${collection}`);
   console.log(`[API] DEBUG: items.length = ${items.length}`);
-  
+
   if (items.length > 0) {
     console.log('[API] DEBUG: First item:', JSON.stringify(items[0], null, 2));
     console.log(`[API] DEBUG: Item keys: ${Object.keys(items[0]).join(', ')}`);
   }
-  
+
   const payload = { batch: true, items };
   console.log(`[API] DEBUG: Sending payload with batch=true, items=${items.length}`);
   console.log(`[API] DEBUG: Payload size: ${JSON.stringify(payload).length} bytes`);
-  
+
   const response = await fetch(`${BASE_URL}/${collection}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   });
-  
+
   const result = await handleResponse<any>(response);
   console.log(`[API] ✅ createBatch response:`, result);
   return result;
