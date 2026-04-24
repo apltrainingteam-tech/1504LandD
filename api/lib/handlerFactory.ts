@@ -7,10 +7,12 @@ export function createHandler(Model: mongoose.Model<any>) {
     try {
       await dbConnect();
       const dbName = mongoose.connection.db?.databaseName || 'unknown';
-      const { id, field, value, values, clear, clearByField, batch, upsert, query: bodyQuery } = { ...req.query, ...req.body } as any;
+      const { id, action, field, value, values, clear, clearByField, batch, upsert, query: bodyQuery } = { ...req.query, ...req.body } as any;
 
       const collectionName = Model.collection.name;
-      console.log(`[API] ${req.method} /api/${collectionName} (DB: ${dbName})`, { id, field, value });
+      console.log(`[API] ${req.method} /api/${collectionName} (DB: ${dbName})`);
+      console.log(`[API] Query Params:`, JSON.stringify(req.query));
+      console.log(`[API] Body Action: ${action}`);
 
       switch (req.method) {
         case 'GET':
@@ -33,12 +35,13 @@ export function createHandler(Model: mongoose.Model<any>) {
           });
 
         case 'POST':
-          if (req.url?.endsWith('/query')) {
+          if (action === 'query') {
             const result = await Model.find(bodyQuery || {}).lean();
             return res.status(200).json({ success: true, data: result.map(d => ({ ...d, id: d._id.toString() })) });
           }
 
-          if (batch && Array.isArray(req.body.items)) {
+          if (batch && Array.isArray(req.body.items) && req.body.items.length > 0) {
+            console.log(`[API] Performing bulk write of ${req.body.items.length} items`);
             const operations = req.body.items.map((item: any) => ({
               updateOne: {
                 filter: { _id: item.id || item._id || new mongoose.Types.ObjectId() },

@@ -1,12 +1,9 @@
 {
   "functions": {
     "api/**/*.ts": {
-      "runtime": "nodejs18.x"
+      "runtime": "nodejs18.x",
+      "memory": 1024,
+      "maxDuration": 10
     }
-  },
-  "routes": [
-    { "src": "/api/([^/]+)/query", "dest": "/api/$1?query=true" },
-    { "src": "/api/([^/]+)/([^/]+)", "dest": "/api/$1?id=$2" },
-    { "src": "/api/(.*)", "dest": "/api/$1" }
-  ]
+  }
 }

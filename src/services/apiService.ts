@@ -67,7 +67,7 @@ export async function queryByField(
  * Fetch single document by ID
  */
 export async function getById(collection: string, id: string): Promise<any> {
-  const response = await fetch(`${BASE_URL}/${collection}/${id}`);
+  const response = await fetch(`${BASE_URL}/${collection}?id=${id}`);
   const result = await handleResponse<ApiResponse<any>>(response);
   return result.data;
 }
@@ -145,7 +145,7 @@ export async function updateDocument(
   id: string,
   data: any
 ): Promise<{ updatedId: string }> {
-  const response = await fetch(`${BASE_URL}/${collection}/${id}`, {
+  const response = await fetch(`${BASE_URL}/${collection}?id=${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ data })
@@ -161,7 +161,7 @@ export async function deleteDocument(
   collection: string,
   id: string
 ): Promise<{ deletedId: string }> {
-  const response = await fetch(`${BASE_URL}/${collection}/${id}`, {
+  const response = await fetch(`${BASE_URL}/${collection}?id=${id}`, {
     method: 'DELETE'
   });
   return handleResponse<any>(response);
@@ -225,7 +225,7 @@ export async function findByQuery(
   collection: string,
   query: any
 ): Promise<any[]> {
-  const response = await fetch(`${BASE_URL}/${collection}/query`, {
+  const response = await fetch(`${BASE_URL}/${collection}?action=query`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query })
