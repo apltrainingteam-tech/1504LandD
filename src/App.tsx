@@ -145,7 +145,7 @@ const App = () => {
   const [empFilterZone, setEmpFilterZone] = useState('');
 
   // Sidebar State
-  const [isSidebarPinned, setIsSidebarPinned] = useState(true);
+  const [isSidebarPinned, setIsSidebarPinned] = useState(false);
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
   const isSidebarCollapsed = !isSidebarPinned && !isSidebarHovered;
 

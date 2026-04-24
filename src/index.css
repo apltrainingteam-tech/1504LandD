@@ -147,8 +147,16 @@ button {
 }
 
 .sidebar.collapsed {
-  width: 84px;
-  padding: 24px 16px;
+  width: 72px;
+  padding: 24px 12px;
+}
+
+.sidebar:not(.collapsed) {
+  box-shadow: 10px 0 30px rgba(0, 0, 0, 0.1);
+}
+
+.light-theme .sidebar:not(.collapsed) {
+  box-shadow: 10px 0 30px rgba(0, 0, 0, 0.05);
 }
 
 .sidebar-logo {
@@ -295,7 +303,8 @@ button {
 
 .collapsed .nav-item {
   justify-content: center;
-  padding: 12px;
+  padding: 12px 0;
+  width: 100%;
 }
 
 .collapsed .nav-item span {
@@ -306,6 +315,7 @@ button {
 
 .collapsed .nav-item svg {
   margin: 0;
+  min-width: 20px;
 }
 
 .user-profile {
@@ -370,6 +380,7 @@ button {
   padding: 32px 48px;
   background: radial-gradient(circle at top right, rgba(99, 102, 241, 0.05), transparent 40%),
               radial-gradient(circle at bottom left, rgba(139, 92, 246, 0.05), transparent 40%);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .header {
