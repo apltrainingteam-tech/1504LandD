@@ -1,15 +1,9 @@
 /**
  * Centralized API Base URL
- *
- * DEV  → http://localhost:5000/api           (VITE_API_URL not set)
- * PROD → https://1504-land-d-delta.vercel.app/api  (via VITE_API_URL on Vercel)
- *
- * Vercel: Settings → Environment Variables
- *   VITE_API_URL = https://1504-land-d-delta.vercel.app/api
+ * Points to the Render production backend.
  */
-export const API_BASE =
-  import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+export const API_BASE = "https://one504landd.onrender.com/api";
 
 // Build-safety check – visible in both dev console and Vercel Function logs
+console.log("FINAL API BASE:", API_BASE);
 console.log("ENV MODE:", import.meta.env.MODE);
-console.log("API BASE:", API_BASE);
