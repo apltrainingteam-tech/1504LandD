@@ -28,7 +28,7 @@ export async function getCollection(collectionName: string, field?: string, valu
 
     const response = await fetch(url);
     const data = await response.json();
-    
+
     if (!response.ok) {
       console.error("API Error:", data);
       throw new Error(data.error || `API failed with status ${response.status}`);
@@ -51,7 +51,7 @@ export async function getDocumentById(collectionName: string, id: string): Promi
     const url = `${API_BASE}/${collectionName}/${id}`;
     const response = await fetch(url);
     const data = await response.json();
-    
+
     if (!response.ok) {
       console.error("API Error:", data);
       throw new Error(data.error || `API failed with status ${response.status}`);
