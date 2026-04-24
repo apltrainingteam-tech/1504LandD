@@ -19,7 +19,7 @@
     "framer-motion": "^11.18.2",
     "lucide-react": "^0.556.0",
     "mongodb": "^7.1.1",
-    "mongoose": "^9.5.0",
+    "mongoose": "^7.0.0",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "xlsx": "^0.18.5",
