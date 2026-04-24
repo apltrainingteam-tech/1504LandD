@@ -16,6 +16,31 @@ interface ApiResponse<T> {
 }
 
 /**
+ * Helper to handle fetch with retries (for cold starts)
+ */
+async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 2, delay = 2000): Promise<Response> {
+  try {
+    const response = await fetch(url, options);
+    
+    // If backend is cold starting, it might return 502/503/504
+    if (!response.ok && [502, 503, 504].includes(response.status) && retries > 0) {
+      console.warn(`[API] Backend busy (cold start?), retrying in ${delay}ms... (${retries} left)`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return fetchWithRetry(url, options, retries - 1, delay * 1.5);
+    }
+    
+    return response;
+  } catch (error) {
+    if (retries > 0) {
+      console.warn(`[API] Network error, retrying in ${delay}ms... (${retries} left)`, error);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return fetchWithRetry(url, options, retries - 1, delay * 1.5);
+    }
+    throw error;
+  }
+}
+
+/**
  * GET /api/:collection
  * Fetch entire collection or query by field
  */
@@ -26,7 +51,7 @@ export async function getCollection(collectionName: string, field?: string, valu
       url += `?field=${field}&value=${value}`;
     }
 
-    const response = await fetch(url);
+    const response = await fetchWithRetry(url);
     const data = await response.json();
 
     if (!response.ok) {
@@ -49,7 +74,7 @@ export async function getCollection(collectionName: string, field?: string, valu
 export async function getDocumentById(collectionName: string, id: string): Promise<any> {
   try {
     const url = `${API_BASE}/${collectionName}/${id}`;
-    const response = await fetch(url);
+    const response = await fetchWithRetry(url);
     const data = await response.json();
 
     if (!response.ok) {
@@ -71,7 +96,7 @@ export async function getDocumentById(collectionName: string, id: string): Promi
 export async function insertDocument(collectionName: string, data: any): Promise<string> {
   try {
     const url = `${API_BASE}/${collectionName}`;
-    const response = await fetch(url, {
+    const response = await fetchWithRetry(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ data })
@@ -98,7 +123,7 @@ export async function insertDocument(collectionName: string, data: any): Promise
 export async function addBatch(collectionName: string, items: any[]): Promise<void> {
   try {
     const url = `${API_BASE}/${collectionName}`;
-    const response = await fetch(url, {
+    const response = await fetchWithRetry(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ batch: true, items })
@@ -124,7 +149,7 @@ export async function addBatch(collectionName: string, items: any[]): Promise<vo
 export async function upsertDoc(collectionName: string, id: string, data: any): Promise<void> {
   try {
     const url = `${API_BASE}/${collectionName}`;
-    const response = await fetch(url, {
+    const response = await fetchWithRetry(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ upsert: true, id, data })
@@ -150,7 +175,7 @@ export async function upsertDoc(collectionName: string, id: string, data: any): 
 export async function updateDocument(collectionName: string, id: string, data: any): Promise<void> {
   try {
     const url = `${API_BASE}/${collectionName}/${id}`;
-    const response = await fetch(url, {
+    const response = await fetchWithRetry(url, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ data })
@@ -176,7 +201,7 @@ export async function updateDocument(collectionName: string, id: string, data: a
 export async function deleteDocument(collectionName: string, id: string): Promise<void> {
   try {
     const url = `${API_BASE}/${collectionName}/${id}`;
-    const response = await fetch(url, {
+    const response = await fetchWithRetry(url, {
       method: 'DELETE'
     });
     const result = await response.json();
@@ -200,7 +225,7 @@ export async function deleteDocument(collectionName: string, id: string): Promis
 export async function deleteRecordsByQuery(collectionName: string, field: string, values: string[]): Promise<number> {
   try {
     const url = `${API_BASE}/${collectionName}?field=${field}&values=${values.join(',')}`;
-    const response = await fetch(url, {
+    const response = await fetchWithRetry(url, {
       method: 'DELETE'
     });
     const result = await response.json();
@@ -225,7 +250,7 @@ export async function deleteRecordsByQuery(collectionName: string, field: string
 export async function clearCollectionByField(collectionName: string, field: string, value: string): Promise<number> {
   try {
     const url = `${API_BASE}/${collectionName}?clearByField=true&field=${field}&value=${value}`;
-    const response = await fetch(url, {
+    const response = await fetchWithRetry(url, {
       method: 'DELETE'
     });
     const result = await response.json();
@@ -250,7 +275,7 @@ export async function clearCollectionByField(collectionName: string, field: stri
 export async function clearCollection(collectionName: string): Promise<void> {
   try {
     const url = `${API_BASE}/${collectionName}?clear=true`;
-    const response = await fetch(url, {
+    const response = await fetchWithRetry(url, {
       method: 'DELETE'
     });
     const result = await response.json();
@@ -274,7 +299,7 @@ export async function clearCollection(collectionName: string): Promise<void> {
 export async function findByQuery(collectionName: string, query: Record<string, any>): Promise<any[]> {
   try {
     const url = `${API_BASE}/${collectionName}/query`;
-    const response = await fetch(url, {
+    const response = await fetchWithRetry(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query })
@@ -301,7 +326,7 @@ export async function findByQuery(collectionName: string, query: Record<string, 
 export async function updateByQuery(collectionName: string, query: Record<string, any>, updateData: Record<string, any>): Promise<number> {
   try {
     const url = `${API_BASE}/${collectionName}`;
-    const response = await fetch(url, {
+    const response = await fetchWithRetry(url, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query, updateData })
