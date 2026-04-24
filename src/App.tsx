@@ -21,7 +21,9 @@ import {
   ListChecks,
   ClipboardList,
   UploadCloud,
-  Settings
+  Settings,
+  Pin,
+  PinOff
 } from 'lucide-react';
 import { useTheme } from './context/ThemeContext';
 import { FilterProvider } from './context/FilterProvider';
@@ -141,6 +143,11 @@ const App = () => {
   const [empFilterDesignation, setEmpFilterDesignation] = useState('');
   const [empFilterTeam, setEmpFilterTeam] = useState('');
   const [empFilterZone, setEmpFilterZone] = useState('');
+
+  // Sidebar State
+  const [isSidebarPinned, setIsSidebarPinned] = useState(true);
+  const [isSidebarHovered, setIsSidebarHovered] = useState(false);
+  const isSidebarCollapsed = !isSidebarPinned && !isSidebarHovered;
 
   const filteredEmps = useMemo(() => emps.filter(e => {
     const q = empSearch.toLowerCase();
@@ -379,9 +386,13 @@ const App = () => {
   return (
     <PlanningFlowProvider>
       <FilterProvider>
-        <div className="app-container">
+        <div className={`app-container ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         {/* Sidebar Navigation */}
-        <aside className="sidebar">
+        <aside 
+          className={`sidebar ${isSidebarCollapsed ? 'collapsed' : ''}`}
+          onMouseEnter={() => setIsSidebarHovered(true)}
+          onMouseLeave={() => setIsSidebarHovered(false)}
+        >
         <div className="sidebar-logo">
           <img
             src={logoUrl}
@@ -396,6 +407,15 @@ const App = () => {
               mixBlendMode: 'normal'
             }}
           />
+          {!isSidebarCollapsed && (
+            <button 
+              className="pin-button"
+              onClick={() => setIsSidebarPinned(!isSidebarPinned)}
+              title={isSidebarPinned ? "Unpin sidebar" : "Pin sidebar"}
+            >
+              {isSidebarPinned ? <Pin size={16} /> : <PinOff size={16} />}
+            </button>
+          )}
         </div>
 
         <nav className="sidebar-nav">

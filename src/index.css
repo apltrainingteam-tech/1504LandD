@@ -141,17 +141,49 @@ button {
   display: flex;
   flex-direction: column;
   background: var(--sidebar-bg);
-  z-index: 10;
+  z-index: 100; /* Higher z-index for hover overlay if needed */
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s ease;
+  overflow: hidden;
+}
+
+.sidebar.collapsed {
+  width: 84px;
+  padding: 24px 16px;
 }
 
 .sidebar-logo {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
   font-size: 20px;
   font-weight: 700;
   margin-bottom: 48px;
   color: var(--text-primary);
+  min-height: 40px;
+}
+
+.collapsed .sidebar-logo {
+  justify-content: center;
+}
+
+.pin-button {
+  color: var(--text-secondary);
+  padding: 6px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pin-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.light-theme .pin-button:hover {
+  background: rgba(0, 0, 0, 0.05);
 }
 
 .brand-logo {
@@ -165,6 +197,10 @@ button {
   mix-blend-mode: normal !important;
   transition: none !important;
   image-rendering: auto;
+}
+
+.collapsed .brand-logo {
+  display: none;
 }
 
 .sidebar-nav {
@@ -187,14 +223,23 @@ button {
   margin-top: 16px;
   margin-bottom: 6px;
   padding-left: 12px;
+  transition: opacity 0.2s ease;
+}
+
+.collapsed .section-title {
+  opacity: 0;
+  height: 0;
+  margin: 0;
+  overflow: hidden;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 12px;
-  padding: 10px 14px;
-  border-radius: 8px;
+  padding: 12px;
+  border-radius: 12px;
   color: var(--text-secondary);
   font-size: 14px;
   font-weight: 500;
@@ -245,6 +290,22 @@ button {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: opacity 0.2s ease;
+}
+
+.collapsed .nav-item {
+  justify-content: center;
+  padding: 12px;
+}
+
+.collapsed .nav-item span {
+  opacity: 0;
+  width: 0;
+  display: none;
+}
+
+.collapsed .nav-item svg {
+  margin: 0;
 }
 
 .user-profile {
@@ -256,6 +317,17 @@ button {
   border-top: 1px solid var(--border-color);
   padding-top: 16px;
   margin-top: 24px;
+  overflow: hidden;
+}
+
+.collapsed .user-profile {
+  justify-content: center;
+  padding: 16px 0;
+}
+
+.collapsed .user-profile div:not(.avatar),
+.collapsed .user-profile button {
+  display: none;
 }
 
 .avatar {
