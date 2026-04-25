@@ -18,14 +18,14 @@ interface Props {
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
 const STATUS_META: Record<BatchAttStatus, { label: string; className: string; Icon: React.ElementType }> = {
-  pending: { label: 'Pending',   className: styles.statusPending, Icon: Clock      },
+  pending: { label: 'Pending', className: styles.statusPending, Icon: Clock },
   present: { label: 'Completed', className: styles.statusPresent, Icon: CheckCircle },
-  absent:  { label: 'Absent',  className: styles.statusAbsent,  Icon: XCircle     },
+  absent: { label: 'Absent', className: styles.statusAbsent, Icon: XCircle },
 };
 
 const SOURCE_META = {
-  NOTIFICATION: { label: 'Planned Training',    className: styles.sourceNotification, Icon: BellRing },
-  UPLOAD:       { label: 'Uploaded Attendance', className: styles.sourceUpload,       Icon: Upload   },
+  NOTIFICATION: { label: 'Planned Training', className: styles.sourceNotification, Icon: BellRing },
+  UPLOAD: { label: 'Uploaded Attendance', className: styles.sourceUpload, Icon: Upload },
 } as const;
 
 const fmtDate = (s?: string) =>
@@ -43,7 +43,7 @@ const deriveUploadBatches = (attendance: Attendance[]): TrainingBatch[] => {
   attendance.forEach(a => {
     if (!a.trainingType || !a.teamId) return;
     const month = (a.month || a.attendanceDate?.substring(0, 7) || '');
-    const key   = `${a.trainingType}::${a.teamId}::${month}`;
+    const key = `${a.trainingType}::${a.teamId}::${month}`;
     if (!map.has(key)) map.set(key, { rows: [] });
     map.get(key)!.rows.push(a);
   });
@@ -54,25 +54,25 @@ const deriveUploadBatches = (attendance: Attendance[]): TrainingBatch[] => {
     const { rows } = val;
     const first = rows[0];
     // Determine date range from records
-    const dates     = rows.map(r => r.attendanceDate).filter(Boolean).sort();
-    const startDate = dates[0]  || first.month || '';
-    const endDate   = dates[dates.length - 1] || startDate;
+    const dates = rows.map(r => r.attendanceDate).filter(Boolean).sort();
+    const startDate = dates[0] || first.month || '';
+    const endDate = dates[dates.length - 1] || startDate;
 
     batches.push({
-      id:           `upload::${key}`,
-      draftId:      `upload::${key}`,
-      source:       'UPLOAD',
+      id: `upload::${key}`,
+      draftId: `upload::${key}`,
+      source: 'UPLOAD',
       trainingType: String(first.trainingType),
-      team:         first.team || first.teamId || '',
-      teamId:       first.teamId || '',
-      trainer:      first.trainerId || '',
+      team: first.team || first.teamId || '',
+      teamId: first.teamId || '',
+      trainer: first.trainerId || '',
       startDate,
       endDate,
-      committedAt:  startDate,
-      candidates:   rows.map(r => ({
-        empId:      r.employeeId,
+      committedAt: startDate,
+      candidates: rows.map(r => ({
+        empId: r.employeeId,
         attendance: r.attendanceStatus?.toLowerCase().includes('present') ? 'present' : 'absent' as BatchAttStatus,
-        score:      '',
+        score: '',
       })),
     });
   });
@@ -91,16 +91,16 @@ const AttToggle: React.FC<{
   const opts: { key: BatchAttStatus; label: string; color: string }[] = [
     { key: 'pending', label: '—', color: '#d97706' },
     { key: 'present', label: '✓', color: '#059669' },
-    { key: 'absent',  label: '✗', color: 'var(--danger)' },
+    { key: 'absent', label: '✗', color: 'var(--danger)' },
   ];
   return (
     <div className={`${styles.attToggle} ${readOnly ? styles.attToggleReadOnly : ''}`}>
       {opts.map(o => {
         const act = value === o.key;
         return (
-          <button 
-            key={o.key} 
-            onClick={() => !readOnly && onChange(o.key)} 
+          <button
+            key={o.key}
+            onClick={() => !readOnly && onChange(o.key)}
             title={STATUS_META[o.key].label}
             disabled={readOnly}
             className={`${styles.attToggleBtn} ${readOnly ? styles.attToggleBtnDisabled : styles.attToggleBtnEnabled} ${act ? STATUS_META[o.key].className : ''}`}
@@ -116,12 +116,12 @@ const AttToggle: React.FC<{
 // ─── Per-batch Metrics ─────────────────────────────────────────────────────────
 
 const batchMetrics = (candidates: CandidateRecord[]) => {
-  const total   = candidates.length;
+  const total = candidates.length;
   const present = candidates.filter(c => c.attendance === 'present').length;
-  const absent  = candidates.filter(c => c.attendance === 'absent').length;
-  const scores  = candidates.map(c => parseFloat(c.score)).filter(n => !isNaN(n));
+  const absent = candidates.filter(c => c.attendance === 'absent').length;
+  const scores = candidates.map(c => parseFloat(c.score)).filter(n => !isNaN(n));
   const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
-  const attPct   = present + absent > 0 ? Math.round((present / (present + absent)) * 100) : null;
+  const attPct = present + absent > 0 ? Math.round((present / (present + absent)) * 100) : null;
   return { total, present, absent, pending: total - present - absent, avgScore, attPct };
 };
 
@@ -135,8 +135,8 @@ const BatchCard: React.FC<{
   onUpdate: (empId: string, update: Partial<CandidateRecord>) => void;
 }> = ({ batch, employees, resolveTrainer, resolveTeam, onUpdate }) => {
   const [open, setOpen] = useState(false);
-  const m   = batchMetrics(batch.candidates);
-  const sm  = SOURCE_META[batch.source];
+  const m = batchMetrics(batch.candidates);
+  const sm = SOURCE_META[batch.source];
   const isUpload = batch.source === 'UPLOAD';
 
   return (
@@ -148,7 +148,7 @@ const BatchCard: React.FC<{
         className={`${styles.batchHeader} ${open ? styles.batchHeaderOpen : ''}`}
       >
         {open ? <ChevronDown size={15} className={styles.chevron} />
-               : <ChevronRight size={15} className={styles.chevron} />}
+          : <ChevronRight size={15} className={styles.chevron} />}
 
         {/* Source badge */}
         <span className={`${styles.sourceBadge} ${sm.className}`}>
@@ -182,10 +182,10 @@ const BatchCard: React.FC<{
 
         {/* Per-batch metrics */}
         <div className={styles.batchMetrics}>
-          <Pill label="Total"    value={m.total}                           className={styles.textAccent}  />
-          <Pill label="✓"       value={m.present}                          className={styles.textSuccess} />
-          <Pill label="✗"       value={m.absent}                           className={styles.textDanger}  />
-          {m.attPct !== null && <Pill label="Att%" value={`${m.attPct}%`}  className={m.attPct >= 80 ? styles.textSuccess : styles.textWarning} />}
+          <Pill label="Total" value={m.total} className={styles.textAccent} />
+          <Pill label="✓" value={m.present} className={styles.textSuccess} />
+          <Pill label="✗" value={m.absent} className={styles.textDanger} />
+          {m.attPct !== null && <Pill label="Att%" value={`${m.attPct}%`} className={m.attPct >= 80 ? styles.textSuccess : styles.textWarning} />}
           {m.avgScore !== null && <Pill label="Score" value={`${m.avgScore}`} className={styles.textPrimary} />}
         </div>
       </div>
@@ -204,7 +204,7 @@ const BatchCard: React.FC<{
             <tbody>
               {batch.candidates.map((c, i) => {
                 const emp = employees.find(e => String(e.employeeId) === c.empId);
-                const rs  = STATUS_META[c.attendance];
+                const rs = STATUS_META[c.attendance];
                 return (
                   <tr key={c.empId} className={`${styles.tr} ${i % 2 !== 0 ? styles.trOdd : ''}`}>
                     <td className={`${styles.td} ${styles.tdEmpId}`}>{c.empId}</td>
@@ -282,13 +282,13 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
   }, [notificationBatches, uploadBatches]);
 
   // ── Filters ───────────────────────────────────────────────────────────────
-  const [filterTeam,   setFilterTeam]   = useState('');
-  const [filterType,   setFilterType]   = useState('');
-  const [filterMonth,  setFilterMonth]  = useState('');
+  const [filterTeam, setFilterTeam] = useState('');
+  const [filterType, setFilterType] = useState('');
+  const [filterMonth, setFilterMonth] = useState('');
   const [filterSource, setFilterSource] = useState<'' | 'NOTIFICATION' | 'UPLOAD'>('');
 
-  const teamOptions  = useMemo(() => [...new Set(allBatches.map(b => b.teamId).filter(Boolean))], [allBatches]);
-  const typeOptions  = useMemo(() => [...new Set(allBatches.map(b => b.trainingType).filter(Boolean))], [allBatches]);
+  const teamOptions = useMemo(() => [...new Set(allBatches.map(b => b.teamId).filter(Boolean))], [allBatches]);
+  const typeOptions = useMemo(() => [...new Set(allBatches.map(b => b.trainingType).filter(Boolean))], [allBatches]);
   const monthOptions = useMemo(() =>
     [...new Set(allBatches.map(b => b.startDate?.substring(0, 7)).filter(Boolean))].sort().reverse(),
     [allBatches]
@@ -296,24 +296,24 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
 
   const filtered = useMemo(() =>
     allBatches.filter(b => {
-      if (filterTeam   && b.teamId       !== filterTeam)   return false;
-      if (filterType   && b.trainingType !== filterType)   return false;
-      if (filterMonth  && b.startDate?.substring(0, 7) !== filterMonth) return false;
-      if (filterSource && b.source       !== filterSource) return false;
+      if (filterTeam && b.teamId !== filterTeam) return false;
+      if (filterType && b.trainingType !== filterType) return false;
+      if (filterMonth && b.startDate?.substring(0, 7) !== filterMonth) return false;
+      if (filterSource && b.source !== filterSource) return false;
       return true;
     }),
     [allBatches, filterTeam, filterType, filterMonth, filterSource]
   );
 
   // ── Global metrics (across filtered) ─────────────────────────────────────
-  const allC    = filtered.flatMap(b => b.candidates);
-  const gTotal  = allC.length;
-  const gPresent= allC.filter(c => c.attendance === 'present').length;
+  const allC = filtered.flatMap(b => b.candidates);
+  const gTotal = allC.length;
+  const gPresent = allC.filter(c => c.attendance === 'present').length;
   const gAbsent = allC.filter(c => c.attendance === 'absent').length;
-  const gPending= allC.filter(c => c.attendance === 'pending').length;
+  const gPending = allC.filter(c => c.attendance === 'pending').length;
   const gAttPct = gPresent + gAbsent > 0 ? Math.round((gPresent / (gPresent + gAbsent)) * 100) : 0;
   const gScores = allC.map(c => parseFloat(c.score)).filter(n => !isNaN(n));
-  const gAvg    = gScores.length > 0 ? Math.round(gScores.reduce((a, b) => a + b, 0) / gScores.length) : null;
+  const gAvg = gScores.length > 0 ? Math.round(gScores.reduce((a, b) => a + b, 0) / gScores.length) : null;
 
   const hasFilters = !!(filterTeam || filterType || filterMonth || filterSource);
 
@@ -355,12 +355,12 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
       {/* Global metrics */}
       <div className={styles.metricsGrid}>
         {[
-          { label: 'Total',    value: gTotal,                    className: styles.textAccent,  Icon: Users       },
-          { label: 'Att %',    value: `${gAttPct}%`,             className: styles.textSuccess, Icon: TrendingUp  },
-          { label: 'Present',  value: gPresent,                  className: styles.textSuccess, Icon: CheckCircle },
-          { label: 'Drop-off', value: gAbsent,                   className: styles.textDanger,  Icon: XCircle     },
-          { label: 'Pending',  value: gPending,                  className: styles.textWarning, Icon: AlertCircle },
-          { label: 'Avg Score',value: gAvg !== null ? gAvg : '—', className: styles.textPrimary, Icon: TrendingUp  },
+          { label: 'Total', value: gTotal, className: styles.textAccent, Icon: Users },
+          { label: 'Att %', value: `${gAttPct}%`, className: styles.textSuccess, Icon: TrendingUp },
+          { label: 'Present', value: gPresent, className: styles.textSuccess, Icon: CheckCircle },
+          { label: 'Drop-off', value: gAbsent, className: styles.textDanger, Icon: XCircle },
+          { label: 'Pending', value: gPending, className: styles.textWarning, Icon: AlertCircle },
+          { label: 'Avg Score', value: gAvg !== null ? gAvg : '—', className: styles.textPrimary, Icon: TrendingUp },
         ].map(k => (
           <div key={k.label} className={styles.metricCard}>
             <div className={`${styles.metricValue} ${k.className}`}>{k.value}</div>
@@ -378,11 +378,11 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
           {([
             { key: '', label: 'All' },
             { key: 'NOTIFICATION', label: '📋 Planned' },
-            { key: 'UPLOAD',       label: '⬆ Uploaded' },
+            { key: 'UPLOAD', label: '⬆ Uploaded' },
           ] as { key: '' | 'NOTIFICATION' | 'UPLOAD'; label: string }[]).map(o => (
-            <button 
-              key={o.key} 
-              onClick={() => setFilterSource(o.key)} 
+            <button
+              key={o.key}
+              onClick={() => setFilterSource(o.key)}
               className={`${styles.toggleBtn} ${filterSource === o.key ? styles.toggleBtnActive : ''}`}
             >
               {o.label}
@@ -390,33 +390,33 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
           ))}
         </div>
 
-        <select 
-          value={filterTeam} 
+        <select
+          value={filterTeam}
           onChange={e => setFilterTeam(e.target.value)}
-          className={styles.select} 
-          title="Filter Team" 
+          className={styles.select}
+          title="Filter Team"
           aria-label="Filter Team"
         >
           <option value="">All Teams</option>
           {teamOptions.map(id => <option key={id} value={id}>{resolveTeam(id)}</option>)}
         </select>
 
-        <select 
-          value={filterType} 
+        <select
+          value={filterType}
           onChange={e => setFilterType(e.target.value)}
-          className={styles.select} 
-          title="Filter Type" 
+          className={styles.select}
+          title="Filter Type"
           aria-label="Filter Type"
         >
           <option value="">All Types</option>
           {typeOptions.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
 
-        <select 
-          value={filterMonth} 
+        <select
+          value={filterMonth}
           onChange={e => setFilterMonth(e.target.value)}
-          className={styles.select} 
-          title="Filter Month" 
+          className={styles.select}
+          title="Filter Month"
           aria-label="Filter Month"
         >
           <option value="">All Months</option>
@@ -424,7 +424,7 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
         </select>
 
         {hasFilters && (
-          <button 
+          <button
             onClick={() => { setFilterTeam(''); setFilterType(''); setFilterMonth(''); setFilterSource(''); }}
             className={styles.clearBtn}
           >
