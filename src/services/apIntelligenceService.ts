@@ -2,6 +2,7 @@ import { Attendance, TrainingNomination, TrainingScore } from '../types/attendan
 import { normalizeText } from '../utils/textNormalizer';
 import { Team } from '../context/MasterDataContext';
 import { getTeamId } from '../utils/teamIdMapper';
+import { normalizeTrainingType } from './reportService';
 
 // --- EVENT LAYER ---
 export type EmployeeEventTimeline = {
@@ -34,7 +35,7 @@ export function buildEmployeeTimelines(
   };
 
   nominations.forEach(n => {
-    if (n.trainingType !== targetType) return;
+    if (normalizeTrainingType(n.trainingType) !== targetType) return;
     const t = getTimeline(n.employeeId, n.name, n.team);
     t.notifications.push({
       date: n.notificationDate || '',
@@ -43,22 +44,23 @@ export function buildEmployeeTimelines(
   });
 
   attendances.forEach(a => {
-    if (a.trainingType !== targetType) return;
-    // We expect attendance records with joined master data to have the employee name, 
-    // but the pure Attendance interface might not directly guarantee it without joining.
-    // However, in ReportsAnalytics, attendance array is often just raw records.
-    // Wait, the Attendance interface actually has `name`? Let me assume `a.name` exists or fallback.
+    const aType = normalizeTrainingType(a.trainingType);
+    if (aType !== targetType) return;
+    
     const t = getTimeline(a.employeeId, (a as any).name || 'Unknown', a.team);
-    // Join scores: match by employeeId + trainingType + date
+    // Join scores: match by employeeId + normalized trainingType
     const sc = scores.find(s =>
       s.employeeId === a.employeeId &&
-      s.trainingType === a.trainingType &&
-      s.dateStr === a.attendanceDate
+      normalizeTrainingType(s.trainingType) === aType
     );
+    
+    const rawStatus = String(a.attendanceStatus || '').trim().toLowerCase();
+    const isPresent = rawStatus === '' || rawStatus === 'present';
+    
     t.attendances.push({
       date: a.attendanceDate || '',
       month: a.month || (a.attendanceDate ? a.attendanceDate.substring(0, 7) : ''),
-      status: a.attendanceStatus,
+      status: isPresent ? 'Present' : 'Absent',
       trainerId: a.trainerId,
       scores: sc?.scores || {}
     });
@@ -143,7 +145,7 @@ export function buildAPMonthlyMatrix(
   const clusterMonthMap: Record<string, APMonthMapNode> = {};
   const teamMonthMap: Record<string, Record<string, APMonthMapNode>> = {};
 
-  const DUMMY_TEAMS = new Set(['Team A', 'Unknown', '—', 'Unknown Team', 'Unmapped']);
+  const DUMMY_TEAMS = new Set(['Team A', '—', 'Unknown Team']);
 
   const globalNotifiedSet = new Set<string>();
   const globalAttendedSet = new Set<string>();
@@ -230,7 +232,7 @@ export function buildAPMonthlyMatrix(
     globalKPIs: {
       totalEmployeesNotified: globalNotifiedSet.size,
       totalEmployeesAttended: globalAttendedSet.size,
-      attendancePercent: globalNotifiedSet.size > 0 ? (globalAttendedSet.size / globalNotifiedSet.size) * 100 : 0,
+      attendancePercent: globalNotifiedSet.size > 0 ? (globalAttendedSet.size / globalNotifiedSet.size) * 100 : (globalAttendedSet.size > 0 ? 100 : 0),
       defaulters,
       compositeScore: scoredSessions > 0 ? totalScoreSum / scoredSessions : 0
     }

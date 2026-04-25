@@ -44,7 +44,7 @@ export function getMIPPerformanceAggregates(
   fyMonths: string[]
 ): MIPPerformanceAggregates {
   const clusterMap: Record<string, MIPPerfClusterRow> = {};
-  const DUMMY_TEAMS = new Set(['Team A', 'Unknown', '—', 'Unknown Team', 'Unmapped']);
+  const DUMMY_TEAMS = new Set(['Team A', '—', 'Unknown Team']);
 
   let globalScienceSum = 0;
   let globalScienceCount = 0;

@@ -41,7 +41,7 @@ export function getCapsulePerformanceAggregates(
   fyMonths: string[]
 ): CapsulePerformanceAggregates {
   const clusterMap: Record<string, CapsulePerfClusterRow> = {};
-  const DUMMY_TEAMS = new Set(['Team A', 'Unknown', '—', 'Unknown Team', 'Unmapped']);
+  const DUMMY_TEAMS = new Set(['Team A', '—', 'Unknown Team']);
 
   let globalScoreSum = 0;
   let globalScoreCount = 0;

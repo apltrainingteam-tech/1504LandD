@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, Fragment } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   LineChart, Line, Cell, PieChart, Pie, ScatterChart, Scatter, ZAxis, ComposedChart
 } from 'recharts';
 import {
@@ -154,7 +154,7 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
   const ipData = useMemo(() => buildIPAggregates(unified), [unified]);
   
   const rawTimelines = useMemo(() => {
-    if (['AP', 'MIP', 'Refresher', 'Capsule'].includes(activeNT)) {
+    if (['AP', 'MIP', 'Refresher', 'Capsule', 'Pre_AP'].includes(activeNT)) {
       const normalizedNoms = nominations
         .map(n => ({ ...n, month: normalizeMonthStr(n.month || n.notificationDate || '') }))
         .filter(n => normalizeTrainingType(n.trainingType) === activeNT);
@@ -173,18 +173,18 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
     return filterTimelines(rawTimelines, { trainer: pageFilters.trainer, validMonths: MONTHS });
   }, [rawTimelines, pageFilters.trainer, MONTHS]);
 
-  const apAttData = useMemo(() => activeNT === 'AP' ? buildAPMonthlyMatrix(filteredTimelines, MONTHS) : null, [activeNT, filteredTimelines, MONTHS]);
+  const apAttData = useMemo(() => (activeNT === 'AP' || activeNT === 'Pre_AP') ? buildAPMonthlyMatrix(filteredTimelines, MONTHS) : null, [activeNT, filteredTimelines, MONTHS]);
   const mipAttData = useMemo(() => activeNT === 'MIP' ? buildMIPAttendanceMatrix(filteredTimelines, MONTHS) : null, [activeNT, filteredTimelines, MONTHS]);
   const refAttData = useMemo(() => activeNT === 'Refresher' ? buildRefresherAttendanceMatrix(filteredTimelines, MONTHS) : null, [activeNT, filteredTimelines, MONTHS]);
   const capAttData = useMemo(() => activeNT === 'Capsule' ? buildCapsuleAttendanceMatrix(filteredTimelines, MONTHS) : null, [activeNT, filteredTimelines, MONTHS]);
   
-  const apPerfData = useMemo(() => activeNT === 'AP' ? getAPPerformanceAggregates(filteredTimelines, MONTHS) : null, [activeNT, filteredTimelines, MONTHS]);
+  const apPerfData = useMemo(() => (activeNT === 'AP' || activeNT === 'Pre_AP') ? getAPPerformanceAggregates(filteredTimelines, MONTHS) : null, [activeNT, filteredTimelines, MONTHS]);
   const mipPerfData = useMemo(() => activeNT === 'MIP' ? getMIPPerformanceAggregates(filteredTimelines, MONTHS) : null, [activeNT, filteredTimelines, MONTHS]);
   const refPerfData = useMemo(() => activeNT === 'Refresher' ? getRefresherPerformanceAggregates(filteredTimelines, MONTHS) : null, [activeNT, filteredTimelines, MONTHS]);
   const capPerfData = useMemo(() => activeNT === 'Capsule' ? getCapsulePerformanceAggregates(filteredTimelines, MONTHS) : null, [activeNT, filteredTimelines, MONTHS]);
 
-  const activeAttData = activeNT === 'AP' ? apAttData : activeNT === 'MIP' ? mipAttData : activeNT === 'Refresher' ? refAttData : capAttData;
-  const activePerfData = activeNT === 'AP' ? apPerfData : activeNT === 'MIP' ? mipPerfData : activeNT === 'Refresher' ? refPerfData : capPerfData;
+  const activeAttData = activeNT === 'AP' ? apAttData : activeNT === 'MIP' ? mipAttData : activeNT === 'Refresher' ? refAttData : (activeNT === 'Pre_AP' ? apAttData : capAttData);
+  const activePerfData = activeNT === 'AP' ? apPerfData : activeNT === 'MIP' ? mipPerfData : activeNT === 'Refresher' ? refPerfData : (activeNT === 'Pre_AP' ? apPerfData : capPerfData);
 
   // --- TRANSFORMATION ---
   const matrixData: MatrixCluster[] = useMemo(() => {
@@ -217,7 +217,7 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
         let score = 0;
         let metrics: Record<string, number> = {};
         const teamMonths = Object.values(teamData.months || {}) as any[];
-        const activeMonths = teamMonths.filter(m => m.count > 0 || (m.attended > 0));
+        const activeMonths = teamMonths.filter(m => (m.count > 0 || m.attended > 0 || m.total > 0));
         
         const teamTotal = activeMonths.reduce((sum, m) => sum + (m.count || m.attended || 0), 0);
 
@@ -235,8 +235,8 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
           const avgSki = activeMonths.reduce((s, m) => s + (m.avgSkill ?? 0), 0) / (activeMonths.length || 1);
           score = (avgSci + avgSki) / 2;
           metrics = { Science: avgSci, Skill: avgSki };
-        } else if (activeNT === 'Capsule') {
-          score = activeMonths.reduce((s, m) => s + (m.avgScore ?? 0), 0) / (activeMonths.length || 1);
+        } else if (activeNT === 'Capsule' || activeNT === 'Pre_AP') {
+          score = activeMonths.reduce((s, m) => s + (m.avgScore ?? m.avgKnowledge ?? 0), 0) / (activeMonths.length || 1);
           metrics = { Score: score };
         }
 
@@ -292,7 +292,7 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
       let count = 0;
       matrixData.forEach(c => c.teams.forEach(t => {
         const mon = Object.entries(t.monthly).find(([k]) => normalizeMonthStr(k) === m)?.[1];
-        if (mon && (mon.count > 0 || mon.attended > 0)) {
+        if (mon && (mon.count > 0 || mon.attended > 0 || mon.total > 0)) {
           foundData = true;
           count++;
           if (tab === 'IP') {
@@ -316,11 +316,16 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
         Object.keys(buckets).forEach(k => { if (k !== 'label') buckets[k] /= count; });
         return buckets;
       }
-      return { label, empty: true };
+      
+      // Prevent Recharts minPointSize stack crash by providing 0s instead of undefined
+      if (tab === 'IP') return { label, Elite: 0, High: 0, Medium: 0, Low: 0 };
+      if (activeNT === 'AP') return { label, Knowledge: 0, BSE: 0 };
+      if (activeNT === 'MIP' || activeNT === 'Refresher') return { label, Science: 0, Skill: 0 };
+      return { label, Score: 0 };
     });
   }, [matrixData, MONTHS, tab, activeNT]);
 
-  const rankingData = useMemo(() => {
+  const rankingData = useMemo(() => { console.log('MATRIX DATA:', JSON.stringify(matrixData, null, 2));
     return matrixData.flatMap(c => c.teams).sort((a, b) => b.score - a.score).slice(0, 15)
       .map(t => ({ name: t.name, score: Math.round(t.score * 10) / 10 }));
   }, [matrixData]);
@@ -336,7 +341,7 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
         let clusterScore = 0, count = 0;
         c.teams.forEach(t => {
           const mon = Object.entries(t.monthly).find(([k]) => normalizeMonthStr(k) === m)?.[1];
-          if (mon && (mon.count > 0 || mon.attended > 0)) {
+          if (mon && (mon.count > 0 || mon.attended > 0 || mon.total > 0)) {
             count++;
             if (tab === 'IP') {
               const tot = mon.total || 1;
@@ -400,7 +405,6 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
   const trainerScatterData = useMemo(() => {
     return trainerStats.map(t => ({ name: t.trainerId, volume: t.trainingsConducted, score: t.avgScore })).sort((a, b) => b.volume - a.volume).slice(0, 30);
   }, [trainerStats]);
-
   const { allTeams, allTrainers } = useFilterOptions(employees, attendance, tab, masterTeams, masterTrainers);
   const allClusters = useMemo(() => masterClusters.map(c => c.name), [masterClusters]);
   const monthsOptions = useMonthsFromData(rawUnified);
@@ -490,45 +494,71 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
                   <div className={`${styles.chartCard} ${styles.chartCardLarge}`}>
                     <div className={styles.chartHeader}><h3 className={styles.chartTitle}><BarChart3 size={18} className={styles.chartTitleIcon} /> Distribution Profile</h3></div>
                     <div className={styles.vizWrapper}>
-                      <ResponsiveContainer>
-                        <BarChart data={distributionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                          <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
-                          <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} domain={[0, 100]} />
-                          <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px' }} />
-                          <Legend wrapperStyle={{ paddingTop: '10px' }} />
-                          {tab === 'IP' ? (
-                            <>{['Elite', 'High', 'Medium', 'Low'].map((k, i) => <Bar key={k} dataKey={k} stackId="a" fill={['#22c55e', '#3b82f6', '#f59e0b', '#ef4444'][i]} radius={[2, 2, 0, 0]} />)}</>
-                          ) : activeNT === 'AP' ? (
-                            <>{['Knowledge', 'BSE'].map((k, i) => <Bar key={k} dataKey={k} fill={i === 0 ? '#3b82f6' : '#22c55e'} radius={[4, 4, 0, 0]} barSize={20} />)}</>
-                          ) : (activeNT === 'MIP' || activeNT === 'Refresher') ? (
-                            <>{['Science', 'Skill'].map((k, i) => <Bar key={k} dataKey={k} fill={i === 0 ? '#8b5cf6' : '#06b6d4'} radius={[4, 4, 0, 0]} barSize={20} />)}</>
-                          ) : (
-                            <Bar dataKey="Score" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={30} />
-                          )}
-                        </BarChart>
-                      </ResponsiveContainer>
+                      <div className={styles.chartScrollWrapper}>
+                        {tab === 'IP' ? (
+                          <BarChart width={1000} height={330} data={distributionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
+                            <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} domain={[0, 100]} />
+                            <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px' }} />
+                            <Legend wrapperStyle={{ paddingTop: '10px' }} />
+                            <Bar minPointSize={0} dataKey="Elite" stackId="a" fill="#22c55e" />
+                            <Bar minPointSize={0} dataKey="High" stackId="a" fill="#3b82f6" />
+                            <Bar minPointSize={0} dataKey="Medium" stackId="a" fill="#f59e0b" />
+                            <Bar minPointSize={0} dataKey="Low" stackId="a" fill="#ef4444" />
+                          </BarChart>
+                        ) : activeNT === 'AP' ? (
+                          <BarChart width={1000} height={330} data={distributionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
+                            <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} domain={[0, 100]} />
+                            <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px' }} />
+                            <Legend wrapperStyle={{ paddingTop: '10px' }} />
+                            <Bar minPointSize={0} dataKey="Knowledge" fill="#3b82f6" barSize={20} />
+                            <Bar minPointSize={0} dataKey="BSE" fill="#22c55e" barSize={20} />
+                          </BarChart>
+                        ) : (activeNT === 'MIP' || activeNT === 'Refresher') ? (
+                          <BarChart width={1000} height={330} data={distributionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
+                            <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} domain={[0, 100]} />
+                            <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px' }} />
+                            <Legend wrapperStyle={{ paddingTop: '10px' }} />
+                            <Bar minPointSize={0} dataKey="Science" fill="#8b5cf6" barSize={20} />
+                            <Bar minPointSize={0} dataKey="Skill" fill="#06b6d4" barSize={20} />
+                          </BarChart>
+                        ) : (
+                          <BarChart width={1000} height={330} data={distributionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
+                            <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} domain={[0, 100]} />
+                            <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px' }} />
+                            <Legend wrapperStyle={{ paddingTop: '10px' }} />
+                            <Bar minPointSize={0} dataKey="Score" fill="#3b82f6" barSize={30} />
+                          </BarChart>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className={`${styles.chartCard} ${styles.chartCardSmall}`}>
                     <div className={styles.chartHeader}><h3 className={styles.chartTitle}><ListOrdered size={18} className="text-warning" /> Ranking</h3></div>
                     <div className={styles.vizWrapper}>
-                      <ResponsiveContainer>
-                        <BarChart layout="vertical" data={rankingData} margin={{ top: 5, right: 10, left: 20, bottom: 5 }}>
+                      <div className={styles.chartHiddenOverflow}>
+                        <BarChart width={350} height={330} layout="vertical" data={rankingData} margin={{ top: 5, right: 10, left: 20, bottom: 5 }}>
                           <XAxis type="number" hide domain={[0, 100]} /><YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-primary)', fontSize: 10 }} width={80} />
                           <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px' }} />
-                          <Bar dataKey="score" fill="var(--primary)" radius={[0, 4, 4, 0]} barSize={14}>
-                            {rankingData.map((e, i) => <Cell key={i} fill={i < 3 ? 'var(--success)' : 'var(--primary)'} opacity={1 - (i * 0.05)} />)}
+                          <Bar minPointSize={0} dataKey="score" fill="#3b82f6" barSize={14}>
+                            {rankingData.map((e, i) => <Cell key={i} fill={i < 3 ? '#22c55e' : i < 7 ? '#3b82f6' : '#f59e0b'} opacity={Math.max(0.5, 1 - (i * 0.04))} />)}
                           </Bar>
                         </BarChart>
-                      </ResponsiveContainer>
+                      </div>
                     </div>
                   </div>
                   <div className={`${styles.chartCard} ${styles.chartCardFull}`}>
                     <div className={styles.chartHeader}><h3 className={styles.chartTitle}><TrendingUp size={18} className="text-accent-primary" /> Cluster Benchmarking</h3></div>
                     <div className={styles.vizWrapper}>
-                      <ResponsiveContainer>
-                        <LineChart data={trendData.data} margin={{ top: 10, right: 30, left: -20, bottom: 0 }}>
+                      <div className={styles.chartScrollWrapper}>
+                        <LineChart width={1000} height={330} data={trendData.data} margin={{ top: 10, right: 30, left: -20, bottom: 0 }}>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
                           <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
                           <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} domain={[0, 100]} />
@@ -537,7 +567,7 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
                             <Line key={c} type="monotone" dataKey={c} stroke={['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'][i % 6]} strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: 'var(--bg-card)' }} activeDot={{ r: 6 }} connectNulls />
                           ))}
                         </LineChart>
-                      </ResponsiveContainer>
+                      </div>
                     </div>
                   </div>
                 </>
@@ -555,15 +585,15 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
               <div className={`${styles.chartCard} ${styles.chartCardFull}`}>
                 <div className={styles.chartHeader}><h3 className={styles.chartTitle}><BarChart3 size={18} className="text-primary" /> Attendance Funnel Over Time</h3></div>
                 <div className={styles.vizWrapper}>
-                  <ResponsiveContainer>
-                    <ComposedChart data={attFunnelData}>
+                  <div className={styles.chartScrollWrapper}>
+                    <ComposedChart width={1000} height={330} data={attFunnelData}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
                       <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
                       <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
                       <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px' }} /><Legend />
-                      <Bar dataKey="Notified" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={40} /><Bar dataKey="Attended" fill="#22c55e" radius={[4, 4, 0, 0]} barSize={40} />
+                      <Bar minPointSize={0} dataKey="Notified" fill="#3b82f6" barSize={40} /><Bar minPointSize={0} dataKey="Attended" fill="#22c55e" barSize={40} />
                     </ComposedChart>
-                  </ResponsiveContainer>
+                  </div>
                 </div>
               </div>
             </div>
@@ -597,7 +627,7 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
                       <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
                       <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
-                      <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ borderRadius: '12px' }} /><Bar dataKey="Trained" fill="#22c55e" radius={[4, 4, 0, 0]} barSize={40} />
+                      <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ borderRadius: '12px' }} /><Bar dataKey="Trained" fill="#22c55e" barSize={40} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>

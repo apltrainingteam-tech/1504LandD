@@ -47,7 +47,7 @@ export function getRefresherPerformanceAggregates(
   fyMonths: string[]
 ): RefresherPerformanceAggregates {
   const clusterMap: Record<string, RefresherPerfClusterRow> = {};
-  const DUMMY_TEAMS = new Set(['Team A', 'Unknown', '—', 'Unknown Team', 'Unmapped']);
+  const DUMMY_TEAMS = new Set(['Team A', '—', 'Unknown Team']);
 
   let globalScienceSum = 0;
   let globalScienceCount = 0;

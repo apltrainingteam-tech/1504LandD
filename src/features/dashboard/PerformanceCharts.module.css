@@ -196,3 +196,16 @@
   height: 400px;
   width: 100%;
 }
+
+.chartScrollWrapper {
+  width: 100%;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.chartHiddenOverflow {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}

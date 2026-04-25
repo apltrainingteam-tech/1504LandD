@@ -28,7 +28,7 @@ export function buildRefresherAttendanceMatrix(
   fyMonths: string[]
 ): RefresherAttendanceAggregates {
   const clusterMonthMap: RefresherAttendanceAggregates['clusterMonthMap'] = {};
-  const DUMMY_TEAMS = new Set(['Team A', 'Unknown', '—', 'Unknown Team', 'Unmapped']);
+  const DUMMY_TEAMS = new Set(['Team A', '—', 'Unknown Team']);
 
   const globalNotifiedSet = new Set<string>();
   const globalAttendedSet = new Set<string>();

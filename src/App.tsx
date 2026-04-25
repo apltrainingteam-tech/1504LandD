@@ -207,7 +207,8 @@ const App = () => {
 
         // Populate Attendance
         if (attendanceDate) {
-          const teamId = mapTeamCodeToId(r.team || row.team, masterTeams);
+          const teamRef = r.team || row.team;
+          const teamId = mapTeamCodeToId(teamRef, masterTeams) || (teamRef ? `unmapped::${normalizeText(teamRef)}` : undefined);
           if (teamId) {
             a.push({
               id: row._id || Math.random().toString(),
@@ -226,8 +227,6 @@ const App = () => {
               hq: r.hq || row.hq,
               state: r.state || row.state,
             } as Attendance);
-          } else {
-            // Unmapped team, quietly skip since teamIdMapper logs uniquely.
           }
         }
 

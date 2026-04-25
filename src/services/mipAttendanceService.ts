@@ -28,7 +28,7 @@ export function buildMIPAttendanceMatrix(
   fyMonths: string[]
 ): MIPAttendanceAggregates {
   const clusterMonthMap: MIPAttendanceAggregates['clusterMonthMap'] = {};
-  const DUMMY_TEAMS = new Set(['Team A', 'Unknown', '—', 'Unknown Team', 'Unmapped']);
+  const DUMMY_TEAMS = new Set(['Team A', '—', 'Unknown Team']);
 
   const globalNotifiedSet = new Set<string>();
   const globalAttendedSet = new Set<string>();
@@ -91,7 +91,7 @@ export function buildMIPAttendanceMatrix(
     globalKPIs: {
       totalNotified: globalNotifiedSet.size,
       totalAttended: globalAttendedSet.size,
-      attendancePercent: globalNotifiedSet.size > 0 ? (globalAttendedSet.size / globalNotifiedSet.size) * 100 : 0
+      attendancePercent: globalNotifiedSet.size > 0 ? (globalAttendedSet.size / globalNotifiedSet.size) * 100 : (globalAttendedSet.size > 0 ? 100 : 0)
     }
   };
 }

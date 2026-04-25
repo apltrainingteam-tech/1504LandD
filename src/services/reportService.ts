@@ -10,10 +10,13 @@ export function normalizeTrainingType(type: string): string {
   if (!type) return '';
   const t = String(type).toLowerCase().replace(/[\s\-_]/g, '');
 
-  if (t.includes('ip')) return 'IP';
-  if (t.includes('ap') && !t.includes('pre')) return 'AP';
+  if (t === 'mip') return 'MIP';
+  if (t === 'ip') return 'IP';
+  if (t === 'ap') return 'AP';
   if (t.includes('pre')) return 'Pre_AP';
   if (t.includes('mip')) return 'MIP';
+  if (t.includes('ip')) return 'IP';
+  if (t.includes('ap')) return 'AP';
   if (t.includes('ref')) return 'Refresher';
   if (t.includes('cap')) return 'Capsule';
 
@@ -198,7 +201,11 @@ export function groupData(
 
 // ─── IP ENGINE ─────────────────────────────────────────────────────────────
 export function calcIP(recs: UnifiedRecord[]) {
-  const p = recs.filter(r => r.attendance.attendanceStatus === 'Present');
+  const isPresent = (r: UnifiedRecord) => {
+    const s = String(r.attendance.attendanceStatus || '').trim().toLowerCase();
+    return s === '' || s === 'present';
+  };
+  const p = recs.filter(isPresent);
   let h = 0, med = 0, l = 0;
   p.forEach(r => {
     // Extraction list for IP scores: strictly follow schema + common variations
@@ -237,7 +244,11 @@ export function calcIP(recs: UnifiedRecord[]) {
 
 // ─── AP ENGINE ─────────────────────────────────────────────────────────────
 export function calcAP(recs: UnifiedRecord[], noms: TrainingNomination[]) {
-  const present = recs.filter(r => r.attendance.attendanceStatus === 'Present');
+  const isPresent = (r: UnifiedRecord) => {
+    const s = String(r.attendance.attendanceStatus || '').trim().toLowerCase();
+    return s === '' || s === 'present';
+  };
+  const present = recs.filter(isPresent);
   const attendedIds = new Set(present.map(r => r.attendance.employeeId));
   const notifiedIds = new Set((noms || []).map(n => n.employeeId));
   let scoreSum = 0, scoredCount = 0;
@@ -263,7 +274,11 @@ export function calcAP(recs: UnifiedRecord[], noms: TrainingNomination[]) {
 
 // ─── MIP ENGINE ────────────────────────────────────────────────────────────
 export function calcMIP(recs: UnifiedRecord[]) {
-  const p = recs.filter(r => r.attendance.attendanceStatus === 'Present');
+  const isPresent = (r: UnifiedRecord) => {
+    const s = String(r.attendance.attendanceStatus || '').trim().toLowerCase();
+    return s === '' || s === 'present';
+  };
+  const p = recs.filter(isPresent);
   let sS = 0, cS = 0, sK = 0, cK = 0;
   p.forEach(r => {
     if (r.score?.scores) {
@@ -278,7 +293,11 @@ export function calcMIP(recs: UnifiedRecord[]) {
 
 // ─── REFRESHER ENGINE ──────────────────────────────────────────────────────
 export function calcRefresher(recs: UnifiedRecord[]) {
-  const p = recs.filter(r => r.attendance.attendanceStatus === 'Present');
+  const isPresent = (r: UnifiedRecord) => {
+    const s = String(r.attendance.attendanceStatus || '').trim().toLowerCase();
+    return s === '' || s === 'present';
+  };
+  const p = recs.filter(isPresent);
   const schemaFields = ['knowledge', 'situationHandling', 'presentation'];
   const totals: Record<string, { sum: number; count: number }> = {};
   schemaFields.forEach(k => { totals[k] = { sum: 0, count: 0 }; });
@@ -296,7 +315,11 @@ export function calcRefresher(recs: UnifiedRecord[]) {
 
 // ─── CAPSULE ENGINE ────────────────────────────────────────────────────────
 export function calcCapsule(recs: UnifiedRecord[]) {
-  const p = recs.filter(r => r.attendance.attendanceStatus === 'Present');
+  const isPresent = (r: UnifiedRecord) => {
+    const s = String(r.attendance.attendanceStatus || '').trim().toLowerCase();
+    return s === '' || s === 'present';
+  };
+  const p = recs.filter(isPresent);
   let scoreSum = 0, scoredCount = 0;
   p.forEach(r => {
     const v = r.score?.scores?.['score'];
@@ -326,7 +349,11 @@ export function calcPreAP(recs: UnifiedRecord[], noms: TrainingNomination[]) {
 
 // ─── GENERIC SCORE ENGINE (for GTG, HO, RTM) ──────────────────────────────
 export function calcGeneric(recs: UnifiedRecord[]) {
-  const p = recs.filter(r => r.attendance.attendanceStatus === 'Present');
+  const isPresent = (r: UnifiedRecord) => {
+    const s = String(r.attendance.attendanceStatus || '').trim().toLowerCase();
+    return s === '' || s === 'present';
+  };
+  const p = recs.filter(isPresent);
   let scoreSum = 0, scoredCount = 0;
   p.forEach(r => {
     const v = r.score?.scores?.['Score'];

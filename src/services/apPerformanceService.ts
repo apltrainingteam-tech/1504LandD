@@ -56,7 +56,7 @@ export function getAPPerformanceAggregates(
 ): APPerformanceAggregates {
   const clusterMap: Record<string, APClusterRow> = {};
   
-  const DUMMY_TEAMS = new Set(['Team A', 'Unknown', '—', 'Unknown Team', 'Unmapped']);
+  const DUMMY_TEAMS = new Set(['Team A', '—', 'Unknown Team']);
 
   let globalKnowledgeSum = 0;
   let globalKnowledgeCount = 0;
@@ -109,7 +109,13 @@ export function getAPPerformanceAggregates(
       uniqueCandidateIds.add(timeline.employeeId);
 
       // Knowledge extraction
-      const kVal = att.scores['knowledge'];
+      let kVal = att.scores['knowledge'];
+      if (typeof kVal !== 'number') kVal = att.scores['knowledgeScore'];
+      if (typeof kVal !== 'number') kVal = att.scores['percent'];
+      if (typeof kVal !== 'number') kVal = att.scores['testScore'];
+      if (typeof kVal !== 'number') kVal = att.scores['Score'];
+      if (typeof kVal !== 'number') kVal = att.scores['test'];
+
       let hasKnowledge = false;
       if (typeof kVal === 'number') {
         globalKnowledgeSum += kVal;
@@ -118,28 +124,36 @@ export function getAPPerformanceAggregates(
       }
 
       // BSE extraction
-      const bseKeys = [
-        'grasping', 'detailing', 'situationHandling', 
-        'english', 'localLanguage', 'involvement', 'effort', 'confidence'
-      ];
-      
-      let bseSum = 0;
-      let bseCount = 0;
-      for (const k of bseKeys) {
-        const val = att.scores[k];
-        if (typeof val === 'number') {
-          bseSum += val;
-          bseCount++;
-          bseParamTotals[k].sum += val;
-          bseParamTotals[k].count++;
-        }
-      }
-
-      const bseVal = bseCount > 0 ? bseSum / bseCount : null;
+      let bseVal = typeof att.scores['bse'] === 'number' ? att.scores['bse'] : null;
       let hasBse = false;
 
-      // We temporarily store the raw sums in the cluster/team maps to average them later
-      // To strictly match types we augment the object dynamically or cast it.
+      if (bseVal === null) {
+        const bseKeys = [
+          'grasping', 'participation', 'detailing', 'rolePlay', 'punctuality', 'grooming', 'behaviour'
+        ];
+        
+        let bseSum = 0;
+        let bseCount = 0;
+        for (const k of bseKeys) {
+          const val = att.scores[k];
+          if (typeof val === 'number') {
+            bseSum += val;
+            bseCount++;
+            if (bseParamTotals[k]) {
+              bseParamTotals[k].sum += val;
+              bseParamTotals[k].count++;
+            }
+          }
+        }
+        if (bseCount > 0) bseVal = bseSum / bseCount;
+      }
+
+      if (bseVal !== null) {
+        globalBSESum += bseVal;
+        globalBSECount++;
+        hasBse = true;
+      }
+
       const cMonth: any = clusterMap[cluster].months[month];
       const tMonth: any = clusterMap[cluster].teams[team].months[month];
 
@@ -156,12 +170,12 @@ export function getAPPerformanceAggregates(
         cMonth._kSum += kVal; cMonth._kCount++;
         tMonth._kSum += kVal; tMonth._kCount++;
       }
-      if (bseVal !== null) {
+      if (hasBse && bseVal !== null) {
         cMonth._bseSum += bseVal; cMonth._bseCount++;
         tMonth._bseSum += bseVal; tMonth._bseCount++;
-        globalBSESum += bseVal;
-        globalBSECount++;
       }
+
+      // Always increment count so the team is included in matrixData
       cMonth.count++;
       tMonth.count++;
     }
