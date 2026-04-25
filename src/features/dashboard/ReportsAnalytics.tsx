@@ -138,13 +138,13 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
   // Progressive rendering: KPI → Grouped → TimeSeries → Trainer → Drilldown → Matrices (lazy by tab)
   const [kpiStage, setKpiStage] = useState<'loading' | 'ready'>('loading');
   const [kpiCache, setKpiCache] = useState<any>(null);
-  
+
   // Staggered table loading: grouped → timeseries → trainer → drilldown
   const [groupedStage, setGroupedStage] = useState<'loading' | 'ready'>('loading');
   const [timeseriesStage, setTimeseriesStage] = useState<'loading' | 'ready'>('loading');
   const [trainerStage, setTrainerStage] = useState<'loading' | 'ready'>('loading');
   const [drilldownStage, setDrilldownStage] = useState<'loading' | 'ready'>('loading');
-  
+
   // Lazy matrix loading: only load when tab is active
   const [lazyMatrices, setLazyMatrices] = useState<Set<string>>(new Set());
   const [matrixStage, setMatrixStage] = useState<'loading' | 'ready'>('loading');
@@ -170,7 +170,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
   // --- BUCKET HELPERS ---
   const renderPerformanceCell = (data: any, keyVal: string) => {
     if (!data || data.total === 0) return <td key={keyVal} className="td-empty">—</td>;
-    
+
     return (
       <td key={keyVal} className="td-center" title={`>90%: ${data.elite}\n75–90%: ${data.high}\n50–75%: ${data.medium}\n<50%: ${data.low}`}>
         <div className="performance-cell-container">
@@ -252,7 +252,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
     const scs = scores.filter(s => normalizeType(s.trainingType) === normalizedTab);
     const noms = nominations.filter(n => normalizeType(n.trainingType) === normalizedTab);
     const rule = rules.find(r => normalizeType(r.trainingType) === normalizedTab);
-    
+
     const eligResults = getEligibleEmployees(tab as TrainingType, rule, employees, attendance, nominations);
     const unifiedRes = buildUnifiedDataset(employees, att, scs, noms, eligResults, masterTeams);
 
@@ -269,10 +269,10 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
         return MONTHS.includes(m);
       });
     }
-    
+
     console.log(`📊 [REPORTS-UI] Training Types Found:`, [...new Set(rawUnified.map(r => r.attendance.trainingType))]);
     console.log(`📊 [REPORTS-UI] Active Tab: ${tab}, Final Filtered Count: ${ds.length}`);
-    
+
     return ds;
   }, [rawUnified, filter, tab, MONTHS, masterTeams]);
 
@@ -604,8 +604,8 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
           {pageMode === 'performance-insights' ? 'Performance Insights' : 'Overview'}
         </h1>
         <p className="text-subtitle">
-          {pageMode === 'performance-insights' 
-            ? 'Detailed training performance analysis and rankings' 
+          {pageMode === 'performance-insights'
+            ? 'Detailed training performance analysis and rankings'
             : 'Training performance snapshot and trends'}
         </p>
       </div>
@@ -616,9 +616,9 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
         <div className="flex-center gap-2">
           {pageMode === 'performance-insights' && (
             <div className="flex-center gap-2 mr-2">
-               <button className="btn btn-primary" title="Tables View"><Table size={16} /></button>
-               <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-charts')} title="Switch to Charts"><BarChart3 size={16} /></button>
-               <div className="v-divider mx-1" />
+              <button className="btn btn-primary" title="Tables View"><Table size={16} /></button>
+              <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-charts')} title="Switch to Charts"><BarChart3 size={16} /></button>
+              <div className="v-divider mx-1" />
             </div>
           )}
           {tab === 'IP' ? (
@@ -659,13 +659,13 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
           )}
           <button className={`btn ${subView === 'gap' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('gap')} title="Gap Analysis"><AlertTriangle size={16} /></button>
           <div className="v-divider mx-1" />
-          
+
           {(['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'Pre_AP'].includes(tab)) && (
             <div className="fy-selector flex-center gap-2 mr-2">
               <label className="text-xs-bold text-muted uppercase">FISCAL YEAR</label>
-              <select 
-                className="form-select glass-panel fy-select" 
-                value={selectedFYs[tab]} 
+              <select
+                className="form-select glass-panel fy-select"
+                value={selectedFYs[tab]}
                 title="Select Fiscal Year"
                 aria-label="Select Fiscal Year"
                 onChange={(e) =>
@@ -682,7 +682,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
             </div>
           )}
 
-          <button 
+          <button
             className={`btn btn-secondary btn-filter ${activeFilterCount > 0 ? 'active' : ''}`}
             onClick={() => setShowGlobalFilters(true)}
             title="Open Filters"
@@ -706,9 +706,9 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
         <label className="text-xs-bold text-muted uppercase">View Data By:</label>
         <div className="flex bg-card-panel p-3 border-radius-8">
           {VIEW_BY_OPTIONS.map(v => (
-            <button 
-              key={v} 
-              onClick={() => setViewBy(v)} 
+            <button
+              key={v}
+              onClick={() => setViewBy(v)}
               className={`btn-toggle ${viewBy === v ? 'active' : ''}`}
             >
               {v}
@@ -728,95 +728,95 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
         >
           <div className="dashboard-grid mb-24">
             {subView === 'gap' ? (
-            <Fragment>
-              <KPIBox title="Eligible Cohort" value={gapMetrics.eligibleCount} icon={ShieldCheck} />
-              <KPIBox title="Trained Volume" value={gapMetrics.trainedCount} color="var(--success)" icon={CheckCircle2} />
-              <KPIBox title="Training Gap" value={gapMetrics.gapCount} color="var(--danger)" icon={AlertTriangle} subValue={`${((gapMetrics.gapCount / (gapMetrics.eligibleCount || 1)) * 100).toFixed(1)}% untrained`} />
-            </Fragment>
-          ) : (
-            <Fragment>
-            {tab === 'IP' && (
               <Fragment>
-                <KPIBox title="Total Candidates" value={ipData.globalKPIs.totalCandidates} icon={Zap} />
-                <KPIBox title="High %" value={`${ipData.globalKPIs.highPct.toFixed(1)}%`} color="var(--success)" />
-                <KPIBox title="Medium %" value={`${ipData.globalKPIs.medPct.toFixed(1)}%`} color="var(--warning)" />
-                <KPIBox title="Low %" value={`${ipData.globalKPIs.lowPct.toFixed(1)}%`} color="var(--danger)" />
-                <KPIBox title="Weighted T Score / %" value={ipData.globalKPIs.weightedScore.toFixed(2)} color="var(--accent-primary)" badge={<span className={`badge ${flagClass(flagScore(ipData.globalKPIs.weightedScore))}`}>{flagLabel(flagScore(ipData.globalKPIs.weightedScore))}</span>} />
-                <KPIBox title="Best Team" value={ipData.globalKPIs.bestTeam} icon={Trophy} color="var(--success)" />
-                <KPIBox title="Worst Team" value={ipData.globalKPIs.worstTeam} icon={AlertTriangle} color="var(--danger)" />
+                <KPIBox title="Eligible Cohort" value={gapMetrics.eligibleCount} icon={ShieldCheck} />
+                <KPIBox title="Trained Volume" value={gapMetrics.trainedCount} color="var(--success)" icon={CheckCircle2} />
+                <KPIBox title="Training Gap" value={gapMetrics.gapCount} color="var(--danger)" icon={AlertTriangle} subValue={`${((gapMetrics.gapCount / (gapMetrics.eligibleCount || 1)) * 100).toFixed(1)}% untrained`} />
+              </Fragment>
+            ) : (
+              <Fragment>
+                {tab === 'IP' && (
+                  <Fragment>
+                    <KPIBox title="Total Candidates" value={ipData.globalKPIs.totalCandidates} icon={Zap} />
+                    <KPIBox title="High %" value={`${ipData.globalKPIs.highPct.toFixed(1)}%`} color="var(--success)" />
+                    <KPIBox title="Medium %" value={`${ipData.globalKPIs.medPct.toFixed(1)}%`} color="var(--warning)" />
+                    <KPIBox title="Low %" value={`${ipData.globalKPIs.lowPct.toFixed(1)}%`} color="var(--danger)" />
+                    <KPIBox title="Weighted T Score / %" value={ipData.globalKPIs.weightedScore.toFixed(2)} color="var(--accent-primary)" badge={<span className={`badge ${flagClass(flagScore(ipData.globalKPIs.weightedScore))}`}>{flagLabel(flagScore(ipData.globalKPIs.weightedScore))}</span>} />
+                    <KPIBox title="Best Team" value={ipData.globalKPIs.bestTeam} icon={Trophy} color="var(--success)" />
+                    <KPIBox title="Worst Team" value={ipData.globalKPIs.worstTeam} icon={AlertTriangle} color="var(--danger)" />
+                  </Fragment>
+                )}
+                {tab === 'AP' && subView === 'grouped' && apData && (
+                  <Fragment>
+                    <KPIBox title="Total Notified (FY)" value={apData.globalKPIs.totalEmployeesNotified} icon={Zap} />
+                    <KPIBox title="Total Attended (FY)" value={apData.globalKPIs.totalEmployeesAttended} color="var(--success)" icon={CheckCircle2} />
+                    <KPIBox title="Attendance %" value={`${apData.globalKPIs.attendancePercent.toFixed(1)}%`} color="var(--accent-primary)" />
+                    <KPIBox title="Composite Score" value={apData.globalKPIs.compositeScore.toFixed(2)} color="var(--success)" badge={apData.globalKPIs.compositeScore > 0 ? <span className={`badge ${flagClass(flagScore(apData.globalKPIs.compositeScore))}`}>{flagLabel(flagScore(apData.globalKPIs.compositeScore))}</span> : undefined} />
+                    <KPIBox title="Defaulters (≥3 strikes)" value={apData.globalKPIs.defaulters} color="var(--danger)" icon={AlertTriangle} />
+                  </Fragment>
+                )}
+                {tab === 'AP' && subView === 'ap_performance' && apPerfData && (
+                  <Fragment>
+                    <KPIBox title="Total Attended" value={apPerfData.globalKPIs.totalAttended} icon={Zap} />
+                    <KPIBox title="Total Candidates" value={apPerfData.globalKPIs.uniqueCandidates} color="var(--accent-primary)" />
+                    <KPIBox title="Avg Knowledge" value={apPerfData.globalKPIs.avgKnowledge.toFixed(1)} color="var(--success)" badge={apPerfData.globalKPIs.avgKnowledge > 0 ? <span className={`badge ${flagClass(flagScore(apPerfData.globalKPIs.avgKnowledge))}`}>K</span> : undefined} />
+                    <KPIBox title="Avg BSE" value={apPerfData.globalKPIs.avgBSE.toFixed(1)} color="var(--warning)" badge={apPerfData.globalKPIs.avgBSE > 0 ? <span className={`badge ${flagClass(flagScore(apPerfData.globalKPIs.avgBSE))}`}>B</span> : undefined} />
+                    <KPIBox title="Weakest Parameter" value={apPerfData.globalKPIs.lowestParameter} color="var(--danger)" icon={AlertCircle} />
+                  </Fragment>
+                )}
+                {tab === 'MIP' && subView === 'mip_attendance' && mipAttendanceData && (
+                  <Fragment>
+                    <KPIBox title="Total Notified (FY)" value={mipAttendanceData.globalKPIs.totalNotified} icon={Zap} />
+                    <KPIBox title="Total Attended (FY)" value={mipAttendanceData.globalKPIs.totalAttended} color="var(--success)" icon={CheckCircle2} />
+                    <KPIBox title="Attendance %" value={`${mipAttendanceData.globalKPIs.attendancePercent.toFixed(1)}%`} color="var(--accent-primary)" />
+                  </Fragment>
+                )}
+                {tab === 'MIP' && subView === 'mip_performance' && mipPerfData && (
+                  <Fragment>
+                    <KPIBox title="Total Attended" value={mipPerfData.globalKPIs.totalAttended} icon={Zap} />
+                    <KPIBox title="Avg Science" value={mipPerfData.globalKPIs.avgScience.toFixed(1)} color="var(--success)" badge={mipPerfData.globalKPIs.avgScience > 0 ? <span className={`badge ${flagClass(flagScore(mipPerfData.globalKPIs.avgScience))}`}>Sci</span> : undefined} />
+                    <KPIBox title="Avg Skill" value={mipPerfData.globalKPIs.avgSkill.toFixed(1)} color="var(--warning)" badge={mipPerfData.globalKPIs.avgSkill > 0 ? <span className={`badge ${flagClass(flagScore(mipPerfData.globalKPIs.avgSkill))}`}>Skl</span> : undefined} />
+                    <KPIBox title="High Performers" value={`${mipPerfData.globalKPIs.highPerformersPct.toFixed(1)}%`} color="var(--accent-primary)" icon={Trophy} />
+                  </Fragment>
+                )}
+                {tab === 'Refresher' && subView === 'refresher_attendance' && refresherAttData && (
+                  <Fragment>
+                    <KPIBox title="Total Notified (FY)" value={refresherAttData.globalKPIs.totalNotified} icon={Zap} />
+                    <KPIBox title="Total Attended (FY)" value={refresherAttData.globalKPIs.totalAttended} color="var(--success)" icon={CheckCircle2} />
+                    <KPIBox title="Attendance %" value={`${refresherAttData.globalKPIs.attendancePercent.toFixed(1)}%`} color="var(--accent-primary)" />
+                  </Fragment>
+                )}
+                {tab === 'Refresher' && subView === 'refresher_performance' && refresherPerfData && (
+                  <Fragment>
+                    <KPIBox title="Total Attended" value={refresherPerfData.globalKPIs.totalAttended} icon={Zap} />
+                    <KPIBox title="Avg Science" value={refresherPerfData.globalKPIs.avgScience.toFixed(1)} color="var(--success)" badge={refresherPerfData.globalKPIs.avgScience > 0 ? <span className={`badge ${flagClass(flagScore(refresherPerfData.globalKPIs.avgScience))}`}>Sci</span> : undefined} />
+                    <KPIBox title="Avg Skill" value={refresherPerfData.globalKPIs.avgSkill.toFixed(1)} color="var(--warning)" badge={refresherPerfData.globalKPIs.avgSkill > 0 ? <span className={`badge ${flagClass(flagScore(refresherPerfData.globalKPIs.avgSkill))}`}>Skl</span> : undefined} />
+                    <KPIBox title="High Performers" value={`${refresherPerfData.globalKPIs.highPerformersPct.toFixed(1)}%`} color="var(--accent-primary)" icon={Trophy} />
+                  </Fragment>
+                )}
+                {tab === 'Capsule' && subView === 'capsule_attendance' && capsuleAttData && (
+                  <Fragment>
+                    <KPIBox title="Total Notified (FY)" value={capsuleAttData.globalKPIs.totalNotified} icon={Zap} />
+                    <KPIBox title="Total Attended (FY)" value={capsuleAttData.globalKPIs.totalAttended} color="var(--success)" icon={CheckCircle2} />
+                    <KPIBox title="Attendance %" value={`${capsuleAttData.globalKPIs.attendancePercent.toFixed(1)}%`} color="var(--accent-primary)" />
+                  </Fragment>
+                )}
+                {tab === 'Capsule' && subView === 'capsule_performance' && capsulePerfData && (
+                  <Fragment>
+                    <KPIBox title="Total Attended" value={capsulePerfData.globalKPIs.totalAttended} icon={Zap} />
+                    <KPIBox title="Avg Score" value={capsulePerfData.globalKPIs.avgScore.toFixed(1)} color="var(--success)" badge={capsulePerfData.globalKPIs.avgScore > 0 ? <span className={`badge ${flagClass(flagScore(capsulePerfData.globalKPIs.avgScore))}`}>Score</span> : undefined} />
+                    <KPIBox title="High Performers" value={`${capsulePerfData.globalKPIs.highPerformersPct.toFixed(1)}%`} color="var(--accent-primary)" icon={Trophy} />
+                  </Fragment>
+                )}
+                {tab === 'Pre_AP' && (
+                  <Fragment>
+                    <KPIBox title="Nominated" value={gPreAP.notified} icon={Zap} />
+                    <KPIBox title="Attended" value={gPreAP.attended} color="var(--success)" icon={CheckCircle2} />
+                    <KPIBox title="Attendance %" value={`${gPreAP.attendance.toFixed(1)}%`} color="var(--accent-primary)" />
+                  </Fragment>
+                )}
               </Fragment>
             )}
-            {tab === 'AP' && subView === 'grouped' && apData && (
-              <Fragment>
-                <KPIBox title="Total Notified (FY)" value={apData.globalKPIs.totalEmployeesNotified} icon={Zap} />
-                <KPIBox title="Total Attended (FY)" value={apData.globalKPIs.totalEmployeesAttended} color="var(--success)" icon={CheckCircle2} />
-                <KPIBox title="Attendance %" value={`${apData.globalKPIs.attendancePercent.toFixed(1)}%`} color="var(--accent-primary)" />
-                <KPIBox title="Composite Score" value={apData.globalKPIs.compositeScore.toFixed(2)} color="var(--success)" badge={apData.globalKPIs.compositeScore > 0 ? <span className={`badge ${flagClass(flagScore(apData.globalKPIs.compositeScore))}`}>{flagLabel(flagScore(apData.globalKPIs.compositeScore))}</span> : undefined} />
-                <KPIBox title="Defaulters (≥3 strikes)" value={apData.globalKPIs.defaulters} color="var(--danger)" icon={AlertTriangle} />
-              </Fragment>
-            )}
-            {tab === 'AP' && subView === 'ap_performance' && apPerfData && (
-              <Fragment>
-                <KPIBox title="Total Attended" value={apPerfData.globalKPIs.totalAttended} icon={Zap} />
-                <KPIBox title="Total Candidates" value={apPerfData.globalKPIs.uniqueCandidates} color="var(--accent-primary)" />
-                <KPIBox title="Avg Knowledge" value={apPerfData.globalKPIs.avgKnowledge.toFixed(1)} color="var(--success)" badge={apPerfData.globalKPIs.avgKnowledge > 0 ? <span className={`badge ${flagClass(flagScore(apPerfData.globalKPIs.avgKnowledge))}`}>K</span> : undefined} />
-                <KPIBox title="Avg BSE" value={apPerfData.globalKPIs.avgBSE.toFixed(1)} color="var(--warning)" badge={apPerfData.globalKPIs.avgBSE > 0 ? <span className={`badge ${flagClass(flagScore(apPerfData.globalKPIs.avgBSE))}`}>B</span> : undefined} />
-                <KPIBox title="Weakest Parameter" value={apPerfData.globalKPIs.lowestParameter} color="var(--danger)" icon={AlertCircle} />
-              </Fragment>
-            )}
-            {tab === 'MIP' && subView === 'mip_attendance' && mipAttendanceData && (
-              <Fragment>
-                <KPIBox title="Total Notified (FY)" value={mipAttendanceData.globalKPIs.totalNotified} icon={Zap} />
-                <KPIBox title="Total Attended (FY)" value={mipAttendanceData.globalKPIs.totalAttended} color="var(--success)" icon={CheckCircle2} />
-                <KPIBox title="Attendance %" value={`${mipAttendanceData.globalKPIs.attendancePercent.toFixed(1)}%`} color="var(--accent-primary)" />
-              </Fragment>
-            )}
-            {tab === 'MIP' && subView === 'mip_performance' && mipPerfData && (
-              <Fragment>
-                <KPIBox title="Total Attended" value={mipPerfData.globalKPIs.totalAttended} icon={Zap} />
-                <KPIBox title="Avg Science" value={mipPerfData.globalKPIs.avgScience.toFixed(1)} color="var(--success)" badge={mipPerfData.globalKPIs.avgScience > 0 ? <span className={`badge ${flagClass(flagScore(mipPerfData.globalKPIs.avgScience))}`}>Sci</span> : undefined} />
-                <KPIBox title="Avg Skill" value={mipPerfData.globalKPIs.avgSkill.toFixed(1)} color="var(--warning)" badge={mipPerfData.globalKPIs.avgSkill > 0 ? <span className={`badge ${flagClass(flagScore(mipPerfData.globalKPIs.avgSkill))}`}>Skl</span> : undefined} />
-                <KPIBox title="High Performers" value={`${mipPerfData.globalKPIs.highPerformersPct.toFixed(1)}%`} color="var(--accent-primary)" icon={Trophy} />
-              </Fragment>
-            )}
-            {tab === 'Refresher' && subView === 'refresher_attendance' && refresherAttData && (
-              <Fragment>
-                <KPIBox title="Total Notified (FY)" value={refresherAttData.globalKPIs.totalNotified} icon={Zap} />
-                <KPIBox title="Total Attended (FY)" value={refresherAttData.globalKPIs.totalAttended} color="var(--success)" icon={CheckCircle2} />
-                <KPIBox title="Attendance %" value={`${refresherAttData.globalKPIs.attendancePercent.toFixed(1)}%`} color="var(--accent-primary)" />
-              </Fragment>
-            )}
-            {tab === 'Refresher' && subView === 'refresher_performance' && refresherPerfData && (
-              <Fragment>
-                <KPIBox title="Total Attended" value={refresherPerfData.globalKPIs.totalAttended} icon={Zap} />
-                <KPIBox title="Avg Science" value={refresherPerfData.globalKPIs.avgScience.toFixed(1)} color="var(--success)" badge={refresherPerfData.globalKPIs.avgScience > 0 ? <span className={`badge ${flagClass(flagScore(refresherPerfData.globalKPIs.avgScience))}`}>Sci</span> : undefined} />
-                <KPIBox title="Avg Skill" value={refresherPerfData.globalKPIs.avgSkill.toFixed(1)} color="var(--warning)" badge={refresherPerfData.globalKPIs.avgSkill > 0 ? <span className={`badge ${flagClass(flagScore(refresherPerfData.globalKPIs.avgSkill))}`}>Skl</span> : undefined} />
-                <KPIBox title="High Performers" value={`${refresherPerfData.globalKPIs.highPerformersPct.toFixed(1)}%`} color="var(--accent-primary)" icon={Trophy} />
-              </Fragment>
-            )}
-            {tab === 'Capsule' && subView === 'capsule_attendance' && capsuleAttData && (
-              <Fragment>
-                <KPIBox title="Total Notified (FY)" value={capsuleAttData.globalKPIs.totalNotified} icon={Zap} />
-                <KPIBox title="Total Attended (FY)" value={capsuleAttData.globalKPIs.totalAttended} color="var(--success)" icon={CheckCircle2} />
-                <KPIBox title="Attendance %" value={`${capsuleAttData.globalKPIs.attendancePercent.toFixed(1)}%`} color="var(--accent-primary)" />
-              </Fragment>
-            )}
-            {tab === 'Capsule' && subView === 'capsule_performance' && capsulePerfData && (
-              <Fragment>
-                <KPIBox title="Total Attended" value={capsulePerfData.globalKPIs.totalAttended} icon={Zap} />
-                <KPIBox title="Avg Score" value={capsulePerfData.globalKPIs.avgScore.toFixed(1)} color="var(--success)" badge={capsulePerfData.globalKPIs.avgScore > 0 ? <span className={`badge ${flagClass(flagScore(capsulePerfData.globalKPIs.avgScore))}`}>Score</span> : undefined} />
-                <KPIBox title="High Performers" value={`${capsulePerfData.globalKPIs.highPerformersPct.toFixed(1)}%`} color="var(--accent-primary)" icon={Trophy} />
-              </Fragment>
-            )}
-            {tab === 'Pre_AP' && (
-              <Fragment>
-                <KPIBox title="Nominated" value={gPreAP.notified} icon={Zap} />
-                <KPIBox title="Attended" value={gPreAP.attended} color="var(--success)" icon={CheckCircle2} />
-                <KPIBox title="Attendance %" value={`${gPreAP.attendance.toFixed(1)}%`} color="var(--accent-primary)" />
-              </Fragment>
-            )}
-          </Fragment>
-        )}
           </div>
         </motion.div>
       )}
@@ -917,13 +917,13 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                               </tr>
                             );
                           })}
-                      </Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
+                        </Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
           </motion.div>
         )
       )}
@@ -971,7 +971,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                               const pct = cell.notified > 0 ? Math.round((cell.attended / cell.notified) * 100) : 0;
                               const isWarning = cell.attended > cell.notified;
                               const isPerfect = pct === 100 && cell.notified > 0;
-                              
+
                               return (
                                 <td key={mo} className={`td-center ${isWarning ? 'bg-warning-light' : isPerfect ? 'bg-success-light' : ''}`}>
                                   <div className={`font-semibold ${isWarning ? 'text-danger' : ''}`}>{cell.attended} / {cell.notified}</div>
@@ -995,7 +995,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                                   const pct = cell.notified > 0 ? Math.round((cell.attended / cell.notified) * 100) : 0;
                                   const isWarning = cell.attended > cell.notified;
                                   const isPerfect = pct === 100 && cell.notified > 0;
-                                  
+
                                   return (
                                     <td key={mo} className={`td-center ${isWarning ? 'bg-warning-light' : isPerfect ? 'bg-success-light' : ''}`}>
                                       <div className={`font-semibold ${isWarning ? 'text-danger' : ''}`}>{cell.attended} / {cell.notified}</div>
@@ -1006,13 +1006,13 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                               </tr>
                             );
                           })}
-                      </Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
+                        </Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
           </motion.div>
         ) : null
       )}
@@ -1022,10 +1022,10 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
         matrixStage === 'loading' ? (
           <MatrixSkeleton />
         ) : apPerfData ? (
-          <APPerformanceMatrix 
-            data={apPerfData} 
-            fyMonths={MONTHS} 
-            timelines={filteredTimelines} 
+          <APPerformanceMatrix
+            data={apPerfData}
+            fyMonths={MONTHS}
+            timelines={filteredTimelines}
           />
         ) : null
       )}
@@ -1138,157 +1138,157 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
         matrixStage === 'loading' ? (
           <MatrixSkeleton />
         ) : (() => {
-        // ── Derive cluster→teams structure from ipRankData ──
-        const clusterTeams: Record<string, string[]> = {};
-        Object.entries(ipRankData.teams).forEach(([team, entry]) => {
-          if (!clusterTeams[entry.cluster]) clusterTeams[entry.cluster] = [];
-          clusterTeams[entry.cluster].push(team);
-        });
-        Object.values(clusterTeams).forEach(teams => teams.sort());
+          // ── Derive cluster→teams structure from ipRankData ──
+          const clusterTeams: Record<string, string[]> = {};
+          Object.entries(ipRankData.teams).forEach(([team, entry]) => {
+            if (!clusterTeams[entry.cluster]) clusterTeams[entry.cluster] = [];
+            clusterTeams[entry.cluster].push(team);
+          });
+          Object.values(clusterTeams).forEach(teams => teams.sort());
 
-        // Re-usable cell renderer
-        const renderRankCell = (monthData: any, useClusterRank: boolean, mo: string, maxRankInGroup: number) => {
-          if (!monthData) return <td key={mo} className="td-center border-l-muted text-muted">—</td>;
+          // Re-usable cell renderer
+          const renderRankCell = (monthData: any, useClusterRank: boolean, mo: string, maxRankInGroup: number) => {
+            if (!monthData) return <td key={mo} className="td-center border-l-muted text-muted">—</td>;
 
-          const displayRank = useClusterRank ? monthData.clusterRank : monthData.rank;
-          const isTop1 = displayRank === 1;
-          const isTop3 = displayRank <= 3;
-          const isBottom = displayRank === maxRankInGroup && maxRankInGroup > 3;
+            const displayRank = useClusterRank ? monthData.clusterRank : monthData.rank;
+            const isTop1 = displayRank === 1;
+            const isTop3 = displayRank <= 3;
+            const isBottom = displayRank === maxRankInGroup && maxRankInGroup > 3;
+
+            return (
+              <td key={mo} className={`td-center border-l-muted p-10-6 ${isTop1 ? 'bg-success-faint text-success font-extrabold' : isTop3 ? 'bg-warning-faint text-warning font-bold' : isBottom ? 'bg-danger-faint text-danger font-semibold' : ''}`}
+                title={`Cluster Rank: ${monthData.clusterRank}\nOverall Rank: ${monthData.rank}\nScore: ${monthData.score}`}
+              >
+                <div className="text-sm">#{displayRank}</div>
+                <div className="text-xxs opacity-60 mt-1">({monthData.score})</div>
+              </td>
+            );
+          };
 
           return (
-            <td key={mo} className={`td-center border-l-muted p-10-6 ${isTop1 ? 'bg-success-faint text-success font-extrabold' : isTop3 ? 'bg-warning-faint text-warning font-bold' : isBottom ? 'bg-danger-faint text-danger font-semibold' : ''}`}
-              title={`Cluster Rank: ${monthData.clusterRank}\nOverall Rank: ${monthData.rank}\nScore: ${monthData.score}`}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
             >
-              <div className="text-sm">#{displayRank}</div>
-              <div className="text-xxs opacity-60 mt-1">({monthData.score})</div>
-            </td>
-          );
-        };
-
-        return (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            <div className="glass-panel overflow-hidden border-t-accent">
-              <div className="card-header bg-muted-light flex-wrap gap-2">
-                <div>
-                  <h3 className="text-lg font-bold m-0">IP Team Rankings</h3>
-                  <p className="text-muted text-xs mt-1">Formula: (95·Elite + 82.5·High + 62.5·Med − 25·Low) · National Total Points · FY {selectedFY}</p>
+              <div className="glass-panel overflow-hidden border-t-accent">
+                <div className="card-header bg-muted-light flex-wrap gap-2">
+                  <div>
+                    <h3 className="text-lg font-bold m-0">IP Team Rankings</h3>
+                    <p className="text-muted text-xs mt-1">Formula: (95·Elite + 82.5·High + 62.5·Med − 25·Low) · National Total Points · FY {selectedFY}</p>
+                  </div>
+                  <span className="badge badge-info font-bold">FY {selectedFY}</span>
                 </div>
-                <span className="badge badge-info font-bold">FY {selectedFY}</span>
-              </div>
 
-              <div className="p-14-20-6 border-b bg-accent-faint">
-                <div className="flex items-center gap-2 mb-1">
-                  <Trophy size={16} className="text-accent" />
-                  <span className="text-base font-bold text-accent">TABLE 1 — Cluster-wise Ranking</span>
-                  <span className="text-muted text-xxs">Rank is within cluster only</span>
+                <div className="p-14-20-6 border-b bg-accent-faint">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Trophy size={16} className="text-accent" />
+                    <span className="text-base font-bold text-accent">TABLE 1 — Cluster-wise Ranking</span>
+                    <span className="text-muted text-xxs">Rank is within cluster only</span>
+                  </div>
                 </div>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="data-table w-full">
-                  <thead>
-                    <tr className="bg-dark-10">
-                      <th className="w-28 p-10-8"></th>
-                      <th className="text-left p-10-14 min-w-180">Cluster / Team</th>
-                      {MONTHS.map(mo => (
-                        <th key={mo} className="td-center min-w-90 border-l-muted text-xs">{formatMonthLabel(mo)}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Object.keys(clusterTeams).sort().map(cluster => {
-                      const isOpen = expanded.has(`rank_${cluster}`);
-                      const teams = clusterTeams[cluster];
-                      return (
-                        <Fragment key={cluster}>
-                          <tr 
-                            onClick={() => toggleExpand(`rank_${cluster}`)} 
-                            className="cursor-pointer tr-accent-faint border-b"
-                          >
-                            <td className="td-center p-10-8">
-                              {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                            </td>
-                            <td className="font-bold p-10-14 tracking-wide">{cluster}</td>
-                            {MONTHS.map(mo => {
-                              let bestScore = -Infinity;
-                              let summary = '—';
-                              teams.forEach(t => {
-                                const d = ipRankData.teams[t]?.months[mo];
-                                if (d && d.score > bestScore) {
-                                  bestScore = d.score;
-                                  summary = `Top: ${t} (${d.score})`;
-                                }
-                              });
+                <div className="overflow-x-auto">
+                  <table className="data-table w-full">
+                    <thead>
+                      <tr className="bg-dark-10">
+                        <th className="w-28 p-10-8"></th>
+                        <th className="text-left p-10-14 min-w-180">Cluster / Team</th>
+                        {MONTHS.map(mo => (
+                          <th key={mo} className="td-center min-w-90 border-l-muted text-xs">{formatMonthLabel(mo)}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.keys(clusterTeams).sort().map(cluster => {
+                        const isOpen = expanded.has(`rank_${cluster}`);
+                        const teams = clusterTeams[cluster];
+                        return (
+                          <Fragment key={cluster}>
+                            <tr
+                              onClick={() => toggleExpand(`rank_${cluster}`)}
+                              className="cursor-pointer tr-accent-faint border-b"
+                            >
+                              <td className="td-center p-10-8">
+                                {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                              </td>
+                              <td className="font-bold p-10-14 tracking-wide">{cluster}</td>
+                              {MONTHS.map(mo => {
+                                let bestScore = -Infinity;
+                                let summary = '—';
+                                teams.forEach(t => {
+                                  const d = ipRankData.teams[t]?.months[mo];
+                                  if (d && d.score > bestScore) {
+                                    bestScore = d.score;
+                                    summary = `Top: ${t} (${d.score})`;
+                                  }
+                                });
+                                return (
+                                  <td key={mo} className="td-center border-l-muted text-xxs text-muted p-10-4 lh-12">
+                                    {summary}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                            {isOpen && teams.map(teamName => {
+                              const entry = ipRankData.teams[teamName];
+                              if (!entry) return null;
                               return (
-                                <td key={mo} className="td-center border-l-muted text-xxs text-muted p-10-4 lh-12">
-                                  {summary}
-                                </td>
+                                <tr key={teamName} className="border-b bg-white-01 text-xs">
+                                  <td />
+                                  <td className="pl-28 p-10-14 font-semibold">↳ {teamName}</td>
+                                  {MONTHS.map(mo => {
+                                    const maxClusterRank = Math.max(...teams.map(t => ipRankData.teams[t]?.months[mo]?.clusterRank || 0));
+                                    return renderRankCell(entry.months[mo], true, mo, maxClusterRank);
+                                  })}
+                                </tr>
                               );
                             })}
-                          </tr>
-                          {isOpen && teams.map(teamName => {
-                            const entry = ipRankData.teams[teamName];
-                            if (!entry) return null;
-                            return (
-                              <tr key={teamName} className="border-b bg-white-01 text-xs">
-                                <td />
-                                <td className="pl-28 p-10-14 font-semibold">↳ {teamName}</td>
-                                {MONTHS.map(mo => {
-                                  const maxClusterRank = Math.max(...teams.map(t => ipRankData.teams[t]?.months[mo]?.clusterRank || 0));
-                                  return renderRankCell(entry.months[mo], true, mo, maxClusterRank);
-                                })}
-                              </tr>
-                            );
-                          })}
-                        </Fragment>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                          </Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
 
-              <div className="p-14-20-6 border-t-2 tr-success-faint">
-                <div className="flex items-center gap-2 mb-1">
-                  <BarChart3 size={16} className="text-success" />
-                  <span className="text-base font-bold text-success">TABLE 2 — Overall National Ranking</span>
-                  <span className="text-muted text-xxs">Rank across all teams</span>
+                <div className="p-14-20-6 border-t-2 tr-success-faint">
+                  <div className="flex items-center gap-2 mb-1">
+                    <BarChart3 size={16} className="text-success" />
+                    <span className="text-base font-bold text-success">TABLE 2 — Overall National Ranking</span>
+                    <span className="text-muted text-xxs">Rank across all teams</span>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="data-table w-full border-collapse">
+                    <thead>
+                      <tr className="bg-dark-10">
+                        <th className="text-left p-10-20 min-w-160">Team</th>
+                        <th className="text-left min-w-120">Cluster</th>
+                        {MONTHS.map(mo => (
+                          <th key={mo} className="td-center min-w-90 border-l-muted text-xs">{formatMonthLabel(mo)}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.keys(ipRankData.teams).sort().map(teamName => {
+                        const entry = ipRankData.teams[teamName];
+                        return (
+                          <tr key={teamName} className="border-b">
+                            <td className="p-10-20 font-semibold">{teamName}</td>
+                            <td><span className="badge badge-secondary text-xxs">{entry.cluster}</span></td>
+                            {MONTHS.map(mo => {
+                              // Find max overall rank for this month to detect "Bottom"
+                              const maxOverallRank = Math.max(...Object.values(ipRankData.teams).map(t => t.months[mo]?.rank || 0));
+                              return renderRankCell(entry.months[mo], false, mo, maxOverallRank);
+                            })}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </div>
-              <div className="overflow-x-auto">
-                <table className="data-table w-full border-collapse">
-                  <thead>
-                    <tr className="bg-dark-10">
-                      <th className="text-left p-10-20 min-w-160">Team</th>
-                      <th className="text-left min-w-120">Cluster</th>
-                      {MONTHS.map(mo => (
-                        <th key={mo} className="td-center min-w-90 border-l-muted text-xs">{formatMonthLabel(mo)}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Object.keys(ipRankData.teams).sort().map(teamName => {
-                      const entry = ipRankData.teams[teamName];
-                      return (
-                        <tr key={teamName} className="border-b">
-                          <td className="p-10-20 font-semibold">{teamName}</td>
-                          <td><span className="badge badge-secondary text-xxs">{entry.cluster}</span></td>
-                          {MONTHS.map(mo => {
-                            // Find max overall rank for this month to detect "Bottom"
-                            const maxOverallRank = Math.max(...Object.values(ipRankData.teams).map(t => t.months[mo]?.rank || 0));
-                            return renderRankCell(entry.months[mo], false, mo, maxOverallRank);
-                          })}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </motion.div>
-        );
-      })()
+            </motion.div>
+          );
+        })()
       )}
 
       {/* TIME SERIES - Progressive Rendering Stage 2 (TimeSeriesTable) */}
