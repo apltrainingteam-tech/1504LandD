@@ -15,7 +15,8 @@ import {
   calcIP, calcAP, calcMIP, calcRefresher, calcCapsule,
   getPrimaryMetricRaw
 } from '../../services/reportService';
-import { getFiscalMonths, getCurrentFY } from '../../utils/fiscalYear';
+import { getFiscalMonths, getCurrentFY } from '../../services/ipIntelligenceService';
+import { getFiscalYears } from '../../utils/fiscalYear';
 import { useMasterData } from '../../context/MasterDataContext';
 import { GlobalFilterPanel } from '../../components/GlobalFilterPanel';
 import { GlobalFilters, getActiveFilterCount } from '../../context/filterContext';
