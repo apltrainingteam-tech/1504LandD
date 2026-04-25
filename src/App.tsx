@@ -48,6 +48,7 @@ import { GapAnalysis } from './features/gap-analysis/GapAnalysis';
 import { RecruitmentQuality } from './features/srm/RecruitmentQuality';
 import { TrainingCalendar } from './features/calendar/TrainingCalendar';
 import { MasterSettings } from './features/settings/MasterSettings';
+import { PerformanceCharts } from './features/dashboard/PerformanceCharts';
 
 // Services & Types
 import { getCollection, deleteRecordsByQuery } from './services/apiClient';
@@ -60,7 +61,7 @@ import { getSchema, mapHeader } from './services/trainingSchemas';
 import { normalizeText } from './utils/textNormalizer';
 import { getTeamId, mapTeamCodeToId } from './utils/teamIdMapper';
 
-type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'nominations' | 'notification' | 'training-data' | 'gap-analysis' | 'performance' | 'srm' | 'calendar' | 'master-settings';
+type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'nominations' | 'notification' | 'training-data' | 'gap-analysis' | 'performance-tables' | 'performance-charts' | 'performance' | 'srm' | 'calendar' | 'master-settings';
 interface SidebarItem {
   label: string;
   view: string;
@@ -97,7 +98,8 @@ const sidebarSections: SidebarSection[] = [
   {
     title: "PERFORMANCE",
     items: [
-      { label: "Performance", view: "performance", icon: BarChart3 }
+      { label: "Performance Tables", view: "performance-tables", icon: FileText },
+      { label: "Performance Charts", view: "performance-charts", icon: BarChart3 }
     ]
   },
   {
@@ -355,7 +357,9 @@ const App = () => {
 
     switch (view) {
       case 'reports': return <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} pageMode="overview" />;
+      case 'performance-tables':
       case 'performance': return <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} pageMode="performance-insights" />;
+      case 'performance-charts': return <PerformanceCharts employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} onNavigate={setView} />;
       case 'srm': return <RecruitmentQuality employees={emps} attendance={att} scores={scs} />;
       case 'trainings': return <TrainingsViewer employees={emps} attendance={att} scores={scs} />;
       case 'calendar': return <TrainingCalendar employees={emps} attendance={att} />;
