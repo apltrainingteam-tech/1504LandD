@@ -1,21 +1,21 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line, AreaChart, Area, Cell
 } from 'recharts';
-import { 
-  BarChart3, TrendingUp, Users, Target, ChevronRight, ChevronDown, Filter, 
+import {
+  BarChart3, TrendingUp, Users, Target, ChevronRight, ChevronDown, Filter,
   Maximize2, LayoutGrid, ListOrdered, Download, Table, Trophy, GraduationCap, AlertTriangle, ChartNetwork, Calendar, Zap
 } from 'lucide-react';
 import { Employee } from '../../types/employee';
 import { Attendance, TrainingScore, TrainingNomination, Demographics } from '../../types/attendance';
-import { 
+import {
   buildUnifiedDataset, applyFilters, normalizeTrainingType,
   getPrimaryMetricRaw
 } from '../../services/reportService';
-import { 
-  getFiscalMonths, getCurrentFY, 
+import {
+  getFiscalMonths, getCurrentFY,
   buildIPAggregates
 } from '../../services/ipIntelligenceService';
 import { buildEmployeeTimelines, filterTimelines } from '../../services/apIntelligenceService';
@@ -27,7 +27,7 @@ import { getFiscalYears } from '../../utils/fiscalYear';
 import { useMasterData } from '../../context/MasterDataContext';
 import { GlobalFilterPanel } from '../../components/GlobalFilterPanel';
 import { GlobalFilters, getActiveFilterCount } from '../../context/filterContext';
-import { 
+import {
   useMonthsFromData, useFilterOptions
 } from '../../utils/computationHooks';
 
@@ -65,8 +65,8 @@ const normalizeMonthStr = (m: string): string => {
   if (!m) return '';
   if (/^\d{4}-\d{2}/.test(m)) return m.substring(0, 7);
   const monthNames: Record<string, string> = {
-    Jan:'01', Feb:'02', Mar:'03', Apr:'04', May:'05', Jun:'06',
-    Jul:'07', Aug:'08', Sep:'09', Oct:'10', Nov:'11', Dec:'12'
+    Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06',
+    Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12'
   };
   const match = m.match(/^([A-Za-z]{3})[-\s](\d{4})$/);
   if (match) return `${match[2]}-${monthNames[match[1]] || '00'}`;
@@ -91,7 +91,7 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
   const MONTHS = useMemo(() => getFiscalMonths(selectedFY), [selectedFY]);
 
   // --- CORE DATA LAYER (FROM TABLE ENGINES) ---
-  
+
   const rawUnified = useMemo(() => {
     const normalizedTab = normalizeTrainingType(tab);
     const att = attendance.filter(a => normalizeTrainingType(a.trainingType) === normalizedTab);
@@ -112,7 +112,7 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
   }, [rawUnified, pageFilters, MONTHS, masterTeams, tab]);
 
   // --- MATRIX TRANSFORMATION (SINGLE SOURCE OF TRUTH) ---
-  
+
   const matrixData: MatrixCluster[] = useMemo(() => {
     // 1. Fetch data from active engine
     let engineData: any = null;
@@ -140,10 +140,10 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
     // 2. Transform engine output to standard Matrix format
     return Object.entries(clusterMap).map(([clusterName, clusterData]: [string, any]) => {
       const teams: MatrixTeam[] = [];
-      
+
       // Handle both IP and AP/MIP structures
       const teamSources = clusterData.teams ? Object.entries(clusterData.teams) : Object.entries(teamMonthMap[clusterName] || {});
-      
+
       teamSources.forEach(([teamName, teamData]: [string, any]) => {
         const total = teamData.total || 0;
         teams.push({
@@ -170,7 +170,7 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
   }, [unified, tab, MONTHS, attendance, nominations, scores, masterTeams, pageFilters.trainer]);
 
   // --- KPI DERIVATION (FROM MATRIX ONLY) ---
-  
+
   const kpis = useMemo(() => {
     const allTeams = matrixData.flatMap(c => c.teams);
     if (allTeams.length === 0) return { total: 0, high: 0, medium: 0, low: 0, score: 0, best: '—', worst: '—' };
@@ -180,7 +180,7 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
     const avgMed = allTeams.reduce((sum, t) => sum + t.medium_pct, 0) / allTeams.length;
     const avgLow = allTeams.reduce((sum, t) => sum + t.low_pct, 0) / allTeams.length;
     const avgScore = allTeams.reduce((sum, t) => sum + t.weighted_score, 0) / allTeams.length;
-    
+
     const sorted = [...allTeams].sort((a, b) => b.weighted_score - a.weighted_score);
 
     return {
@@ -280,11 +280,11 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
         <div className="flex"></div>
         <div className="flex-center gap-2">
           <div className="flex-center gap-2 mr-2">
-             <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Switch to Tables"><Table size={16} /></button>
-             <button className="btn btn-primary" title="Charts View"><BarChart3 size={16} /></button>
-             <div className="v-divider mx-1" />
+            <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Switch to Tables"><Table size={16} /></button>
+            <button className="btn btn-primary" title="Charts View"><BarChart3 size={16} /></button>
+            <div className="v-divider mx-1" />
           </div>
-          
+
           <div className="flex-center gap-2">
             {tab === 'IP' ? (
               <>
@@ -357,7 +357,7 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
 
       {/* 3. CHART MODULES (TRANSFORMED FROM MATRIX) */}
       <div className="grid grid-cols-12 gap-6">
-        
+
         {/* A. Performance Distribution (Stacked Bar) */}
         <div className="col-span-12 lg:col-span-7 glass-panel p-6 chart-box-min">
           <h3 className="font-bold flex-center gap-2 mb-6">
@@ -456,13 +456,13 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
                               <div className="bg-white/[0.04] rounded-xl p-6 mx-6 mb-4">
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                   {cluster.teams.map((team) => (
-                                  <div key={team.name} className="glass-panel p-4 border-white/5 flex-between hover:border-primary/30 transition-all group cursor-pointer" onClick={(e) => { e.stopPropagation(); onNavigate?.('performance-tables'); }}>
-                                    <div><div className="text-sm font-bold group-hover:text-primary transition-colors">{team.name}</div><div className="text-xs text-muted">{team.total} records</div></div>
-                                    <div className="text-right">
-                                      <div className={`text-lg font-bold ${team.weighted_score >= 80 ? 'text-success' : team.weighted_score >= 60 ? 'text-warning' : 'text-danger'}`}>{team.weighted_score.toFixed(1)}</div>
-                                      <div className="text-[10px] text-muted uppercase">W-Score</div>
+                                    <div key={team.name} className="glass-panel p-4 border-white/5 flex-between hover:border-primary/30 transition-all group cursor-pointer" onClick={(e) => { e.stopPropagation(); onNavigate?.('performance-tables'); }}>
+                                      <div><div className="text-sm font-bold group-hover:text-primary transition-colors">{team.name}</div><div className="text-xs text-muted">{team.total} records</div></div>
+                                      <div className="text-right">
+                                        <div className={`text-lg font-bold ${team.weighted_score >= 80 ? 'text-success' : team.weighted_score >= 60 ? 'text-warning' : 'text-danger'}`}>{team.weighted_score.toFixed(1)}</div>
+                                        <div className="text-[10px] text-muted uppercase">W-Score</div>
+                                      </div>
                                     </div>
-                                  </div>
                                   ))}
                                 </div>
                               </div>
