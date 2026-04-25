@@ -45,6 +45,7 @@ import { useGroupedData, useRankedGroups, useTrainerStats, useDrilldownNodes, us
 import { useMasterData } from '../../context/MasterDataContext';
 
 const ALL_TRAINING_TYPES = ['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'PRE_AP'];
+const VIEW_BY_OPTIONS: ViewByOption[] = ['Team', 'Cluster', 'Month'];
 
 const FY_OPTIONS = getFiscalYears(2015);
 
@@ -55,12 +56,13 @@ interface ReportsAnalyticsProps {
   nominations: TrainingNomination[];
   demographics: Demographics[];
   pageMode?: 'overview' | 'performance-insights';
+  onNavigate?: (view: any) => void;
 }
 
 type SubView = 'grouped' | 'timeseries' | 'trainer' | 'drilldown' | 'gap' | 'ip_matrix' | 'ip_cluster_rank' | 'ip_team_rank' | 'ap_performance' | 'mip_attendance' | 'mip_performance' | 'refresher_attendance' | 'refresher_performance' | 'capsule_attendance' | 'capsule_performance';
 
 const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
-  employees, attendance, scores, nominations, demographics, pageMode = 'overview'
+  employees, attendance, scores, nominations, demographics, pageMode = 'overview', onNavigate
 }) => {
   const { trainers: masterTrainers, teams: masterTeams, clusters: masterClusters } = useMasterData();
 
@@ -167,18 +169,18 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
 
   // --- BUCKET HELPERS ---
   const renderPerformanceCell = (data: any, keyVal: string) => {
-    if (!data || data.total === 0) return <td key={keyVal} style={{ textAlign: 'center', opacity: 0.4 }}>—</td>;
+    if (!data || data.total === 0) return <td key={keyVal} className="td-empty">—</td>;
     
     return (
-      <td key={keyVal} style={{ textAlign: 'center' }} title={`>90%: ${data.elite}\n75–90%: ${data.high}\n50–75%: ${data.medium}\n<50%: ${data.low}`}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', fontSize: '12px' }}>
-          <span style={{ color: '#22c55e', fontWeight: 600 }}>{data.elite}</span>
-          <span style={{ opacity: 0.2 }}>/</span>
-          <span style={{ color: '#3b82f6' }}>{data.high}</span>
-          <span style={{ opacity: 0.2 }}>/</span>
-          <span style={{ color: '#f59e0b' }}>{data.medium}</span>
-          <span style={{ opacity: 0.2 }}>/</span>
-          <span style={{ color: '#ef4444', fontWeight: 600 }}>{data.low}</span>
+      <td key={keyVal} className="td-center" title={`>90%: ${data.elite}\n75–90%: ${data.high}\n50–75%: ${data.medium}\n<50%: ${data.low}`}>
+        <div className="performance-cell-container">
+          <span className="performance-elite">{data.elite}</span>
+          <span className="performance-sep">/</span>
+          <span className="performance-high">{data.high}</span>
+          <span className="performance-sep">/</span>
+          <span className="performance-med">{data.medium}</span>
+          <span className="performance-sep">/</span>
+          <span className="performance-low">{data.low}</span>
         </div>
       </td>
     );
@@ -190,10 +192,10 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
   };
 
   const renderSummaryPercent = (part: number, total: number, threshold?: number, colorClass?: string) => {
-    if (!total) return <td style={{ textAlign: 'center', opacity: 0.4 }}>—</td>;
+    if (!total) return <td className="td-empty">—</td>;
     const pct = Math.round((part / total) * 100);
-    const finalClass = (threshold && pct >= threshold) ? colorClass : '';
-    return <td style={{ textAlign: 'center' }} className={finalClass}>{pct}%</td>;
+    const finalClass = (threshold && pct >= threshold) ? `td-center ${colorClass}` : 'td-center';
+    return <td className={finalClass}>{pct}%</td>;
   };
 
   const formatMonthLabel = useCallback((month: string) => {
@@ -572,36 +574,36 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
   // ─── SKELETON RENDERERS ───
   // Show while respective stage is loading
   const KPISkeletons = () => (
-    <div className="dashboard-grid" style={{ marginBottom: '24px' }}>
+    <div className="dashboard-grid mb-24">
       {[...Array(4)].map((_, i) => (
-        <div key={i} className="glass-panel" style={{ height: '100px', background: 'rgba(255,255,255,0.02)', animation: 'pulse 2s infinite' }} />
+        <div key={i} className="glass-panel skeleton-box" />
       ))}
     </div>
   );
 
   const TableSkeleton = () => (
-    <div className="glass-panel" style={{ padding: '20px', marginBottom: '24px' }}>
-      <div style={{ height: '40px', background: 'rgba(255,255,255,0.05)', marginBottom: '12px', borderRadius: '6px', animation: 'pulse 2s infinite' }} />
+    <div className="glass-panel skeleton-container">
+      <div className="skeleton-header" />
       {[...Array(5)].map((_, i) => (
-        <div key={i} style={{ height: '30px', background: 'rgba(255,255,255,0.02)', marginBottom: '8px', borderRadius: '4px', animation: 'pulse 2s infinite' }} />
+        <div key={i} className="skeleton-row" />
       ))}
     </div>
   );
 
   const MatrixSkeleton = () => (
-    <div className="glass-panel" style={{ padding: '20px', marginBottom: '24px', overflowX: 'auto' }}>
-      <div style={{ height: '300px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px', animation: 'pulse 2s infinite' }} />
+    <div className="glass-panel skeleton-container skeleton-scroll">
+      <div className="skeleton-matrix-box" />
     </div>
   );
 
   return (
     <div className="animate-fade-in">
       {/* Page Identity */}
-      <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 700 }}>
+      <div className="mb-24">
+        <h1 className="text-2xl font-bold m-0">
           {pageMode === 'performance-insights' ? 'Performance Insights' : 'Overview'}
         </h1>
-        <p style={{ color: 'var(--text-secondary)', margin: '8px 0 0 0', fontSize: '13px' }}>
+        <p className="text-subtitle">
           {pageMode === 'performance-insights' 
             ? 'Detailed training performance analysis and rankings' 
             : 'Training performance snapshot and trends'}
@@ -609,9 +611,16 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
       </div>
 
       {/* Controls Header */}
-      <div className="header" style={{ marginBottom: '20px' }}>
-        <div style={{ display: 'flex' }}></div>
-        <div className="flex-center" style={{ gap: '8px' }}>
+      <div className="header mb-20">
+        <div className="flex"></div>
+        <div className="flex-center gap-2">
+          {pageMode === 'performance-insights' && (
+            <div className="flex-center gap-2 mr-2">
+               <button className="btn btn-primary" title="Tables View"><Table size={16} /></button>
+               <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-charts')} title="Switch to Charts"><BarChart3 size={16} /></button>
+               <div className="v-divider mx-1" />
+            </div>
+          )}
           {tab === 'IP' ? (
             <Fragment>
               <button className={`btn ${subView === 'ip_matrix' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('ip_matrix')} title="Matrix View"><Table size={16} /></button>
@@ -648,22 +657,23 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
               <button className={`btn ${subView === 'drilldown' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('drilldown')} title="Drill-Down"><ChartNetwork size={16} /></button>
             </Fragment>
           )}
-          <button className={`btn ${subView === 'gap' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('gap')} title="Gap Analysis" style={{ color: subView === 'gap' ? '#fff' : 'var(--danger)' }}><AlertTriangle size={16} /></button>
-          <div style={{ width: '1px', height: '28px', background: 'var(--border-color)', margin: '0 4px' }} />
+          <button className={`btn ${subView === 'gap' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('gap')} title="Gap Analysis"><AlertTriangle size={16} /></button>
+          <div className="v-divider mx-1" />
           
           {(['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'Pre_AP'].includes(tab)) && (
-            <div className="fy-selector" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '8px' }}>
-              <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-secondary)' }}>FISCAL YEAR</label>
+            <div className="fy-selector flex-center gap-2 mr-2">
+              <label className="text-xs-bold text-muted uppercase">FISCAL YEAR</label>
               <select 
-                className="form-select glass-panel" 
+                className="form-select glass-panel fy-select" 
                 value={selectedFYs[tab]} 
+                title="Select Fiscal Year"
+                aria-label="Select Fiscal Year"
                 onChange={(e) =>
                   setSelectedFYs(prev => ({
                     ...prev,
                     [tab]: e.target.value
                   }))
                 }
-                style={{ padding: '6px 12px', fontSize: '13px', border: '1px solid var(--border-color)', borderRadius: '8px', background: 'transparent' }}
               >
                 {FY_OPTIONS.map(fy => (
                   <option key={fy} value={fy}>{fy}</option>
@@ -672,34 +682,40 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
             </div>
           )}
 
-          {/* Inline filter button removed in favor of GlobalFilterPanel */}
-          <button className={`btn btn-secondary ${activeFilterCount > 0 ? 'active' : ''}`} onClick={() => setShowGlobalFilters(true)} title={`Global Filters ${activeFilterCount > 0 ? `(${activeFilterCount})` : ''}`} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <button 
+            className={`btn btn-secondary btn-filter ${activeFilterCount > 0 ? 'active' : ''}`}
+            onClick={() => setShowGlobalFilters(true)}
+            title="Open Filters"
+          >
             <Filter size={16} />
-            {activeFilterCount > 0 && <span style={{ fontSize: '11px', fontWeight: 600, minWidth: '16px' }}>{activeFilterCount}</span>}
+            {activeFilterCount > 0 && <span className="text-xs-bold min-w-16">{activeFilterCount}</span>}
           </button>
           <button className="btn btn-secondary" onClick={handleExport} title="Export CSV"><Download size={16} /></button>
         </div>
       </div>
 
       {/* Training Type Tabs */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+      <div className="tab-row">
         {ALL_TRAINING_TYPES.map(t => (
-          <button key={t} onClick={() => setTab(t)} className={`btn ${tab === t ? 'btn-primary' : 'btn-secondary'}`} style={{ fontSize: '13px', padding: '6px 16px' }}>{t}</button>
+          <button key={t} onClick={() => setTab(t)} className={`btn btn-tab ${tab === t ? 'btn-primary' : 'btn-secondary'}`}>{t}</button>
         ))}
       </div>
 
-      {/* View By + Filter Bar */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
-        {(['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'Pre_AP'].every(t => tab !== t)) && (
-          <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: '8px', padding: '3px' }}>
-            {(['Team', 'Cluster', 'Month'] as ViewByOption[]).map(v => (
-              <button key={v} onClick={() => setViewBy(v)} style={{ padding: '5px 14px', borderRadius: '6px', background: viewBy === v ? 'var(--accent-primary)' : 'transparent', color: viewBy === v ? '#fff' : 'var(--text-secondary)', border: 'none', fontWeight: 600, cursor: 'pointer', fontSize: '13px' }}>{v}</button>
-            ))}
-          </div>
-        )}
+      {/* View By Switcher */}
+      <div className="flex gap-12 mb-16 items-center flex-wrap">
+        <label className="text-xs-bold text-muted uppercase">View Data By:</label>
+        <div className="flex bg-card-panel p-3 border-radius-8">
+          {VIEW_BY_OPTIONS.map(v => (
+            <button 
+              key={v} 
+              onClick={() => setViewBy(v)} 
+              className={`btn-toggle ${viewBy === v ? 'active' : ''}`}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
       </div>
-
-      {/* Inline filter panel removed in favor of GlobalFilterPanel */}
 
       {/* KPI Cards - Progressive Rendering Stage 0 (KPI) */}
       {kpiStage === 'loading' ? (
@@ -710,7 +726,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, ease: 'easeOut' }}
         >
-          <div className="dashboard-grid" style={{ marginBottom: '24px' }}>
+          <div className="dashboard-grid mb-24">
             {subView === 'gap' ? (
             <Fragment>
               <KPIBox title="Eligible Cohort" value={gapMetrics.eligibleCount} icon={ShieldCheck} />
@@ -823,14 +839,14 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
 
       {/* Top / Bottom 3 */}
       {subView === 'grouped' && tab !== 'IP' && tab !== 'AP' && ranked.length > 3 && (
-        <div className="dashboard-grid" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: '24px' }}>
-          <div className="glass-panel" style={{ padding: '20px', borderLeft: '4px solid var(--success)' }}>
-            <div className="flex-center mb-4" style={{ color: 'var(--success)' }}><Trophy size={18} /><span style={{ fontWeight: 700, fontSize: '13px', textTransform: 'uppercase' }}>Top Performance</span></div>
-            {ranked.slice(0, 3).map(g => <div key={g.key} style={{ fontSize: '14px', marginBottom: '8px' }}>#{g.rank} <strong>{g.key}</strong> — {g.metric.toFixed(1)}</div>)}
+        <div className="grid-2 mb-24">
+          <div className="glass-panel p-20 rank-card-success">
+            <div className="flex-center mb-4 text-success-bold uppercase"><Trophy size={18} className="mr-2" />Top Performance</div>
+            {ranked.slice(0, 3).map(g => <div key={g.key} className="rank-item">#{g.rank} <strong>{g.key}</strong> — {g.metric.toFixed(1)}</div>)}
           </div>
-          <div className="glass-panel" style={{ padding: '20px', borderLeft: '4px solid var(--danger)' }}>
-            <div className="flex-center mb-4" style={{ color: 'var(--danger)' }}><AlertTriangle size={18} /><span style={{ fontWeight: 700, fontSize: '13px', textTransform: 'uppercase' }}>Needs Attention</span></div>
-            {ranked.slice(-3).reverse().map(g => <div key={g.key} style={{ fontSize: '14px', marginBottom: '8px' }}>#{g.rank} <strong>{g.key}</strong> — {g.metric.toFixed(1)}</div>)}
+          <div className="glass-panel p-20 rank-card-danger">
+            <div className="flex-center mb-4 text-danger-bold uppercase"><AlertTriangle size={18} className="mr-2" />Needs Attention</div>
+            {ranked.slice(-3).reverse().map(g => <div key={g.key} className="rank-item">#{g.rank} <strong>{g.key}</strong> — {g.metric.toFixed(1)}</div>)}
           </div>
         </div>
       )}
@@ -845,22 +861,22 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
           >
-            <div className="glass-panel" style={{ overflow: 'hidden' }}>
-              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h3 style={{ margin: 0, fontSize: '18px' }}>Cluster → Team → Month Matrix Engine</h3>
+            <div className="glass-panel overflow-hidden">
+              <div className="card-header">
+                <h3 className="text-lg m-0">Cluster → Team → Month Matrix Engine</h3>
               </div>
-              <div style={{ overflowX: 'auto' }}>
-                <table className="data-table" style={{ width: '100%' }}>
+              <div className="overflow-x-auto">
+                <table className="data-table w-full">
                   <thead>
                     <tr>
-                      <th style={{ width: '40px' }}></th>
+                      <th className="w-40"></th>
                       <th>Cluster / Team</th>
-                      <th style={{ textAlign: 'center' }}>Total</th>
-                      <th style={{ textAlign: 'center' }}>Elite %</th>
-                      <th style={{ textAlign: 'center' }}>High %</th>
-                      <th style={{ textAlign: 'center' }}>Medium %</th>
-                      <th style={{ textAlign: 'center' }}>Low %</th>
-                      {MONTHS.map(mo => <th key={mo} style={{ textAlign: 'center', minWidth: '90px' }}>{formatMonthLabel(mo)}</th>)}
+                      <th className="td-center">Total</th>
+                      <th className="td-center">Elite %</th>
+                      <th className="td-center">High %</th>
+                      <th className="td-center">Medium %</th>
+                      <th className="td-center">Low %</th>
+                      {MONTHS.map(mo => <th key={mo} className="td-center min-w-90">{formatMonthLabel(mo)}</th>)}
                     </tr>
                   </thead>
                   <tbody>
@@ -870,18 +886,12 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                       const ePct = getPercent(clusterData.elite, clusterData.total);
                       const lPct = getPercent(clusterData.low, clusterData.total);
 
-                      const getRowStyle = (hp: number, lp: number) => {
-                        if (hp > 70) return { background: 'rgba(16, 185, 129, 0.08)' };
-                        if (lp > 30) return { background: 'rgba(239, 68, 68, 0.08)' };
-                        return {};
-                      };
-
                       return (
                         <Fragment key={clusterName}>
-                          <tr onClick={() => toggleExpand(clusterName)} style={{ cursor: 'pointer', ...getRowStyle(ePct, lPct) }}>
+                          <tr onClick={() => toggleExpand(clusterName)} className={`cursor-pointer ${ePct > 70 ? 'bg-success-faint' : lPct > 30 ? 'bg-danger-faint' : ''}`}>
                             <td>{isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</td>
-                            <td style={{ fontWeight: 700 }}>{clusterName}</td>
-                            <td style={{ textAlign: 'center', fontWeight: 600 }}>{clusterData.total}</td>
+                            <td className="font-bold">{clusterName}</td>
+                            <td className="td-center font-semibold">{clusterData.total}</td>
                             {renderSummaryPercent(clusterData.elite, clusterData.total, 50, 'text-success')}
                             {renderSummaryPercent(clusterData.high, clusterData.total, 50, 'text-success')}
                             {renderSummaryPercent(clusterData.medium, clusterData.total, 40, 'text-warning')}
@@ -895,10 +905,10 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                             const tlhPct = getPercent(teamData.low, teamData.total);
 
                             return (
-                              <tr key={teamName} style={{ ...getRowStyle(ethPct, tlhPct), fontSize: '13px' }}>
+                              <tr key={teamName} className={`${ethPct > 70 ? 'bg-success-faint' : tlhPct > 30 ? 'bg-danger-faint' : ''} text-xs`}>
                                 <td></td>
-                                <td style={{ paddingLeft: '24px' }}>↳ {teamName}</td>
-                                <td style={{ textAlign: 'center', fontWeight: 600 }}>{teamData.total}</td>
+                                <td className="pl-24">↳ {teamName}</td>
+                                <td className="td-center font-semibold">{teamData.total}</td>
                                 {renderSummaryPercent(teamData.elite, teamData.total, 50, 'text-success')}
                                 {renderSummaryPercent(teamData.high, teamData.total, 50, 'text-success')}
                                 {renderSummaryPercent(teamData.medium, teamData.total, 40, 'text-warning')}
@@ -928,19 +938,19 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
           >
-            <div className="glass-panel" style={{ overflow: 'hidden' }}>
-              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h3 style={{ margin: 0, fontSize: '18px' }}>AP Notified vs Attended Matrix</h3>
+            <div className="glass-panel overflow-hidden">
+              <div className="card-header">
+                <h3 className="text-lg m-0">AP Notified vs Attended Matrix</h3>
               </div>
-              <div style={{ overflowX: 'auto' }}>
-                <table className="data-table" style={{ width: '100%', minWidth: '1000px' }}>
+              <div className="overflow-x-auto">
+                <table className="data-table w-full min-w-1000">
                   <thead>
                     <tr>
-                      <th style={{ width: '40px' }}></th>
-                      <th style={{ minWidth: '160px' }}>Cluster / Team</th>
-                      <th style={{ textAlign: 'center' }}>Total Notified</th>
-                      <th style={{ textAlign: 'center' }}>Total Attended</th>
-                      {MONTHS.map(mo => <th key={mo} style={{ textAlign: 'center', minWidth: '90px' }}>{formatMonthLabel(mo)}</th>)}
+                      <th className="w-40"></th>
+                      <th className="min-w-160">Cluster / Team</th>
+                      <th className="td-center">Total Notified</th>
+                      <th className="td-center">Total Attended</th>
+                      {MONTHS.map(mo => <th key={mo} className="td-center min-w-90">{formatMonthLabel(mo)}</th>)}
                     </tr>
                   </thead>
                   <tbody>
@@ -950,22 +960,22 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
 
                       return (
                         <Fragment key={clusterName}>
-                          <tr onClick={() => toggleExpand(clusterName)} style={{ cursor: 'pointer', background: 'rgba(34,45,104,0.04)' }}>
+                          <tr onClick={() => toggleExpand(clusterName)} className="cursor-pointer tr-cluster">
                             <td>{isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</td>
-                            <td style={{ fontWeight: 700 }}>{clusterName}</td>
-                            <td style={{ textAlign: 'center', fontWeight: 600 }}>{clusterData.totalNotified}</td>
-                            <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--success)' }}>{clusterData.totalAttended}</td>
+                            <td className="font-bold">{clusterName}</td>
+                            <td className="td-center font-semibold">{clusterData.totalNotified}</td>
+                            <td className="td-center font-semibold text-success">{clusterData.totalAttended}</td>
                             {MONTHS.map(mo => {
                               const cell = clusterData.months[mo];
-                              if (!cell || (!cell.notified && !cell.attended)) return <td key={mo} style={{ textAlign: 'center', opacity: 0.3 }}>—</td>;
+                              if (!cell || (!cell.notified && !cell.attended)) return <td key={mo} className="td-center text-muted-30">—</td>;
                               const pct = cell.notified > 0 ? Math.round((cell.attended / cell.notified) * 100) : 0;
                               const isWarning = cell.attended > cell.notified;
                               const isPerfect = pct === 100 && cell.notified > 0;
                               
                               return (
-                                <td key={mo} style={{ textAlign: 'center', background: isWarning ? 'rgba(239, 68, 68, 0.1)' : isPerfect ? 'rgba(16, 185, 129, 0.1)' : 'transparent' }}>
-                                  <div style={{ fontWeight: 600, color: isWarning ? 'var(--danger)' : 'inherit' }}>{cell.attended} / {cell.notified}</div>
-                                  {cell.notified > 0 && <div style={{ fontSize: '10px', opacity: 0.7 }}>({pct}%)</div>}
+                                <td key={mo} className={`td-center ${isWarning ? 'bg-warning-light' : isPerfect ? 'bg-success-light' : ''}`}>
+                                  <div className={`font-semibold ${isWarning ? 'text-danger' : ''}`}>{cell.attended} / {cell.notified}</div>
+                                  {cell.notified > 0 && <div className="text-xxs text-muted-70">({pct}%)</div>}
                                 </td>
                               );
                             })}
@@ -974,22 +984,22 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                           {isOpen && Object.keys(apData.teamMonthMap[clusterName] || {}).sort().map(teamName => {
                             const teamData = apData.teamMonthMap[clusterName][teamName];
                             return (
-                              <tr key={teamName} style={{ fontSize: '13px' }}>
+                              <tr key={teamName} className="text-xs">
                                 <td></td>
-                                <td style={{ paddingLeft: '24px' }}>↳ {teamName}</td>
-                                <td style={{ textAlign: 'center', fontWeight: 600 }}>{teamData.totalNotified}</td>
-                                <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--success)' }}>{teamData.totalAttended}</td>
+                                <td className="pl-24">↳ {teamName}</td>
+                                <td className="td-center font-semibold">{teamData.totalNotified}</td>
+                                <td className="td-center font-semibold text-success">{teamData.totalAttended}</td>
                                 {MONTHS.map(mo => {
                                   const cell = teamData.months[mo];
-                                  if (!cell || (!cell.notified && !cell.attended)) return <td key={mo} style={{ textAlign: 'center', opacity: 0.3 }}>—</td>;
+                                  if (!cell || (!cell.notified && !cell.attended)) return <td key={mo} className="td-center text-muted-30">—</td>;
                                   const pct = cell.notified > 0 ? Math.round((cell.attended / cell.notified) * 100) : 0;
                                   const isWarning = cell.attended > cell.notified;
                                   const isPerfect = pct === 100 && cell.notified > 0;
                                   
                                   return (
-                                    <td key={mo} style={{ textAlign: 'center', background: isWarning ? 'rgba(239, 68, 68, 0.1)' : isPerfect ? 'rgba(16, 185, 129, 0.1)' : 'transparent' }}>
-                                      <div style={{ fontWeight: 600, color: isWarning ? 'var(--danger)' : 'inherit' }}>{cell.attended} / {cell.notified}</div>
-                                      {cell.notified > 0 && <div style={{ fontSize: '10px', opacity: 0.7 }}>({pct}%)</div>}
+                                    <td key={mo} className={`td-center ${isWarning ? 'bg-warning-light' : isPerfect ? 'bg-success-light' : ''}`}>
+                                      <div className={`font-semibold ${isWarning ? 'text-danger' : ''}`}>{cell.attended} / {cell.notified}</div>
+                                      {cell.notified > 0 && <div className="text-xxs text-muted-70">({pct}%)</div>}
                                     </td>
                                   );
                                 })}
@@ -1078,22 +1088,22 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
           >
-            <div className="glass-panel" style={{ overflow: 'hidden' }}>
+            <div className="glass-panel overflow-hidden">
               <DataTable headers={genericHeaders}>
                 {ranked.map(g => {
                   const isOpen = expanded.has(g.key);
                   return (
                     <Fragment key={g.key}>
-                      <tr onClick={() => toggleExpand(g.key)} style={{ cursor: 'pointer' }}>
-                        <td style={{ fontWeight: 700, color: 'var(--accent-primary)' }}>{g.rank}</td>
+                      <tr onClick={() => toggleExpand(g.key)} className="cursor-pointer">
+                        <td className="font-bold text-accent">{g.rank}</td>
                         <td>{isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</td>
-                        <td style={{ fontWeight: 600 }}>{g.key}</td>
+                        <td className="font-semibold">{g.key}</td>
                         {tab === 'MIP' && (() => {
                           const m = calcMIP(g.records);
                           const avg = (m.avgSci + m.avgSkl) / 2;
                           return <Fragment>
                             <td>{m.count}</td><td>{m.avgSci.toFixed(2)}</td>
-                            <td style={{ fontWeight: 700 }}>{m.avgSkl.toFixed(2)}</td>
+                            <td className="font-bold">{m.avgSkl.toFixed(2)}</td>
                             <td><span className={`badge ${flagClass(flagScore(avg))}`}>{flagLabel(flagScore(avg))}</span></td>
                           </Fragment>;
                         })()}
@@ -1101,15 +1111,15 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                           const m = calcGeneric(g.records);
                           return <Fragment>
                             <td>{m.count}</td>
-                            <td style={{ fontWeight: 700 }}>{m.avgScore > 0 ? m.avgScore.toFixed(2) : '—'}</td>
+                            <td className="font-bold">{m.avgScore > 0 ? m.avgScore.toFixed(2) : '—'}</td>
                             <td><span className={`badge ${flagClass(flagScore(m.avgScore))}`}>{flagLabel(flagScore(m.avgScore))}</span></td>
                           </Fragment>;
                         })()}
                       </tr>
                       {isOpen && g.records.map((r, ri) => (
-                        <tr key={ri} style={{ background: 'rgba(255,255,255,0.02)', fontSize: '12px' }}>
+                        <tr key={ri} className="bg-muted-light text-xs-muted">
                           <td /><td />
-                          <td colSpan={genericHeaders.length - 2} className="text-muted">
+                          <td colSpan={genericHeaders.length - 2}>
                             <strong>{r.employee.name}</strong> ({r.employee.employeeId}) · {r.attendance.attendanceDate} · {r.attendance.attendanceStatus}
                           </td>
                         </tr>
@@ -1138,161 +1148,144 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
 
         // Re-usable cell renderer
         const renderRankCell = (monthData: any, useClusterRank: boolean, mo: string, maxRankInGroup: number) => {
-          if (!monthData) return <td key={mo} style={{ textAlign: 'center', borderLeft: '1px solid rgba(255,255,255,0.05)', color: 'var(--text-secondary)', padding: '10px 6px' }}>—</td>;
+          if (!monthData) return <td key={mo} className="td-center border-l-muted text-muted">—</td>;
 
           const displayRank = useClusterRank ? monthData.clusterRank : monthData.rank;
           const isTop1 = displayRank === 1;
           const isTop3 = displayRank <= 3;
           const isBottom = displayRank === maxRankInGroup && maxRankInGroup > 3;
 
-          const cellStyle: any = {
-            textAlign: 'center',
-            borderLeft: '1px solid rgba(255,255,255,0.05)',
-            padding: '10px 6px',
-            cursor: 'default',
-            transition: 'background 0.15s',
-            ...(isTop1 ? { background: 'rgba(16, 185, 129, 0.18)', color: 'var(--success)', fontWeight: 800 }
-              : isTop3 ? { background: 'rgba(245, 158, 11, 0.12)', color: 'var(--warning)', fontWeight: 700 }
-                : isBottom ? { background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', fontWeight: 600 }
-                  : {})
-          };
-
           return (
-            <td key={mo} style={cellStyle}
+            <td key={mo} className={`td-center border-l-muted p-10-6 ${isTop1 ? 'bg-success-faint text-success font-extrabold' : isTop3 ? 'bg-warning-faint text-warning font-bold' : isBottom ? 'bg-danger-faint text-danger font-semibold' : ''}`}
               title={`Cluster Rank: ${monthData.clusterRank}\nOverall Rank: ${monthData.rank}\nScore: ${monthData.score}`}
             >
-              <div style={{ fontSize: '14px' }}>#{displayRank}</div>
-              <div style={{ fontSize: '10px', opacity: 0.6, marginTop: '1px' }}>({monthData.score})</div>
+              <div className="text-sm">#{displayRank}</div>
+              <div className="text-xxs opacity-60 mt-1">({monthData.score})</div>
             </td>
           );
         };
 
         return (
-          <div className="glass-panel animate-fade-in" style={{ overflow: 'hidden', borderTop: '4px solid var(--accent-primary)' }}>
-            {/* Header */}
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.02)', flexWrap: 'wrap', gap: '12px' }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>IP Team Rankings</h3>
-                <p className="text-muted" style={{ fontSize: '12px', marginTop: '4px' }}>Formula: (95·Elite + 82.5·High + 62.5·Med − 25·Low) · National Total Points · FY {selectedFY}</p>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <div className="glass-panel overflow-hidden border-t-accent">
+              <div className="card-header bg-muted-light flex-wrap gap-2">
+                <div>
+                  <h3 className="text-lg font-bold m-0">IP Team Rankings</h3>
+                  <p className="text-muted text-xs mt-1">Formula: (95·Elite + 82.5·High + 62.5·Med − 25·Low) · National Total Points · FY {selectedFY}</p>
+                </div>
+                <span className="badge badge-info font-bold">FY {selectedFY}</span>
               </div>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <span className="badge badge-info" style={{ fontWeight: 700 }}>FY {selectedFY}</span>
-              </div>
-            </div>
 
-            {/* ── TABLE 1: CLUSTER-WISE DRILL-DOWN ── */}
-            <div style={{ padding: '14px 20px 6px', borderBottom: '1px solid var(--border-color)', background: 'rgba(34,45,104,0.04)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-                <Trophy size={16} color="var(--accent-primary)" />
-                <span style={{ fontWeight: 700, fontSize: '14px', color: 'var(--accent-primary)' }}>TABLE 1 — Cluster-wise Ranking</span>
-                <span className="text-muted" style={{ fontSize: '11px' }}>Rank is within cluster only</span>
+              <div className="p-14-20-6 border-b bg-accent-faint">
+                <div className="flex items-center gap-2 mb-1">
+                  <Trophy size={16} className="text-accent" />
+                  <span className="text-base font-bold text-accent">TABLE 1 — Cluster-wise Ranking</span>
+                  <span className="text-muted text-xxs">Rank is within cluster only</span>
+                </div>
               </div>
-            </div>
-            <div style={{ overflowX: 'auto' }}>
-              <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ background: 'rgba(0,0,0,0.1)' }}>
-                    <th style={{ width: '28px', padding: '10px 8px' }}></th>
-                    <th style={{ textAlign: 'left', padding: '10px 14px', minWidth: '180px' }}>Cluster / Team</th>
-                    {MONTHS.map(mo => (
-                      <th key={mo} style={{ textAlign: 'center', minWidth: '90px', borderLeft: '1px solid rgba(255,255,255,0.05)', fontSize: '12px' }}>{formatMonthLabel(mo)}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {Object.keys(clusterTeams).sort().map(cluster => {
-                    const isOpen = expanded.has(`rank_${cluster}`);
-                    const teams = clusterTeams[cluster];
-                    return (
-                      <Fragment key={cluster}>
-                        {/* Cluster header row */}
-                        <tr
-                          onClick={() => toggleExpand(`rank_${cluster}`)}
-                          style={{ cursor: 'pointer', background: 'rgba(34,45,104,0.06)', borderBottom: '1px solid var(--border-color)' }}
-                        >
-                          <td style={{ textAlign: 'center', padding: '10px 8px' }}>
-                            {isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
-                          </td>
-                          <td style={{ fontWeight: 700, padding: '10px 14px', letterSpacing: '0.3px' }}>{cluster}</td>
-                          {MONTHS.map(mo => {
-                            // Find best performing team in this cluster for this month
-                            let bestScore = -Infinity;
-                            let summary = '—';
-                            teams.forEach(t => {
-                              const d = ipRankData.teams[t]?.months[mo];
-                              if (d && d.score > bestScore) {
-                                bestScore = d.score;
-                                summary = `Top: ${t} (${d.score})`;
-                              }
-                            });
+              <div className="overflow-x-auto">
+                <table className="data-table w-full">
+                  <thead>
+                    <tr className="bg-dark-10">
+                      <th className="w-28 p-10-8"></th>
+                      <th className="text-left p-10-14 min-w-180">Cluster / Team</th>
+                      {MONTHS.map(mo => (
+                        <th key={mo} className="td-center min-w-90 border-l-muted text-xs">{formatMonthLabel(mo)}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.keys(clusterTeams).sort().map(cluster => {
+                      const isOpen = expanded.has(`rank_${cluster}`);
+                      const teams = clusterTeams[cluster];
+                      return (
+                        <Fragment key={cluster}>
+                          <tr 
+                            onClick={() => toggleExpand(`rank_${cluster}`)} 
+                            className="cursor-pointer tr-accent-faint border-b"
+                          >
+                            <td className="td-center p-10-8">
+                              {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                            </td>
+                            <td className="font-bold p-10-14 tracking-wide">{cluster}</td>
+                            {MONTHS.map(mo => {
+                              let bestScore = -Infinity;
+                              let summary = '—';
+                              teams.forEach(t => {
+                                const d = ipRankData.teams[t]?.months[mo];
+                                if (d && d.score > bestScore) {
+                                  bestScore = d.score;
+                                  summary = `Top: ${t} (${d.score})`;
+                                }
+                              });
+                              return (
+                                <td key={mo} className="td-center border-l-muted text-xxs text-muted p-10-4 lh-12">
+                                  {summary}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                          {isOpen && teams.map(teamName => {
+                            const entry = ipRankData.teams[teamName];
                             return (
-                              <td key={mo} style={{ textAlign: 'center', borderLeft: '1px solid rgba(255,255,255,0.05)', fontSize: '9px', color: 'var(--text-secondary)', padding: '10px 4px', lineHeight: 1.2 }}>
-                                {summary}
-                              </td>
+                              <tr key={teamName} className="border-b bg-white-01 text-xs">
+                                <td />
+                                <td className="pl-28 p-10-14 font-semibold">↳ {teamName}</td>
+                                {MONTHS.map(mo => {
+                                  const maxClusterRank = Math.max(...teams.map(t => ipRankData.teams[t]?.months[mo]?.clusterRank || 0));
+                                  return renderRankCell(entry.months[mo], true, mo, maxClusterRank);
+                                })}
+                              </tr>
                             );
                           })}
-                        </tr>
-                        {/* Expanded: team rows with CLUSTER rank */}
-                        {isOpen && teams.map(teamName => {
-                          const entry = ipRankData.teams[teamName];
-                          return (
-                            <tr key={teamName} style={{ borderBottom: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.01)', fontSize: '13px' }}>
-                              <td></td>
-                              <td style={{ paddingLeft: '28px', padding: '10px 14px 10px 28px', fontWeight: 500 }}>↳ {teamName}</td>
-                              {MONTHS.map(mo => {
-                                // Find max cluster rank for this month to detect "Bottom"
-                                const maxClusterRank = Math.max(...teams.map(t => ipRankData.teams[t]?.months[mo]?.clusterRank || 0));
-                                return renderRankCell(entry.months[mo], true, mo, maxClusterRank);
-                              })}
-                            </tr>
-                          );
-                        })}
-                      </Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                        </Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
 
-            {/* ── TABLE 2: OVERALL NATIONAL RANKING ── */}
-            <div style={{ padding: '14px 20px 6px', borderTop: '2px solid var(--border-color)', background: 'rgba(16,185,129,0.04)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-                <BarChart3 size={16} color="var(--success)" />
-                <span style={{ fontWeight: 700, fontSize: '14px', color: 'var(--success)' }}>TABLE 2 — Overall National Ranking</span>
-                <span className="text-muted" style={{ fontSize: '11px' }}>Rank across all teams</span>
+              <div className="p-14-20-6 border-t-2 tr-success-faint">
+                <div className="flex items-center gap-2 mb-1">
+                  <BarChart3 size={16} className="text-success" />
+                  <span className="text-base font-bold text-success">TABLE 2 — Overall National Ranking</span>
+                  <span className="text-muted text-xxs">Rank across all teams</span>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="data-table w-full border-collapse">
+                  <thead>
+                    <tr className="bg-dark-10">
+                      <th className="text-left p-10-20 min-w-160">Team</th>
+                      <th className="text-left min-w-120">Cluster</th>
+                      {MONTHS.map(mo => (
+                        <th key={mo} className="td-center min-w-90 border-l-muted text-xs">{formatMonthLabel(mo)}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.keys(ipRankData.teams).sort().map(teamName => {
+                      const entry = ipRankData.teams[teamName];
+                      return (
+                        <tr key={teamName} className="border-b">
+                          <td className="p-10-20 font-semibold">{teamName}</td>
+                          <td><span className="badge badge-secondary text-xxs">{entry.cluster}</span></td>
+                          {MONTHS.map(mo => {
+                            // Find max overall rank for this month to detect "Bottom"
+                            const maxOverallRank = Math.max(...Object.values(ipRankData.teams).map(t => t.months[mo]?.rank || 0));
+                            return renderRankCell(entry.months[mo], false, mo, maxOverallRank);
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
-            <div style={{ overflowX: 'auto' }}>
-              <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ background: 'rgba(0,0,0,0.1)' }}>
-                    <th style={{ textAlign: 'left', padding: '10px 20px', minWidth: '160px' }}>Team</th>
-                    <th style={{ textAlign: 'left', minWidth: '120px' }}>Cluster</th>
-                    {MONTHS.map(mo => (
-                      <th key={mo} style={{ textAlign: 'center', minWidth: '90px', borderLeft: '1px solid rgba(255,255,255,0.05)', fontSize: '12px' }}>{formatMonthLabel(mo)}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {Object.keys(ipRankData.teams).sort().map(teamName => {
-                    const entry = ipRankData.teams[teamName];
-                    const allTeamsCount = Object.keys(ipRankData.teams).length;
-                    return (
-                      <tr key={teamName} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                        <td style={{ padding: '10px 20px', fontWeight: 600 }}>{teamName}</td>
-                        <td><span className="badge badge-secondary" style={{ fontSize: '11px' }}>{entry.cluster}</span></td>
-                        {MONTHS.map(mo => {
-                          // Find max overall rank for this month to detect "Bottom"
-                          const maxOverallRank = Math.max(...Object.values(ipRankData.teams).map(t => t.months[mo]?.rank || 0));
-                          return renderRankCell(entry.months[mo], false, mo, maxOverallRank);
-                        })}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          </motion.div>
         );
       })()
       )}
@@ -1307,8 +1300,8 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
           >
-            <div className="glass-panel" style={{ padding: '24px' }}>
-              <h3 style={{ marginBottom: '16px' }}>Month-by-Month Trend — {tab}</h3>
+            <div className="glass-panel p-24">
+              <h3 className="mb-16">Month-by-Month Trend — {tab}</h3>
               <TimeSeriesTable rows={timeSeries} months={months} mode={tsMode} onModeToggle={() => setTsMode(m => m === 'score' ? 'count' : 'score')} />
             </div>
           </motion.div>
@@ -1325,9 +1318,9 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
           >
-            <div className="glass-panel" style={{ overflow: 'hidden' }}>
-              <div style={{ padding: '20px', borderBottom: '1px solid var(--border-color)' }}>
-                <h3 style={{ margin: 0 }}>Trainer Performance Analytics — {tab}</h3>
+            <div className="glass-panel overflow-hidden">
+              <div className="p-20 border-b">
+                <h3 className="m-0">Trainer Performance Analytics — {tab}</h3>
               </div>
               <TrainerTable stats={trainerStats} tab={tab} />
             </div>
@@ -1345,8 +1338,8 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
           >
-            <div className="glass-panel" style={{ padding: '24px' }}>
-              <h3 style={{ marginBottom: '16px' }}>Drill-Down: Cluster → Team → Employee</h3>
+            <div className="glass-panel p-24">
+              <h3 className="mb-16">Drill-Down: Cluster → Team → Employee</h3>
               <DrilldownPanel nodes={drilldownNodes} tab={tab} />
             </div>
           </motion.div>
@@ -1362,18 +1355,18 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
             <h3 className="mb-4">Gap Analysis: Eligible but Not Trained</h3>
             <DataTable headers={['Employee ID', 'Name', 'Team', 'State', 'Status', 'Reason']}>
               {eligibilityResults.length === 0 ? (
-                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-secondary)' }}>No eligibility data. Configure rules in Demographics.</td></tr>
+                <tr><td colSpan={6} className="td-center p-48 text-muted">No eligibility data. Configure rules in Demographics.</td></tr>
               ) : eligibilityResults.map((er, i) => {
                 const hasAttended = attendance.some(a => a.employeeId === er.employeeId && a.trainingType === tab && a.attendanceStatus === 'Present');
                 if (hasAttended || !er.eligibilityStatus) return null;
                 return (
                   <tr key={i}>
-                    <td style={{ fontWeight: 600 }}>{er.employeeId}</td>
+                    <td className="font-semibold">{er.employeeId}</td>
                     <td>{er.name}</td>
                     <td>{er.team}</td>
                     <td>{er.cluster}</td>
                     <td><span className="badge badge-danger">Untrained Gap</span></td>
-                    <td className="text-muted" style={{ fontSize: '11px' }}>{er.reasonIfNotEligible || '—'}</td>
+                    <td className="text-muted text-xs">{er.reasonIfNotEligible || '—'}</td>
                   </tr>
                 );
               })}

@@ -47,7 +47,7 @@ export function buildUnifiedDataset(
   const empMap = new Map<string, Employee>();
   for (const e of emps) {
     const teamId = getTeamId(e.team, masterTeams);
-    const cluster = teamMap[teamId]?.cluster || 'Unknown';
+    const cluster = (teamId ? teamMap[teamId]?.cluster : null) || 'Unmapped';
     empMap.set(e.employeeId || e.id, { ...e, teamId, cluster });
   }
 

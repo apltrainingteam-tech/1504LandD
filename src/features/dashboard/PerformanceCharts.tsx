@@ -2,26 +2,52 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
-  LineChart, Line, AreaChart, Area, ComposedChart, Cell, PieChart, Pie
+  LineChart, Line, AreaChart, Area, Cell
 } from 'recharts';
 import { 
   BarChart3, TrendingUp, Users, Target, ChevronRight, ChevronDown, Filter, 
-  Maximize2, LayoutGrid, ListOrdered, Download, Calendar
+  Maximize2, LayoutGrid, ListOrdered, Download, Table, Trophy, GraduationCap, AlertTriangle, ChartNetwork, Calendar, Zap
 } from 'lucide-react';
 import { Employee } from '../../types/employee';
-import { Attendance, TrainingScore, TrainingNomination, Demographics, TrainingType } from '../../types/attendance';
+import { Attendance, TrainingScore, TrainingNomination, Demographics } from '../../types/attendance';
 import { 
   buildUnifiedDataset, applyFilters, normalizeTrainingType,
-  calcIP, calcAP, calcMIP, calcRefresher, calcCapsule,
   getPrimaryMetricRaw
 } from '../../services/reportService';
-import { getFiscalMonths, getCurrentFY } from '../../services/ipIntelligenceService';
+import { 
+  getFiscalMonths, getCurrentFY, 
+  buildIPAggregates
+} from '../../services/ipIntelligenceService';
+import { buildEmployeeTimelines, filterTimelines } from '../../services/apIntelligenceService';
+import { getAPPerformanceAggregates } from '../../services/apPerformanceService';
+import { getMIPPerformanceAggregates } from '../../services/mipPerformanceService';
+import { getRefresherPerformanceAggregates } from '../../services/refresherPerformanceService';
+import { getCapsulePerformanceAggregates } from '../../services/capsulePerformanceService';
 import { getFiscalYears } from '../../utils/fiscalYear';
 import { useMasterData } from '../../context/MasterDataContext';
 import { GlobalFilterPanel } from '../../components/GlobalFilterPanel';
 import { GlobalFilters, getActiveFilterCount } from '../../context/filterContext';
-import { useFilterOptions, useMonthsFromData } from '../../utils/computationHooks';
-import { normalizeScore } from '../../utils/scoreNormalizer';
+import { 
+  useMonthsFromData, useFilterOptions
+} from '../../utils/computationHooks';
+
+// --- MANDATORY INTERFACES (SINGLE SOURCE OF TRUTH) ---
+
+interface MatrixTeam {
+  name: string;
+  total: number;
+  elite_pct: number;
+  high_pct: number;
+  medium_pct: number;
+  low_pct: number;
+  weighted_score: number;
+  monthly: Record<string, { elite: number, high: number, medium: number, low: number, total: number }>;
+}
+
+interface MatrixCluster {
+  cluster: string;
+  teams: MatrixTeam[];
+}
 
 interface PerformanceChartsProps {
   employees: Employee[];
@@ -33,6 +59,23 @@ interface PerformanceChartsProps {
 }
 
 const ALL_TRAINING_TYPES = ['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'PRE_AP'];
+const FY_OPTIONS = getFiscalYears(2015);
+
+const normalizeMonthStr = (m: string): string => {
+  if (!m) return '';
+  if (/^\d{4}-\d{2}/.test(m)) return m.substring(0, 7);
+  const monthNames: Record<string, string> = {
+    Jan:'01', Feb:'02', Mar:'03', Apr:'04', May:'05', Jun:'06',
+    Jul:'07', Aug:'08', Sep:'09', Oct:'10', Nov:'11', Dec:'12'
+  };
+  const match = m.match(/^([A-Za-z]{3})[-\s](\d{4})$/);
+  if (match) return `${match[2]}-${monthNames[match[1]] || '00'}`;
+  const slashMatch = m.match(/^(\d{2})\/(\d{4})$/);
+  if (slashMatch) return `${slashMatch[2]}-${slashMatch[1]}`;
+  const [y, mm] = m.split('-');
+  if (y && mm) return `${y}-${mm.padStart(2, '0')}`;
+  return m.substring(0, 7);
+};
 
 export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
   employees, attendance, scores, nominations, demographics, onNavigate
@@ -41,137 +84,176 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
   const [tab, setTab] = useState<string>('IP');
   const [selectedFY, setSelectedFY] = useState<string>(getCurrentFY());
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
-  
-  // Filter state
   const [pageFilters, setPageFilters] = useState<GlobalFilters>({ cluster: '', team: '', trainer: '', month: '' });
   const [showGlobalFilters, setShowGlobalFilters] = useState(false);
   const activeFilterCount = getActiveFilterCount(pageFilters);
 
   const MONTHS = useMemo(() => getFiscalMonths(selectedFY), [selectedFY]);
 
-  // Build unified dataset
+  // --- CORE DATA LAYER (FROM TABLE ENGINES) ---
+  
   const rawUnified = useMemo(() => {
     const normalizedTab = normalizeTrainingType(tab);
     const att = attendance.filter(a => normalizeTrainingType(a.trainingType) === normalizedTab);
     const scs = scores.filter(s => normalizeTrainingType(s.trainingType) === normalizedTab);
     const noms = nominations.filter(n => normalizeTrainingType(n.trainingType) === normalizedTab);
-    
     return buildUnifiedDataset(employees, att, scs, noms, [], masterTeams);
   }, [tab, attendance, scores, nominations, employees, masterTeams]);
 
   const unified = useMemo(() => {
     const filter = {
-      monthFrom: pageFilters.month || '',
-      monthTo: pageFilters.month || '',
+      monthFrom: pageFilters.month || '', monthTo: pageFilters.month || '',
       teams: pageFilters.team ? [pageFilters.team] : [],
       clusters: pageFilters.cluster ? [pageFilters.cluster] : [],
       trainer: pageFilters.trainer || ''
     };
     let ds = applyFilters(rawUnified, filter, masterTeams);
-    return ds.filter(r => {
-      const m = r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7);
-      return MONTHS.includes(m);
-    });
-  }, [rawUnified, pageFilters, MONTHS, masterTeams]);
+    return pageFilters.month ? ds : ds.filter(r => MONTHS.includes(normalizeMonthStr(r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7))));
+  }, [rawUnified, pageFilters, MONTHS, masterTeams, tab]);
 
-  // --- DATA TRANSFORMATIONS FOR CHARTS ---
+  // --- MATRIX TRANSFORMATION (SINGLE SOURCE OF TRUTH) ---
+  
+  const matrixData: MatrixCluster[] = useMemo(() => {
+    // 1. Fetch data from active engine
+    let engineData: any = null;
+    if (tab === 'IP') {
+      engineData = buildIPAggregates(unified);
+    } else if (['AP', 'MIP', 'Refresher', 'Capsule'].includes(tab)) {
+      const timelines = buildEmployeeTimelines(
+        attendance.filter(a => normalizeTrainingType(a.trainingType) === normalizeTrainingType(tab)),
+        nominations.filter(n => normalizeTrainingType(n.trainingType) === normalizeTrainingType(tab)),
+        masterTeams, tab,
+        scores.filter(s => normalizeTrainingType(s.trainingType) === normalizeTrainingType(tab))
+      );
+      const filtered = filterTimelines(timelines, { trainer: pageFilters.trainer, validMonths: MONTHS });
+      if (tab === 'AP') engineData = getAPPerformanceAggregates(filtered, MONTHS);
+      else if (tab === 'MIP') engineData = getMIPPerformanceAggregates(filtered, MONTHS);
+      else if (tab === 'Refresher') engineData = getRefresherPerformanceAggregates(filtered, MONTHS);
+      else if (tab === 'Capsule') engineData = getCapsulePerformanceAggregates(filtered, MONTHS);
+    }
 
-  // 1. Distribution Data (Stacked Bar)
-  const distributionData = useMemo(() => {
-    const monthMap: Record<string, any> = {};
-    MONTHS.forEach(m => {
-      monthMap[m] = { month: m, label: m.split('-')[1], Elite: 0, High: 0, Medium: 0, Low: 0 };
-    });
+    if (!engineData) return [];
 
-    unified.forEach(r => {
-      const m = r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7);
-      if (monthMap[m]) {
-        const s = normalizeScore(
-          r.score?.scores?.['percent'] ?? 
-          r.score?.scores?.['Percent'] ??
-          r.score?.scores?.['tScore'] ?? 
-          r.score?.scores?.['T Score'] ??
-          r.score?.scores?.['score'] ?? 
-          r.score?.scores?.['Score'] ??
-          r.score?.scores?.['scienceScore']
-        );
+    const clusterMap = engineData.clusterMonthMap || engineData.clusterMap || {};
+    const teamMonthMap = engineData.teamMonthMap || {};
 
-        if (s !== null) {
-          if (s >= 90) monthMap[m].Elite++;
-          else if (s >= 75) monthMap[m].High++;
-          else if (s >= 50) monthMap[m].Medium++;
-          else monthMap[m].Low++;
-        }
-      }
-    });
-
-    return MONTHS.map(m => monthMap[m]);
-  }, [unified, MONTHS]);
-
-  // 2. Ranking Data (Horizontal Bar)
-  const rankingData = useMemo(() => {
-    const teamMap: Record<string, { name: string, sum: number, count: number }> = {};
-    unified.forEach(r => {
-      const team = r.employee.team;
-      if (!teamMap[team]) teamMap[team] = { name: team, sum: 0, count: 0 };
+    // 2. Transform engine output to standard Matrix format
+    return Object.entries(clusterMap).map(([clusterName, clusterData]: [string, any]) => {
+      const teams: MatrixTeam[] = [];
       
-      const metric = getPrimaryMetricRaw([r], tab);
-      if (metric > 0) {
-        teamMap[team].sum += metric;
-        teamMap[team].count++;
-      }
-    });
-
-    return Object.values(teamMap)
-      .map(t => ({ name: t.name, score: t.count > 0 ? Math.round(t.sum / t.count * 10) / 10 : 0 }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 15); // Show top 15
-  }, [unified, tab]);
-
-  // 3. Trend Data (Multi-line)
-  const trendData = useMemo(() => {
-    const clusters = Array.from(new Set(unified.map(r => r.employee.cluster))).sort();
-    const data = MONTHS.map(m => {
-      const row: any = { month: m, label: m.split('-')[1] };
-      clusters.forEach(c => {
-        const clusterRecs = unified.filter(r => r.employee.cluster === c && (r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7)) === m);
-        row[c] = clusterRecs.length > 0 ? Math.round(getPrimaryMetricRaw(clusterRecs, tab) * 10) / 10 : null;
-      });
-      return row;
-    });
-    return { data, clusters };
-  }, [unified, MONTHS, tab]);
-
-  // 4. Cluster Dashboard Data
-  const clusterDashboardData = useMemo(() => {
-    const clusters = Array.from(new Set(unified.map(r => r.employee.cluster))).sort();
-    return clusters.map(c => {
-      const clusterRecs = unified.filter(r => r.employee.cluster === c);
-      const teams = Array.from(new Set(clusterRecs.map(r => r.employee.team))).sort();
+      // Handle both IP and AP/MIP structures
+      const teamSources = clusterData.teams ? Object.entries(clusterData.teams) : Object.entries(teamMonthMap[clusterName] || {});
       
-      const sparklineData = MONTHS.map(m => {
-        const monthRecs = clusterRecs.filter(r => (r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7)) === m);
-        return { month: m, score: monthRecs.length > 0 ? getPrimaryMetricRaw(monthRecs, tab) : null };
-      });
-
-      const teamData = teams.map(t => {
-        const teamRecs = clusterRecs.filter(r => r.employee.team === t);
-        return {
-          name: t,
-          score: Math.round(getPrimaryMetricRaw(teamRecs, tab) * 10) / 10,
-          count: teamRecs.length
-        };
+      teamSources.forEach(([teamName, teamData]: [string, any]) => {
+        const total = teamData.total || 0;
+        teams.push({
+          name: teamName,
+          total: total,
+          elite_pct: total > 0 ? (teamData.elite / total) * 100 : 0,
+          high_pct: total > 0 ? (teamData.high / total) * 100 : 0,
+          medium_pct: total > 0 ? (teamData.medium / total) * 100 : 0,
+          low_pct: total > 0 ? (teamData.low / total) * 100 : 0,
+          weighted_score: ((teamData.elite * 98) + (teamData.high * 85) + (teamData.medium * 65) + (teamData.low * 35)) / (total || 1),
+          monthly: teamData.months || {}
+        });
       });
 
       return {
-        name: c,
-        score: Math.round(getPrimaryMetricRaw(clusterRecs, tab) * 10) / 10,
-        count: clusterRecs.length,
-        sparklineData,
-        teams: teamData
+        cluster: clusterName,
+        teams: teams.sort((a, b) => b.weighted_score - a.weighted_score)
+      };
+    }).sort((a, b) => {
+      const aAvg = a.teams.reduce((sum, t) => sum + t.weighted_score, 0) / (a.teams.length || 1);
+      const bAvg = b.teams.reduce((sum, t) => sum + t.weighted_score, 0) / (b.teams.length || 1);
+      return bAvg - aAvg;
+    });
+  }, [unified, tab, MONTHS, attendance, nominations, scores, masterTeams, pageFilters.trainer]);
+
+  // --- KPI DERIVATION (FROM MATRIX ONLY) ---
+  
+  const kpis = useMemo(() => {
+    const allTeams = matrixData.flatMap(c => c.teams);
+    if (allTeams.length === 0) return { total: 0, high: 0, medium: 0, low: 0, score: 0, best: '—', worst: '—' };
+
+    const total = allTeams.reduce((sum, t) => sum + t.total, 0);
+    const avgHigh = allTeams.reduce((sum, t) => sum + t.high_pct, 0) / allTeams.length;
+    const avgMed = allTeams.reduce((sum, t) => sum + t.medium_pct, 0) / allTeams.length;
+    const avgLow = allTeams.reduce((sum, t) => sum + t.low_pct, 0) / allTeams.length;
+    const avgScore = allTeams.reduce((sum, t) => sum + t.weighted_score, 0) / allTeams.length;
+    
+    const sorted = [...allTeams].sort((a, b) => b.weighted_score - a.weighted_score);
+
+    return {
+      total,
+      high: avgHigh,
+      medium: avgMed,
+      low: avgLow,
+      score: avgScore,
+      best: sorted[0]?.name || '—',
+      worst: sorted[sorted.length - 1]?.name || '—'
+    };
+  }, [matrixData]);
+
+  // --- CHART TRANSFORMATIONS ---
+
+  const distributionData = useMemo(() => {
+    return MONTHS.map(m => {
+      const label = m.split('-')[1];
+      const buckets = { elite: 0, high: 0, medium: 0, low: 0, total: 0 };
+      matrixData.forEach(c => {
+        c.teams.forEach(t => {
+          const mon = t.monthly[m];
+          if (mon) {
+            buckets.elite += mon.elite || 0;
+            buckets.high += mon.high || 0;
+            buckets.medium += mon.medium || 0;
+            buckets.low += mon.low || 0;
+            buckets.total += mon.total || (mon.elite + mon.high + mon.medium + mon.low);
+          }
+        });
+      });
+      const tot = buckets.total || 1;
+      return {
+        label,
+        Elite: (buckets.elite / tot) * 100,
+        High: (buckets.high / tot) * 100,
+        Medium: (buckets.medium / tot) * 100,
+        Low: (buckets.low / tot) * 100
       };
     });
-  }, [unified, MONTHS, tab]);
+  }, [matrixData, MONTHS]);
+
+  const rankingData = useMemo(() => {
+    return matrixData.flatMap(c => c.teams)
+      .sort((a, b) => b.weighted_score - a.weighted_score)
+      .slice(0, 15)
+      .map(t => ({ name: t.name, score: Math.round(t.weighted_score * 100) / 100 }));
+  }, [matrixData]);
+
+  const trendData = useMemo(() => {
+    const data = MONTHS.map(m => {
+      const row: any = { label: m.split('-')[1] };
+      matrixData.forEach(c => {
+        let clusterTotal = 0;
+        let clusterBuckets = { e: 0, h: 0, m: 0, l: 0 };
+        c.teams.forEach(t => {
+          const mon = t.monthly[m];
+          if (mon) {
+            clusterBuckets.e += mon.elite || 0;
+            clusterBuckets.h += mon.high || 0;
+            clusterBuckets.m += mon.medium || 0;
+            clusterBuckets.l += mon.low || 0;
+            clusterTotal += mon.total || (mon.elite + mon.high + mon.medium + mon.low);
+          }
+        });
+        if (clusterTotal > 0) {
+          row[c.cluster] = Math.round(((clusterBuckets.e * 98) + (clusterBuckets.h * 85) + (clusterBuckets.m * 65) + (clusterBuckets.l * 35)) / clusterTotal * 100) / 100;
+        }
+      });
+      return row;
+    });
+    return { data, clusters: matrixData.map(c => c.cluster) };
+  }, [matrixData, MONTHS]);
 
   const toggleCluster = (clusterName: string) => {
     setExpandedClusters(prev => {
@@ -188,298 +270,231 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
 
   return (
     <div className="performance-charts animate-fade-in">
-      {/* Header & Controls */}
-      <div className="flex-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Performance Analytics</h1>
-          <p className="text-muted text-sm">Visualizing training effectiveness and team rankings</p>
-        </div>
-        
-        <div className="flex-center gap-4">
-          <div className="flex-center gap-2 glass-panel p-1 rounded-lg">
-            {ALL_TRAINING_TYPES.map(t => (
-              <button 
-                key={t} 
-                onClick={() => setTab(t)} 
-                className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-all ${tab === t ? 'bg-primary text-white shadow-lg' : 'hover:bg-white/5 text-muted'}`}
-              >
-                {t}
-              </button>
-            ))}
+      {/* 1. HEADER (REPLICA) */}
+      <div className="mb-24">
+        <h1 className="text-2xl font-bold m-0">Performance Insights</h1>
+        <p className="text-subtitle">Detailed training performance analysis and rankings</p>
+      </div>
+
+      <div className="header mb-20">
+        <div className="flex"></div>
+        <div className="flex-center gap-2">
+          <div className="flex-center gap-2 mr-2">
+             <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Switch to Tables"><Table size={16} /></button>
+             <button className="btn btn-primary" title="Charts View"><BarChart3 size={16} /></button>
+             <div className="v-divider mx-1" />
+          </div>
+          
+          <div className="flex-center gap-2">
+            {tab === 'IP' ? (
+              <>
+                <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Matrix View"><Table size={16} /></button>
+                <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Team Rank Matrix"><Trophy size={16} /></button>
+                <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Time Series"><Calendar size={16} /></button>
+                <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Trainer Analytics"><GraduationCap size={16} /></button>
+              </>
+            ) : tab === 'MIP' ? (
+              <>
+                <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Attendance Funnel"><Table size={16} /></button>
+                <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Performance Analytics"><TrendingUp size={16} /></button>
+              </>
+            ) : tab === 'Refresher' ? (
+              <>
+                <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Attendance Matrix"><Table size={16} /></button>
+                <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Performance Analytics"><TrendingUp size={16} /></button>
+              </>
+            ) : tab === 'Capsule' ? (
+              <>
+                <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Attendance Matrix"><Table size={16} /></button>
+                <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Performance Analytics"><TrendingUp size={16} /></button>
+              </>
+            ) : (
+              <>
+                <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title={tab === 'AP' ? "Attendance Funnel" : "Rankings"}><Table size={16} /></button>
+                {tab === 'AP' && (
+                  <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Performance Analytics"><TrendingUp size={16} /></button>
+                )}
+                <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Time Series"><Calendar size={16} /></button>
+                <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Drill-Down"><ChartNetwork size={16} /></button>
+              </>
+            )}
+            <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Gap Analysis"><AlertTriangle size={16} /></button>
           </div>
 
-          <button 
-            className={`btn btn-secondary ${activeFilterCount > 0 ? 'active' : ''}`}
-            onClick={() => setShowGlobalFilters(true)}
-          >
-            <Filter size={16} className="mr-2" />
-            Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
+          <div className="v-divider mx-1" />
+          <div className="fy-selector flex-center gap-2 mr-2">
+            <label className="text-xs-bold text-muted uppercase">FISCAL YEAR</label>
+            <select value={selectedFY} onChange={(e) => setSelectedFY(e.target.value)} className="form-select glass-panel fy-select" title="Select Fiscal Year">
+              {FY_OPTIONS.map(fy => <option key={fy} value={fy}>{fy}</option>)}
+            </select>
+          </div>
+          <button className={`btn btn-secondary btn-filter ${activeFilterCount > 0 ? 'active' : ''}`} onClick={() => setShowGlobalFilters(true)} title="Open Global Filters">
+            <Filter size={16} />
+            {activeFilterCount > 0 && <span className="text-xs-bold min-w-16">{activeFilterCount}</span>}
           </button>
-          
-          <button className="btn btn-secondary">
-            <Download size={16} />
-          </button>
+          <button className="btn btn-secondary" title="Download Report"><Download size={16} /></button>
         </div>
       </div>
 
-      {/* Main Dashboard Grid */}
+      <div className="tab-row">
+        {ALL_TRAINING_TYPES.map(t => (
+          <button key={t} onClick={() => setTab(t)} className={`btn btn-tab ${tab === t ? 'btn-primary' : 'btn-secondary'}`}>{t}</button>
+        ))}
+      </div>
+
+      {/* 2. KPI DERIVATION (MATCHING REQUIRMENTS) */}
+      <div className="grid grid-cols-12 gap-6 mb-24">
+        <div className="col-span-12 grid grid-cols-1 md:grid-cols-4 lg:grid-cols-7 gap-4">
+          <KPICard title="TOTAL CANDIDATES" value={kpis.total} icon={<Users size={20} />} colorType="primary" />
+          <KPICard title="HIGH %" value={`${kpis.high.toFixed(1)}%`} icon={<TrendingUp size={20} />} colorType="success" />
+          <KPICard title="MEDIUM %" value={`${kpis.medium.toFixed(1)}%`} icon={<Target size={20} />} colorType="warning" />
+          <KPICard title="LOW %" value={`${kpis.low.toFixed(1)}%`} icon={<AlertTriangle size={20} />} colorType="accent" />
+          <KPICard title="WEIGHTED T SCORE" value={kpis.score.toFixed(2)} icon={<Zap size={20} />} colorType="primary" />
+          <KPICard title="BEST TEAM" value={kpis.best} icon={<Trophy size={20} />} colorType="success" />
+          <KPICard title="WORST TEAM" value={kpis.worst} icon={<AlertTriangle size={20} />} colorType="accent" />
+        </div>
+      </div>
+
+      {/* 3. CHART MODULES (TRANSFORMED FROM MATRIX) */}
       <div className="grid grid-cols-12 gap-6">
         
-        {/* KPI Row */}
-        <div className="col-span-12 grid grid-cols-1 md:grid-cols-4 gap-4 mb-2">
-          <KPICard title="Total Trained" value={unified.length} icon={<Users size={20} />} color="var(--primary)" />
-          <KPICard title="Avg Performance" value={`${Math.round(getPrimaryMetricRaw(unified, tab) * 10) / 10}%`} icon={<TrendingUp size={20} />} color="var(--success)" />
-          <KPICard title="Top Cluster" value={clusterDashboardData.sort((a, b) => b.score - a.score)[0]?.name || '—'} icon={<Target size={20} />} color="var(--warning)" />
-          <KPICard title="Active Teams" value={new Set(unified.map(r => r.employee.team)).size} icon={<LayoutGrid size={20} />} color="var(--accent-primary)" />
-        </div>
-
-        {/* Distribution Chart (Stacked Bar) */}
-        <div className="col-span-12 lg:col-span-7 glass-panel p-6" style={{ minHeight: '400px' }}>
-          <div className="flex-between mb-6">
-            <h3 className="font-bold flex-center gap-2">
-              <BarChart3 size={18} className="text-primary" />
-              Performance Distribution
-            </h3>
-            <div className="text-xs text-muted flex gap-4">
-              <span className="flex-center gap-1"><div className="w-2 h-2 rounded-full bg-[#22c55e]" /> Elite</span>
-              <span className="flex-center gap-1"><div className="w-2 h-2 rounded-full bg-[#3b82f6]" /> High</span>
-              <span className="flex-center gap-1"><div className="w-2 h-2 rounded-full bg-[#f59e0b]" /> Medium</span>
-              <span className="flex-center gap-1"><div className="w-2 h-2 rounded-full bg-[#ef4444]" /> Low</span>
-            </div>
-          </div>
-          <div className="h-[320px] w-full">
+        {/* A. Performance Distribution (Stacked Bar) */}
+        <div className="col-span-12 lg:col-span-7 glass-panel p-6 chart-box-min">
+          <h3 className="font-bold flex-center gap-2 mb-6">
+            <BarChart3 size={18} className="text-primary" />
+            Performance Distribution Matrix
+          </h3>
+          <div className="w-full chart-container-main">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={distributionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
-                <Tooltip 
-                  cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                  contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px' }}
-                />
-                <Bar dataKey="Elite" stackId="a" fill="#22c55e" radius={[0, 0, 0, 0]} />
-                <Bar dataKey="High" stackId="a" fill="#3b82f6" />
-                <Bar dataKey="Medium" stackId="a" fill="#f59e0b" />
-                <Bar dataKey="Low" stackId="a" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} unit="%" />
+                <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px' }} formatter={(val: number) => `${val.toFixed(1)}%`} />
+                <Bar dataKey="Elite" stackId="a" fill="#22c55e" /><Bar dataKey="High" stackId="a" fill="#3b82f6" /><Bar dataKey="Medium" stackId="a" fill="#f59e0b" /><Bar dataKey="Low" stackId="a" fill="#ef4444" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Ranking Chart (Horizontal Bar) */}
-        <div className="col-span-12 lg:col-span-5 glass-panel p-6" style={{ minHeight: '400px' }}>
+        {/* B. Team Ranking (Horizontal Bar) */}
+        <div className="col-span-12 lg:col-span-5 glass-panel p-6 chart-box-min">
           <h3 className="font-bold flex-center gap-2 mb-6">
             <ListOrdered size={18} className="text-warning" />
-            Top 15 Teams by Score
+            Top 15 Team Rankings
           </h3>
-          <div className="h-[320px] w-full">
+          <div className="w-full chart-container-main">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart layout="vertical" data={rankingData} margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(255,255,255,0.05)" />
-                <XAxis type="number" hide />
-                <YAxis 
-                  dataKey="name" 
-                  type="category" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fill: 'var(--text-primary)', fontSize: 11, fontWeight: 500 }}
-                  width={100}
-                />
-                <Tooltip 
-                  cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                  contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px' }}
-                />
+                <XAxis type="number" hide /><YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-primary)', fontSize: 10, fontWeight: 500 }} width={100} />
+                <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px' }} formatter={(val: number) => `${val.toFixed(2)}`} />
                 <Bar dataKey="score" fill="var(--primary)" radius={[0, 4, 4, 0]} barSize={16}>
-                  {rankingData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={index < 3 ? 'var(--success)' : 'var(--primary)'} opacity={1 - (index * 0.04)} />
-                  ))}
+                  {rankingData.map((entry, index) => <Cell key={`cell-${index}`} fill={index < 3 ? 'var(--success)' : 'var(--primary)'} opacity={1 - (index * 0.04)} />)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Trend Chart (Multi-line) */}
-        <div className="col-span-12 glass-panel p-6" style={{ minHeight: '400px' }}>
+        {/* C. Trend Chart (Line Chart) */}
+        <div className="col-span-12 glass-panel p-6 chart-box-min">
           <h3 className="font-bold flex-center gap-2 mb-6">
             <TrendingUp size={18} className="text-accent-primary" />
-            Cluster Performance Trends
+            Month-by-Month Trend — Cluster Analytics
           </h3>
-          <div className="h-[320px] w-full">
+          <div className="w-full chart-container-main">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={trendData.data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+              <LineChart data={trendData.data} margin={{ top: 10, right: 30, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} domain={[0, 100]} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px' }}
-                />
-                <Legend iconType="circle" />
+                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} domain={[0, 100]} />
+                <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px' }} formatter={(val: number) => [`${val.toFixed(2)}`, 'Score']} /><Legend iconType="circle" />
                 {trendData.clusters.map((cluster, i) => (
-                  <Line 
-                    key={cluster} 
-                    type="monotone" 
-                    dataKey={cluster} 
-                    stroke={`hsl(${i * 137.5 % 360}, 70%, 60%)`} 
-                    strokeWidth={3}
-                    dot={{ r: 4, strokeWidth: 2, fill: 'var(--bg-card)' }}
-                    activeDot={{ r: 6, strokeWidth: 0 }}
-                  />
+                  <Line key={cluster} type="monotone" dataKey={cluster} stroke={['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'][i % 7]} strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: 'var(--bg-card)' }} activeDot={{ r: 6, strokeWidth: 0 }} connectNulls />
                 ))}
               </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Cluster Dashboard (Expandable Rows) */}
-        <div className="col-span-12 glass-panel overflow-hidden">
+        {/* D. Cluster Dashboard (Expandable Matrix Engine) */}
+        <div className="col-span-12 glass-panel overflow-hidden border-primary/20">
           <div className="p-6 border-b border-white/5 bg-white/[0.02] flex-between">
-            <h3 className="font-bold flex-center gap-2">
-              <LayoutGrid size={18} className="text-primary" />
-              Cluster-Team Intelligence Hub
+            <h3 className="font-bold flex-center gap-2 text-xl">
+              <LayoutGrid size={22} className="text-primary" />
+              Regional Cluster Dashboard
             </h3>
-            <span className="text-xs text-muted">Click a cluster to explore team-level data</span>
+            <span className="text-xs text-muted font-medium bg-white/5 px-3 py-1 rounded-full">Source: Matrix Engine</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-white/5 text-xs font-bold text-muted uppercase tracking-wider">
-                  <th className="px-6 py-4 w-12"></th>
-                  <th className="px-6 py-4">Cluster Name</th>
-                  <th className="px-6 py-4">Volume</th>
-                  <th className="px-6 py-4">Avg Score</th>
-                  <th className="px-6 py-4 w-48">9-Month Trend</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
+                  <th className="px-6 py-4 w-12"></th><th className="px-6 py-4">Cluster</th><th className="px-6 py-4">Volume</th><th className="px-6 py-4">Elite %</th><th className="px-6 py-4">Avg Score</th><th className="px-6 py-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {clusterDashboardData.map((cluster) => (
-                  <React.Fragment key={cluster.name}>
-                    <tr 
-                      className={`hover:bg-white/[0.03] transition-colors cursor-pointer ${expandedClusters.has(cluster.name) ? 'bg-white/[0.02]' : ''}`}
-                      onClick={() => toggleCluster(cluster.name)}
-                    >
-                      <td className="px-6 py-4">
-                        {expandedClusters.has(cluster.name) ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="font-bold text-lg">{cluster.name}</div>
-                        <div className="text-xs text-muted">{cluster.teams.length} teams active</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-lg font-medium">{cluster.count}</div>
-                        <div className="text-xs text-muted">trainings</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className={`text-lg font-bold ${cluster.score >= 80 ? 'text-success' : cluster.score >= 60 ? 'text-warning' : 'text-danger'}`}>
-                          {cluster.score}%
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="w-full" style={{ height: '48px' }}>
-                          <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={cluster.sparklineData}>
-                              <defs>
-                                <linearGradient id={`grad-${cluster.name}`} x1="0" y1="0" x2="0" y2="1">
-                                  <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3}/>
-                                  <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
-                                </linearGradient>
-                              </defs>
-                              <Area 
-                                type="monotone" 
-                                dataKey="score" 
-                                stroke="var(--primary)" 
-                                strokeWidth={2} 
-                                fillOpacity={1} 
-                                fill={`url(#grad-${cluster.name})`} 
-                              />
-                            </AreaChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <button className="p-2 hover:bg-white/10 rounded-full transition-colors text-primary">
-                          <Maximize2 size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                    
-                    {/* Expanded Teams View */}
-                    <AnimatePresence>
-                      {expandedClusters.has(cluster.name) && (
-                        <motion.tr
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                        >
-                          <td colSpan={6} className="px-12 py-0 bg-black/20">
-                            <div className="py-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                              {cluster.teams.map(team => (
-                                <div 
-                                  key={team.name} 
-                                  className="glass-panel p-4 border-white/5 flex-between hover:border-primary/30 transition-all group cursor-pointer"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onNavigate?.('performance-tables');
-                                  }}
-                                >
-                                  <div>
-                                    <div className="text-sm font-bold group-hover:text-primary transition-colors">{team.name}</div>
-                                    <div className="text-xs text-muted">{team.count} records</div>
+                {matrixData.map((cluster) => {
+                  const clusterTotal = cluster.teams.reduce((sum, t) => sum + t.total, 0);
+                  const clusterElite = cluster.teams.reduce((sum, t) => sum + (t.elite_pct * t.total / 100), 0);
+                  const clusterScore = cluster.teams.reduce((sum, t) => sum + t.weighted_score, 0) / cluster.teams.length;
+                  return (
+                    <React.Fragment key={cluster.cluster}>
+                      <tr className={`hover:bg-white/[0.03] transition-colors cursor-pointer ${expandedClusters.has(cluster.cluster) ? 'bg-white/[0.02]' : ''}`} onClick={() => toggleCluster(cluster.cluster)}>
+                        <td className="px-6 py-4">{expandedClusters.has(cluster.cluster) ? <ChevronDown size={18} /> : <ChevronRight size={18} />}</td>
+                        <td className="px-6 py-4"><div className="font-bold text-lg">{cluster.cluster}</div><div className="text-xs text-muted">{cluster.teams.length} teams</div></td>
+                        <td className="px-6 py-4"><div className="text-lg font-medium">{clusterTotal}</div><div className="text-xs text-muted">Candidates</div></td>
+                        <td className="px-6 py-4"><div className="text-lg font-bold text-success">{(clusterElite / clusterTotal * 100).toFixed(1)}%</div></td>
+                        <td className="px-6 py-4"><div className="text-lg font-bold text-primary">{clusterScore.toFixed(2)}</div></td>
+                        <td className="px-6 py-4 text-right"><button className="p-2 hover:bg-white/10 rounded-full transition-colors text-primary" title={`Explore ${cluster.cluster}`}><Maximize2 size={16} /></button></td>
+                      </tr>
+                      <AnimatePresence>
+                        {expandedClusters.has(cluster.cluster) && (
+                          <motion.tr initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
+                            <td colSpan={6} className="p-0">
+                              <div className="bg-white/[0.04] rounded-xl p-6 mx-6 mb-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                  {cluster.teams.map((team) => (
+                                  <div key={team.name} className="glass-panel p-4 border-white/5 flex-between hover:border-primary/30 transition-all group cursor-pointer" onClick={(e) => { e.stopPropagation(); onNavigate?.('performance-tables'); }}>
+                                    <div><div className="text-sm font-bold group-hover:text-primary transition-colors">{team.name}</div><div className="text-xs text-muted">{team.total} records</div></div>
+                                    <div className="text-right">
+                                      <div className={`text-lg font-bold ${team.weighted_score >= 80 ? 'text-success' : team.weighted_score >= 60 ? 'text-warning' : 'text-danger'}`}>{team.weighted_score.toFixed(1)}</div>
+                                      <div className="text-[10px] text-muted uppercase">W-Score</div>
+                                    </div>
                                   </div>
-                                  <div className={`text-lg font-bold ${team.score >= 80 ? 'text-success' : team.score >= 60 ? 'text-warning' : 'text-danger'}`}>
-                                    {team.score}%
-                                  </div>
+                                  ))}
                                 </div>
-                              ))}
-                            </div>
-                          </td>
-                        </motion.tr>
-                      )}
-                    </AnimatePresence>
-                  </React.Fragment>
-                ))}
+                              </div>
+                            </td>
+                          </motion.tr>
+                        )}
+                      </AnimatePresence>
+                    </React.Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         </div>
-
       </div>
 
       <GlobalFilterPanel
-        isOpen={showGlobalFilters}
-        onClose={() => setShowGlobalFilters(false)}
-        onApply={(f) => setPageFilters(f)}
-        initialFilters={pageFilters}
-        clusterOptions={allClusters}
-        teamOptions={allTeams}
-        trainerOptions={allTrainers}
-        monthOptions={monthsOptions}
+        isOpen={showGlobalFilters} onClose={() => setShowGlobalFilters(false)}
+        onApply={(f) => setPageFilters(f)} initialFilters={pageFilters}
+        clusterOptions={allClusters} teamOptions={allTeams} trainerOptions={allTrainers} monthOptions={monthsOptions}
         onClearAll={() => setPageFilters({ cluster: '', team: '', trainer: '', month: '' })}
       />
     </div>
   );
 };
 
-// --- Sub Components ---
-
-const KPICard = ({ title, value, icon, color }: { title: string, value: string | number, icon: React.ReactNode, color: string }) => (
-  <div className="glass-panel p-5 relative overflow-hidden group hover:scale-[1.02] transition-all duration-300">
+const KPICard = ({ title, value, icon, colorType }: { title: string, value: string | number, icon: React.ReactNode, colorType: 'primary' | 'success' | 'warning' | 'accent' }) => (
+  <div className="glass-panel p-5 relative overflow-hidden group hover:scale-[1.02] transition-all duration-300 h-full">
     <div className="flex-between relative z-10">
-      <div>
-        <p className="text-xs font-bold text-muted uppercase tracking-wider mb-1">{title}</p>
-        <h4 className="text-2xl font-bold">{value}</h4>
-      </div>
-      <div 
-        className="p-3 rounded-xl transition-all duration-300 group-hover:rotate-12"
-        style={{ backgroundColor: `${color}15`, color: color }}
-      >
-        {icon}
-      </div>
+      <div><p className="text-[10px] font-bold text-muted uppercase tracking-wider mb-1">{title}</p><h4 className="text-xl font-bold">{value}</h4></div>
+      <div className={`p-2.5 rounded-xl transition-all duration-300 group-hover:rotate-12 kpi-icon-${colorType}`}>{icon}</div>
     </div>
-    <div 
-      className="absolute -bottom-4 -right-4 w-24 h-24 blur-2xl opacity-10 rounded-full"
-      style={{ backgroundColor: color }}
-    />
+    <div className={`absolute -bottom-4 -right-4 w-24 h-24 blur-2xl opacity-10 rounded-full kpi-glow-${colorType}`} />
   </div>
 );

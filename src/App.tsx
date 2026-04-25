@@ -356,9 +356,9 @@ const App = () => {
     }
 
     switch (view) {
-      case 'reports': return <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} pageMode="overview" />;
+      case 'reports': return <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} pageMode="overview" onNavigate={setView} />;
       case 'performance-tables':
-      case 'performance': return <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} pageMode="performance-insights" />;
+      case 'performance': return <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} pageMode="performance-insights" onNavigate={setView} />;
       case 'performance-charts': return <PerformanceCharts employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} onNavigate={setView} />;
       case 'srm': return <RecruitmentQuality employees={emps} attendance={att} scores={scs} />;
       case 'trainings': return <TrainingsViewer employees={emps} attendance={att} scores={scs} />;
@@ -402,14 +402,6 @@ const App = () => {
             src={logoUrl}
             alt="Ajanta Pharma logo"
             className="brand-logo"
-            style={{
-              width: 'auto',
-              height: '40px',
-              objectFit: 'contain',
-              filter: 'none',
-              opacity: 1,
-              mixBlendMode: 'normal'
-            }}
           />
           {!isSidebarCollapsed && (
             <button 
@@ -433,11 +425,10 @@ const App = () => {
                 return (
                   <button 
                     key={item.view}
-                    className={`nav-item ${view === item.view ? 'active' : ''}`}
+                    className={`nav-item ${view === item.view ? 'active' : ''} ${item.disabled ? 'nav-item-disabled' : ''}`}
                     onClick={() => !item.disabled && setView(item.view as ViewMode)}
                     disabled={item.disabled}
                     title={item.disabled ? "Training Calendar – Coming Soon" : ""}
-                    style={item.disabled ? { opacity: 0.5, cursor: 'not-allowed', backgroundColor: 'transparent' } : {}}
                   >
                     <Icon size={20} />
                     <span>{item.label}</span>
@@ -450,11 +441,11 @@ const App = () => {
 
         <div className="user-profile">
           <div className="avatar">AD</div>
-          <div style={{ flex: 1, textAlign: 'left' }}>
-            <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>Admin User</div>
-            <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Super Admin</div>
+          <div className="user-info-box">
+            <div className="user-name">Admin User</div>
+            <div className="user-role">Super Admin</div>
           </div>
-          <button style={{ color: 'var(--text-secondary)', padding: '4px' }}>
+          <button className="btn-icon text-muted" title="Logout">
             <LogOut size={16} />
           </button>
         </div>
@@ -462,51 +453,49 @@ const App = () => {
 
       {/* Main Content Area */}
       <main className="main-content">
-        <header className="header" style={{ marginBottom: '24px' }}>
-          <div style={{ position: 'relative', width: '320px' }}>
-            <Search size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
-            <input type="text" className="form-input" placeholder="Search system globally..." style={{ paddingLeft: '48px', background: 'var(--bg-card)', border: 'none', borderRadius: '24px' }} />
+        <header className="header mb-24">
+          <div className="global-search-container">
+            <Search size={18} className="global-search-icon" />
+            <input type="text" className="form-input global-search-input" placeholder="Search system globally..." />
           </div>
           <div className="flex-center">
             <button 
-              className="btn btn-secondary" 
+              className="btn btn-secondary theme-toggle-btn" 
               onClick={toggleTheme}
-              style={{ width: '40px', height: '40px', padding: 0, borderRadius: '50%' }}
               title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
             >
               {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
             </button>
-            <button className="btn btn-secondary" style={{ width: '40px', height: '40px', padding: 0, borderRadius: '50%' }}>
+            <button className="btn btn-secondary theme-toggle-btn" title="Notifications">
               <Bell size={18} />
             </button>
           </div>
         </header>
 
-        <div style={{ marginBottom: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+        <div className="shell-kpi-row">
           <div
-            className="glass-panel"
-            style={{ padding: '12px 16px', minWidth: '180px', cursor: 'pointer', borderColor: view === 'employees' ? 'var(--primary)' : undefined }}
+            className={`glass-panel shell-kpi-card cursor-pointer ${view === 'employees' ? 'active-border' : ''}`}
             onClick={() => setView('employees')}
             title="Go to Employee Master"
           >
-            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Employees</div>
-            <div style={{ fontSize: '18px', fontWeight: 700 }}>
+            <div className="shell-kpi-label">Employees</div>
+            <div className="shell-kpi-value">
               {view === 'employees' && empFiltersActive
-                ? <>{filteredEmps.length} <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 400 }}>/ {emps.length}</span></>
+                ? <>{filteredEmps.length} <span className="shell-kpi-sub">/ {emps.length}</span></>
                 : emps.length}
             </div>
           </div>
-          <div className="glass-panel" style={{ padding: '12px 16px', minWidth: '180px' }}>
-            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Attendance</div>
-            <div style={{ fontSize: '18px', fontWeight: 700 }}>{att.length}</div>
+          <div className="glass-panel shell-kpi-card">
+            <div className="shell-kpi-label">Attendance</div>
+            <div className="shell-kpi-value">{att.length}</div>
           </div>
-          <div className="glass-panel" style={{ padding: '12px 16px', minWidth: '180px' }}>
-            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Scores</div>
-            <div style={{ fontSize: '18px', fontWeight: 700 }}>{scs.length}</div>
+          <div className="glass-panel shell-kpi-card">
+            <div className="shell-kpi-label">Scores</div>
+            <div className="shell-kpi-value">{scs.length}</div>
           </div>
-          <div className="glass-panel" style={{ padding: '12px 16px', minWidth: '180px' }}>
-            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Nominations</div>
-            <div style={{ fontSize: '18px', fontWeight: 700 }}>{noms.length}</div>
+          <div className="glass-panel shell-kpi-card">
+            <div className="shell-kpi-label">Nominations</div>
+            <div className="shell-kpi-value">{noms.length}</div>
           </div>
         </div>
         <PageTransition pageKey={view}>
