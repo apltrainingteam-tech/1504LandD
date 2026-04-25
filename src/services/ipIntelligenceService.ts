@@ -82,7 +82,7 @@ export function normalizeToIPRecords(ds: UnifiedRecord[]): IPRecord[] {
     const team = normalizeText(r.employee.team);
     
     // DEFENSIVE: Skip known dummy/orphaned data entirely
-    if (['Team A', 'Unknown', '—', 'Unknown Team', 'Unmapped'].includes(team)) return;
+    if (['Unknown', '—', 'Unknown Team', 'Unmapped'].includes(team)) return;
 
     const cluster = r.employee.cluster || 'Unmapped';
     

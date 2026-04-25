@@ -54,7 +54,7 @@ export function buildUnifiedDataset(
   const scoreMap = new Map<string, TrainingScore>();
   for (const s of scs) {
     const tid = String(s.employeeId).trim();
-    const type = String(s.trainingType).toUpperCase();
+    const type = normalizeTrainingType(s.trainingType);
     const key = `${tid}::${type}::${s.dateStr}`;
     scoreMap.set(key, s);
   }
@@ -62,7 +62,7 @@ export function buildUnifiedDataset(
   const nominationMap = new Map<string, TrainingNomination>();
   for (const n of noms) {
     const tid = String(n.employeeId).trim();
-    const type = String(n.trainingType).toUpperCase();
+    const type = normalizeTrainingType(n.trainingType);
     const key = `${tid}::${type}`;
     nominationMap.set(key, n);
   }
