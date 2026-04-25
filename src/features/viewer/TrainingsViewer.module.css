@@ -1,0 +1,116 @@
+.page {
+  padding: 24px;
+}
+
+.header {
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  margin: 8px 0 0 0;
+  font-size: 13px;
+}
+
+.filterRow {
+  margin-bottom: 24px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.zoneFilter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.zoneSelect {
+  max-width: 200px;
+  padding: 6px 12px;
+  font-size: 13px;
+  border: 1px solid var(--border-color);
+  borderRadius: 8px;
+  background: transparent;
+}
+
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.tableContainer {
+  padding: 0;
+  overflow: hidden;
+  margin-top: 24px;
+}
+
+.toolbar {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.searchWrapper {
+  position: relative;
+  flex: 1;
+  max-width: 340px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-secondary);
+}
+
+.searchInput {
+  padding-left: 40px;
+  font-size: 13px;
+  border-radius: 8px;
+  padding: 8px 12px 8px 40px;
+  border: 1px solid var(--border-color);
+}
+
+.emptyRow {
+  text-align: center;
+  padding: 48px;
+  color: var(--text-secondary);
+}
+
+.tdAadhaar {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.tdEmpId {
+  font-weight: 600;
+}
+
+.tdMobile {
+  font-size: 12px;
+}
+
+.tdSecondary {
+  font-size: 12px;
+}
+
+.tdScore {
+  font-weight: 600;
+}

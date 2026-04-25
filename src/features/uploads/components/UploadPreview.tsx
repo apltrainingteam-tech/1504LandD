@@ -4,6 +4,7 @@ import { displayScore } from '../../../utils/scoreNormalizer';
 import { SCORE_SCHEMAS } from '../../../types/reports';
 import { Check, AlertTriangle, XCircle, Download } from 'lucide-react';
 import { exportUnmatchedRows, exportFullDiagnostics } from '../../../utils/exportUnmatched';
+import styles from './UploadPreview.module.css';
 
 interface UploadPreviewProps {
   rows: any[];
@@ -80,6 +81,22 @@ export const UploadPreview: React.FC<UploadPreviewProps> = ({ rows, trainingType
     });
   };
 
+  const getMatchQualityClass = (quality: string) => {
+    switch (quality) {
+      case 'PERFECT': return 'text-success';
+      case 'PARTIAL': return 'text-warning';
+      default: return 'text-danger';
+    }
+  };
+
+  const getStrengthClass = (strength: string) => {
+    switch (strength) {
+      case 'HIGH': return styles.bgSuccess;
+      case 'MEDIUM': return styles.bgWarning;
+      default: return styles.bgDanger;
+    }
+  };
+
   return (
     <div>
       {/* Summary Banner */}
@@ -115,12 +132,12 @@ export const UploadPreview: React.FC<UploadPreviewProps> = ({ rows, trainingType
         <div className="summary-divider"></div>
 
         <div className="summary-item summary-info">
-          <div>
+          <div className={styles.summaryInfo}>
             <div className="summary-label">Match Quality</div>
-            <div className="summary-matches">
-              <span className="match-badge" style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--success)' }}>Perfect: {summary.perfectCount}</span>
-              <span className="match-badge" style={{ background: 'rgba(245,158,11,0.1)', color: 'var(--warning)' }}>Partial: {summary.partialCount}</span>
-              <span className="match-badge" style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--danger)' }}>Unmatched: {summary.noMatchCount}</span>
+            <div className={styles.matchQualityList}>
+              <span className={`${styles.matchBadge} ${styles.bgSuccess}`}>Perfect: {summary.perfectCount}</span>
+              <span className={`${styles.matchBadge} ${styles.bgWarning}`}>Partial: {summary.partialCount}</span>
+              <span className={`${styles.matchBadge} ${styles.bgDanger}`}>Unmatched: {summary.noMatchCount}</span>
             </div>
           </div>
         </div>
@@ -128,59 +145,41 @@ export const UploadPreview: React.FC<UploadPreviewProps> = ({ rows, trainingType
 
       {/* Strict Mode Toggle & Export Options */}
       {showStrictOption && (
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '16px',
-          background: 'var(--bg-card)',
-          border: '1px solid var(--border-color)',
-          borderRadius: '8px',
-          marginBottom: '16px',
-          gap: '16px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div className={styles.actionPanel}>
+          <div className={styles.checkboxGroup}>
             <input 
               type="checkbox" 
+              className={styles.checkbox}
               id="strict-mode"
               checked={strictMode}
               onChange={(e) => onStrictModeChange?.(e.target.checked)}
-              style={{ width: '18px', height: '18px', cursor: 'pointer' }}
             />
-            <label htmlFor="strict-mode" style={{ cursor: 'pointer', fontWeight: 500 }}>
+            <label htmlFor="strict-mode" className={styles.checkboxLabel}>
               🔒 Strict Mode: Upload only perfectly matched records (ID-matched)
             </label>
-            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+            <span className={styles.checkboxSubtext}>
               ({summary.perfectCount} of {summary.totalProcessed} available)
             </span>
           </div>
 
-          <div style={{ display: 'flex', gap: '8px' }}>
-            {summary.partialCount > 0 || summary.noMatchCount > 0 ? (
+          <div className={styles.btnGroup}>
+            {(summary.partialCount > 0 || summary.noMatchCount > 0) && (
               <button 
-                className="btn btn-secondary"
-                onClick={() => {
-                  console.log('Export triggered', rows.length, 'rows');
-                  exportUnmatchedRows(transformForExport(rows.filter(r => r.data._matchQuality !== 'PERFECT')), 'Unmatched_Records.xlsx');
-                }}
-                style={{ padding: '8px 12px', fontSize: '12px' }}
+                className="btn btn-secondary actionBtn"
+                onClick={() => exportUnmatchedRows(transformForExport(rows.filter(r => r.data._matchQuality !== 'PERFECT')), 'Unmatched_Records.xlsx')}
                 title="Download Excel with problematic records for fixing"
               >
-                <Download size={14} style={{ marginRight: '6px' }} />
+                <Download size={14} className={styles.btnIcon} />
                 Export Unmatched
               </button>
-            ) : null}
+            )}
             
             <button 
-              className="btn btn-secondary"
-              onClick={() => {
-                console.log('Export triggered', rows.length, 'rows');
-                exportFullDiagnostics(transformForExport(rows), 'Full_Diagnostics.xlsx');
-              }}
-              style={{ padding: '8px 12px', fontSize: '12px' }}
+              className="btn btn-secondary actionBtn"
+              onClick={() => exportFullDiagnostics(transformForExport(rows), 'Full_Diagnostics.xlsx')}
               title="Download comprehensive diagnostic report"
             >
-              <Download size={14} style={{ marginRight: '6px' }} />
+              <Download size={14} className={styles.btnIcon} />
               Export All Diagnostics
             </button>
           </div>
@@ -188,30 +187,20 @@ export const UploadPreview: React.FC<UploadPreviewProps> = ({ rows, trainingType
       )}
 
       {/* Data Table */}
-      <div style={{ marginTop: '16px' }}>
+      <div className={styles.tableContainer}>
         {strictMode && summary.perfectCount === 0 ? (
-          <div style={{
-            padding: '24px',
-            textAlign: 'center',
-            background: 'var(--bg-card)',
-            border: '1px dashed var(--border-color)',
-            borderRadius: '8px',
-            color: 'var(--text-secondary)'
-          }}>
-            <XCircle size={32} style={{ marginBottom: '12px', opacity: 0.5 }} />
-            <div style={{ fontWeight: 600, marginBottom: '4px' }}>No Perfectly Matched Records</div>
-            <div style={{ fontSize: '13px' }}>
+          <div className={styles.emptyState}>
+            <XCircle size={32} className={styles.emptyIcon} />
+            <div className={styles.emptyTitle}>No Perfectly Matched Records</div>
+            <div className={styles.emptySubtitle}>
               Disable Strict Mode to upload partially matched records, or export to fix manually.
             </div>
           </div>
         ) : (
           <DataTable headers={headers} maxHeight="420px">
             {displayRows.map((r, i) => (
-              <tr key={i} style={{
-                borderLeft: r.status === 'error' ? '3px solid var(--danger)' : r.status === 'warn' ? '3px solid var(--warning)' : '3px solid var(--success)',
-                background: r.status === 'error' ? 'rgba(239, 68, 68, 0.04)' : r.status === 'warn' ? 'rgba(245, 158, 11, 0.04)' : 'transparent'
-              }}>
-                <td style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{r.rowNum || i + 1}</td>
+              <tr key={i} className={r.status === 'error' ? styles.rowError : r.status === 'warn' ? styles.rowWarning : styles.rowValid}>
+                <td className={styles.tdMuted}>{r.rowNum || i + 1}</td>
                 <td>
                   {r.status === 'valid' ? (
                     <span className="badge badge-success">✓</span>
@@ -221,65 +210,48 @@ export const UploadPreview: React.FC<UploadPreviewProps> = ({ rows, trainingType
                     <span className="badge badge-danger">✕</span>
                   )}
                 </td>
-                <td style={{ fontSize: '12px', fontWeight: 500 }}>
+                <td className={styles.tdSmallBold}>
                   {r.data._matchedBy ? (
                     <span className="match-indicator" title={`Matched by ${r.data._matchedBy}`}>
                       {r.data._matchedBy}
                     </span>
                   ) : (
-                    <span style={{ opacity: 0.3 }}>—</span>
+                    <span className={styles.dimmed}>—</span>
                   )}
                 </td>
-                <td style={{ fontSize: '12px', fontWeight: 500 }}>
-                  {r.data._matchQuality === 'PERFECT' ? (
-                    <span style={{ color: 'var(--success)', fontWeight: 600 }}>PERFECT</span>
-                  ) : r.data._matchQuality === 'PARTIAL' ? (
-                    <span style={{ color: 'var(--warning)', fontWeight: 600 }}>PARTIAL</span>
-                  ) : (
-                    <span style={{ color: 'var(--danger)', fontWeight: 600 }}>NONE</span>
-                  )}
+                <td className={styles.tdSmallBold}>
+                  <span className={getMatchQualityClass(r.data._matchQuality)}>
+                    {r.data._matchQuality || 'NONE'}
+                  </span>
                 </td>
-                <td style={{ fontSize: '12px', fontWeight: 500 }}>
-                  {r.data.employeeStatus === 'ACTIVE' ? (
-                    <span style={{ color: 'var(--success)', fontWeight: 600 }}>ACTIVE</span>
-                  ) : (
-                    <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>INACTIVE</span>
-                  )}
+                <td className={styles.tdSmallBold}>
+                  <span className={r.data.employeeStatus === 'ACTIVE' ? 'text-success' : 'text-secondary'}>
+                    {r.data.employeeStatus || 'INACTIVE'}
+                  </span>
                 </td>
-                <td style={{ fontSize: '12px' }}>
-                  <span style={{ 
-                    padding: '2px 6px',
-                    borderRadius: '3px',
-                    background: r.data._matchStrength === 'HIGH' ? 'rgba(16,185,129,0.1)' 
-                      : r.data._matchStrength === 'MEDIUM' ? 'rgba(245,158,11,0.1)' 
-                      : 'rgba(239,68,68,0.1)',
-                    color: r.data._matchStrength === 'HIGH' ? 'var(--success)' 
-                      : r.data._matchStrength === 'MEDIUM' ? 'var(--warning)' 
-                      : 'var(--danger)',
-                    fontWeight: 600,
-                    fontSize: '11px'
-                  }}>
+                <td>
+                  <span className={`${styles.strengthBadge} ${getStrengthClass(r.data._matchStrength)}`}>
                     {r.data._matchStrength}
                   </span>
                 </td>
-                <td style={{ fontSize: '12px' }}>{r.data.aadhaarNumber || <span style={{ opacity: 0.3 }}>—</span>}</td>
-                <td style={{ fontWeight: 600 }}>{r.data.employeeId || <span style={{ opacity: 0.3 }}>—</span>}</td>
-                <td style={{ fontSize: '12px' }}>{r.data.mobileNumber || <span style={{ opacity: 0.3 }}>—</span>}</td>
-                <td>{r.data.name || <span style={{ opacity: 0.3 }}>—</span>}</td>
-                <td style={{ fontSize: '12px' }}>{r.data.trainerId || '—'}</td>
-                <td style={{ fontSize: '12px' }}>{r.data.team || '—'}</td>
-                <td style={{ fontSize: '12px' }}>{r.data.hq || '—'}</td>
-                <td style={{ fontSize: '12px' }}>{r.data.state || '—'}</td>
-                <td>{r.data.attendanceDate || <span style={{ color: 'var(--danger)' }}>INVALID</span>}</td>
+                <td className={styles.tdMuted}>{r.data.aadhaarNumber || '—'}</td>
+                <td className={styles.tdBold}>{r.data.employeeId || '—'}</td>
+                <td className={styles.tdMuted}>{r.data.mobileNumber || '—'}</td>
+                <td>{r.data.name || '—'}</td>
+                <td className={styles.tdMuted}>{r.data.trainerId || '—'}</td>
+                <td className={styles.tdMuted}>{r.data.team || '—'}</td>
+                <td className={styles.tdMuted}>{r.data.hq || '—'}</td>
+                <td className={styles.tdMuted}>{r.data.state || '—'}</td>
+                <td>{r.data.attendanceDate || <span className="text-danger">INVALID</span>}</td>
                 <td>
                   <span className={`badge ${r.data.attendanceStatus === 'Present' ? 'badge-success' : 'badge-danger'}`}>
                     {r.data.attendanceStatus === 'Present' ? 'P' : 'A'}
                   </span>
                 </td>
                 {scoreSchema.map(key => (
-                  <td key={key} style={{ fontWeight: 600 }}>{displayScore(r.data._scores[key])}</td>
+                  <td key={key} className={styles.tdBold}>{displayScore(r.data._scores[key])}</td>
                 ))}
-                <td style={{ fontSize: '11px', color: r.status === 'error' ? 'var(--danger)' : 'var(--warning)' }}>
+                <td className={`${styles.issueText} ${r.status === 'error' ? 'text-danger' : 'text-warning'}`}>
                   {r.messages.join(' · ') || '—'}
                 </td>
               </tr>
@@ -290,5 +262,3 @@ export const UploadPreview: React.FC<UploadPreviewProps> = ({ rows, trainingType
     </div>
   );
 };
-
-

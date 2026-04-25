@@ -3,6 +3,7 @@ import { Mail, Users, Lock, Check, Copy, ExternalLink, X, ChevronDown, ChevronRi
 import { usePlanningFlow, NominationDraft } from '../../context/PlanningFlowContext';
 import { useMasterData } from '../../context/MasterDataContext';
 import { Employee } from '../../types/employee';
+import styles from './NotificationPage.module.css';
 
 interface Props {
   employees: Employee[];
@@ -102,41 +103,41 @@ const EmailModal: React.FC<{
   };
 
   return (
-    <div style={{ position:'fixed',inset:0,zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(0,0,0,.55)',backdropFilter:'blur(4px)' }}>
-      <div style={{ background:'var(--bg-card)',borderRadius:'12px',width:'92vw',maxWidth:'1020px',maxHeight:'92vh',display:'flex',flexDirection:'column',boxShadow:'0 24px 80px rgba(0,0,0,.3)' }}>
+    <div className={styles.modalBackdrop}>
+      <div className={styles.modalContent}>
 
         {/* Header */}
-        <div style={{ padding:'14px 22px',borderBottom:'1px solid var(--border-color)',display:'flex',justifyContent:'space-between',alignItems:'center',background:'var(--bg)' }}>
-          <div style={{ fontSize:'15px',fontWeight:700,display:'flex',alignItems:'center',gap:'8px' }}><Mail size={16} color="var(--accent-primary)"/>Email Preview</div>
-          <button onClick={onClose} style={{ background:'none',border:'none',cursor:'pointer' }}><X size={19} color="var(--text-secondary)"/></button>
+        <div className={styles.modalHeader}>
+          <div className={styles.modalTitle}><Mail size={16} color="var(--accent-primary)"/>Email Preview</div>
+          <button onClick={onClose} className={styles.closeBtn} title="Close Modal" aria-label="Close Modal"><X size={19} color="var(--text-secondary)"/></button>
         </div>
 
         {/* Subject row */}
-        <div style={{ padding:'10px 22px',borderBottom:'1px solid var(--border-color)',background:'rgba(99,102,241,.04)',display:'flex',alignItems:'center',gap:'10px' }}>
-          <span style={{ fontSize:'11px',fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'.05em',whiteSpace:'nowrap' }}>Subject:</span>
-          <span style={{ fontSize:'13px',fontWeight:600,flex:1 }}>{subject}</span>
-          <button onClick={()=>copy(subject,setCSubj)} style={{ display:'inline-flex',alignItems:'center',gap:'4px',padding:'3px 9px',borderRadius:'6px',background:'var(--bg)',border:'1px solid var(--border-color)',cursor:'pointer',fontSize:'11px',fontWeight:600,color:cSubj?'var(--success)':'var(--text-secondary)',whiteSpace:'nowrap' }}>
+        <div className={styles.subjectRow}>
+          <span className={styles.subjectLabel}>Subject:</span>
+          <span className={styles.subjectVal}>{subject}</span>
+          <button onClick={()=>copy(subject,setCSubj)} className={`${styles.copyBtn} ${cSubj ? styles.copyBtnSuccess : styles.copyBtnNormal}`}>
             {cSubj?<><Check size={10}/>Copied</>:<><Copy size={10}/>Copy</>}
           </button>
         </div>
 
         {/* Instruction banner */}
-        <div style={{ padding:'8px 22px',background:'rgba(245,158,11,.07)',borderBottom:'1px solid rgba(245,158,11,.2)',fontSize:'12px',color:'#92400e',display:'flex',alignItems:'center',gap:'8px' }}>
-          <span style={{ fontWeight:700 }}>💡 Workflow:</span>
+        <div className={styles.instructionBanner}>
+          <span className={styles.instructionTitle}>💡 Workflow:</span>
           <span>1&nbsp;&nbsp;Click <strong>Open in Outlook</strong> to create a draft with subject &amp; summary.&nbsp;&nbsp;2&nbsp;&nbsp;Then click <strong>Copy Table</strong> and paste into the email body for the full candidate table.</span>
         </div>
 
         {/* iframe preview */}
-        <div style={{ flex:1,overflow:'hidden' }}>
-          <iframe srcDoc={html} title="Email Preview" style={{ width:'100%',height:'100%',border:'none',display:'block' }}/>
+        <div className={styles.previewArea}>
+          <iframe srcDoc={html} title="Email Preview" className={styles.previewIframe}/>
         </div>
 
         {/* Footer actions */}
-        <div style={{ padding:'12px 22px',borderTop:'1px solid var(--border-color)',display:'flex',gap:'8px',justifyContent:'flex-end',flexWrap:'wrap',background:'var(--bg)' }}>
+        <div className={styles.modalFooter}>
           <button onClick={onClose} className="btn btn-secondary">Cancel</button>
 
           {/* Copy full HTML */}
-          <button onClick={()=>copy(html,setCHtml)} style={{ display:'inline-flex',alignItems:'center',gap:'6px',padding:'7px 14px',borderRadius:'8px',cursor:'pointer',background:cHtml?'rgba(34,197,94,.1)':'var(--bg)',border:`1px solid ${cHtml?'var(--success)':'var(--border-color)'}`,color:cHtml?'var(--success)':'var(--text-primary)',fontSize:'12px',fontWeight:600 }}>
+          <button onClick={()=>copy(html,setCHtml)} className={`${styles.footerBtn} ${cHtml ? styles.footerBtnHtml : styles.footerBtnNormal}`}>
             {cHtml?<><Check size={13}/>Copied!</>:<><Copy size={13}/>Copy Full HTML</>}
           </button>
 
@@ -144,7 +145,7 @@ const EmailModal: React.FC<{
           <button
             onClick={()=>copy(tableHtml,setCTable)}
             title="Copies just the candidate table HTML — paste directly into Outlook body"
-            style={{ display:'inline-flex',alignItems:'center',gap:'6px',padding:'7px 14px',borderRadius:'8px',cursor:'pointer',background:cTable?'rgba(99,102,241,.12)':'var(--bg)',border:`1px solid ${cTable?'var(--accent-primary)':'var(--border-color)'}`,color:cTable?'var(--accent-primary)':'var(--text-primary)',fontSize:'12px',fontWeight:700 }}
+            className={`${styles.footerBtn} ${cTable ? styles.footerBtnTable : styles.footerBtnNormal}`}
           >
             {cTable?<><Check size={13}/>Table Copied!</>:<><Copy size={13}/>Copy Table</>}
           </button>
@@ -161,7 +162,7 @@ const EmailModal: React.FC<{
               onSent();
               onClose();
             }}
-            style={{ display:'inline-flex',alignItems:'center',gap:'6px',padding:'7px 18px',borderRadius:'8px',cursor:'pointer',background:'var(--accent-primary)',border:'none',color:'white',fontSize:'12px',fontWeight:700 }}
+            className={`${styles.footerBtn} ${styles.primaryAction}`}
           >
             <ExternalLink size={13}/>Open in Outlook
           </button>
@@ -283,57 +284,57 @@ export const NotificationPage: React.FC<Props> = ({ employees }) => {
 
   if (approvedDrafts.length === 0) {
     return (
-      <div className="animate-fade-in" style={{ padding: '24px' }}>
-        <h1 style={{ margin: '0 0 20px', fontSize: '26px', fontWeight: 700 }}>Notification</h1>
-        <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-          <Lock size={36} style={{ margin: '0 auto 12px', color: 'var(--border-color)' }}/>
-          <div style={{ fontSize: '16px', fontWeight: 600, marginBottom: '6px' }}>No approved nominations yet</div>
-          <div style={{ fontSize: '13px' }}>Sales Head must approve from the <strong>Nominations</strong> page first.</div>
+      <div className={`animate-fade-in ${styles.page}`}>
+        <h1 className={styles.pageTitle}>Notification</h1>
+        <div className={styles.emptyState}>
+          <Lock size={36} className={styles.emptyIcon}/>
+          <div className={styles.emptyTitle}>No approved nominations yet</div>
+          <div className={styles.fz13}>Sales Head must approve from the <strong>Nominations</strong> page first.</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="animate-fade-in" style={{ padding: '24px' }}>
-      <div style={{ marginBottom: '20px' }}>
-        <h1 style={{ margin: 0, fontSize: '26px', fontWeight: 700 }}>Notification</h1>
-        <p style={{ margin: '5px 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
+    <div className={`animate-fade-in ${styles.page}`}>
+      <div className={styles.mb20}>
+        <h1 className={styles.pageTitle}>Notification</h1>
+        <p className={styles.pageSubtitle}>
           Send training communication to approved candidates, grouped by team.
         </p>
       </div>
-      <div style={{ marginBottom:'16px',display:'flex',alignItems:'center',gap:'10px' }}>
-        <span style={{ fontSize:'13px',color:'var(--text-secondary)' }}>
-          <strong style={{ color:'var(--accent-primary)' }}>{approvedDrafts.length}</strong> approved nomination{approvedDrafts.length!==1?'s':''} ready to send — grouped by team
+      <div className={styles.statsBar}>
+        <span className={styles.statsText}>
+          <strong className={styles.textAccent}>{approvedDrafts.length}</strong> approved nomination{approvedDrafts.length!==1?'s':''} ready to send — grouped by team
         </span>
       </div>
 
-      <div style={{ display:'flex',flexDirection:'column',gap:'12px' }}>
+      <div className={styles.groupsContainer}>
         {teamGroups.map(([teamId, drafts]) => {
           const tName    = resolveTeam(teamId, drafts[0]?.team);
           const isOpen   = expanded.has(teamId);
           const allEmps  = employees.filter(e => drafts.some(d => d.candidates.includes(String(e.employeeId))));
 
           return (
-            <div key={teamId} style={{ border:'1px solid var(--border-color)',borderRadius:'10px',overflow:'hidden' }}>
+            <div key={teamId} className={styles.groupCard}>
 
               {/* Group header */}
               <div
                 onClick={()=>toggleGroup(teamId)}
-                style={{ padding:'12px 18px',display:'flex',alignItems:'center',gap:'12px',background:'var(--bg)',cursor:'pointer',borderBottom:isOpen?'1px solid var(--border-color)':'none' }}
+                className={`${styles.groupHeader} ${isOpen ? styles.groupHeaderOpen : styles.groupHeaderClosed}`}
               >
                 {isOpen?<ChevronDown size={16}/>:<ChevronRight size={16}/>}
-                <span style={{ fontSize:'15px',fontWeight:700 }}>{tName}</span>
-                <span style={{ padding:'2px 8px',borderRadius:'12px',background:'rgba(99,102,241,.1)',color:'var(--accent-primary)',fontSize:'12px',fontWeight:700 }}>
+                <span className={styles.teamName}>{tName}</span>
+                <span className={styles.planCountBadge}>
                   {drafts.length} plan{drafts.length!==1?'s':''}
                 </span>
-                <span style={{ fontSize:'12px',color:'var(--text-secondary)',display:'flex',alignItems:'center',gap:'4px' }}>
+                <span className={styles.userCountInfo}>
                   <Users size={12}/>{allEmps.length} candidates across all plans
                 </span>
-                <div style={{ marginLeft:'auto',display:'flex',gap:'8px' }} onClick={e=>e.stopPropagation()}>
+                <div className={styles.groupActions} onClick={e=>e.stopPropagation()}>
                   {/* Send per team = send for all plans in this team */}
                   {drafts.map(draft=>(
-                    <button key={draft.id} onClick={()=>handleEmail(draft)} style={{ display:'inline-flex',alignItems:'center',gap:'5px',padding:'6px 14px',borderRadius:'7px',background:'rgba(59,130,246,.1)',border:'1px solid rgba(59,130,246,.3)',cursor:'pointer',fontSize:'12px',fontWeight:700,color:'#2563eb' }}>
+                    <button key={draft.id} onClick={()=>handleEmail(draft)} className={styles.sendBtn}>
                       <Mail size={12}/>{draft.trainingType} — Send Email
                     </button>
                   ))}
@@ -342,12 +343,12 @@ export const NotificationPage: React.FC<Props> = ({ employees }) => {
 
               {/* Expanded candidate table */}
               {isOpen && (
-                <div style={{ overflowX:'auto' }}>
-                  <table style={{ width:'100%',borderCollapse:'collapse',fontSize:'13px' }}>
+                <div className={styles.tableContainer}>
+                  <table className={styles.table}>
                     <thead>
-                      <tr style={{ background:'rgba(0,0,0,.02)',borderBottom:'1px solid var(--border-color)' }}>
+                      <tr className={styles.trHeader}>
                         {['Emp ID','Name','Designation','HQ','State','Plan'].map(h=>(
-                          <th key={h} style={{ padding:'8px 12px',textAlign:'left',fontSize:'11px',fontWeight:700,textTransform:'uppercase',letterSpacing:'.05em',color:'var(--text-secondary)',whiteSpace:'nowrap' }}>{h}</th>
+                          <th key={h} className={styles.th}>{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -355,14 +356,14 @@ export const NotificationPage: React.FC<Props> = ({ employees }) => {
                       {drafts.flatMap(draft => {
                         const cEmps = employees.filter(e=>draft.candidates.includes(String(e.employeeId)));
                         return cEmps.map((emp,i)=>(
-                          <tr key={`${draft.id}-${emp.employeeId}`} style={{ borderBottom:'1px solid var(--border-color)',background:i%2===0?'transparent':'rgba(0,0,0,.01)' }}>
-                            <td style={{ padding:'9px 12px',fontFamily:'monospace',fontSize:'12px',color:'var(--text-secondary)',fontWeight:600 }}>{emp.employeeId}</td>
-                            <td style={{ padding:'9px 12px',fontWeight:500 }}>{emp.name}</td>
-                            <td style={{ padding:'9px 12px',fontSize:'12px',color:'var(--text-secondary)' }}>{emp.designation||'—'}</td>
-                            <td style={{ padding:'9px 12px',fontSize:'12px' }}>{emp.hq||'—'}</td>
-                            <td style={{ padding:'9px 12px',fontSize:'12px' }}>{emp.state||'—'}</td>
-                            <td style={{ padding:'9px 12px' }}>
-                              <span style={{ padding:'2px 8px',borderRadius:'10px',background:'rgba(99,102,241,.1)',color:'var(--accent-primary)',fontSize:'11px',fontWeight:700 }}>{draft.trainingType}</span>
+                          <tr key={`${draft.id}-${emp.employeeId}`} className={`${styles.trRow} ${i%2===0?styles.trRowEven:styles.trRowOdd}`}>
+                            <td className={`${styles.td} ${styles.tdEmpId}`}>{emp.employeeId}</td>
+                            <td className={`${styles.td} ${styles.tdName}`}>{emp.name}</td>
+                            <td className={`${styles.td} ${styles.fz12} ${styles.textSecondary}`}>{emp.designation||'—'}</td>
+                            <td className={`${styles.td} ${styles.fz12}`}>{emp.hq||'—'}</td>
+                            <td className={`${styles.td} ${styles.fz12}`}>{emp.state||'—'}</td>
+                            <td className={styles.td}>
+                              <span className={styles.planTypeBadge}>{draft.trainingType}</span>
                             </td>
                           </tr>
                         ));

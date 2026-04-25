@@ -1,0 +1,158 @@
+.emptyState {
+  padding: 48px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.emptyIcon {
+  margin: 0 auto 12px;
+  color: var(--border-color);
+}
+
+.emptyTitle {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.emptyText {
+  font-size: 13px;
+}
+
+.metricsStrip {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.metricCard {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 12px 18px;
+  min-width: 110px;
+  text-align: center;
+  flex: 0 0 auto;
+}
+
+.metricValue {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.metricLabel {
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 3px;
+}
+
+.tableWrapper {
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.thead {
+  background: var(--bg);
+  border-bottom: 2px solid var(--border-color);
+}
+
+.th {
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.tdEmpId {
+  padding: 10px 12px;
+  font-family: monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.tdName {
+  padding: 10px 12px;
+  font-weight: 500;
+}
+
+.tdSmall {
+  padding: 10px 12px;
+  font-size: 12px;
+}
+
+.tdDefault {
+  padding: 10px 12px;
+}
+
+.trainingTypeBadge {
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--accent-primary);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tr {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.trAlt {
+  background: rgba(0, 0, 0, 0.015);
+}
+
+.statusPresent {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+}
+
+.statusAbsent {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--danger);
+}
+
+.statusPending {
+  background: rgba(245, 158, 11, 0.12);
+  color: #d97706;
+}
+
+.reNominatePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #d97706;
+  font-weight: 600;
+}
+
+.metricValuePrimary { color: var(--accent-primary); }
+.metricValueSuccess { color: var(--success); }
+.metricValueDanger { color: var(--danger); }
+.metricValueWarning { color: #d97706; }
+.metricValueMuted { color: var(--text-secondary); }

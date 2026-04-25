@@ -8,6 +8,7 @@ import { Employee } from '../../types/employee';
 import { Attendance } from '../../types/attendance';
 import { useMasterData } from '../../context/MasterDataContext';
 import { getTeamName } from '../../utils/teamIdMapper';
+import styles from './TrainingCalendar.module.css';
 
 interface ChecklistItem { name: string; completed: boolean; }
 interface TrainingPlan {
@@ -296,13 +297,13 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
   };
 
   return (
-    <div style={{ padding: '24px', userSelect: 'none' }} onMouseUp={handleMouseUp} onMouseLeave={() => setIsDragging(false)}>
-      
+    <div className={styles.page} onMouseUp={handleMouseUp} onMouseLeave={() => setIsDragging(false)}>
+
       {/* HEADER */}
-      <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div className={styles.header}>
         <div>
-          <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 700 }}>Training Calendar</h1>
-          <p style={{ color: 'var(--text-secondary)', margin: '8px 0 0 0', fontSize: '13px' }}>Plan and monitor training activities</p>
+          <h1 className={styles.pageTitle}>Training Calendar</h1>
+          <p className={styles.pageSubtitle}>Plan and monitor training activities</p>
         </div>
         <TopRightControls
           fiscalOptions={FY_OPTIONS}
@@ -313,7 +314,7 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
       </div>
 
       {/* TABS */}
-      <div className="gap-tabs" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className={`gap-tabs ${styles.tabBar}`}>
         <div>
           {(['IP', 'AP', 'MIP', 'Capsule', 'Refresher', 'Pre-AP'] as TrainingTab[]).map(t => (
             <button
@@ -328,16 +329,17 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
       </div>
 
       {hasPlanningContext && (
-        <div style={{ background: 'rgba(34, 197, 94, 0.1)', border: '1px solid var(--success)', color: 'var(--success)', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className={styles.planningBanner}>
+          <div className={styles.planningBannerLabel}>
             Planning for:
             {selectionSession!.teamIds.length > 1 ? (
               // Multi-team: selectedPlanningTeamId is the ONLY source of truth for which team is active
               <select
-                className="form-input"
-                style={{ background: 'white', color: 'var(--success)', border: '1px solid var(--success)', padding: '4px 8px', height: 'auto', minHeight: 'auto', marginTop: '-2px' }}
+                className={`form-input ${styles.planningTeamSelect}`}
                 value={selectedPlanningTeamId}
                 onChange={e => setSelectedPlanningTeamId(e.target.value)}
+                title="Select Planning Team"
+                aria-label="Select Planning Team"
               >
                 {selectionSession!.teamIds.map(id => {
                   const t = masterTeams.find(mt => mt.id === id);
@@ -348,56 +350,54 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
               <span>{masterTeams.find(mt => mt.id === selectionSession!.teamIds[0])?.teamName || selectionSession!.teams[0]}</span>
             )}
           </div>
-          <button className="btn btn-secondary" onClick={() => {
+          <button className={`btn btn-secondary ${styles.resetBtn}`} onClick={() => {
             if (window.confirm('Reset all blocked Teams and Trainers?')) resetConsumed();
-          }} style={{ fontSize: '12px', padding: '6px 12px', background: 'white', color: 'var(--success)' }}>
+          }}>
             Reset Selection
           </button>
         </div>
       )}
 
       {/* FILTER BAR & MONTH CONTROLS */}
-      <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap', alignItems: 'center' }}>
-        <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-secondary)' }}>View:</span>
-        <select value={filterTeam} onChange={e => setFilterTeam(e.target.value)} className="form-input" style={{ width: '200px' }}>
+      <div className={styles.filterBar}>
+        <span className={styles.filterLabel}>View:</span>
+        <select value={filterTeam} onChange={e => setFilterTeam(e.target.value)} className={`form-input ${styles.filterSelect}`} title="Filter by Team" aria-label="Filter by Team">
           <option value="">All Teams</option>
-          {masterTeams.filter(t => t.status === 'Active').sort((a,b)=>a.teamName.localeCompare(b.teamName)).map(t => (
+          {masterTeams.filter(t => t.status === 'Active').sort((a, b) => a.teamName.localeCompare(b.teamName)).map(t => (
             <option key={t.id} value={t.id}>{t.teamName}</option>
           ))}
         </select>
-        
-        <select value={filterTrainer} onChange={e => setFilterTrainer(e.target.value)} className="form-input" style={{ width: '200px' }}>
+
+        <select value={filterTrainer} onChange={e => setFilterTrainer(e.target.value)} className={`form-input ${styles.filterSelect}`} title="Filter by Trainer" aria-label="Filter by Trainer">
           <option value="">All Trainers</option>
-          {masterTrainers.filter(t => t.status === 'Active').sort((a,b)=>a.trainerName.localeCompare(b.trainerName)).map(t => (
+          {masterTrainers.filter(t => t.status === 'Active').sort((a, b) => a.trainerName.localeCompare(b.trainerName)).map(t => (
             <option key={t.id} value={t.id}>{t.trainerName} ({t.category})</option>
           ))}
         </select>
 
-        <div style={{ flex: 1 }}></div>
+        <div className={styles.filterSpacer}></div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', background: 'var(--bg-card)', padding: '6px 16px', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
-          <button onClick={() => changeMonth(-1)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}><ChevronLeft size={18}/></button>
-          <span style={{ fontWeight: 600, fontSize: '15px', minWidth: '100px', textAlign: 'center' }}>
+        <div className={styles.monthNav}>
+          <button onClick={() => changeMonth(-1)} title="Previous Month" aria-label="Previous Month" className={styles.monthNavBtn}><ChevronLeft size={18} /></button>
+          <span className={styles.monthLabel}>
             {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
           </span>
-          <button onClick={() => changeMonth(1)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}><ChevronRight size={18}/></button>
+          <button onClick={() => changeMonth(1)} title="Next Month" aria-label="Next Month" className={styles.monthNavBtn}><ChevronRight size={18} /></button>
         </div>
       </div>
 
       {/* CALENDAR GRID */}
-      <div className="glass-panel" style={{ overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', background: 'var(--border-color)', gap: '1px', borderBottom: '1px solid var(--border-color)' }}>
+      <div className={`glass-panel ${styles.calendarPanel}`}>
+        <div className={styles.dayHeaders}>
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-            <div key={day} style={{ padding: '12px', background: 'var(--bg-card)', textAlign: 'center', fontWeight: 'bold', fontSize: '13px', color: 'var(--text-secondary)' }}>
-              {day}
-            </div>
+            <div key={day} className={styles.dayHeader}>{day}</div>
           ))}
         </div>
-        
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', background: 'var(--border-color)', gap: '1px' }}>
+
+        <div className={styles.calendarGrid}>
           {gridCells.map((date, idx) => {
-            if (!date) return <div key={idx} style={{ background: 'var(--bg-card)', minHeight: '120px', opacity: 0.3 }} />;
-            
+            if (!date) return <div key={idx} className={styles.emptyCell} />;
+
             const dateStr = formatDateStr(date);
             const isSelected = isDateInDragRange(dateStr);
             const dayPlans = getPlansForDate(dateStr);
@@ -407,58 +407,42 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
             const extraCount = dayPlans.length - 3;
 
             return (
-              <div 
+              <div
                 key={dateStr}
                 onMouseDown={() => handleMouseDown(dateStr)}
                 onMouseEnter={() => handleMouseEnter(dateStr)}
-                style={{ 
-                  background: isSelected ? 'var(--accent-secondary)' : 'var(--bg-card)',
-                  minHeight: '120px',
-                  padding: '8px',
-                  cursor: 'pointer',
-                  border: isToday ? '1px solid var(--accent-primary)' : 'none',
-                  transition: 'background 0.1s'
-                }}
+                className={`${styles.dayCell} ${isSelected ? styles.dayCellSelected : styles.dayCellDefault} ${isToday ? styles.dayCellToday : ''}`}
               >
-                <div style={{ fontWeight: 600, fontSize: '13px', color: isToday ? 'var(--accent-primary)' : 'var(--text-secondary)', marginBottom: '8px', textAlign: 'right' }}>
+                <div className={`${styles.dayNumber} ${isToday ? styles.dayNumberToday : styles.dayNumberDefault}`}>
                   {date.getDate()}
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div className={styles.planList}>
                   {visiblePlans.map(p => {
                     const status = getStatus(p);
                     const color = status === 'Completed' ? 'var(--success)' : 'var(--text-secondary)';
                     const displayTeam = getTeamName(p.teamId, masterTeams);
                     const trainerObj = masterTrainers.find(mt => mt.id === p.trainer);
                     const displayTrainer = trainerObj ? trainerObj.trainerName : p.trainer;
-                    
+
                     return (
-                      <div 
+                      <div
                         key={p.id}
                         onClick={(e) => { e.stopPropagation(); setSelectedPlanId(p.id); }}
-                        style={{ 
-                          fontSize: '11px',
-                          padding: '4px 6px',
-                          background: 'rgba(0,0,0,0.03)',
-                          borderRadius: '4px',
-                          borderLeft: `3px solid ${color}`,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between'
-                        }}
+                        className={`${styles.planChip} ${status === 'Completed' ? styles.planChipCompleted : styles.planChipPlanned}`}
                       >
-                        <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          <span style={{ fontWeight: 700, marginRight: '4px' }}>{p.trainingType}</span>
-                          <span style={{ fontWeight: 500, marginRight: '4px' }}>{displayTeam}</span>
-                          <span style={{ opacity: 0.7 }}>{displayTrainer}</span>
+                        <div className={styles.planChipText}>
+                          <span className={styles.planType}>{p.trainingType}</span>
+                          <span className={styles.planTeam}>{displayTeam}</span>
+                          <span className={styles.planTrainer}>{displayTrainer}</span>
                         </div>
-                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: color, flexShrink: 0 }}></div>
+                        <div className={`${styles.planDot} ${status === 'Completed' ? styles.planDotCompleted : styles.planDotPlanned}`}></div>
                       </div>
-                    )
+                    );
                   })}
 
                   {extraCount > 0 && (
-                    <div style={{ fontSize: '11px', color: 'var(--accent-primary)', fontWeight: 600, padding: '2px 4px', textAlign: 'center' }}>
+                    <div className={styles.extraCount}>
                       +{extraCount} more
                     </div>
                   )}
@@ -471,61 +455,70 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
 
       {/* CREATE MODAL */}
       {showCreateModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div className="glass-panel" style={{ width: '450px', padding: '0', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '20px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}><CalIcon size={18} /> Create Plan ({tab})</h3>
-              <button className="btn" onClick={() => setShowCreateModal(false)} style={{ background: 'none', border: 'none' }}><X size={18} /></button>
+        <div className={styles.modalBackdrop}>
+          <div className={`glass-panel ${styles.createModal}`}>
+            <div className={styles.modalHeader}>
+              <h3 className={styles.modalTitle}><CalIcon size={18} /> Create Plan ({tab})</h3>
+              <button className={`btn ${styles.modalCloseBtn}`} onClick={() => setShowCreateModal(false)} title="Close Modal" aria-label="Close Modal"><X size={18} /></button>
             </div>
 
-            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ background: 'rgba(0,0,0,0.03)', padding: '12px', borderRadius: '8px', fontSize: '13px' }}>
-                <span style={{ fontWeight: 600 }}>Date:</span> {modalStart} {modalStart !== modalEnd && ` to ${modalEnd}`}
+            <div className={styles.modalBody}>
+              <div className={styles.dateDisplay}>
+                <span className={styles.dateBold}>Date:</span> {modalStart} {modalStart !== modalEnd && ` to ${modalEnd}`}
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Team</label>
+                <label className={styles.formLabel}>Team</label>
                 {/* Read-only: value always comes from selectedPlanningTeamId, never from modal input */}
-                <div style={{ background: 'var(--bg)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '14px', fontWeight: 600 }}>
+                <div className={styles.teamDisplay}>
                   {masterTeams.find(t => t.id === resolvedPlanningTeamId)?.teamName || resolvedPlanningTeamId || '—'}
                 </div>
               </div>
 
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                  <label style={{ fontSize: '12px', fontWeight: 600 }}>Trainer <span style={{ color: 'var(--danger)' }}>*</span></label>
-                  <label style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontWeight: 500 }}>
-                    <input type="checkbox" checked={overrideTrainer} onChange={e => setOverrideTrainer(e.target.checked)} />
+                <div className={styles.trainerHeader}>
+                  <label className={styles.trainerLabel}>Trainer <span className={styles.requiredMark}>*</span></label>
+                  <label className={styles.overrideLabel}>
+                    <input type="checkbox" checked={overrideTrainer} onChange={e => setOverrideTrainer(e.target.checked)} title="Show Used Trainers" aria-label="Show Used Trainers" />
                     Show Used Trainers
                   </label>
                 </div>
-                <select value={formTrainer} onChange={e => setFormTrainer(e.target.value)} className="form-input">
+                <select value={formTrainer} onChange={e => setFormTrainer(e.target.value)} className="form-input" title="Select Trainer" aria-label="Select Trainer">
                   <option value="">Select Trainer...</option>
                   {trainerOptions.map(t => {
                     const isUsed = !overrideTrainer && consumedTrainers.has(t.id);
-                    return <option key={t.id} value={t.id} disabled={isUsed} title={isUsed ? 'Already used in this planning session' : ''} style={{ textDecoration: isUsed ? 'line-through' : 'none', color: isUsed ? 'var(--text-secondary)' : 'inherit' }}>{t.trainerName} ({t.category}) {isUsed ? '(Used)' : ''}</option>
+                    return (
+                      <option 
+                        key={t.id} 
+                        value={t.id} 
+                        disabled={isUsed} 
+                        title={isUsed ? 'Already used in this planning session' : ''} 
+                        className={isUsed ? styles.trainerOptionUsed : ''}
+                      >
+                        {t.trainerName} ({t.category}) {isUsed ? '(Used)' : ''}
+                      </option>
+                    );
                   })}
                 </select>
                 {hasConflict(formTrainer, modalStart, modalEnd) && (
-                  <div style={{ color: 'var(--warning)', fontSize: '11px', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <div className={styles.conflictWarning}>
                     <AlertTriangle size={12} /> Trainer is already assigned to another training on overlapping dates
                   </div>
                 )}
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Remarks</label>
-                <textarea 
-                  value={formRemarks} 
-                  onChange={e => setFormRemarks(e.target.value)} 
-                  className="form-input" 
+                <label className={styles.formLabel}>Remarks</label>
+                <textarea
+                  value={formRemarks}
+                  onChange={e => setFormRemarks(e.target.value)}
+                  className={`form-input ${styles.remarksTextarea}`}
                   placeholder="Optional details..."
-                  style={{ minHeight: '60px', resize: 'vertical' }}
                 />
               </div>
             </div>
 
-            <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+            <div className={styles.modalFooter}>
               <button className="btn btn-secondary" onClick={() => setShowCreateModal(false)}>Cancel</button>
               <button className="btn btn-primary" onClick={handleCreatePlan}><Save size={16} /> Save Plan</button>
             </div>
@@ -535,76 +528,74 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
 
       {/* RIGHT SLIDE PANEL */}
       {selectedPlan && (
-        <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: '400px', background: 'var(--bg-card)', boxShadow: '-4px 0 24px rgba(0,0,0,0.1)', zIndex: 1000, display: 'flex', flexDirection: 'column', transform: 'translateX(0)', transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}>
-          <div style={{ padding: '24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h2 style={{ margin: 0, fontSize: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div className={styles.detailPanel}>
+          <div className={styles.detailPanelHeader}>
+            <h2 className={styles.detailTitle}>
               Training Details
-              {getStatus(selectedPlan) === 'Completed' && <span className="badge badge-success" style={{ fontSize: '11px', padding: '2px 6px' }}>Completed</span>}
-              {getStatus(selectedPlan) === 'Planned' && <span className="badge" style={{ fontSize: '11px', padding: '2px 6px', background: 'rgba(0,0,0,0.05)', color: 'var(--text-secondary)' }}>Planned</span>}
+              {getStatus(selectedPlan) === 'Completed' && <span className={`badge badge-success ${styles.completedBadge}`}>Completed</span>}
+              {getStatus(selectedPlan) === 'Planned' && <span className={`badge ${styles.badgePlanned}`}>Planned</span>}
             </h2>
-            <button className="btn" onClick={() => setSelectedPlanId(null)} style={{ background: 'none', border: 'none' }}><X size={20} /></button>
+            <button className={`btn ${styles.detailCloseBtn}`} onClick={() => setSelectedPlanId(null)} title="Close Details" aria-label="Close Details"><X size={20} /></button>
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
-            
+          <div className={styles.detailBody}>
+
             {/* Context Details */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
-              <div>
-                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Training Type</div>
-                <div style={{ fontWeight: 600, fontSize: '15px' }}>{selectedPlan.trainingType}</div>
+            <div className={styles.detailGrid}>
+              <div className={styles.detailField}>
+                <div className={styles.detailFieldLabel}>Training Type</div>
+                <div className={styles.detailFieldValue}>{selectedPlan.trainingType}</div>
               </div>
-              <div>
-                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Team</div>
-                <div style={{ fontWeight: 600, fontSize: '15px' }}>{selectedPlan.team}</div>
+              <div className={styles.detailField}>
+                <div className={styles.detailFieldLabel}>Team</div>
+                <div className={styles.detailFieldValue}>{selectedPlan.team}</div>
               </div>
-              <div>
-                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Trainer</div>
-                <div style={{ fontWeight: 600, fontSize: '15px' }}>{selectedPlan.trainer}</div>
+              <div className={styles.detailField}>
+                <div className={styles.detailFieldLabel}>Trainer</div>
+                <div className={styles.detailFieldValue}>{selectedPlan.trainer}</div>
               </div>
-              <div>
-                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Dates</div>
-                <div style={{ fontWeight: 600, fontSize: '15px' }}>{selectedPlan.startDate} {selectedPlan.startDate !== selectedPlan.endDate && ` to ${selectedPlan.endDate}`}</div>
+              <div className={styles.detailField}>
+                <div className={styles.detailFieldLabel}>Dates</div>
+                <div className={styles.detailFieldValue}>{selectedPlan.startDate} {selectedPlan.startDate !== selectedPlan.endDate && ` to ${selectedPlan.endDate}`}</div>
               </div>
               {selectedPlan.remarks && (
-                <div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Remarks</div>
-                  <div style={{ fontSize: '14px', fontStyle: 'italic', background: 'rgba(0,0,0,0.02)', padding: '12px', borderRadius: '8px' }}>{selectedPlan.remarks}</div>
+                <div className={styles.detailField}>
+                  <div className={styles.detailFieldLabel}>Remarks</div>
+                  <div className={styles.remarksBox}>{selectedPlan.remarks}</div>
                 </div>
               )}
             </div>
 
             {hasConflict(selectedPlan.trainer, selectedPlan.startDate, selectedPlan.endDate, selectedPlan.id) && (
-              <div style={{ background: 'rgba(245, 158, 11, 0.1)', color: 'var(--warning)', padding: '12px', borderRadius: '8px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div className={styles.conflictBanner}>
                 <AlertTriangle size={16} /> Trainer is assigned to another overlapping training.
               </div>
             )}
 
             {/* Checklist */}
-            <div>
-              <h3 style={{ fontSize: '16px', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className={styles.checklistSection}>
+              <h3 className={styles.checklistTitle}>
                 <CheckCircle size={18} color="var(--accent-primary)" /> Execution Checklist
               </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div className={styles.checklistItems}>
                 {selectedPlan.checklist.length === 0 ? (
-                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>No checklist required for this type.</div>
+                  <div className={styles.checklistEmpty}>No checklist required for this type.</div>
                 ) : (
                   selectedPlan.checklist.map((item, idx) => (
-                    <div 
-                      key={item.name} 
+                    <div
+                      key={item.name}
                       onClick={() => toggleChecklistItem(idx)}
-                      style={{ 
-                        display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', 
-                        background: 'var(--bg)', borderRadius: '8px', border: '1px solid var(--border-color)',
-                        cursor: 'pointer', transition: 'all 0.1s' 
-                      }}
+                      className={styles.checklistItem}
                     >
-                      <input 
-                        type="checkbox" 
-                        checked={item.completed} 
-                        readOnly 
-                        style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                      <input
+                        type="checkbox"
+                        checked={item.completed}
+                        readOnly
+                        title="Checklist Item"
+                        aria-label={`Checklist item: ${item.name}`}
+                        className={styles.checklistCheckbox}
                       />
-                      <span style={{ fontSize: '14px', fontWeight: item.completed ? 500 : 600, opacity: item.completed ? 0.6 : 1, textDecoration: item.completed ? 'line-through' : 'none' }}>
+                      <span className={`${styles.checklistLabel} ${item.completed ? styles.checklistLabelDone : styles.checklistLabelPending}`}>
                         {item.name}
                       </span>
                     </div>
@@ -615,11 +606,10 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
 
           </div>
 
-          <div style={{ padding: '24px', borderTop: '1px solid var(--border-color)' }}>
-            <button 
-              className="btn" 
+          <div className={styles.detailFooter}>
+            <button
+              className={`btn ${styles.deleteBtn}`}
               onClick={() => handleDeletePlan(selectedPlan.id)}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: 'var(--danger)', background: 'rgba(239, 68, 68, 0.1)', border: 'none' }}
             >
               <Trash2 size={16} /> Delete Plan
             </button>

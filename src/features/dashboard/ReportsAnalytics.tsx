@@ -35,7 +35,7 @@ import { DrilldownPanel } from '../../components/DrilldownPanel';
 import { InsightStrip } from '../../components/InsightStrip';
 import { GlobalFilterPanel } from '../../components/GlobalFilterPanel';
 import { GlobalFilters, getActiveFilterCount } from '../../context/filterContext';
-import { APPerformanceMatrix } from '../../components/APPerformanceMatrix';
+import { APPerformanceMatrix } from './components/APPerformanceMatrix';
 import { MIPAttendanceMatrix, MIPPerformanceMatrix } from '../../components/MIPDualMatrix';
 import { RefresherAttendanceMatrix, RefresherPerformanceMatrix } from '../../components/RefresherDualMatrix';
 import { CapsuleAttendanceMatrix, CapsulePerformanceMatrix } from '../../components/CapsuleDualMatrix';
@@ -1230,6 +1230,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                           </tr>
                           {isOpen && teams.map(teamName => {
                             const entry = ipRankData.teams[teamName];
+                            if (!entry) return null;
                             return (
                               <tr key={teamName} className="border-b bg-white-01 text-xs">
                                 <td />

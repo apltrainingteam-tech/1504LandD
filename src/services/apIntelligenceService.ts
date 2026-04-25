@@ -27,7 +27,7 @@ export function buildEmployeeTimelines(
     if (!map.has(empId)) {
       const team = normalizeText(teamRaw || 'Unknown');
       const teamId = getTeamId(team, masterTeams);
-      const cluster = teamMap[teamId]?.cluster || 'Unmapped';
+      const cluster = teamId ? (teamMap[teamId]?.cluster || 'Unmapped') : 'Unmapped';
       map.set(empId, { employeeId: empId, name: empName || 'Unknown', team, cluster, notifications: [], attendances: [] });
     }
     return map.get(empId)!;

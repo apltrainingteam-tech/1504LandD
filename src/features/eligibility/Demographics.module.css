@@ -1,0 +1,120 @@
+.pageTitle {
+  font-size: 24px;
+}
+
+.tabNav {
+  background: var(--bg-card);
+  padding: 8px;
+  border-radius: 14px;
+  width: fit-content;
+}
+
+.dropdownWrapper {
+  position: relative;
+}
+
+.dropdownTrigger {
+  background: var(--bg-card);
+  cursor: pointer;
+  text-align: left;
+}
+
+.dropdownMenu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: #1e1b4b;
+  border: 1px solid var(--accent-primary);
+  border-radius: 8px;
+  padding: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+
+.dropdownItem {
+  transition: background 0.2s;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.dropdownItemHover:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dropdownCheckbox {
+  accent-color: var(--accent-primary);
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.dropdownItemLabel {
+  font-size: 13px;
+}
+
+.dropdownItemLabelSelected {
+  color: white;
+}
+
+.dropdownItemLabelUnselected {
+  color: var(--text-secondary);
+}
+
+.selectedBadge {
+  font-size: 11px;
+  padding: 4px 8px;
+}
+
+.prerequisiteDropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 60;
+  background: #1e1b4b;
+  border: 1px solid var(--accent-primary);
+  border-radius: 8px;
+  padding: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  width: 260px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+}
+
+.conditionLabelActive {
+  border-color: var(--accent-primary);
+}
+
+.conditionLabelInactive {
+  border-color: var(--border-color);
+}
+
+.conditionTitle {
+  font-weight: 600;
+}
+
+.cellBold {
+  font-weight: 600;
+}
+
+.dropdownTriggerText {
+  color: var(--text-secondary);
+}
+
+.dropdownTriggerTextActive {
+  color: var(--text-primary);
+}
+
+.chevronIcon {
+  color: var(--text-secondary);
+}
+
+.dropdownItem:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.conditionDesc {
+  font-size: 12px;
+}

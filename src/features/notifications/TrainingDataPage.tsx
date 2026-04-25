@@ -8,6 +8,7 @@ import { usePlanningFlow, TrainingBatch, CandidateRecord, BatchAttStatus } from 
 import { useMasterData } from '../../context/MasterDataContext';
 import { Employee } from '../../types/employee';
 import { Attendance } from '../../types/attendance';
+import styles from './TrainingDataPage.module.css';
 
 interface Props {
   employees: Employee[];
@@ -16,15 +17,15 @@ interface Props {
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
-const STATUS_META: Record<BatchAttStatus, { label: string; color: string; bg: string; Icon: React.ElementType }> = {
-  pending: { label: 'Pending',   color: '#d97706',        bg: 'rgba(245,158,11,.12)',  Icon: Clock      },
-  present: { label: 'Completed', color: '#059669',        bg: 'rgba(16,185,129,.12)',  Icon: CheckCircle },
-  absent:  { label: 'Drop-off',  color: 'var(--danger)',  bg: 'rgba(239,68,68,.12)',   Icon: XCircle     },
+const STATUS_META: Record<BatchAttStatus, { label: string; className: string; Icon: React.ElementType }> = {
+  pending: { label: 'Pending',   className: styles.statusPending, Icon: Clock      },
+  present: { label: 'Completed', className: styles.statusPresent, Icon: CheckCircle },
+  absent:  { label: 'Absent',  className: styles.statusAbsent,  Icon: XCircle     },
 };
 
 const SOURCE_META = {
-  NOTIFICATION: { label: 'Planned Training',     color: '#2563eb', bg: 'rgba(37,99,235,.1)',  Icon: BellRing },
-  UPLOAD:       { label: 'Uploaded Attendance',  color: '#059669', bg: 'rgba(5,150,105,.1)',  Icon: Upload   },
+  NOTIFICATION: { label: 'Planned Training',    className: styles.sourceNotification, Icon: BellRing },
+  UPLOAD:       { label: 'Uploaded Attendance', className: styles.sourceUpload,       Icon: Upload   },
 } as const;
 
 const fmtDate = (s?: string) =>
@@ -93,19 +94,17 @@ const AttToggle: React.FC<{
     { key: 'absent',  label: '✗', color: 'var(--danger)' },
   ];
   return (
-    <div style={{ display: 'flex', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)', width: 'fit-content', opacity: readOnly ? 0.7 : 1 }}>
+    <div className={`${styles.attToggle} ${readOnly ? styles.attToggleReadOnly : ''}`}>
       {opts.map(o => {
         const act = value === o.key;
         return (
-          <button key={o.key} onClick={() => !readOnly && onChange(o.key)} title={STATUS_META[o.key].label}
+          <button 
+            key={o.key} 
+            onClick={() => !readOnly && onChange(o.key)} 
+            title={STATUS_META[o.key].label}
             disabled={readOnly}
-            style={{
-              padding: '4px 11px', border: 'none', cursor: readOnly ? 'default' : 'pointer',
-              fontSize: '12px', fontWeight: 700,
-              background: act ? o.color : 'transparent',
-              color:      act ? '#fff'  : 'var(--text-secondary)',
-              transition: 'all .12s',
-            }}>
+            className={`${styles.attToggleBtn} ${readOnly ? styles.attToggleBtnDisabled : styles.attToggleBtnEnabled} ${act ? STATUS_META[o.key].className : ''}`}
+          >
             {o.label}
           </button>
         );
@@ -141,70 +140,64 @@ const BatchCard: React.FC<{
   const isUpload = batch.source === 'UPLOAD';
 
   return (
-    <div style={{ border: '1px solid var(--border-color)', borderRadius: '12px', overflow: 'hidden', marginBottom: '10px' }}>
+    <div className={styles.batchCard}>
 
       {/* ── LEVEL 1: Header ── */}
       <div
         onClick={() => setOpen(o => !o)}
-        style={{
-          display: 'flex', alignItems: 'center', gap: '12px', padding: '13px 18px',
-          background: 'var(--bg-card)', cursor: 'pointer',
-          borderBottom: open ? '1px solid var(--border-color)' : 'none',
-        }}
-        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(99,102,241,.03)')}
-        onMouseLeave={e => (e.currentTarget.style.background = 'var(--bg-card)')}
+        className={`${styles.batchHeader} ${open ? styles.batchHeaderOpen : ''}`}
       >
-        {open ? <ChevronDown size={15} style={{ flexShrink: 0, color: 'var(--text-secondary)' }} />
-               : <ChevronRight size={15} style={{ flexShrink: 0, color: 'var(--text-secondary)' }} />}
+        {open ? <ChevronDown size={15} className={styles.chevron} />
+               : <ChevronRight size={15} className={styles.chevron} />}
 
         {/* Source badge */}
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 9px', borderRadius: '20px', background: sm.bg, color: sm.color, fontSize: '10px', fontWeight: 700, whiteSpace: 'nowrap' }}>
+        <span className={`${styles.sourceBadge} ${sm.className}`}>
           <sm.Icon size={10} />{sm.label}
         </span>
 
         {/* Training type */}
-        <span style={{ padding: '3px 10px', borderRadius: '20px', background: 'rgba(99,102,241,.1)', color: 'var(--accent-primary)', fontSize: '12px', fontWeight: 700, whiteSpace: 'nowrap' }}>
+        <span className={styles.typeBadge}>
           {batch.trainingType}
         </span>
 
         {/* Team name */}
-        <span style={{ fontWeight: 700, fontSize: '14px' }}>
+        <span className={styles.teamName}>
           {resolveTeam(batch.teamId, batch.team)}
         </span>
 
         {/* Date range */}
-        <span style={{ fontSize: '12px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+        <span className={styles.dateRange}>
           {fmtDate(batch.startDate)}
           {batch.endDate && batch.endDate !== batch.startDate ? ` → ${fmtDate(batch.endDate)}` : ''}
         </span>
 
         {/* Trainer */}
         {batch.trainer && (
-          <span style={{ fontSize: '12px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+          <span className={styles.trainerName}>
             👤 {resolveTrainer(batch.trainer)}
           </span>
         )}
 
-        <div style={{ flex: 1 }} />
+        <div className={styles.spacer} />
 
         {/* Per-batch metrics */}
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <Pill label="Total"    value={m.total}                          color="var(--accent-primary)" />
-          <Pill label="✓"       value={m.present}                         color="#059669"              />
-          <Pill label="✗"       value={m.absent}                          color="var(--danger)"        />
-          {m.attPct !== null && <Pill label="Att%" value={`${m.attPct}%`} color={m.attPct >= 80 ? '#059669' : '#d97706'} />}
-          {m.avgScore !== null && <Pill label="Score" value={`${m.avgScore}`} color="var(--text-primary)" />}
+        <div className={styles.batchMetrics}>
+          <Pill label="Total"    value={m.total}                           className={styles.textAccent}  />
+          <Pill label="✓"       value={m.present}                          className={styles.textSuccess} />
+          <Pill label="✗"       value={m.absent}                           className={styles.textDanger}  />
+          {m.attPct !== null && <Pill label="Att%" value={`${m.attPct}%`}  className={m.attPct >= 80 ? styles.textSuccess : styles.textWarning} />}
+          {m.avgScore !== null && <Pill label="Score" value={`${m.avgScore}`} className={styles.textPrimary} />}
         </div>
       </div>
 
       {/* ── LEVEL 2: Candidate Table ── */}
       {open && (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+        <div className={styles.tableContainer}>
+          <table className={styles.table}>
             <thead>
-              <tr style={{ background: 'rgba(0,0,0,.022)', borderBottom: '1px solid var(--border-color)' }}>
+              <tr>
                 {['Emp ID', 'Name', 'Designation', 'HQ', 'State', 'Attendance', 'Score', 'Status'].map(h => (
-                  <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{h}</th>
+                  <th key={h} className={styles.th}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -213,34 +206,32 @@ const BatchCard: React.FC<{
                 const emp = employees.find(e => String(e.employeeId) === c.empId);
                 const rs  = STATUS_META[c.attendance];
                 return (
-                  <tr key={c.empId}
-                    style={{ borderBottom: '1px solid var(--border-color)', background: i % 2 === 0 ? 'transparent' : 'rgba(0,0,0,.01)', transition: 'background .1s' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(99,102,241,.035)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? 'transparent' : 'rgba(0,0,0,.01)')}
-                  >
-                    <td style={{ padding: '9px 12px', fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>{c.empId}</td>
-                    <td style={{ padding: '9px 12px', fontWeight: 500 }}>{emp?.name || '—'}</td>
-                    <td style={{ padding: '9px 12px', fontSize: '12px', color: 'var(--text-secondary)' }}>{emp?.designation || '—'}</td>
-                    <td style={{ padding: '9px 12px', fontSize: '12px' }}>{emp?.hq || '—'}</td>
-                    <td style={{ padding: '9px 12px', fontSize: '12px' }}>{emp?.state || '—'}</td>
-                    <td style={{ padding: '9px 12px' }}>
+                  <tr key={c.empId} className={`${styles.tr} ${i % 2 !== 0 ? styles.trOdd : ''}`}>
+                    <td className={`${styles.td} ${styles.tdEmpId}`}>{c.empId}</td>
+                    <td className={`${styles.td} ${styles.tdName}`}>{emp?.name || '—'}</td>
+                    <td className={`${styles.td} ${styles.tdSecondary}`}>{emp?.designation || '—'}</td>
+                    <td className={`${styles.td} ${styles.tdSecondary}`}>{emp?.hq || '—'}</td>
+                    <td className={`${styles.td} ${styles.tdSecondary}`}>{emp?.state || '—'}</td>
+                    <td className={styles.td}>
                       {/* UPLOAD batches: attendance is read-only (from source file). NOTIFICATION: editable. */}
                       <AttToggle value={c.attendance} readOnly={isUpload} onChange={v => onUpdate(c.empId, { attendance: v })} />
                     </td>
-                    <td style={{ padding: '9px 12px' }}>
+                    <td className={styles.td}>
                       <input
                         type="number" min={0} max={100} placeholder="—"
                         value={c.score}
                         onChange={e => onUpdate(c.empId, { score: e.target.value })}
-                        style={{ width: '62px', padding: '4px 7px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '12px', background: 'var(--bg)', color: 'var(--text-primary)', textAlign: 'center' }}
+                        className={styles.scoreInput}
+                        title="Score"
+                        aria-label="Score"
                       />
                     </td>
-                    <td style={{ padding: '9px 12px' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 9px', borderRadius: '12px', background: rs.bg, color: rs.color, fontSize: '11px', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                    <td className={styles.td}>
+                      <span className={`${styles.statusBadge} ${rs.className}`}>
                         <rs.Icon size={10} />{rs.label}
                       </span>
                       {c.attendance === 'absent' && (
-                        <div style={{ marginTop: '3px', fontSize: '10px', color: '#d97706', display: 'flex', alignItems: 'center', gap: '3px', fontWeight: 600 }}>
+                        <div className={styles.reNominate}>
                           <RotateCcw size={9} />Re-nominate
                         </div>
                       )}
@@ -256,10 +247,10 @@ const BatchCard: React.FC<{
   );
 };
 
-const Pill: React.FC<{ label: string; value: number | string; color: string }> = ({ label, value, color }) => (
-  <div style={{ textAlign: 'center', minWidth: '36px' }}>
-    <div style={{ fontSize: '13px', fontWeight: 700, color }}>{value}</div>
-    <div style={{ fontSize: '9px', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.04em', whiteSpace: 'nowrap' }}>{label}</div>
+const Pill: React.FC<{ label: string; value: number | string; className: string }> = ({ label, value, className }) => (
+  <div className={styles.pill}>
+    <div className={`${styles.pillValue} ${className}`}>{value}</div>
+    <div className={styles.pillLabel}>{label}</div>
   </div>
 );
 
@@ -329,15 +320,15 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
   // ── Empty State ───────────────────────────────────────────────────────────
   if (allBatches.length === 0) {
     return (
-      <div className="animate-fade-in" style={{ padding: '24px' }}>
-        <h1 style={{ margin: '0 0 6px', fontSize: '26px', fontWeight: 700 }}>Training Data</h1>
-        <p style={{ margin: '0 0 32px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+      <div className={`animate-fade-in ${styles.page}`}>
+        <h1 className={styles.title}>Training Data</h1>
+        <p className={styles.subtitle}>
           Unified view of all uploaded attendance and planned training batches.
         </p>
-        <div style={{ padding: '56px', textAlign: 'center', color: 'var(--text-secondary)', border: '1px dashed var(--border-color)', borderRadius: '12px' }}>
-          <TrendingUp size={40} style={{ margin: '0 auto 14px', color: 'var(--border-color)' }} />
-          <div style={{ fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>No training data yet</div>
-          <div style={{ fontSize: '13px', lineHeight: 1.6 }}>
+        <div className={styles.emptyState}>
+          <TrendingUp size={40} className={styles.emptyIcon} />
+          <div className={styles.emptyTitle}>No training data yet</div>
+          <div className={styles.emptyText}>
             Data appears here from two sources:<br />
             <strong>1.</strong> Upload attendance files via <strong>Upload Portal</strong><br />
             <strong>2.</strong> Send notification emails from <strong>Notification</strong> page (status → SENT)
@@ -348,13 +339,13 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
   }
 
   return (
-    <div className="animate-fade-in" style={{ padding: '24px' }}>
+    <div className={`animate-fade-in ${styles.page}`}>
 
       {/* Page heading */}
-      <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+      <div className={styles.header}>
         <div>
-          <h1 style={{ margin: 0, fontSize: '26px', fontWeight: 700 }}>Training Data</h1>
-          <p style={{ margin: '5px 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
+          <h1 className={styles.title}>Training Data</h1>
+          <p className={styles.subtitle}>
             Unified view · {allBatches.length} batch{allBatches.length !== 1 ? 'es' : ''} total
             ({notificationBatches.length} planned · {uploadBatches.length} uploaded)
           </p>
@@ -362,75 +353,93 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
       </div>
 
       {/* Global metrics */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '18px', flexWrap: 'wrap' }}>
+      <div className={styles.metricsGrid}>
         {[
-          { label: 'Total',    value: gTotal,                    color: 'var(--accent-primary)', Icon: Users       },
-          { label: 'Att %',    value: `${gAttPct}%`,             color: '#059669',               Icon: TrendingUp  },
-          { label: 'Present',  value: gPresent,                  color: '#059669',               Icon: CheckCircle },
-          { label: 'Drop-off', value: gAbsent,                   color: 'var(--danger)',         Icon: XCircle     },
-          { label: 'Pending',  value: gPending,                  color: '#d97706',               Icon: AlertCircle },
-          { label: 'Avg Score',value: gAvg !== null ? gAvg : '—', color: 'var(--text-primary)',  Icon: TrendingUp  },
+          { label: 'Total',    value: gTotal,                    className: styles.textAccent,  Icon: Users       },
+          { label: 'Att %',    value: `${gAttPct}%`,             className: styles.textSuccess, Icon: TrendingUp  },
+          { label: 'Present',  value: gPresent,                  className: styles.textSuccess, Icon: CheckCircle },
+          { label: 'Drop-off', value: gAbsent,                   className: styles.textDanger,  Icon: XCircle     },
+          { label: 'Pending',  value: gPending,                  className: styles.textWarning, Icon: AlertCircle },
+          { label: 'Avg Score',value: gAvg !== null ? gAvg : '—', className: styles.textPrimary, Icon: TrendingUp  },
         ].map(k => (
-          <div key={k.label} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '10px 16px', minWidth: '76px', textAlign: 'center' }}>
-            <div style={{ fontSize: '20px', fontWeight: 700, color: k.color }}>{k.value}</div>
-            <div style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.05em', marginTop: '3px' }}>{k.label}</div>
+          <div key={k.label} className={styles.metricCard}>
+            <div className={`${styles.metricValue} ${k.className}`}>{k.value}</div>
+            <div className={styles.metricLabel}>{k.label}</div>
           </div>
         ))}
       </div>
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
+      <div className={styles.filterBar}>
         <Filter size={13} color="var(--text-secondary)" />
 
         {/* Source filter */}
-        <div style={{ display: 'flex', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+        <div className={styles.sourceToggle}>
           {([
             { key: '', label: 'All' },
             { key: 'NOTIFICATION', label: '📋 Planned' },
             { key: 'UPLOAD',       label: '⬆ Uploaded' },
           ] as { key: '' | 'NOTIFICATION' | 'UPLOAD'; label: string }[]).map(o => (
-            <button key={o.key} onClick={() => setFilterSource(o.key)} style={{
-              padding: '5px 11px', border: 'none', cursor: 'pointer', fontSize: '11px', fontWeight: 600,
-              background: filterSource === o.key ? 'var(--accent-primary)' : 'transparent',
-              color:      filterSource === o.key ? '#fff' : 'var(--text-secondary)',
-              transition: 'all .12s',
-            }}>{o.label}</button>
+            <button 
+              key={o.key} 
+              onClick={() => setFilterSource(o.key)} 
+              className={`${styles.toggleBtn} ${filterSource === o.key ? styles.toggleBtnActive : ''}`}
+            >
+              {o.label}
+            </button>
           ))}
         </div>
 
-        <select value={filterTeam} onChange={e => setFilterTeam(e.target.value)}
-          style={{ padding: '6px 10px', borderRadius: '7px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: '12px', cursor: 'pointer' }}>
+        <select 
+          value={filterTeam} 
+          onChange={e => setFilterTeam(e.target.value)}
+          className={styles.select} 
+          title="Filter Team" 
+          aria-label="Filter Team"
+        >
           <option value="">All Teams</option>
           {teamOptions.map(id => <option key={id} value={id}>{resolveTeam(id)}</option>)}
         </select>
 
-        <select value={filterType} onChange={e => setFilterType(e.target.value)}
-          style={{ padding: '6px 10px', borderRadius: '7px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: '12px', cursor: 'pointer' }}>
+        <select 
+          value={filterType} 
+          onChange={e => setFilterType(e.target.value)}
+          className={styles.select} 
+          title="Filter Type" 
+          aria-label="Filter Type"
+        >
           <option value="">All Types</option>
           {typeOptions.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
 
-        <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)}
-          style={{ padding: '6px 10px', borderRadius: '7px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: '12px', cursor: 'pointer' }}>
+        <select 
+          value={filterMonth} 
+          onChange={e => setFilterMonth(e.target.value)}
+          className={styles.select} 
+          title="Filter Month" 
+          aria-label="Filter Month"
+        >
           <option value="">All Months</option>
           {monthOptions.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
         </select>
 
         {hasFilters && (
-          <button onClick={() => { setFilterTeam(''); setFilterType(''); setFilterMonth(''); setFilterSource(''); }}
-            style={{ padding: '5px 12px', borderRadius: '7px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-secondary)', fontSize: '12px', cursor: 'pointer', fontWeight: 600 }}>
+          <button 
+            onClick={() => { setFilterTeam(''); setFilterType(''); setFilterMonth(''); setFilterSource(''); }}
+            className={styles.clearBtn}
+          >
             Clear
           </button>
         )}
 
-        <span style={{ marginLeft: 'auto', fontSize: '12px', color: 'var(--text-secondary)' }}>
+        <span className={styles.showingText}>
           Showing <strong>{filtered.length}</strong> of {allBatches.length} batches
         </span>
       </div>
 
       {/* Batch list */}
       {filtered.length === 0 ? (
-        <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)', border: '1px dashed var(--border-color)', borderRadius: '10px', fontSize: '13px' }}>
+        <div className={styles.noResults}>
           No batches match the current filters.
         </div>
       ) : (

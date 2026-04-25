@@ -2,6 +2,7 @@ import React, { useState, memo, useCallback } from 'react';
 import { TrainerStat } from '../types/reports';
 import { flagScore, flagClass, flagLabel } from '../utils/scoreNormalizer';
 import { ChevronUp, ChevronDown } from 'lucide-react';
+import styles from './TrainerTable.module.css';
 
 interface TrainerTableProps {
   stats: TrainerStat[];
@@ -10,7 +11,7 @@ interface TrainerTableProps {
 
 type SortKey = 'trainerId' | 'trainingsConducted' | 'totalTrainees' | 'avgScore' | 'attendancePct';
 
-export const TrainerTable: React.FC<TrainerTableProps> = memo(({ stats }) => {
+export const TrainerTable: React.FC<TrainerTableProps> = memo(({ stats, tab }) => {
   const [sortKey, setSortKey] = useState<SortKey>('avgScore');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
@@ -38,42 +39,42 @@ export const TrainerTable: React.FC<TrainerTableProps> = memo(({ stats }) => {
   const th = (label: string, key: SortKey) => (
     <th
       onClick={() => handleSort(key)}
-      style={{ padding: '12px 16px', textAlign: 'left', cursor: 'pointer', userSelect: 'none', background: sortKey === key ? 'rgba(34,45,104,0.08)' : 'var(--bg-card)' }}
+      className={`${styles.th} ${sortKey === key ? styles.thActive : styles.thInactive}`}
     >
-      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>{label}<SortIcon colKey={key} /></span>
+      <span className={styles.thContent}>{label}<SortIcon colKey={key} /></span>
     </th>
   );
 
   if (stats.length === 0) {
-    return <div style={{ textAlign: 'center', padding: '48px' }} className="text-muted">No trainer data found. Ensure attendance uploads include a Trainer column.</div>;
+    return <div className={`text-muted ${styles.emptyState}`}>No trainer data found. Ensure attendance uploads include a Trainer column.</div>;
   }
 
   return (
-    <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+    <div className={styles.tableWrapper}>
+      <table className={styles.table}>
         <thead>
-          <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
+          <tr className={styles.theadTr}>
             {th('Trainer ID / Name', 'trainerId')}
             {th('Sessions', 'trainingsConducted')}
             {th('Trainees', 'totalTrainees')}
             {th(tab === 'IP' ? 'Avg T Score / %' : 'Avg Score', 'avgScore')}
             {th('Attendance %', 'attendancePct')}
-            <th style={{ padding: '12px 16px', background: 'var(--bg-card)' }}>Flag</th>
+            <th className={styles.thNoSort}>Flag</th>
           </tr>
         </thead>
         <tbody>
           {sorted.map((s, i) => {
             const flag = flagScore(s.avgScore);
             return (
-              <tr key={i} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                <td style={{ padding: '10px 16px', fontWeight: 600 }}>{s.trainerId || '—'}</td>
-                <td style={{ padding: '10px 16px' }}>{s.trainingsConducted}</td>
-                <td style={{ padding: '10px 16px' }}>{s.totalTrainees}</td>
-                <td style={{ padding: '10px 16px', fontWeight: 700, color: flag === 'green' ? 'var(--success)' : flag === 'amber' ? 'var(--warning)' : 'var(--danger)' }}>
+              <tr key={i} className={styles.tbodyTr}>
+                <td className={styles.tdBold}>{s.trainerId || '—'}</td>
+                <td className={styles.td}>{s.trainingsConducted}</td>
+                <td className={styles.td}>{s.totalTrainees}</td>
+                <td className={`${styles.tdScore} ${flag === 'green' ? styles.success : flag === 'amber' ? styles.warning : styles.danger}`}>
                   {s.avgScore > 0 ? s.avgScore.toFixed(1) + '%' : '—'}
                 </td>
-                <td style={{ padding: '10px 16px' }}>{s.attendancePct.toFixed(1)}%</td>
-                <td style={{ padding: '10px 16px' }}>
+                <td className={styles.td}>{s.attendancePct.toFixed(1)}%</td>
+                <td className={styles.td}>
                   {s.avgScore > 0 && <span className={`badge ${flagClass(flag)}`}>{flagLabel(flag)}</span>}
                 </td>
               </tr>
@@ -84,5 +85,3 @@ export const TrainerTable: React.FC<TrainerTableProps> = memo(({ stats }) => {
     </div>
   );
 });
-
-

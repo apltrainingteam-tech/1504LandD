@@ -1,38 +1,41 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, Fragment } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  LineChart, Line, AreaChart, Area, Cell
+  LineChart, Line, AreaChart, Area, Cell, PieChart, Pie, ScatterChart, Scatter, ZAxis, ComposedChart
 } from 'recharts';
 import {
   BarChart3, TrendingUp, Users, Target, ChevronRight, ChevronDown, Filter,
-  Maximize2, LayoutGrid, ListOrdered, Download, Table, Trophy, GraduationCap, AlertTriangle, ChartNetwork, Calendar, Zap
+  Maximize2, LayoutGrid, ListOrdered, Download, Table, Trophy, GraduationCap, AlertTriangle, ChartNetwork, Calendar, Zap, ShieldCheck, CheckCircle2, AlertCircle
 } from 'lucide-react';
 import { Employee } from '../../types/employee';
-import { Attendance, TrainingScore, TrainingNomination, Demographics } from '../../types/attendance';
+import { Attendance, TrainingScore, TrainingNomination, Demographics, TrainingType, EligibilityRule } from '../../types/attendance';
 import {
-  buildUnifiedDataset, applyFilters, normalizeTrainingType,
-  getPrimaryMetricRaw
+  buildUnifiedDataset, applyFilters, normalizeTrainingType, exportToCSV
 } from '../../services/reportService';
 import {
   getFiscalMonths, getCurrentFY,
-  buildIPAggregates
+  buildIPAggregates, buildIPMonthlyTeamRanks
 } from '../../services/ipIntelligenceService';
-import { buildEmployeeTimelines, filterTimelines } from '../../services/apIntelligenceService';
+import { buildEmployeeTimelines, buildAPMonthlyMatrix, filterTimelines } from '../../services/apIntelligenceService';
 import { getAPPerformanceAggregates } from '../../services/apPerformanceService';
+import { buildMIPAttendanceMatrix } from '../../services/mipAttendanceService';
 import { getMIPPerformanceAggregates } from '../../services/mipPerformanceService';
+import { buildRefresherAttendanceMatrix } from '../../services/refresherAttendanceService';
 import { getRefresherPerformanceAggregates } from '../../services/refresherPerformanceService';
+import { buildCapsuleAttendanceMatrix } from '../../services/capsuleAttendanceService';
 import { getCapsulePerformanceAggregates } from '../../services/capsulePerformanceService';
+import { getEligibleEmployees } from '../../services/eligibilityService';
 import { getFiscalYears } from '../../utils/fiscalYear';
 import { useMasterData } from '../../context/MasterDataContext';
 import { GlobalFilterPanel } from '../../components/GlobalFilterPanel';
 import { GlobalFilters, getActiveFilterCount } from '../../context/filterContext';
+import { getCollection } from '../../services/apiClient';
 import {
-  useMonthsFromData, useFilterOptions
+  useMonthsFromData, useFilterOptions, useGroupedData, useTrainerStats, useTimeSeries, useGapMetrics
 } from '../../utils/computationHooks';
 
-// --- MANDATORY INTERFACES (SINGLE SOURCE OF TRUTH) ---
-
+// --- MANDATORY INTERFACES ---
 interface MatrixTeam {
   name: string;
   total: number;
@@ -82,15 +85,36 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
 }) => {
   const { teams: masterTeams, clusters: masterClusters, trainers: masterTrainers } = useMasterData();
   const [tab, setTab] = useState<string>('IP');
+  const [subView, setSubView] = useState<string>('ip_matrix');
   const [selectedFY, setSelectedFY] = useState<string>(getCurrentFY());
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
   const [pageFilters, setPageFilters] = useState<GlobalFilters>({ cluster: '', team: '', trainer: '', month: '' });
   const [showGlobalFilters, setShowGlobalFilters] = useState(false);
   const activeFilterCount = getActiveFilterCount(pageFilters);
+  const [rules, setRules] = useState<EligibilityRule[]>([]);
+  const [tsMode, setTsMode] = useState<'score' | 'count'>('score');
+
+  useEffect(() => {
+    getCollection('eligibility_rules').then(data => setRules(data as EligibilityRule[]));
+  }, []);
 
   const MONTHS = useMemo(() => getFiscalMonths(selectedFY), [selectedFY]);
 
-  // --- CORE DATA LAYER (FROM TABLE ENGINES) ---
+  useEffect(() => {
+    if (tab === 'IP') {
+      if (!['ip_matrix', 'ip_team_rank', 'timeseries', 'trainer', 'gap'].includes(subView)) setSubView('ip_matrix');
+    } else if (tab === 'AP') {
+      if (!['ap_attendance', 'ap_performance', 'timeseries', 'trainer', 'drilldown', 'gap'].includes(subView)) setSubView('ap_attendance');
+    } else if (tab === 'MIP') {
+      if (!['mip_attendance', 'mip_performance', 'timeseries', 'trainer', 'drilldown', 'gap'].includes(subView)) setSubView('mip_performance');
+    } else if (tab === 'Refresher') {
+      if (!['refresher_attendance', 'refresher_performance', 'timeseries', 'trainer', 'drilldown', 'gap'].includes(subView)) setSubView('refresher_attendance');
+    } else if (tab === 'Capsule') {
+      if (!['capsule_attendance', 'capsule_performance', 'timeseries', 'trainer', 'drilldown', 'gap'].includes(subView)) setSubView('capsule_attendance');
+    } else {
+      setSubView('gap');
+    }
+  }, [tab]);
 
   const rawUnified = useMemo(() => {
     const normalizedTab = normalizeTrainingType(tab);
@@ -108,40 +132,72 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
       trainer: pageFilters.trainer || ''
     };
     let ds = applyFilters(rawUnified, filter, masterTeams);
-    return pageFilters.month ? ds : ds.filter(r => MONTHS.includes(normalizeMonthStr(r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7))));
-  }, [rawUnified, pageFilters, MONTHS, masterTeams, tab]);
+    return ds.filter(r => MONTHS.includes(normalizeMonthStr(r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7))));
+  }, [rawUnified, pageFilters, MONTHS, masterTeams]);
 
-  // --- MATRIX TRANSFORMATION (SINGLE SOURCE OF TRUTH) ---
+  // Engines
+  const ipData = useMemo(() => buildIPAggregates(unified), [unified]);
+  const ipRankData = useMemo(() => buildIPMonthlyTeamRanks(unified, MONTHS), [unified, MONTHS]);
 
-  const matrixData: MatrixCluster[] = useMemo(() => {
-    // 1. Fetch data from active engine
-    let engineData: any = null;
-    if (tab === 'IP') {
-      engineData = buildIPAggregates(unified);
-    } else if (['AP', 'MIP', 'Refresher', 'Capsule'].includes(tab)) {
-      const timelines = buildEmployeeTimelines(
-        attendance.filter(a => normalizeTrainingType(a.trainingType) === normalizeTrainingType(tab)),
-        nominations.filter(n => normalizeTrainingType(n.trainingType) === normalizeTrainingType(tab)),
+  const rawTimelines = useMemo(() => {
+    if (['AP', 'MIP', 'Refresher', 'Capsule'].includes(tab)) {
+      return buildEmployeeTimelines(
+        attendance.filter(a => a.trainingType === tab),
+        nominations.filter(n => n.trainingType === tab),
         masterTeams, tab,
-        scores.filter(s => normalizeTrainingType(s.trainingType) === normalizeTrainingType(tab))
+        scores.filter(s => s.trainingType === tab)
       );
-      const filtered = filterTimelines(timelines, { trainer: pageFilters.trainer, validMonths: MONTHS });
-      if (tab === 'AP') engineData = getAPPerformanceAggregates(filtered, MONTHS);
-      else if (tab === 'MIP') engineData = getMIPPerformanceAggregates(filtered, MONTHS);
-      else if (tab === 'Refresher') engineData = getRefresherPerformanceAggregates(filtered, MONTHS);
-      else if (tab === 'Capsule') engineData = getCapsulePerformanceAggregates(filtered, MONTHS);
+    }
+    return new Map();
+  }, [attendance, nominations, scores, tab, masterTeams]);
+
+  const filteredTimelines = useMemo(() => {
+    return filterTimelines(rawTimelines, { trainer: pageFilters.trainer, validMonths: MONTHS });
+  }, [rawTimelines, pageFilters.trainer, MONTHS]);
+
+  // Attendance Data
+  const apAttData = useMemo(() => tab === 'AP' ? buildAPMonthlyMatrix(filteredTimelines, MONTHS) : null, [tab, filteredTimelines, MONTHS]);
+  const mipAttData = useMemo(() => tab === 'MIP' ? buildMIPAttendanceMatrix(filteredTimelines, MONTHS) : null, [tab, filteredTimelines, MONTHS]);
+  const refAttData = useMemo(() => tab === 'Refresher' ? buildRefresherAttendanceMatrix(filteredTimelines, MONTHS) : null, [tab, filteredTimelines, MONTHS]);
+  const capAttData = useMemo(() => tab === 'Capsule' ? buildCapsuleAttendanceMatrix(filteredTimelines, MONTHS) : null, [tab, filteredTimelines, MONTHS]);
+  
+  // Performance Data
+  const apPerfData = useMemo(() => tab === 'AP' ? getAPPerformanceAggregates(filteredTimelines, MONTHS) : null, [tab, filteredTimelines, MONTHS]);
+  const mipPerfData = useMemo(() => tab === 'MIP' ? getMIPPerformanceAggregates(filteredTimelines, MONTHS) : null, [tab, filteredTimelines, MONTHS]);
+  const refPerfData = useMemo(() => tab === 'Refresher' ? getRefresherPerformanceAggregates(filteredTimelines, MONTHS) : null, [tab, filteredTimelines, MONTHS]);
+  const capPerfData = useMemo(() => tab === 'Capsule' ? getCapsulePerformanceAggregates(filteredTimelines, MONTHS) : null, [tab, filteredTimelines, MONTHS]);
+
+  // Gap Analysis
+  const eligibilityResults = useMemo(() => {
+    const rule = rules.find(r => r.trainingType === tab);
+    return getEligibleEmployees(tab as TrainingType, rule, employees, attendance, nominations);
+  }, [tab, rules, employees, attendance, nominations]);
+  const gapMetrics = useGapMetrics(tab, eligibilityResults, attendance);
+
+  // Time Series & Trainer
+  const tabNoms = useMemo(() => nominations.filter(n => n.trainingType === tab), [nominations, tab]);
+  const groups = useGroupedData(unified, 'Month', tabNoms, employees, masterTeams);
+  const dataMonths = useMonthsFromData(unified);
+  const timeSeries = useTimeSeries(groups, dataMonths, tab, tsMode);
+  const trainerStats = useTrainerStats(unified);
+
+  const activeAttData = tab === 'AP' ? apAttData : tab === 'MIP' ? mipAttData : tab === 'Refresher' ? refAttData : capAttData;
+  const activePerfData = tab === 'AP' ? apPerfData : tab === 'MIP' ? mipPerfData : tab === 'Refresher' ? refPerfData : capPerfData;
+
+  // --- MATRIX TRANSFORMATION (IP Performance / Standard) ---
+  const matrixData: MatrixCluster[] = useMemo(() => {
+    let clusterMap = {};
+    let teamMonthMap: Record<string, any> = {};
+    if (tab === 'IP') {
+      clusterMap = ipData.clusterMonthMap;
+      teamMonthMap = ipData.teamMonthMap;
+    } else if (activePerfData) {
+      clusterMap = (activePerfData as any).clusterMap || (activePerfData as any).clusterMonthMap || {};
+      teamMonthMap = (activePerfData as any).teamMonthMap || {};
     }
 
-    if (!engineData) return [];
-
-    const clusterMap = engineData.clusterMonthMap || engineData.clusterMap || {};
-    const teamMonthMap = engineData.teamMonthMap || {};
-
-    // 2. Transform engine output to standard Matrix format
     return Object.entries(clusterMap).map(([clusterName, clusterData]: [string, any]) => {
       const teams: MatrixTeam[] = [];
-
-      // Handle both IP and AP/MIP structures
       const teamSources = clusterData.teams ? Object.entries(clusterData.teams) : Object.entries(teamMonthMap[clusterName] || {});
 
       teamSources.forEach(([teamName, teamData]: [string, any]) => {
@@ -167,66 +223,42 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
       const bAvg = b.teams.reduce((sum, t) => sum + t.weighted_score, 0) / (b.teams.length || 1);
       return bAvg - aAvg;
     });
-  }, [unified, tab, MONTHS, attendance, nominations, scores, masterTeams, pageFilters.trainer]);
-
-  // --- KPI DERIVATION (FROM MATRIX ONLY) ---
+  }, [tab, ipData, activePerfData]);
 
   const kpis = useMemo(() => {
     const allTeams = matrixData.flatMap(c => c.teams);
     if (allTeams.length === 0) return { total: 0, high: 0, medium: 0, low: 0, score: 0, best: '—', worst: '—' };
-
     const total = allTeams.reduce((sum, t) => sum + t.total, 0);
     const avgHigh = allTeams.reduce((sum, t) => sum + t.high_pct, 0) / allTeams.length;
     const avgMed = allTeams.reduce((sum, t) => sum + t.medium_pct, 0) / allTeams.length;
     const avgLow = allTeams.reduce((sum, t) => sum + t.low_pct, 0) / allTeams.length;
     const avgScore = allTeams.reduce((sum, t) => sum + t.weighted_score, 0) / allTeams.length;
-
     const sorted = [...allTeams].sort((a, b) => b.weighted_score - a.weighted_score);
-
     return {
-      total,
-      high: avgHigh,
-      medium: avgMed,
-      low: avgLow,
-      score: avgScore,
-      best: sorted[0]?.name || '—',
-      worst: sorted[sorted.length - 1]?.name || '—'
+      total, high: avgHigh, medium: avgMed, low: avgLow, score: avgScore, best: sorted[0]?.name || '—', worst: sorted[sorted.length - 1]?.name || '—'
     };
   }, [matrixData]);
 
-  // --- CHART TRANSFORMATIONS ---
-
+  // --- CHARTS DATA ---
   const distributionData = useMemo(() => {
     return MONTHS.map(m => {
       const label = m.split('-')[1];
       const buckets = { elite: 0, high: 0, medium: 0, low: 0, total: 0 };
-      matrixData.forEach(c => {
-        c.teams.forEach(t => {
-          const mon = t.monthly[m];
-          if (mon) {
-            buckets.elite += mon.elite || 0;
-            buckets.high += mon.high || 0;
-            buckets.medium += mon.medium || 0;
-            buckets.low += mon.low || 0;
-            buckets.total += mon.total || (mon.elite + mon.high + mon.medium + mon.low);
-          }
-        });
-      });
+      matrixData.forEach(c => c.teams.forEach(t => {
+        const mon = t.monthly[m];
+        if (mon) {
+          buckets.elite += mon.elite || 0; buckets.high += mon.high || 0;
+          buckets.medium += mon.medium || 0; buckets.low += mon.low || 0;
+          buckets.total += mon.total || (mon.elite + mon.high + mon.medium + mon.low);
+        }
+      }));
       const tot = buckets.total || 1;
-      return {
-        label,
-        Elite: (buckets.elite / tot) * 100,
-        High: (buckets.high / tot) * 100,
-        Medium: (buckets.medium / tot) * 100,
-        Low: (buckets.low / tot) * 100
-      };
+      return { label, Elite: (buckets.elite / tot) * 100, High: (buckets.high / tot) * 100, Medium: (buckets.medium / tot) * 100, Low: (buckets.low / tot) * 100 };
     });
   }, [matrixData, MONTHS]);
 
   const rankingData = useMemo(() => {
-    return matrixData.flatMap(c => c.teams)
-      .sort((a, b) => b.weighted_score - a.weighted_score)
-      .slice(0, 15)
+    return matrixData.flatMap(c => c.teams).sort((a, b) => b.weighted_score - a.weighted_score).slice(0, 15)
       .map(t => ({ name: t.name, score: Math.round(t.weighted_score * 100) / 100 }));
   }, [matrixData]);
 
@@ -234,26 +266,88 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
     const data = MONTHS.map(m => {
       const row: any = { label: m.split('-')[1] };
       matrixData.forEach(c => {
-        let clusterTotal = 0;
-        let clusterBuckets = { e: 0, h: 0, m: 0, l: 0 };
+        let clusterTotal = 0, clusterBuckets = { e: 0, h: 0, m: 0, l: 0 };
         c.teams.forEach(t => {
           const mon = t.monthly[m];
           if (mon) {
-            clusterBuckets.e += mon.elite || 0;
-            clusterBuckets.h += mon.high || 0;
-            clusterBuckets.m += mon.medium || 0;
-            clusterBuckets.l += mon.low || 0;
+            clusterBuckets.e += mon.elite || 0; clusterBuckets.h += mon.high || 0;
+            clusterBuckets.m += mon.medium || 0; clusterBuckets.l += mon.low || 0;
             clusterTotal += mon.total || (mon.elite + mon.high + mon.medium + mon.low);
           }
         });
-        if (clusterTotal > 0) {
-          row[c.cluster] = Math.round(((clusterBuckets.e * 98) + (clusterBuckets.h * 85) + (clusterBuckets.m * 65) + (clusterBuckets.l * 35)) / clusterTotal * 100) / 100;
-        }
+        if (clusterTotal > 0) row[c.cluster] = Math.round(((clusterBuckets.e * 98) + (clusterBuckets.h * 85) + (clusterBuckets.m * 65) + (clusterBuckets.l * 35)) / clusterTotal * 100) / 100;
       });
       return row;
     });
     return { data, clusters: matrixData.map(c => c.cluster) };
   }, [matrixData, MONTHS]);
+
+  // Attendance Funnel Charts
+  const attFunnelData = useMemo(() => {
+    if (!activeAttData) return [];
+    return MONTHS.map(m => {
+      let notified = 0, attended = 0;
+      Object.values(activeAttData.clusterMonthMap).forEach((c: any) => {
+        if (c.months[m]) {
+          notified += c.months[m].notified || 0;
+          attended += c.months[m].attended || 0;
+        }
+      });
+      return { label: m.split('-')[1], Notified: notified, Attended: attended };
+    });
+  }, [activeAttData, MONTHS]);
+
+  const attClusterData = useMemo(() => {
+    if (!activeAttData) return [];
+    return Object.entries(activeAttData.clusterMonthMap).map(([name, data]: [string, any]) => ({
+      name,
+      Notified: data.totalNotified,
+      Attended: data.totalAttended,
+      Pct: data.totalNotified ? Math.round((data.totalAttended / data.totalNotified) * 100) : 0
+    })).sort((a, b) => b.Pct - a.Pct);
+  }, [activeAttData]);
+
+  // Gap Analysis Charts
+  const gapClusterData = useMemo(() => {
+    const byCluster: Record<string, { trained: number, gap: number }> = {};
+    eligibilityResults.forEach(er => {
+      if (!er.eligibilityStatus) return;
+      const c = er.cluster || 'Unknown';
+      if (!byCluster[c]) byCluster[c] = { trained: 0, gap: 0 };
+      const hasAttended = attendance.some(a => a.employeeId === er.employeeId && a.trainingType === tab && a.attendanceStatus === 'Present');
+      if (hasAttended) byCluster[c].trained++;
+      else byCluster[c].gap++;
+    });
+    return Object.entries(byCluster).map(([name, d]) => ({ name, Trained: d.trained, Gap: d.gap })).sort((a, b) => b.Gap - a.Gap);
+  }, [eligibilityResults, attendance, tab]);
+
+  const gapPieData = [
+    { name: 'Trained', value: gapMetrics.trainedCount, fill: '#22c55e' },
+    { name: 'Gap', value: gapMetrics.gapCount, fill: '#ef4444' }
+  ];
+
+  // Time Series Charts
+  const tsChartData = useMemo(() => {
+    return timeSeries.map(r => {
+      const row: any = { label: r.label };
+      Object.keys(r.cells).forEach(k => { row[k] = r.cells[k]; });
+      return row;
+    });
+  }, [timeSeries]);
+  const tsKeys = useMemo(() => {
+    const keys = new Set<string>();
+    timeSeries.forEach(r => Object.keys(r.cells).forEach(k => keys.add(k)));
+    return Array.from(keys);
+  }, [timeSeries]);
+
+  // Trainer Charts
+  const trainerScatterData = useMemo(() => {
+    return trainerStats.map(t => ({
+      name: t.trainerId,
+      volume: t.trainingsConducted,
+      score: t.avgScore,
+    })).sort((a, b) => b.volume - a.volume).slice(0, 30);
+  }, [trainerStats]);
 
   const toggleCluster = (clusterName: string) => {
     setExpandedClusters(prev => {
@@ -270,10 +364,9 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
 
   return (
     <div className="performance-charts animate-fade-in">
-      {/* 1. HEADER (REPLICA) */}
       <div className="mb-24">
         <h1 className="text-2xl font-bold m-0">Performance Insights</h1>
-        <p className="text-subtitle">Detailed training performance analysis and rankings</p>
+        <p className="text-subtitle">Interactive graphs and charts mapped to reports</p>
       </div>
 
       <div className="header mb-20">
@@ -288,37 +381,38 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
           <div className="flex-center gap-2">
             {tab === 'IP' ? (
               <>
-                <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Matrix View"><Table size={16} /></button>
-                <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Team Rank Matrix"><Trophy size={16} /></button>
-                <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Time Series"><Calendar size={16} /></button>
-                <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Trainer Analytics"><GraduationCap size={16} /></button>
+                <button className={`btn ${subView === 'ip_matrix' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('ip_matrix')} title="Matrix View"><Table size={16} /></button>
+                <button className={`btn ${subView === 'ip_team_rank' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('ip_team_rank')} title="Team Rank Matrix"><Trophy size={16} /></button>
+                <button className={`btn ${subView === 'timeseries' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('timeseries')} title="Time Series"><Calendar size={16} /></button>
+                <button className={`btn ${subView === 'trainer' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('trainer')} title="Trainer Analytics"><GraduationCap size={16} /></button>
               </>
             ) : tab === 'MIP' ? (
               <>
-                <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Attendance Funnel"><Table size={16} /></button>
-                <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Performance Analytics"><TrendingUp size={16} /></button>
+                <button className={`btn ${subView === 'mip_attendance' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('mip_attendance')} title="Attendance Funnel"><Table size={16} /></button>
+                <button className={`btn ${subView === 'mip_performance' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('mip_performance')} title="Performance Analytics"><TrendingUp size={16} /></button>
+                <button className={`btn ${subView === 'timeseries' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('timeseries')} title="Time Series"><Calendar size={16} /></button>
               </>
             ) : tab === 'Refresher' ? (
               <>
-                <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Attendance Matrix"><Table size={16} /></button>
-                <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Performance Analytics"><TrendingUp size={16} /></button>
+                <button className={`btn ${subView === 'refresher_attendance' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('refresher_attendance')} title="Attendance Matrix"><Table size={16} /></button>
+                <button className={`btn ${subView === 'refresher_performance' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('refresher_performance')} title="Performance Analytics"><TrendingUp size={16} /></button>
+                <button className={`btn ${subView === 'timeseries' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('timeseries')} title="Time Series"><Calendar size={16} /></button>
               </>
             ) : tab === 'Capsule' ? (
               <>
-                <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Attendance Matrix"><Table size={16} /></button>
-                <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Performance Analytics"><TrendingUp size={16} /></button>
+                <button className={`btn ${subView === 'capsule_attendance' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('capsule_attendance')} title="Attendance Matrix"><Table size={16} /></button>
+                <button className={`btn ${subView === 'capsule_performance' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('capsule_performance')} title="Performance Analytics"><TrendingUp size={16} /></button>
+                <button className={`btn ${subView === 'timeseries' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('timeseries')} title="Time Series"><Calendar size={16} /></button>
               </>
             ) : (
               <>
-                <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title={tab === 'AP' ? "Attendance Funnel" : "Rankings"}><Table size={16} /></button>
-                {tab === 'AP' && (
-                  <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Performance Analytics"><TrendingUp size={16} /></button>
-                )}
-                <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Time Series"><Calendar size={16} /></button>
-                <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Drill-Down"><ChartNetwork size={16} /></button>
+                <button className={`btn ${subView === 'ap_attendance' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('ap_attendance')} title="Attendance Funnel"><Table size={16} /></button>
+                <button className={`btn ${subView === 'ap_performance' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('ap_performance')} title="Performance Analytics"><TrendingUp size={16} /></button>
+                <button className={`btn ${subView === 'timeseries' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('timeseries')} title="Time Series"><Calendar size={16} /></button>
+                <button className={`btn ${subView === 'trainer' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('trainer')} title="Trainer Analytics"><GraduationCap size={16} /></button>
               </>
             )}
-            <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Gap Analysis"><AlertTriangle size={16} /></button>
+            <button className={`btn ${subView === 'gap' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('gap')} title="Gap Analysis"><AlertTriangle size={16} /></button>
           </div>
 
           <div className="v-divider mx-1" />
@@ -332,7 +426,6 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
             <Filter size={16} />
             {activeFilterCount > 0 && <span className="text-xs-bold min-w-16">{activeFilterCount}</span>}
           </button>
-          <button className="btn btn-secondary" title="Download Report"><Download size={16} /></button>
         </div>
       </div>
 
@@ -342,141 +435,204 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
         ))}
       </div>
 
-      {/* 2. KPI DERIVATION (MATCHING REQUIRMENTS) */}
-      <div className="grid grid-cols-12 gap-6 mb-24">
-        <div className="col-span-12 grid grid-cols-1 md:grid-cols-4 lg:grid-cols-7 gap-4">
-          <KPICard title="TOTAL CANDIDATES" value={kpis.total} icon={<Users size={20} />} colorType="primary" />
-          <KPICard title="HIGH %" value={`${kpis.high.toFixed(1)}%`} icon={<TrendingUp size={20} />} colorType="success" />
-          <KPICard title="MEDIUM %" value={`${kpis.medium.toFixed(1)}%`} icon={<Target size={20} />} colorType="warning" />
-          <KPICard title="LOW %" value={`${kpis.low.toFixed(1)}%`} icon={<AlertTriangle size={20} />} colorType="accent" />
-          <KPICard title="WEIGHTED T SCORE" value={kpis.score.toFixed(2)} icon={<Zap size={20} />} colorType="primary" />
-          <KPICard title="BEST TEAM" value={kpis.best} icon={<Trophy size={20} />} colorType="success" />
-          <KPICard title="WORST TEAM" value={kpis.worst} icon={<AlertTriangle size={20} />} colorType="accent" />
-        </div>
-      </div>
-
-      {/* 3. CHART MODULES (TRANSFORMED FROM MATRIX) */}
       <div className="grid grid-cols-12 gap-6">
+        {/* === IP MATRIX VIEW === */}
+        {(subView === 'ip_matrix' || subView === 'ap_performance' || subView === 'mip_performance' || subView === 'refresher_performance' || subView === 'capsule_performance') && (
+          <>
+            <div className="col-span-12 grid grid-cols-1 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-2">
+              <KPICard title="TOTAL CANDIDATES" value={kpis.total} icon={<Users size={20} />} colorType="primary" />
+              <KPICard title="HIGH %" value={`${kpis.high.toFixed(1)}%`} icon={<TrendingUp size={20} />} colorType="success" />
+              <KPICard title="MEDIUM %" value={`${kpis.medium.toFixed(1)}%`} icon={<Target size={20} />} colorType="warning" />
+              <KPICard title="LOW %" value={`${kpis.low.toFixed(1)}%`} icon={<AlertTriangle size={20} />} colorType="accent" />
+              <KPICard title="AVG SCORE" value={kpis.score.toFixed(2)} icon={<Zap size={20} />} colorType="primary" />
+              <KPICard title="BEST TEAM" value={kpis.best} icon={<Trophy size={20} />} colorType="success" />
+              <KPICard title="WORST TEAM" value={kpis.worst} icon={<AlertTriangle size={20} />} colorType="accent" />
+            </div>
 
-        {/* A. Performance Distribution (Stacked Bar) */}
-        <div className="col-span-12 lg:col-span-7 glass-panel p-6 chart-box-min">
-          <h3 className="font-bold flex-center gap-2 mb-6">
-            <BarChart3 size={18} className="text-primary" />
-            Performance Distribution Matrix
-          </h3>
-          <div className="w-full chart-container-main">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={distributionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} unit="%" />
-                <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px' }} formatter={(val: number) => `${val.toFixed(1)}%`} />
-                <Bar dataKey="Elite" stackId="a" fill="#22c55e" /><Bar dataKey="High" stackId="a" fill="#3b82f6" /><Bar dataKey="Medium" stackId="a" fill="#f59e0b" /><Bar dataKey="Low" stackId="a" fill="#ef4444" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+            <div className="col-span-12 lg:col-span-7 glass-panel p-6 chart-box-min">
+              <h3 className="font-bold flex-center gap-2 mb-6"><BarChart3 size={18} className="text-primary" /> Performance Distribution Matrix</h3>
+              <div className="w-full h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={distributionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                    <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} unit="%" />
+                    <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px' }} formatter={(val: number) => `${val.toFixed(1)}%`} />
+                    <Bar dataKey="Elite" stackId="a" fill="#22c55e" /><Bar dataKey="High" stackId="a" fill="#3b82f6" /><Bar dataKey="Medium" stackId="a" fill="#f59e0b" /><Bar dataKey="Low" stackId="a" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
 
-        {/* B. Team Ranking (Horizontal Bar) */}
-        <div className="col-span-12 lg:col-span-5 glass-panel p-6 chart-box-min">
-          <h3 className="font-bold flex-center gap-2 mb-6">
-            <ListOrdered size={18} className="text-warning" />
-            Top 15 Team Rankings
-          </h3>
-          <div className="w-full chart-container-main">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart layout="vertical" data={rankingData} margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(255,255,255,0.05)" />
-                <XAxis type="number" hide /><YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-primary)', fontSize: 10, fontWeight: 500 }} width={100} />
-                <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px' }} formatter={(val: number) => `${val.toFixed(2)}`} />
-                <Bar dataKey="score" fill="var(--primary)" radius={[0, 4, 4, 0]} barSize={16}>
-                  {rankingData.map((entry, index) => <Cell key={`cell-${index}`} fill={index < 3 ? 'var(--success)' : 'var(--primary)'} opacity={1 - (index * 0.04)} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+            <div className="col-span-12 lg:col-span-5 glass-panel p-6 chart-box-min">
+              <h3 className="font-bold flex-center gap-2 mb-6"><ListOrdered size={18} className="text-warning" /> Top 15 Team Rankings</h3>
+              <div className="w-full h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart layout="vertical" data={rankingData} margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(255,255,255,0.05)" />
+                    <XAxis type="number" hide /><YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-primary)', fontSize: 10, fontWeight: 500 }} width={100} />
+                    <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px' }} formatter={(val: number) => `${val.toFixed(2)}`} />
+                    <Bar dataKey="score" fill="var(--primary)" radius={[0, 4, 4, 0]} barSize={16}>
+                      {rankingData.map((entry, index) => <Cell key={`cell-${index}`} fill={index < 3 ? 'var(--success)' : 'var(--primary)'} opacity={1 - (index * 0.04)} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
 
-        {/* C. Trend Chart (Line Chart) */}
-        <div className="col-span-12 glass-panel p-6 chart-box-min">
-          <h3 className="font-bold flex-center gap-2 mb-6">
-            <TrendingUp size={18} className="text-accent-primary" />
-            Month-by-Month Trend — Cluster Analytics
-          </h3>
-          <div className="w-full chart-container-main">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={trendData.data} margin={{ top: 10, right: 30, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} domain={[0, 100]} />
-                <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px' }} formatter={(val: number) => [`${val.toFixed(2)}`, 'Score']} /><Legend iconType="circle" />
-                {trendData.clusters.map((cluster, i) => (
-                  <Line key={cluster} type="monotone" dataKey={cluster} stroke={['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'][i % 7]} strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: 'var(--bg-card)' }} activeDot={{ r: 6, strokeWidth: 0 }} connectNulls />
-                ))}
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+            <div className="col-span-12 glass-panel p-6 chart-box-min">
+              <h3 className="font-bold flex-center gap-2 mb-6"><TrendingUp size={18} className="text-accent-primary" /> Month-by-Month Trend — Cluster Analytics</h3>
+              <div className="w-full h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={trendData.data} margin={{ top: 10, right: 30, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                    <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} domain={[0, 100]} />
+                    <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px' }} formatter={(val: number) => [`${val.toFixed(2)}`, 'Score']} /><Legend iconType="circle" />
+                    {trendData.clusters.map((cluster, i) => (
+                      <Line key={cluster} type="monotone" dataKey={cluster} stroke={['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'][i % 7]} strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: 'var(--bg-card)' }} activeDot={{ r: 6, strokeWidth: 0 }} connectNulls />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </>
+        )}
 
-        {/* D. Cluster Dashboard (Expandable Matrix Engine) */}
-        <div className="col-span-12 glass-panel overflow-hidden border-primary/20">
-          <div className="p-6 border-b border-white/5 bg-white/[0.02] flex-between">
-            <h3 className="font-bold flex-center gap-2 text-xl">
-              <LayoutGrid size={22} className="text-primary" />
-              Regional Cluster Dashboard
-            </h3>
-            <span className="text-xs text-muted font-medium bg-white/5 px-3 py-1 rounded-full">Source: Matrix Engine</span>
+        {/* === ATTENDANCE VIEWS === */}
+        {['ap_attendance', 'mip_attendance', 'refresher_attendance', 'capsule_attendance'].includes(subView) && activeAttData && (
+          <>
+            <div className="col-span-12 grid grid-cols-1 md:grid-cols-3 gap-4 mb-2">
+              <KPICard title="TOTAL NOTIFIED" value={(activeAttData.globalKPIs as any).totalNotified ?? (activeAttData.globalKPIs as any).totalEmployeesNotified} icon={<Zap size={20} />} colorType="primary" />
+              <KPICard title="TOTAL ATTENDED" value={(activeAttData.globalKPIs as any).totalAttended ?? (activeAttData.globalKPIs as any).totalEmployeesAttended} icon={<CheckCircle2 size={20} />} colorType="success" />
+              <KPICard title="ATTENDANCE %" value={`${activeAttData.globalKPIs.attendancePercent.toFixed(1)}%`} icon={<Target size={20} />} colorType="accent" />
+            </div>
+
+            <div className="col-span-12 lg:col-span-8 glass-panel p-6 chart-box-min">
+              <h3 className="font-bold flex-center gap-2 mb-6"><BarChart3 size={18} className="text-primary" /> Notified vs Attended Over Time</h3>
+              <div className="w-full h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={attFunnelData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                    <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} />
+                    <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px' }} />
+                    <Legend />
+                    <Bar dataKey="Notified" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Attended" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="col-span-12 lg:col-span-4 glass-panel p-6 chart-box-min">
+              <h3 className="font-bold flex-center gap-2 mb-6"><Target size={18} className="text-success" /> Attendance % by Cluster</h3>
+              <div className="w-full h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart layout="vertical" data={attClusterData} margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(255,255,255,0.05)" />
+                    <XAxis type="number" domain={[0, 100]} hide />
+                    <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-primary)', fontSize: 10 }} width={100} />
+                    <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px' }} formatter={(val: number) => `${val}%`} />
+                    <Bar dataKey="Pct" fill="var(--success)" radius={[0, 4, 4, 0]} barSize={16}>
+                      {attClusterData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.Pct >= 90 ? '#22c55e' : entry.Pct >= 70 ? '#f59e0b' : '#ef4444'} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* === GAP ANALYSIS === */}
+        {subView === 'gap' && (
+          <>
+            <div className="col-span-12 grid grid-cols-1 md:grid-cols-3 gap-4 mb-2">
+              <KPICard title="ELIGIBLE COHORT" value={gapMetrics.eligibleCount} icon={<Users size={20} />} colorType="primary" />
+              <KPICard title="TRAINED" value={gapMetrics.trainedCount} icon={<CheckCircle2 size={20} />} colorType="success" />
+              <KPICard title="GAP" value={gapMetrics.gapCount} icon={<AlertTriangle size={20} />} colorType="accent" />
+            </div>
+
+            <div className="col-span-12 lg:col-span-4 glass-panel p-6 chart-box-min">
+              <h3 className="font-bold flex-center gap-2 mb-6"><ChartNetwork size={18} className="text-primary" /> Overall Training Gap</h3>
+              <div className="w-full h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={gapPieData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value">
+                      {gapPieData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} />)}
+                    </Pie>
+                    <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px' }} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="col-span-12 lg:col-span-8 glass-panel p-6 chart-box-min">
+              <h3 className="font-bold flex-center gap-2 mb-6"><BarChart3 size={18} className="text-danger" /> Training Gap by Cluster</h3>
+              <div className="w-full h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={gapClusterData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} />
+                    <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px' }} />
+                    <Legend />
+                    <Bar dataKey="Trained" stackId="a" fill="#22c55e" />
+                    <Bar dataKey="Gap" stackId="a" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* === TIME SERIES === */}
+        {subView === 'timeseries' && (
+          <div className="col-span-12 glass-panel p-6 chart-box-min">
+            <div className="flex-between mb-6">
+              <h3 className="font-bold flex-center gap-2 m-0"><Calendar size={18} className="text-primary" /> Performance Trends Over Time</h3>
+              <button className="btn btn-secondary text-xs" onClick={() => setTsMode(m => m === 'score' ? 'count' : 'score')}>
+                Toggle to {tsMode === 'score' ? 'Volume' : 'Score'}
+              </button>
+            </div>
+            <div className="w-full h-[400px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={tsChartData} margin={{ top: 10, right: 30, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                  <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} domain={tsMode === 'score' ? [0, 100] : ['auto', 'auto']} />
+                  <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px' }} />
+                  <Legend iconType="circle" />
+                  {tsKeys.map((key, i) => (
+                    <Line key={key} type="monotone" dataKey={key} stroke={['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'][i % 7]} strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} connectNulls />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="bg-white/5 text-xs font-bold text-muted uppercase tracking-wider">
-                  <th className="px-6 py-4 w-12"></th><th className="px-6 py-4">Cluster</th><th className="px-6 py-4">Volume</th><th className="px-6 py-4">Elite %</th><th className="px-6 py-4">Avg Score</th><th className="px-6 py-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {matrixData.map((cluster) => {
-                  const clusterTotal = cluster.teams.reduce((sum, t) => sum + t.total, 0);
-                  const clusterElite = cluster.teams.reduce((sum, t) => sum + (t.elite_pct * t.total / 100), 0);
-                  const clusterScore = cluster.teams.reduce((sum, t) => sum + t.weighted_score, 0) / cluster.teams.length;
-                  return (
-                    <React.Fragment key={cluster.cluster}>
-                      <tr className={`hover:bg-white/[0.03] transition-colors cursor-pointer ${expandedClusters.has(cluster.cluster) ? 'bg-white/[0.02]' : ''}`} onClick={() => toggleCluster(cluster.cluster)}>
-                        <td className="px-6 py-4">{expandedClusters.has(cluster.cluster) ? <ChevronDown size={18} /> : <ChevronRight size={18} />}</td>
-                        <td className="px-6 py-4"><div className="font-bold text-lg">{cluster.cluster}</div><div className="text-xs text-muted">{cluster.teams.length} teams</div></td>
-                        <td className="px-6 py-4"><div className="text-lg font-medium">{clusterTotal}</div><div className="text-xs text-muted">Candidates</div></td>
-                        <td className="px-6 py-4"><div className="text-lg font-bold text-success">{(clusterElite / clusterTotal * 100).toFixed(1)}%</div></td>
-                        <td className="px-6 py-4"><div className="text-lg font-bold text-primary">{clusterScore.toFixed(2)}</div></td>
-                        <td className="px-6 py-4 text-right"><button className="p-2 hover:bg-white/10 rounded-full transition-colors text-primary" title={`Explore ${cluster.cluster}`}><Maximize2 size={16} /></button></td>
-                      </tr>
-                      <AnimatePresence>
-                        {expandedClusters.has(cluster.cluster) && (
-                          <motion.tr initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
-                            <td colSpan={6} className="p-0">
-                              <div className="bg-white/[0.04] rounded-xl p-6 mx-6 mb-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                  {cluster.teams.map((team) => (
-                                    <div key={team.name} className="glass-panel p-4 border-white/5 flex-between hover:border-primary/30 transition-all group cursor-pointer" onClick={(e) => { e.stopPropagation(); onNavigate?.('performance-tables'); }}>
-                                      <div><div className="text-sm font-bold group-hover:text-primary transition-colors">{team.name}</div><div className="text-xs text-muted">{team.total} records</div></div>
-                                      <div className="text-right">
-                                        <div className={`text-lg font-bold ${team.weighted_score >= 80 ? 'text-success' : team.weighted_score >= 60 ? 'text-warning' : 'text-danger'}`}>{team.weighted_score.toFixed(1)}</div>
-                                        <div className="text-[10px] text-muted uppercase">W-Score</div>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            </td>
-                          </motion.tr>
-                        )}
-                      </AnimatePresence>
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
+        )}
+
+        {/* === TRAINER ANALYTICS === */}
+        {subView === 'trainer' && (
+          <div className="col-span-12 glass-panel p-6 chart-box-min">
+            <h3 className="font-bold flex-center gap-2 mb-6"><GraduationCap size={18} className="text-primary" /> Trainer Volume vs Score Scatter</h3>
+            <div className="w-full h-[400px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                  <XAxis type="number" dataKey="volume" name="Volume" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} />
+                  <YAxis type="number" dataKey="score" name="Avg Score" domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} />
+                  <ZAxis type="category" dataKey="name" name="Trainer" />
+                  <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px' }} />
+                  <Scatter name="Trainers" data={trainerScatterData} fill="#8b5cf6">
+                    {trainerScatterData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.score >= 80 ? '#22c55e' : entry.score >= 60 ? '#f59e0b' : '#ef4444'} />)}
+                  </Scatter>
+                </ScatterChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <GlobalFilterPanel

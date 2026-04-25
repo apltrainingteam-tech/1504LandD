@@ -1,0 +1,111 @@
+.page {
+  padding: 24px;
+}
+
+.header {
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.pageTitle {
+  font-size: 32px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.accentIcon {
+  color: var(--accent-primary);
+}
+
+.pageSubtitle {
+  margin-bottom: 16px;
+}
+
+.viewToggle {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.modeBtn {
+  padding: 8px 16px;
+}
+
+.emptyPanel {
+  padding: 60px;
+  text-align: center;
+}
+
+.emptyIcon {
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+  opacity: 0.3;
+}
+
+.emptyTitle {
+  font-size: 20px;
+  margin-bottom: 8px;
+}
+
+.diagnosisRow {
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.diagnosisCard {
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.diagnosisIcon {
+  font-size: 24px;
+}
+
+.diagnosisLabel {
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+
+.diagnosisValue {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.diagStrong { color: var(--success); }
+.diagModerate { color: var(--warning); }
+.diagPoor { color: var(--danger); }
+.diagOther { color: var(--text-primary); }
+
+.countCard {
+  padding: 12px 20px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.stageBlock {
+  margin-bottom: 24px;
+}
+
+.sectionTitle {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.insightsTitle {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

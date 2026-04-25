@@ -1,0 +1,359 @@
+.page {
+  padding: 24px;
+}
+
+.pageHeader {
+  margin-bottom: 20px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pageTitle {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.pageSubtitle {
+  margin: 5px 0 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.sessionBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.teamTabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 16px;
+  overflow-x: auto;
+}
+
+.teamTab {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 18px;
+}
+
+.teamTabActive {
+  color: var(--accent-primary);
+  font-weight: 700;
+  border-bottom: 2px solid var(--accent-primary);
+}
+
+.teamTabInactive {
+  color: var(--text-secondary);
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.filterChips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.filterChip {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.toolbarRight {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.statusPill {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.statusDraft {
+  background: rgba(245, 158, 11, 0.12);
+  color: #d97706;
+}
+
+.statusApproved {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+}
+
+.countText {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.countHighlight {
+  color: var(--accent-primary);
+}
+
+.tableWrapper {
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.thead {
+  background: var(--bg);
+  border-bottom: 2px solid var(--border-color);
+}
+
+.th {
+  padding: 10px 10px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.thAccent { color: var(--accent-primary); }
+.thDanger { color: var(--danger); }
+
+.thCheckbox {
+  padding: 10px 12px;
+  width: 36px;
+}
+
+.tdCheckbox {
+  padding: 8px 12px;
+  text-align: center;
+}
+
+.checkboxInput {
+  accent-color: var(--accent-primary);
+  cursor: pointer;
+  width: 14px;
+  height: 14px;
+}
+
+.tdEmpId {
+  padding: 8px 10px;
+  font-family: monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.tdName {
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tdNameBold { font-weight: 600; }
+.tdNameNormal { font-weight: 400; }
+
+.repeatBadgeHigh {
+  font-size: 10px;
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--danger);
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+.repeatBadgeMed {
+  font-size: 10px;
+  background: rgba(245, 158, 11, 0.12);
+  color: #d97706;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+.tdDefault {
+  padding: 8px 10px;
+}
+
+.tenureBadge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--accent-primary);
+  white-space: nowrap;
+}
+
+.tdNotice {
+  padding: 8px 10px;
+  font-size: 11px;
+}
+.tdNoticeNormal { color: var(--text-secondary); font-weight: 400; }
+.tdNoticeDanger { color: var(--danger); font-weight: 700; }
+
+.emptyCell {
+  padding: 40px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.actionBar {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 0;
+  border-top: 1px solid var(--border-color);
+}
+
+.lockedInfo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.approveBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 20px;
+  border-radius: 8px;
+  border: none;
+  color: white;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.approveBtnEnabled {
+  background: var(--success);
+  cursor: pointer;
+}
+
+.approveBtnDisabled {
+  background: var(--border-color);
+  cursor: not-allowed;
+}
+
+.emptyState {
+  padding: 48px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.emptyIcon {
+  margin: 0 auto 12px;
+  color: var(--border-color);
+}
+
+.emptyTitle {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.emptyText {
+  font-size: 13px;
+}
+
+.desBadge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.desMR { background: rgba(59,130,246,.12); color: #2563eb; }
+.desFLM { background: rgba(16,185,129,.12); color: #059669; }
+.desSLM { background: rgba(139,92,246,.12); color: #7c3aed; }
+.desSRM { background: rgba(245,158,11,.12); color: #d97706; }
+.desOther { background: rgba(0,0,0,.06); color: #6b7280; }
+
+.tr {
+  border-bottom: 1px solid var(--border-color);
+  transition: background 0.1s;
+}
+
+.tr:hover {
+  background: rgba(99, 102, 241, 0.07) !important;
+}
+
+.trAlt {
+  background: rgba(0, 0, 0, 0.01);
+}
+
+.trRepeat {
+  background: rgba(239, 68, 68, 0.03) !important;
+}
+
+.trSelectedEven {
+  background: rgba(99, 102, 241, 0.05) !important;
+}
+
+.trSelectedOdd {
+  background: rgba(99, 102, 241, 0.03) !important;
+}
+
+.trLocked {
+  cursor: default !important;
+}
+
+.trNotLocked {
+  cursor: pointer;
+}
+
+.trIncluded {
+  opacity: 1;
+}
+
+.trExcluded {
+  opacity: 0.5;
+}
+
+.filterChipAll { border-color: var(--accent-primary); background: rgba(99,102,241,.08); color: var(--accent-primary); }
+.filterChipFirst { border-color: var(--accent-primary); background: rgba(99,102,241,.08); color: var(--accent-primary); }
+.filterChipRepeat { border-color: var(--danger); background: rgba(239,68,68,.08); color: var(--danger); }
+.filterChipInactive { border-color: var(--border-color); background: transparent; color: var(--text-secondary); }

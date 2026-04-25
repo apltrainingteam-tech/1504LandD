@@ -4,6 +4,7 @@ import { uploadTrainingDataEnriched, UploadProgress, UploadResultEnriched } from
 import { getTemplateForDownload, getAllTemplateTypes } from '../../services/uploadTemplatesStrict';
 import { parseExcelDate } from '../../services/dateParserService';
 import * as XLSX from 'xlsx';
+import styles from './AttendanceUploadStrict.module.css';
 
 interface AttendanceUploadStrictProps {
   onUploadComplete?: () => void;
@@ -204,32 +205,23 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
   // ─── RENDER: UPLOADING STAGE ──────────────────────────────────────────────
   if (step === 'uploading') {
     return (
-      <div className="animate-fade-in" style={{ maxWidth: '600px', margin: '0 auto', paddingTop: '60px', textAlign: 'center' }}>
-        <h2 style={{ fontSize: '24px', marginBottom: '8px' }}>
+      <div className={`animate-fade-in ${styles.uploadingContainer}`}>
+        <h2 className={styles.uploadingTitle}>
           {uploadProgress.stage === 'complete' ? '✅ Complete' : 'Uploading...'}
         </h2>
-        <p className="text-muted" style={{ marginBottom: '32px' }}>
+        <p className={`text-muted ${styles.uploadingMessage}`}>
           {uploadProgress.message}
         </p>
 
         {/* Progress bar */}
-        <div style={{
-          width: '100%',
-          height: '8px',
-          background: 'var(--bg-secondary)',
-          borderRadius: '4px',
-          overflow: 'hidden',
-          marginBottom: '24px'
-        }}>
-          <div style={{
-            width: `${uploadProgress.processed}%`,
-            height: '100%',
-            background: 'linear-gradient(90deg, var(--accent-primary), var(--success))',
-            transition: 'width 0.3s ease'
-          }} />
+        <div className={styles.progressTrack}>
+          <div 
+            ref={(el) => { if (el) el.style.width = `${uploadProgress.processed}%`; }}
+            className={styles.progressBar}
+          />
         </div>
 
-        <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+        <div className={styles.progressPercent}>
           {uploadProgress.processed}%
         </div>
       </div>
@@ -241,60 +233,46 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
     const isSuccess = uploadResult.success;
 
     return (
-      <div className="animate-fade-in" style={{ maxWidth: '700px', margin: '0 auto' }}>
+      <div className={`animate-fade-in ${styles.doneContainer}`}>
         {/* SUCCESS HEADER */}
         {isSuccess ? (
-          <div style={{
-            padding: '32px 24px',
-            background: 'rgba(34, 197, 94, 0.08)',
-            border: '2px solid rgba(34, 197, 94, 0.3)',
-            borderRadius: '12px',
-            marginBottom: '24px',
-            textAlign: 'center'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}>
-              <CheckCircle size={48} style={{ color: 'var(--success)' }} />
+          <div className={styles.successHeader}>
+            <div className={styles.successIconWrapper}>
+              <CheckCircle size={48} className={styles.successIcon} />
             </div>
-            <h2 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--success)', marginBottom: '8px' }}>
+            <h2 className={styles.successTitle}>
               Upload Successful
             </h2>
-            <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
+            <p className={styles.successMessage}>
               {uploadResult.uploadedRows} of {uploadResult.totalRows} rows uploaded to training_data collection
             </p>
-            <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', fontSize: '14px', flexWrap: 'wrap' }}>
-              <div style={{ padding: '8px 12px', background: 'rgba(34, 197, 94, 0.1)', borderRadius: '6px' }}>
+            <div className={styles.statsRow}>
+              <div className={`${styles.statBadge} ${styles.statBadgeSuccess}`}>
                 <strong>{uploadResult.uploadedRows}</strong> Uploaded ✅
               </div>
               {uploadResult.rejectedRows > 0 && (
-                <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '6px' }}>
+                <div className={`${styles.statBadge} ${styles.statBadgeDanger}`}>
                   <strong>{uploadResult.rejectedRows}</strong> Rejected ❌
                 </div>
               )}
-              <div style={{ padding: '8px 12px', background: 'rgba(34, 197, 94, 0.15)', borderRadius: '6px', fontWeight: 600 }}>
+              <div className={`${styles.statBadge} ${styles.statBadgeHighlight}`}>
                 👤 Active: <strong>{uploadResult.activeEmployees}</strong>
               </div>
-              <div style={{ padding: '8px 12px', background: 'rgba(156, 163, 175, 0.1)', borderRadius: '6px', fontWeight: 600 }}>
+              <div className={`${styles.statBadge} ${styles.statBadgeNeutral}`}>
                 ⚠️ Inactive: <strong>{uploadResult.inactiveEmployees}</strong>
               </div>
             </div>
           </div>
         ) : (
           /* FAILURE HEADER */
-          <div style={{
-            padding: '32px 24px',
-            background: 'rgba(239, 68, 68, 0.08)',
-            border: '2px solid rgba(239, 68, 68, 0.3)',
-            borderRadius: '12px',
-            marginBottom: '24px',
-            textAlign: 'center'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}>
-              <XCircle size={48} style={{ color: 'var(--danger)' }} />
+          <div className={styles.errorHeader}>
+            <div className={styles.errorIconWrapper}>
+              <XCircle size={48} className={styles.errorIcon} />
             </div>
-            <h2 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--danger)', marginBottom: '8px' }}>
+            <h2 className={styles.errorTitle}>
               Upload Failed
             </h2>
-            <p style={{ color: 'var(--text-secondary)' }}>
+            <p className="text-muted">
               {uploadResult.errors[0]?.message || 'Unknown error'}
             </p>
           </div>
@@ -302,22 +280,16 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
 
         {/* ERROR DETAILS */}
         {uploadResult.errors.length > 0 && (
-          <div style={{
-            background: 'rgba(239, 68, 68, 0.05)',
-            border: '1px solid rgba(239, 68, 68, 0.2)',
-            borderRadius: '8px',
-            padding: '16px',
-            marginBottom: '24px'
-          }}>
-            <h4 style={{ fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--danger)', marginBottom: '12px' }}>
+          <div className={styles.errorBox}>
+            <h4 className={styles.errorLabel}>
               ❌ Errors
             </h4>
-            <div style={{ fontSize: '13px', lineHeight: '1.8', color: 'var(--text-secondary)' }}>
+            <div className={styles.errorList}>
               {uploadResult.errors.slice(0, 5).map((e, i) => (
                 <div key={i}>Row {e.rowNum}: {e.message}</div>
               ))}
               {uploadResult.errors.length > 5 && (
-                <div style={{ marginTop: '8px', fontStyle: 'italic' }}>
+                <div className={styles.moreItemsText}>
                   ... and {uploadResult.errors.length - 5} more errors
                 </div>
               )}
@@ -327,22 +299,16 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
 
         {/* WARNING DETAILS */}
         {uploadResult.warnings.length > 0 && (
-          <div style={{
-            background: 'rgba(245, 158, 11, 0.05)',
-            border: '1px solid rgba(245, 158, 11, 0.2)',
-            borderRadius: '8px',
-            padding: '16px',
-            marginBottom: '24px'
-          }}>
-            <h4 style={{ fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--warning)', marginBottom: '12px' }}>
+          <div className={styles.warningBox}>
+            <h4 className={styles.warningLabel}>
               ⚠️ Warnings
             </h4>
-            <div style={{ fontSize: '13px', lineHeight: '1.8', color: 'var(--text-secondary)' }}>
+            <div className={styles.warningList}>
               {uploadResult.warnings.slice(0, 5).map((w, i) => (
                 <div key={i}>{w}</div>
               ))}
               {uploadResult.warnings.length > 5 && (
-                <div style={{ marginTop: '8px', fontStyle: 'italic' }}>
+                <div className={styles.moreItemsText}>
                   ... and {uploadResult.warnings.length - 5} more warnings
                 </div>
               )}
@@ -352,31 +318,23 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
 
         {/* DEBUG LOG (if errors) */}
         {!uploadResult.success && uploadResult.debugLog && (
-          <details style={{ marginBottom: '24px', padding: '12px', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
-            <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase' }}>
+          <details className={styles.debugDetails}>
+            <summary className={styles.debugSummary}>
               Debug Log
             </summary>
-            <pre style={{
-              fontSize: '11px',
-              overflow: 'auto',
-              marginTop: '12px',
-              padding: '12px',
-              background: 'var(--bg-tertiary)',
-              borderRadius: '4px',
-              maxHeight: '200px'
-            }}>
+            <pre className={styles.debugPre}>
               {uploadResult.debugLog}
             </pre>
           </details>
         )}
 
         {/* ACTIONS */}
-        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-          <button className="btn btn-secondary" onClick={handleReset} style={{ padding: '12px 24px' }}>
+        <div className={styles.actionsRow}>
+          <button className={`btn btn-secondary ${styles.actionBtnLarge}`} onClick={handleReset}>
             ↺ Upload Another File
           </button>
           {isSuccess && (
-            <button className="btn btn-primary" onClick={onUploadComplete} style={{ padding: '12px 24px' }}>
+            <button className={`btn btn-primary ${styles.actionBtnLarge}`} onClick={onUploadComplete}>
               ✅ Done
             </button>
           )}
@@ -390,52 +348,50 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
     <div className="animate-fade-in">
       <div className="header">
         <div>
-          <h2 style={{ fontSize: '24px', marginBottom: '12px' }}>📊 Training Attendance Upload</h2>
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+          <h2 className={styles.pageHeaderTitle}>📊 Training Attendance Upload</h2>
+          <div className={styles.badgeRow}>
             <span className="badge badge-info">✓ Attendance</span>
           </div>
           <p className="text-muted">Upload attendance</p>
-          <p className="text-muted" style={{ marginTop: '4px', fontSize: '13px' }}></p>
         </div>
       </div>
 
       {/* TEMPLATE TYPE SELECTOR */}
-      <div className="glass-panel mb-6" style={{ padding: '16px', display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
-        <label style={{ fontWeight: 600, fontSize: '14px', whiteSpace: 'nowrap' }}>Auto-Detect Template Type</label>
+      <div className={`glass-panel mb-6 ${styles.templateSelector}`}>
+        <label className={styles.templateLabel}>Auto-Detect Template Type</label>
         <select
-          className="form-select glass-panel"
-          style={{ cursor: 'pointer', minWidth: '150px' }}
+          className={`form-select glass-panel ${styles.templateSelect}`}
           value={selectedTemplateType}
           onChange={(e) => setSelectedTemplateType(e.target.value)}
+          title="Auto-Detect Template Type"
+          aria-label="Auto-Detect Template Type"
         >
           {getAllTemplateTypes().map(type => <option key={type} value={type}>{type}</option>)}
         </select>
-        <span className="text-muted" style={{ fontSize: '12px' }}>
+        <span className={`text-muted ${styles.templateNote}`}>
           (Selected for template download; actual type detected from file)
         </span>
       </div>
 
       {/* UPLOAD ZONE */}
       <div
-        className={`upload-zone ${dragOver ? 'over' : ''}`}
+        className={`upload-zone ${styles.uploadZone} ${dragOver ? 'over' : ''}`}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
         onClick={() => document.getElementById('file-input')?.click()}
-        style={{ cursor: 'pointer', marginBottom: '24px' }}
       >
-        <UploadCloud size={48} style={{ marginBottom: '12px', color: 'var(--accent-primary)' }} />
-        <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '4px' }}>Drop Excel file here</h3>
+        <UploadCloud size={48} className={styles.uploadIcon} />
+        <h3 className={styles.uploadTitle}>Drop Excel file here</h3>
         <p className="text-muted">or click to browse</p>
-        <input id="file-input" type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={handleFileInput} />
+        <input id="file-input" type="file" accept=".xlsx,.xls,.csv" className={styles.hiddenInput} onChange={handleFileInput} title="Upload File" aria-label="Upload File" placeholder="Upload File" />
       </div>
 
       {/* DOWNLOAD TEMPLATE */}
-      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '32px' }}>
+      <div className={styles.downloadRow}>
         <button
-          className="btn btn-secondary"
+          className={`btn btn-secondary ${styles.downloadBtn}`}
           onClick={handleDownloadTemplate}
-          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px' }}
         >
           <Download size={18} />
           📥 Download {selectedTemplateType} Template
@@ -443,63 +399,42 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
       </div>
 
       {/* UPLOAD MODE SELECTOR */}
-      <div className="glass-panel mb-6" style={{ padding: '24px' }}>
-        <h4 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '16px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
+      <div className={`glass-panel mb-6 ${styles.padding24}`}>
+        <h4 className={styles.modeHeader}>
           📋 Upload Mode
         </h4>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+        <div className={styles.modeGrid}>
           {/* APPEND MODE */}
           <div
-            className={`glass-panel ${uploadMode === 'append' ? 'active-mode' : ''}`}
-            style={{
-              padding: '20px',
-              cursor: 'pointer',
-              border: uploadMode === 'append' ? '2px solid var(--accent-primary)' : '2px solid transparent',
-              transition: 'all 0.2s'
-            }}
+            className={`glass-panel ${styles.modeBox} ${uploadMode === 'append' ? styles.modeBoxAppendActive : styles.modeBoxInactive}`}
             onClick={() => setUploadMode('append')}
           >
-            <div style={{ fontWeight: 700, marginBottom: '8px', fontSize: '14px' }}>➕ Append</div>
-            <p className="text-muted" style={{ fontSize: '13px' }}>Add new records to existing data. Duplicates skipped.</p>
+            <div className={styles.modeTitle}>➕ Append</div>
+            <p className={`text-muted ${styles.modeDesc}`}>Add new records to existing data. Duplicates skipped.</p>
           </div>
 
           {/* REPLACE MODE */}
           <div
-            className={`glass-panel ${uploadMode === 'replace' ? 'active-mode' : ''}`}
-            style={{
-              padding: '20px',
-              cursor: 'pointer',
-              border: uploadMode === 'replace' ? '2px solid var(--danger)' : '2px solid transparent',
-              transition: 'all 0.2s'
-            }}
+            className={`glass-panel ${styles.modeBox} ${uploadMode === 'replace' ? styles.modeBoxReplaceActive : styles.modeBoxInactive}`}
             onClick={() => setUploadMode('replace')}
           >
-            <div style={{ fontWeight: 700, marginBottom: '8px', fontSize: '14px', color: 'var(--danger)' }}>🗑️ Replace</div>
-            <p className="text-muted" style={{ fontSize: '13px' }}>Clear training_data collection first. ⚠️ DESTRUCTIVE</p>
+            <div className={`${styles.modeTitle} ${styles.modeTitleReplace}`}>🗑️ Replace</div>
+            <p className={`text-muted ${styles.modeDesc}`}>Clear training_data collection first. ⚠️ DESTRUCTIVE</p>
           </div>
         </div>
 
         {/* REPLACE CONFIRMATION */}
         {uploadMode === 'replace' && (
-          <div style={{
-            marginTop: '16px',
-            padding: '12px',
-            background: 'rgba(239, 68, 68, 0.05)',
-            border: '1px solid rgba(239, 68, 68, 0.2)',
-            borderRadius: '6px',
-            display: 'flex',
-            gap: '12px',
-            alignItems: 'center'
-          }}>
+          <div className={styles.replaceConfirmBox}>
             <input
               type="checkbox"
               id="confirm-replace"
               checked={confirmReplace}
               onChange={(e) => setConfirmReplace(e.target.checked)}
-              style={{ cursor: 'pointer', width: '18px', height: '18px' }}
+              className={styles.replaceCheckbox}
             />
-            <label htmlFor="confirm-replace" style={{ cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: 'var(--danger)' }}>
+            <label htmlFor="confirm-replace" className={styles.replaceLabel}>
               I confirm: this will DELETE ALL existing training_data records
             </label>
           </div>
@@ -507,11 +442,11 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
       </div>
 
       {/* INFO PANEL */}
-      <div className="glass-panel" style={{ padding: '16px', background: 'rgba(59, 130, 246, 0.05)', borderColor: 'rgba(59, 130, 246, 0.2)' }}>
-        <h4 style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--accent-primary)', marginBottom: '8px' }}>
+      <div className={`glass-panel ${styles.infoPanel}`}>
+        <h4 className={styles.infoTitle}>
           ℹ️ How It Works
         </h4>
-        <ul style={{ fontSize: '13px', lineHeight: '1.8', color: 'var(--text-secondary)', marginLeft: '20px' }}>
+        <ul className={styles.infoList}>
           <li>✅ Common columns required: {['Employee ID', 'Attendance Date', '+ 9 more'].join(', ')}</li>
           <li>✅ Template detected automatically from unique columns (Trainability Score → IP, BSE → AP, etc.)</li>
           <li>✅ All rows validated: missing Employee ID or invalid dates = REJECTED</li>
@@ -521,22 +456,20 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
       </div>
 
       {/* ACTION BUTTON */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '32px' }}>
+      <div className={styles.finalActions}>
         <button
-          className="btn btn-primary"
+          className={`btn btn-primary ${styles.startBtn} ${fileName ? styles.startBtnEnabled : styles.startBtnDisabled}`}
           onClick={() => currentFileRef.current && handleStartUpload(currentFileRef.current)}
           disabled={!fileName || (uploadMode === 'replace' && !confirmReplace)}
-          style={{ padding: '12px 32px', cursor: fileName ? 'pointer' : 'not-allowed', opacity: fileName ? 1 : 0.5 }}
         >
           {!fileName ? '⬆️ Select File First' : '🚀 Start Upload'}
         </button>
 
         {/* TEST BUTTON - DEBUG */}
         <button
-          className="btn btn-secondary"
+          className={`btn btn-secondary ${styles.testBtn}`}
           onClick={handleTestInsert}
           title="Test database connectivity by inserting a dummy record"
-          style={{ padding: '12px 24px', cursor: 'pointer' }}
         >
           🧪 Test DB Insert
         </button>

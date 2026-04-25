@@ -32,6 +32,7 @@ import { getTemplate, generateSampleTemplateData } from '../../services/uploadTe
 import * as XLSX from 'xlsx';
 
 import { Employee } from '../../types/employee';
+import styles from './AttendanceUpload.module.css';
 
 interface AttendanceUploadProps {
   onUploadComplete?: () => void;
@@ -254,7 +255,7 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
           trainingType={trainingType}
           mode={uploadMode}
         />
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '32px' }}>
+        <div className={styles.doneWrapper}>
           <button className="btn btn-primary" onClick={reset}>
             <Upload size={18} /> Upload Another File
           </button>
@@ -266,13 +267,13 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
   // New uploading step
   if (step === 'uploading') {
     return (
-      <div className="animate-fade-in" style={{ maxWidth: '500px', margin: '0 auto', paddingTop: '60px', textAlign: 'center' }}>
-        <h2 style={{ fontSize: '24px', marginBottom: '8px' }}>Uploading Data</h2>
-        <p className="text-muted" style={{ marginBottom: '32px' }}>
+      <div className={`animate-fade-in ${styles.uploadingWrapper}`}>
+        <h2 className={styles.uploadingTitle}>Uploading Data</h2>
+        <p className={`text-muted ${styles.uploadingSubtitle}`}>
           Processing {progressState.totalRows} rows in chunks of 25 records...
         </p>
         
-        <div style={{ marginBottom: '32px' }}>
+        <div className={styles.uploadingProgress}>
           <UploadProgressIndicator state={progressState} />
         </div>
       </div>
@@ -291,19 +292,19 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
 
     return (
       <div className="animate-fade-in">
-        <div className="flex-between mb-8">
+        <div className={styles.previewHeader}>
           <div>
-            <h2 style={{ fontSize: '24px' }}>Review Data: {fileName}</h2>
+            <h2 className={styles.previewTitle}>Review Data: {fileName}</h2>
             <p className="text-muted">
-              Type: <strong style={{ color: 'var(--accent-primary)' }}>{trainingType}</strong> {autoDetected && '(auto)'} · {rows.length} rows detected
+              Type: <strong className={styles.accentColor}>{trainingType}</strong> {autoDetected && '(auto)'} · {rows.length} rows detected
             </p>
           </div>
           <div className="flex-center">
             <select 
-              className="form-select" 
+              className={`form-select ${styles.typeSelect}`} 
               value={trainingType} 
               onChange={e => setTrainingType(e.target.value)}
-              style={{ width: 'auto' }}
+              title="Select training type for preview"
             >
               {TRAINING_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
@@ -311,55 +312,37 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
           </div>
         </div>
 
-        <div className="dashboard-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: '24px' }}>
-          <div className="glass-panel" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '12px', borderColor: 'var(--success)' }}>
-            <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(16,185,129,0.1)', color: 'var(--success)' }}><Check size={18} /></div>
-            <div><div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Valid Rows</div><div style={{ fontSize: '20px', fontWeight: 700 }}>{validCount}</div></div>
+        <div className={styles.grid3}>
+          <div className={`glass-panel ${styles.statCard} ${styles.borderSuccess}`}>
+            <div className={`${styles.statIconWrapper} ${styles.bgSuccess}`}><Check size={18} /></div>
+            <div><div className={styles.statLabel}>Valid Rows</div><div className={styles.statValue}>{validCount}</div></div>
           </div>
-          <div className="glass-panel" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '12px', borderColor: 'var(--warning)' }}>
-            <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(245,158,11,0.1)', color: 'var(--warning)' }}><AlertTriangle size={18} /></div>
-            <div><div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Warnings</div><div style={{ fontSize: '20px', fontWeight: 700 }}>{warnCount}</div></div>
+          <div className={`glass-panel ${styles.statCard} ${styles.borderWarning}`}>
+            <div className={`${styles.statIconWrapper} ${styles.bgWarning}`}><AlertTriangle size={18} /></div>
+            <div><div className={styles.statLabel}>Warnings</div><div className={styles.statValue}>{warnCount}</div></div>
           </div>
-          <div className="glass-panel" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '12px', borderColor: 'var(--danger)' }}>
-            <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)' }}><XCircle size={18} /></div>
-            <div><div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Errors</div><div style={{ fontSize: '20px', fontWeight: 700 }}>{errCount}</div></div>
+          <div className={`glass-panel ${styles.statCard} ${styles.borderDanger}`}>
+            <div className={`${styles.statIconWrapper} ${styles.bgDanger}`}><XCircle size={18} /></div>
+            <div><div className={styles.statLabel}>Errors</div><div className={styles.statValue}>{errCount}</div></div>
           </div>
         </div>
 
         {strictUploadBlocked ? (
-          <div style={{
-            padding: '16px 20px',
-            background: 'rgba(239, 68, 68, 0.08)',
-            border: '1px solid rgba(239, 68, 68, 0.3)',
-            borderRadius: '8px',
-            marginBottom: '24px',
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: '12px'
-          }}>
-            <XCircle size={20} style={{ color: 'var(--danger)', flexShrink: 0, marginTop: '2px' }} />
+          <div className={`${styles.alertBox} ${styles.alertBoxDanger}`}>
+            <XCircle size={20} className={`text-danger ${styles.alertIcon}`} />
             <div>
-              <div style={{ fontWeight: 600, color: 'var(--danger)', marginBottom: '4px' }}>Strict Mode Restricts Upload</div>
-              <div style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.5' }}>
+              <div className={`${styles.alertTitle} ${styles.textDanger}`}>Strict Mode Restricts Upload</div>
+              <div className={styles.alertText}>
                 Strict Mode is enabled but no perfectly matched records were found. Disable Strict Mode or correct the data to proceed.
               </div>
             </div>
           </div>
         ) : unmatchedCount > 0 ? (
-          <div style={{
-            padding: '16px 20px',
-            background: 'rgba(245, 158, 11, 0.08)',
-            border: '1px solid rgba(245, 158, 11, 0.3)',
-            borderRadius: '8px',
-            marginBottom: '24px',
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: '12px'
-          }}>
-            <AlertTriangle size={20} style={{ color: 'var(--warning)', flexShrink: 0, marginTop: '2px' }} />
+          <div className={`${styles.alertBox} ${styles.alertBoxWarning}`}>
+            <AlertTriangle size={20} className={`text-warning ${styles.alertIcon}`} />
             <div>
-              <div style={{ fontWeight: 600, color: 'var(--warning)', marginBottom: '4px' }}>Historical Records Detected</div>
-              <div style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.5' }}>
+              <div className={`${styles.alertTitle} ${styles.textWarning}`}>Historical Records Detected</div>
+              <div className={styles.alertText}>
                 Some records are not found in active employee master. These will be treated as historical records and still uploaded.
               </div>
             </div>
@@ -375,21 +358,20 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
           />
         </div>
 
-        <div className="flex-center w-full max-w-md mx-auto flex-col gap-2">
+        <div className={styles.footerActions}>
           <button 
-            className="btn btn-primary w-full" 
+            className={`btn btn-primary w-full ${styles.uploadBtn}`} 
             onClick={doUpload} 
             disabled={!canUpload}
-            title={!canUpload ? strictUploadBlocked ? 'Strict Mode requires a perfect match' : 'No valid records to upload' : ''}
-            style={{ padding: '14px 32px', position: 'relative', overflow: 'hidden' }}
+            title={!canUpload ? strictUploadBlocked ? 'Strict Mode requires a perfect match' : 'No valid records to upload' : 'Accept and sync data'}
           >
             {`Accept & Sync ${uploadableCount} Rows (${uploadMode.toUpperCase()})`}
           </button>
           
           <button className="btn btn-secondary w-full" onClick={reset}>Discard & Reject</button>
-          {errCount > 0 && <span className="text-muted text-center mt-2" style={{ fontSize: '13px', color: 'var(--danger)' }}>❌ {errCount} rows with errors will NOT be uploaded</span>}
-          {warnCount > 0 && <span className="text-muted text-center mt-2" style={{ fontSize: '13px', color: 'var(--warning)' }}>⚠️ {warnCount} rows with warnings will be uploaded with caution</span>}
-          <span className="text-muted text-center mt-2" style={{ fontSize: '12px' }}>Large uploads process in chunks of 25 records to prevent quota limits</span>
+          {errCount > 0 && <span className={styles.errorText}>❌ {errCount} rows with errors will NOT be uploaded</span>}
+          {warnCount > 0 && <span className={styles.warningText}>⚠️ {warnCount} rows with warnings will be uploaded with caution</span>}
+          <span className={styles.infoText}>Large uploads process in chunks of 25 records to prevent quota limits</span>
         </div>
       </div>
     );
@@ -397,69 +379,67 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
 
   if (step === 'mode_select') {
     return (
-      <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '40px' }}>
-        <h2 style={{ fontSize: '28px', marginBottom: '8px' }}>Select Upload Mode</h2>
-        <p className="text-muted" style={{ marginBottom: '32px' }}>How would you like to handle the incoming data?</p>
+      <div className={`animate-fade-in ${styles.modeSelectWrapper}`}>
+        <h2 className={styles.modeSelectTitle}>Select Upload Mode</h2>
+        <p className={`text-muted ${styles.uploadingSubtitle}`}>How would you like to handle the incoming data?</p>
 
-        <div className="dashboard-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '24px', maxWidth: '700px', width: '100%' }}>
+        <div className={styles.modeGrid}>
           <div 
-            className={`glass-panel ${uploadMode === 'append' ? 'active-mode' : ''}`}
-            style={{ padding: '24px', cursor: 'pointer', border: uploadMode === 'append' ? '2px solid var(--accent-primary)' : '2px solid transparent', transition: 'all 0.2s' }}
+            className={`glass-panel ${styles.modeCard} ${uploadMode === 'append' ? styles.modeCardActiveAppend : ''}`}
             onClick={() => setUploadMode('append')}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-              <div style={{ padding: '10px', borderRadius: '50%', background: 'rgba(34,45,104,0.1)', color: 'var(--accent-primary)' }}>
+            <div className={styles.modeHeader}>
+              <div className={`${styles.modeIconWrapper} ${styles.modeIconAppend}`}>
                 <CheckCircle size={24} />
               </div>
-              <h3 style={{ fontSize: '18px', margin: 0 }}>Append Data</h3>
+              <h3 className={styles.modeTitle}>Append Data</h3>
             </div>
-            <p className="text-muted" style={{ fontSize: '14px', lineHeight: '1.5' }}>
+            <p className={`text-muted ${styles.modeDescription}`}>
               Adds new records to the database. Identifies duplicates using <strong>Employee ID + Date + Type</strong> and automatically skips them to prevent double-counting.
             </p>
           </div>
 
           <div 
-            className={`glass-panel ${uploadMode === 'replace' ? 'active-mode' : ''}`}
-            style={{ padding: '24px', cursor: 'pointer', border: uploadMode === 'replace' ? '2px solid var(--danger)' : '2px solid transparent', transition: 'all 0.2s' }}
+            className={`glass-panel ${styles.modeCard} ${uploadMode === 'replace' ? styles.modeCardActiveReplace : ''}`}
             onClick={() => {
               setUploadMode('replace');
               setConfirmReplace(false);
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-              <div style={{ padding: '10px', borderRadius: '50%', background: 'rgba(239,68,68,0.1)', color: 'var(--danger)' }}>
+            <div className={styles.modeHeader}>
+              <div className={`${styles.modeIconWrapper} ${styles.modeIconReplace}`}>
                 <AlertTriangle size={24} />
               </div>
-              <h3 style={{ fontSize: '18px', margin: 0 }}>Replace All</h3>
+              <h3 className={styles.modeTitle}>Replace All</h3>
             </div>
-            <p className="text-muted" style={{ fontSize: '14px', lineHeight: '1.5' }}>
+            <p className={`text-muted ${styles.modeDescription}`}>
               <strong>Destructive action.</strong> Deletes ALL existing attendance and score records system-wide before uploading the new dataset. Use for full resets.
             </p>
           </div>
         </div>
 
         {uploadMode === 'replace' && (
-          <div className="glass-panel mt-6" style={{ background: 'rgba(239,68,68,0.05)', borderColor: 'var(--danger)', padding: '16px 24px', maxWidth: '700px', width: '100%', display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div className={`glass-panel ${styles.replaceConfirmBox}`}>
             <input 
               type="checkbox" 
+              className={styles.replaceCheckbox}
               id="confirm-replace" 
               checked={confirmReplace} 
               onChange={e => setConfirmReplace(e.target.checked)}
-              style={{ width: '20px', height: '20px', cursor: 'pointer' }}
             />
-            <label htmlFor="confirm-replace" style={{ cursor: 'pointer', fontWeight: 600, color: 'var(--danger)' }}>
+            <label htmlFor="confirm-replace" className={styles.replaceLabel}>
               I understand this will PERMANENTLY erase all existing attendance data.
             </label>
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: '16px', marginTop: '32px' }}>
-          <button className="btn btn-secondary" onClick={reset} style={{ padding: '12px 24px' }}>Cancel</button>
+        <div className={styles.stepActions}>
+          <button className={`btn btn-secondary ${styles.stepBtn}`} onClick={reset}>Cancel</button>
           <button 
-            className={`btn ${uploadMode === 'replace' ? 'btn-danger' : 'btn-primary'}`} 
+            className={`btn ${uploadMode === 'replace' ? 'btn-danger' : 'btn-primary'} ${styles.stepBtnPrimary}`} 
             onClick={() => setStep('preview')} 
             disabled={uploadMode === 'replace' && !confirmReplace}
-            style={{ padding: '12px 32px' }}
+            title="Continue to data preview"
           >
             Continue to Preview
           </button>
@@ -472,21 +452,22 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
     <div className="animate-fade-in">
       <div className="header">
         <div>
-          <h2 style={{ fontSize: '24px' }}>Attendance Portal</h2>
+          <h2 className={styles.portalTitle}>Attendance Portal</h2>
           <p className="text-muted">Automated field training ingestion engine</p>
         </div>
       </div>
 
-      <div className="flex-center mb-6 mt-4 gap-4" style={{ background: 'var(--bg-card)', padding: '16px', borderRadius: '14px', border: '1px solid var(--border-color)' }}>
-        <label style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Target Training Type:</label>
+      <div className={styles.typeSelectorBar}>
+        <label className={styles.typeLabel} htmlFor="training-type-select">Target Training Type:</label>
         <select 
-          className="form-select glass-panel" 
-          style={{ width: '250px', cursor: 'pointer', fontWeight: 600, color: 'var(--accent-primary)' }}
+          id="training-type-select"
+          className={`form-select glass-panel ${styles.typeSelectInput}`} 
           value={selectedUploadType}
           onChange={e => {
              setSelectedUploadType(e.target.value);
              setTrainingType(e.target.value);
           }}
+          title="Select training type"
         >
           {TRAINING_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
@@ -499,36 +480,33 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
         onDrop={handleDrop}
         onClick={() => document.getElementById('file-input')?.click()}
       >
-        <div className="upload-icon">
+        <div className={styles.uploadIconCircle}>
           <UploadCloud size={32} />
         </div>
-        <h3 style={{ fontSize: '18px', fontWeight: 600 }}>Drop Excel data here</h3>
+        <h3 className={styles.dropZoneTitle}>Drop Excel data here</h3>
         <p className="text-muted">or click to browse local files (.xlsx, .xls, .csv)</p>
-        <input id="file-input" type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={handleFileInput} />
+        <input id="file-input" type="file" accept=".xlsx,.xls,.csv" className={styles.hidden} onChange={handleFileInput} title="Upload Excel file" />
       </div>
 
-      {/* ✅ DOWNLOAD TEMPLATE BUTTON */}
-      <div style={{ display: 'flex', justifyContent: 'center', marginTop: '24px', gap: '12px' }}>
+      <div className={styles.templateActions}>
         <button 
-          className="btn btn-secondary"
+          className={`btn btn-secondary ${styles.templateBtn}`}
           onClick={handleDownloadTemplate}
-          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px' }}
+          title={`Download ${selectedUploadType} Excel template`}
         >
           <Download size={18} />
           📥 Download {selectedUploadType} Template
         </button>
       </div>
 
-      {/* DATA STANDARDS — Dynamic based on selected training type */}
-      <div className="glass-panel mt-8" style={{ padding: '24px' }}>
-        <h4 style={{ fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '16px', letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div className={`glass-panel ${styles.standardsPanel}`}>
+        <h4 className={styles.standardsTitle}>
           <Info size={14} /> Data Standards · {selectedUploadType}
         </h4>
 
-        {/* Required base fields */}
-        <div style={{ marginBottom: '14px' }}>
-          <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: 600 }}>Required Columns</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+        <div className={styles.sectionWrapper}>
+          <div className={styles.sectionTitle}>Required Columns</div>
+          <div className={styles.badgeList}>
             {(() => {
               try {
                 const template = getTemplate(selectedUploadType);
@@ -546,10 +524,9 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
           </div>
         </div>
 
-        {/* Optional columns */}
-        <div style={{ marginBottom: '14px' }}>
-          <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: 600 }}>Optional Columns</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+        <div className={styles.sectionWrapper}>
+          <div className={styles.sectionTitle}>Optional Columns</div>
+          <div className={styles.badgeList}>
             {(() => {
               try {
                 const template = getTemplate(selectedUploadType);
@@ -567,24 +544,23 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
           </div>
         </div>
 
-        {/* Schema-driven score fields for this training type */}
         {(() => {
           const schema = getSchema(selectedUploadType);
           const scoreLabels = Object.values(schema.scoreLabels);
           if (scoreLabels.length === 0) return null;
           return (
-            <div style={{ marginBottom: '14px' }}>
-              <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: 600 }}>Score Fields (Legacy)</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+            <div className={styles.sectionWrapper}>
+              <div className={styles.sectionTitle}>Score Fields (Legacy)</div>
+              <div className={styles.badgeList}>
                 {scoreLabels.map(label => (
-                  <span key={label} className="badge" style={{ background: 'rgba(34,45,104,0.15)', color: 'var(--accent-primary)', border: '1px solid rgba(34,45,104,0.3)' }}>{label}</span>
+                  <span key={label} className={`badge ${styles.legacyScoreBadge}`}>{label}</span>
                 ))}
               </div>
             </div>
           );
         })()}
 
-        <p className="text-muted" style={{ fontSize: '13px', marginTop: '12px', lineHeight: '1.6' }}>
+        <p className={`text-muted ${styles.standardsFootnote}`}>
           <strong>✅ Strict Template Validation:</strong> Your file MUST use exact column headers from the official template. 
           Download the template using the button above to ensure your columns match exactly. 
           Missing required columns will be rejected with clear error messages.
@@ -593,5 +569,3 @@ export const AttendanceUpload: React.FC<AttendanceUploadProps> = ({ onUploadComp
     </div>
   );
 };
-
-

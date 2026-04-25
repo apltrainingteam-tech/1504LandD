@@ -1,0 +1,197 @@
+.title {
+  font-size: 24px;
+}
+
+.successStep {
+  text-align: center;
+  padding: 60px;
+}
+
+.successIconCircle {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 24px;
+}
+
+.successTitleLarge {
+  font-size: 32px;
+  margin-bottom: 16px;
+}
+
+.successPanel {
+  max-width: 400px;
+  margin: 0 auto 32px;
+  padding: 24px;
+}
+
+.successTextMuted {
+  margin-bottom: 12px;
+}
+
+.successCount {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--success);
+}
+
+.previewStats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin-bottom: 24px;
+  gap: 16px;
+}
+
+.statBox {
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.statIcon {
+  padding: 8px;
+  border-radius: 8px;
+}
+
+.statLabel {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.statValue {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.uploadActionArea {
+  width: 100%;
+  max-width: 448px; /* max-w-md */
+  margin: 32px auto 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.destructiveBtn {
+  padding: 14px 32px;
+  position: relative;
+  overflow: hidden;
+}
+
+.progressOverlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.3);
+  transition: width 0.2s;
+  z-index: 0;
+}
+
+.btnText {
+  position: relative;
+  z-index: 1;
+  font-weight: 700;
+}
+
+.toolbar {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.searchWrapper {
+  flex: 1 1 220px;
+  position: relative;
+  min-width: 180px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-secondary);
+}
+
+.searchInput {
+  width: 100%;
+  padding-left: 40px;
+  border: none;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.filterSelect {
+  flex: 0 1 180px;
+  border: none;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.badgeInfo {
+  font-weight: 700;
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+.tableContainer {
+  overflow-x: auto;
+  max-height: 500px;
+}
+
+.emptyRow {
+  text-align: center;
+  padding: 40px;
+}
+
+.dangerText {
+  color: var(--danger);
+}
+
+.statBoxSuccess { border-color: var(--success); }
+.statBoxWarning { border-color: var(--warning); }
+.statBoxDanger { border-color: var(--danger); }
+
+.statIconSuccess { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+.statIconWarning { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
+.statIconDanger { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+
+.destructiveBtnNormal { background: var(--danger); }
+.destructiveBtnMuted { background: var(--text-muted); }
+
+.dropZoneTitle {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.glassOverflowHidden {
+  overflow: hidden;
+}
+
+.filterSelectActive { color: var(--text-primary); }
+.filterSelectInactive { color: var(--text-secondary); }
+
+.clearFiltersBtn {
+  padding: 8px 14px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.tdEmpId {
+  font-weight: 600;
+}

@@ -1,6 +1,7 @@
 import React, { useState, useCallback, memo } from 'react';
 import { X } from 'lucide-react';
 import { GlobalFilters } from '../context/filterContext';
+import styles from './GlobalFilterPanel.module.css';
 
 interface GlobalFilterPanelProps {
   isOpen: boolean;
@@ -49,108 +50,45 @@ export const GlobalFilterPanel: React.FC<GlobalFilterPanelProps> = memo(({
     <>
       {/* Backdrop */}
       <div
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.5)',
-          zIndex: 999,
-          animation: 'fadeIn 0.15s ease-out',
-        }}
+        className={styles.backdrop}
         onClick={onClose}
       />
 
       {/* Filter Panel */}
       <div
-        style={{
-          position: 'fixed',
-          right: 0,
-          top: 0,
-          bottom: 0,
-          width: '360px',
-          background: 'var(--bg-main)',
-          borderLeft: '1px solid var(--border-color)',
-          zIndex: 1000,
-          display: 'flex',
-          flexDirection: 'column',
-          animation: 'slideInRight 0.25s ease-out',
-        }}
+        className={styles.panel}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div
-          style={{
-            padding: '24px',
-            borderBottom: '1px solid var(--border-color)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}
-        >
-          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>Filters</h2>
+        <div className={styles.header}>
+          <h2 className={styles.title}>Filters</h2>
           <button
             onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--text-secondary)',
-              padding: '4px',
-              display: 'flex',
-              alignItems: 'center',
-            }}
+            title="Close Filters"
+            aria-label="Close Filters"
+            className={styles.closeButton}
           >
             <X size={20} />
           </button>
         </div>
 
         {/* Filter Fields */}
-        <div
-          style={{
-            flex: 1,
-            overflowY: 'auto',
-            padding: '24px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '20px',
-          }}
-        >
+        <div className={styles.filterFields}>
           {/* Cluster Filter */}
           <div>
-            <label
-              style={{
-                display: 'block',
-                fontSize: '12px',
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                color: 'var(--text-secondary)',
-                marginBottom: '8px',
-                letterSpacing: '0.5px',
-              }}
-            >
+            <label className={styles.label}>
               Cluster
             </label>
             <select
               value={tempFilters.cluster}
               onChange={(e) => handleInputChange('cluster', e.target.value)}
-              className="form-select"
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                background: 'var(--sidebar-bg)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '8px',
-                color: 'var(--text-primary)',
-                fontSize: '14px',
-                fontFamily: 'inherit',
-                cursor: 'pointer',
-              }}
+              title="Select Cluster"
+              aria-label="Select Cluster"
+              className={`form-select ${styles.select}`}
             >
-              <option value="" style={{ background: '#0f172a', color: '#fff' }}>All Clusters</option>
+              <option value="" className={styles.option}>All Clusters</option>
               {clusterOptions.map((cluster) => (
-                <option key={cluster} value={cluster} style={{ background: '#0f172a', color: '#fff' }}>
+                <option key={cluster} value={cluster} className={styles.option}>
                   {cluster}
                 </option>
               ))}
@@ -159,38 +97,19 @@ export const GlobalFilterPanel: React.FC<GlobalFilterPanelProps> = memo(({
 
           {/* Team Filter */}
           <div>
-            <label
-              style={{
-                display: 'block',
-                fontSize: '12px',
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                color: 'var(--text-secondary)',
-                marginBottom: '8px',
-                letterSpacing: '0.5px',
-              }}
-            >
+            <label className={styles.label}>
               Team
             </label>
             <select
               value={tempFilters.team}
               onChange={(e) => handleInputChange('team', e.target.value)}
-              className="form-select"
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                background: 'var(--sidebar-bg)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '8px',
-                color: 'var(--text-primary)',
-                fontSize: '14px',
-                fontFamily: 'inherit',
-                cursor: 'pointer',
-              }}
+              title="Select Team"
+              aria-label="Select Team"
+              className={`form-select ${styles.select}`}
             >
-              <option value="" style={{ background: '#0f172a', color: '#fff' }}>All Teams</option>
+              <option value="" className={styles.option}>All Teams</option>
               {teamOptions.map((team) => (
-                <option key={team.id} value={team.id} style={{ background: '#0f172a', color: '#fff' }}>
+                <option key={team.id} value={team.id} className={styles.option}>
                   {team.label}
                 </option>
               ))}
@@ -199,38 +118,19 @@ export const GlobalFilterPanel: React.FC<GlobalFilterPanelProps> = memo(({
 
           {/* Trainer Filter */}
           <div>
-            <label
-              style={{
-                display: 'block',
-                fontSize: '12px',
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                color: 'var(--text-secondary)',
-                marginBottom: '8px',
-                letterSpacing: '0.5px',
-              }}
-            >
+            <label className={styles.label}>
               Trainer
             </label>
             <select
               value={tempFilters.trainer}
               onChange={(e) => handleInputChange('trainer', e.target.value)}
-              className="form-select"
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                background: 'var(--sidebar-bg)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '8px',
-                color: 'var(--text-primary)',
-                fontSize: '14px',
-                fontFamily: 'inherit',
-                cursor: 'pointer',
-              }}
+              title="Select Trainer"
+              aria-label="Select Trainer"
+              className={`form-select ${styles.select}`}
             >
-              <option value="" style={{ background: '#0f172a', color: '#fff' }}>All Trainers</option>
+              <option value="" className={styles.option}>All Trainers</option>
               {trainerOptions.map((trainer) => (
-                <option key={trainer.id} value={trainer.id} style={{ background: '#0f172a', color: '#fff' }}>
+                <option key={trainer.id} value={trainer.id} className={styles.option}>
                   {trainer.label}
                 </option>
               ))}
@@ -239,38 +139,19 @@ export const GlobalFilterPanel: React.FC<GlobalFilterPanelProps> = memo(({
 
           {/* Month Filter */}
           <div>
-            <label
-              style={{
-                display: 'block',
-                fontSize: '12px',
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                color: 'var(--text-secondary)',
-                marginBottom: '8px',
-                letterSpacing: '0.5px',
-              }}
-            >
+            <label className={styles.label}>
               Month
             </label>
             <select
               value={tempFilters.month}
               onChange={(e) => handleInputChange('month', e.target.value)}
-              className="form-select"
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                background: 'var(--sidebar-bg)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '8px',
-                color: 'var(--text-primary)',
-                fontSize: '14px',
-                fontFamily: 'inherit',
-                cursor: 'pointer',
-              }}
+              title="Select Month"
+              aria-label="Select Month"
+              className={`form-select ${styles.select}`}
             >
-              <option value="" style={{ background: '#0f172a', color: '#fff' }}>All Months</option>
+              <option value="" className={styles.option}>All Months</option>
               {monthOptions.map((month) => (
-                <option key={month} value={month} style={{ background: '#0f172a', color: '#fff' }}>
+                <option key={month} value={month} className={styles.option}>
                   {month}
                 </option>
               ))}
@@ -279,61 +160,21 @@ export const GlobalFilterPanel: React.FC<GlobalFilterPanelProps> = memo(({
         </div>
 
         {/* Footer Buttons */}
-        <div
-          style={{
-            padding: '20px 24px',
-            borderTop: '1px solid var(--border-color)',
-            display: 'flex',
-            gap: '12px',
-          }}
-        >
+        <div className={styles.footer}>
           <button
             onClick={handleClearAll}
-            style={{
-              flex: 1,
-              padding: '10px 16px',
-              background: 'transparent',
-              border: '1px solid var(--border-color)',
-              borderRadius: '8px',
-              color: 'var(--text-primary)',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
+            className={styles.clearBtn}
           >
             Clear All
           </button>
           <button
             onClick={handleApply}
-            style={{
-              flex: 1,
-              padding: '10px 16px',
-              background: 'var(--accent-primary)',
-              border: 'none',
-              borderRadius: '8px',
-              color: 'white',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
+            className={styles.applyBtn}
           >
             Apply
           </button>
         </div>
       </div>
-
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes slideInRight {
-          from { transform: translateX(100%); }
-          to { transform: translateX(0); }
-        }
-      `}</style>
     </>
   );
 });

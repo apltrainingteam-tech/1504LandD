@@ -20,6 +20,7 @@ import { normalizeText } from '../../utils/textNormalizer';
 import { getSchema } from '../../services/trainingSchemas';
 import { useFilterOptions } from '../../utils/computationHooks';
 import { useMasterData } from '../../context/MasterDataContext';
+import styles from './TrainingsViewer.module.css';
 
 // Training type normalization
 const trainingTypeMap: Record<string, string> = {
@@ -165,12 +166,12 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
   ];
 
   return (
-    <div className="animate-fade-in" style={{ padding: '24px' }}>
+    <div className={`animate-fade-in ${styles.page}`}>
       {/* Page Header */}
-      <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div className={styles.header}>
         <div>
-          <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 700 }}>Training Data</h1>
-          <p style={{ color: 'var(--text-secondary)', margin: '8px 0 0 0', fontSize: '13px' }}>Standardized historical training records and participation data</p>
+          <h1 className={styles.title}>Training Data</h1>
+          <p className={styles.subtitle}>Standardized historical training records and participation data</p>
         </div>
         <TopRightControls
           fiscalOptions={FY_OPTIONS}
@@ -183,7 +184,7 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
       </div>
 
       {/* Filter Controls Row */}
-      <div style={{ marginBottom: '24px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+      <div className={styles.filterRow}>
         {/* Training Type Tabs */}
         <Filters 
           options={['IP', 'AP', 'MIP', 'REFRESHER', 'CAPSULE', 'PRE_AP']} 
@@ -192,13 +193,14 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
         />
 
         {/* Zone Filter */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+        <div className={styles.zoneFilter}>
           <MapPin size={16} style={{ color: 'var(--text-secondary)' }} />
           <select 
             value={selectedZone} 
             onChange={(e) => setSelectedZone(e.target.value)}
-            className="gap-select"
-            style={{ maxWidth: '200px', padding: '6px 12px', fontSize: '13px', border: '1px solid var(--border-color)', borderRadius: '8px', background: 'transparent' }}
+            className={`gap-select ${styles.zoneSelect}`}
+            title="Selected Zone"
+            aria-label="Selected Zone"
           >
             {zones.map(zone => (
               <option key={zone} value={zone}>{zone}</option>
@@ -208,7 +210,7 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
       </div>
 
       {/* KPI Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+      <div className={styles.kpiGrid}>
         <KPIBox title="Total Records" value={kpis.total} icon={BookOpen} />
         <KPIBox title="Present %" value={`${kpis.attPercent}%`} color="var(--success)" icon={CheckCircle2} />
         <KPIBox title="Avg Score" value={kpis.avg} color="var(--accent-primary)" icon={TrendingUp} />
@@ -223,18 +225,17 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
       />
 
       {/* Table Container */}
-      <div className="glass-panel" style={{ padding: 0, overflow: 'hidden', marginTop: '24px' }}>
+      <div className={`glass-panel ${styles.tableContainer}`}>
         {/* Table Toolbar */}
-        <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <div style={{ position: 'relative', flex: 1, maxWidth: '340px' }}>
-            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+        <div className={styles.toolbar}>
+          <div className={styles.searchWrapper}>
+            <Search size={16} className={styles.searchIcon} />
             <input 
               type="text" 
-              className="form-input" 
+              className={`form-input ${styles.searchInput}`} 
               placeholder="Search by name, ID, or Aadhaar…" 
               value={search}
               onChange={e => setSearch(e.target.value)}
-              style={{ paddingLeft: '40px', fontSize: '13px', borderRadius: '8px', padding: '8px 12px 8px 40px', border: '1px solid var(--border-color)' }}
             />
           </div>
           {/* Inline toolbar filter removed — use GlobalFilterPanel via TopRightControls */}
@@ -243,17 +244,17 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
         {/* Data Table */}
         <DataTable headers={headers} maxHeight="calc(100vh - 500px)">
           {filtered.length === 0 ? (
-            <tr><td colSpan={headers.length} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-secondary)' }}>No training records found.</td></tr>
+            <tr><td colSpan={headers.length} className={styles.emptyRow}>No training records found.</td></tr>
           ) : filtered.map((r, i) => (
             <tr key={i}>
-              <td style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{r.employee.aadhaarNumber || '—'}</td>
-              <td style={{ fontWeight: 600 }}>{r.employee.employeeId}</td>
-              <td style={{ fontSize: '12px' }}>{r.employee.mobileNumber || '—'}</td>
+              <td className={styles.tdAadhaar}>{r.employee.aadhaarNumber || '—'}</td>
+              <td className={styles.tdEmpId}>{r.employee.employeeId}</td>
+              <td className={styles.tdMobile}>{r.employee.mobileNumber || '—'}</td>
               <td>{r.employee.name}</td>
-              <td style={{ fontSize: '12px' }}>{r.attendance.trainerId || '—'}</td>
-              <td style={{ fontSize: '12px' }}>{r.employee.team}</td>
-              <td style={{ fontSize: '12px' }}>{r.employee.hq || '—'}</td>
-              <td style={{ fontSize: '12px' }}>{r.employee.state || '—'}</td>
+              <td className={styles.tdSecondary}>{r.attendance.trainerId || '—'}</td>
+              <td className={styles.tdSecondary}>{r.employee.team}</td>
+              <td className={styles.tdSecondary}>{r.employee.hq || '—'}</td>
+              <td className={styles.tdSecondary}>{r.employee.state || '—'}</td>
               <td>{formatDateForDisplay(r.attendance.attendanceDate)}</td>
               <td>
                 <span className={`badge ${r.attendance.attendanceStatus === 'Present' ? 'badge-success' : 'badge-danger'}`}>
@@ -261,7 +262,7 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
                 </span>
               </td>
               {schema.map(key => (
-                <td key={key} style={{ fontWeight: 600 }}>
+                <td key={key} className={styles.tdScore}>
                   {r.score?.scores ? displayScore(r.score.scores[key]) : '—'}
                 </td>
               ))}

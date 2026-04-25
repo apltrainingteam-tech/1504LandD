@@ -1,0 +1,44 @@
+.container {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.distPanel {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.distHeader {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+.distRow {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.distCol {
+  flex: 1;
+  text-align: center;
+}
+
+.distVal {
+  font-weight: 600;
+}
+
+.distLabel {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.danger { color: var(--danger); }
+.warning { color: var(--warning); }
+.primary { color: var(--accent-primary); }
+.success { color: var(--success); }

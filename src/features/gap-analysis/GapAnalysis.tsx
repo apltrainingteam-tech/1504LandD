@@ -15,6 +15,7 @@ import { GlobalFilters, getActiveFilterCount } from '../../context/filterContext
 import { getFiscalYears } from '../../utils/fiscalYear';
 import { useFilterOptions } from '../../utils/computationHooks';
 import { useMasterData } from '../../context/MasterDataContext';
+import styles from './GapAnalysis.module.css';
 
 // Zone lookup from state
 const getZoneFromState = (state?: string): string => {
@@ -252,15 +253,17 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
   const renderZoneFilter = () => {
     if (tab !== 'Refresher') return null;
     return (
-      <div className="gap-filter-container">
-        <span className="gap-filter-label">
+      <div className={styles.zoneFilter}>
+        <span className={styles.zoneFilterLabel}>
           <MapPin size={16} />
           Zone:
         </span>
         <select
           value={zoneFilter}
           onChange={(e) => setZoneFilter(e.target.value)}
-          className="gap-select"
+          className={styles.zoneSelect}
+          title="Zone Filter"
+          aria-label="Zone Filter"
         >
           {zones.map(zone => (
             <option key={zone} value={zone === 'All Zones' ? '' : zone}>
@@ -272,15 +275,13 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
     );
   };
 
-
-
   const renderEmptyState = () => {
     if (data.length > 0) return null;
     return (
-      <div className="gap-empty-state">
-        <div className="gap-empty-icon">📊</div>
-        <div className="gap-empty-title">No Data Available</div>
-        <div className="gap-empty-text">No eligible employees found for {tab} training</div>
+      <div className={styles.emptyState}>
+        <div className={styles.emptyIcon}>📊</div>
+        <div className={styles.emptyTitle}>No Data Available</div>
+        <p>No eligible employees found for {tab} training</p>
       </div>
     );
   };
@@ -298,39 +299,39 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
     return sortConfig.direction === 'desc' ? '↓' : '↑';
   };
 
-  const getAgingColor = (val?: number) => {
-    if (!val) return 'inherit';
-    if (val > 15) return 'var(--danger)';
-    if (val >= 5) return 'var(--warning)';
-    return 'var(--success)';
+  const getAgingClass = (val?: number) => {
+    if (!val) return styles.agingNormal;
+    if (val > 15) return styles.agingDanger;
+    if (val >= 5) return styles.agingWarning;
+    return styles.agingSuccess;
   };
 
   const renderTable = () => {
     return (
-      <div className="gap-table-container glass-panel">
-        <table className="data-table gap-data-table">
+      <div className={`glass-panel ${styles.tableCard}`}>
+        <table className={`data-table ${styles.table}`}>
           <thead>
             <tr>
-              <th style={{ width: '40px' }}></th>
+              <th className={styles.thCheck}></th>
               <th>Cluster / Team</th>
               <th 
-                style={{ textAlign: 'center', cursor: 'pointer', userSelect: 'none' }}
+                className={`${styles.thInteractive} ${styles.tdCenter}`}
                 onClick={() => handleSort('total')}
               >
                 Total {renderSortIndicator('total')}
               </th>
-              <th style={{ textAlign: 'center' }}>MR</th>
+              <th className={styles.tdCenter}>MR</th>
               <th 
-                style={{ textAlign: 'center', cursor: 'pointer', userSelect: 'none' }}
+                className={`${styles.thInteractive} ${styles.tdCenter}`}
                 onClick={() => handleSort('mr90')}
               >
                 MR &gt;90 {renderSortIndicator('mr90')}
               </th>
-              <th style={{ textAlign: 'center' }}>FLM</th>
-              <th style={{ textAlign: 'center' }}>FLM &gt;90</th>
-              <th style={{ textAlign: 'center' }}>SLM</th>
-              <th style={{ textAlign: 'center' }}>SLM &gt;90</th>
-              <th style={{ textAlign: 'center' }} title="Ceil(Total / 40)">Batches</th>
+              <th className={styles.tdCenter}>FLM</th>
+              <th className={styles.tdCenter}>FLM &gt;90</th>
+              <th className={styles.tdCenter}>SLM</th>
+              <th className={styles.tdCenter}>SLM &gt;90</th>
+              <th className={styles.tdCenter} title="Ceil(Total / 40)">Batches</th>
             </tr>
           </thead>
           <tbody>
@@ -344,13 +345,13 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
               return (
                 <tr 
                   key={index} 
-                  style={{ background: isCluster ? 'rgba(0,0,0,0.1)' : 'transparent' }}
+                  className={isCluster ? styles.trCluster : ''}
                 >
-                  <td>
+                  <td className={styles.td}>
                     {isCluster ? (
                       <button
                         onClick={() => toggleExpanded(row.cluster)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}
+                        className={styles.expandBtn}
                       >
                         {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                       </button>
@@ -359,27 +360,31 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
                         type="checkbox" 
                         checked={selectedTeams.includes(row.teamId || '')}
                         onChange={() => toggleTeamSelection(row.teamId || '')}
-                        style={{ cursor: 'pointer', marginLeft: '12px' }}
+                        className={styles.checkbox}
+                        title={`Select ${row.team}`}
+                        aria-label={`Select ${row.team}`}
                       />
                     )}
                   </td>
                   <td 
-                    style={{ paddingLeft: `${indent}px`, fontWeight: isCluster ? 600 : 400, color: !isCluster ? 'var(--accent-primary)' : 'inherit' }}
+                    className={`${styles.td} ${isCluster ? styles.indent0 : styles.indent1}`}
                   >
-                    {isCluster ? row.cluster : `↳ ${row.team}`}
+                    <span className={`${isCluster ? styles.teamNameCluster : styles.teamNameCell} ${!isCluster ? styles.teamNameIndented : ''}`}>
+                      {isCluster ? row.cluster : `↳ ${row.team}`}
+                    </span>
                   </td>
-                  <td style={{ textAlign: 'center', fontWeight: 600 }}>{row.untrained}</td>
+                  <td className={`${styles.td} ${styles.tdCenter} ${styles.valCellBold}`}>{row.untrained}</td>
                   
-                  <td style={{ textAlign: 'center' }}>{row.mrUntrained || '-'}</td>
-                  <td style={{ textAlign: 'center', color: getAgingColor(row.mrOver90), fontWeight: row.mrOver90 ? 600 : 400 }}>{row.mrOver90 || '-'}</td>
+                  <td className={`${styles.td} ${styles.tdCenter} ${styles.valCell}`}>{row.mrUntrained || '-'}</td>
+                  <td className={`${styles.td} ${styles.tdCenter} ${getAgingClass(row.mrOver90)}`}>{row.mrOver90 || '-'}</td>
                   
-                  <td style={{ textAlign: 'center' }}>{row.flmUntrained || '-'}</td>
-                  <td style={{ textAlign: 'center', color: getAgingColor(row.flmOver90), fontWeight: row.flmOver90 ? 600 : 400 }}>{row.flmOver90 || '-'}</td>
+                  <td className={`${styles.td} ${styles.tdCenter} ${styles.valCell}`}>{row.flmUntrained || '-'}</td>
+                  <td className={`${styles.td} ${styles.tdCenter} ${getAgingClass(row.flmOver90)}`}>{row.flmOver90 || '-'}</td>
                   
-                  <td style={{ textAlign: 'center' }}>{row.slmUntrained || '-'}</td>
-                  <td style={{ textAlign: 'center', color: getAgingColor(row.slmOver90), fontWeight: row.slmOver90 ? 600 : 400 }}>{row.slmOver90 || '-'}</td>
+                  <td className={`${styles.td} ${styles.tdCenter} ${styles.valCell}`}>{row.slmUntrained || '-'}</td>
+                  <td className={`${styles.td} ${styles.tdCenter} ${getAgingClass(row.slmOver90)}`}>{row.slmOver90 || '-'}</td>
                   
-                  <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--accent-secondary)' }}>{Math.ceil((row.untrained || 0) / 40)}</td>
+                  <td className={`${styles.td} ${styles.tdCenter} ${styles.batchCountCell}`}>{Math.ceil((row.untrained || 0) / 40)}</td>
                 </tr>
               );
             })}
@@ -390,12 +395,12 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
   };
 
   return (
-    <div style={{ padding: '24px' }}>
+    <div className={`animate-fade-in ${styles.page}`}>
       {/* Page Header */}
-      <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div className={styles.header}>
         <div>
-          <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 700 }}>Training Requirement</h1>
-          <p style={{ color: 'var(--text-secondary)', margin: '8px 0 0 0', fontSize: '13px' }}>Untrained population requiring training</p>
+          <h1 className={styles.title}>Training Requirement</h1>
+          <p className={styles.subtitle}>Untrained population requiring training</p>
         </div>
         <TopRightControls
           fiscalOptions={FY_OPTIONS}
@@ -408,11 +413,11 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
       </div>
 
       {/* Tabs - Pill Style */}
-      <div className="gap-tabs">
+      <div className={styles.tabs}>
         {(['AP', 'MIP', 'Refresher', 'Capsule'] as TrainingTab[]).map(t => (
           <button
             key={t}
-            className={`gap-tab ${tab === t ? 'gap-tab-active' : ''}`}
+            className={`${styles.tab} ${tab === t ? styles.tabActive : ''}`}
             onClick={() => setTab(t)}
           >
             {t}
@@ -421,11 +426,10 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
       </div>
 
       {selectedTeams.length > 0 && (
-        <div style={{ background: 'var(--accent-primary)', color: 'white', padding: '16px 24px', borderRadius: '8px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>Selected Teams: <strong>{selectedTeams.length}</strong></div>
+        <div className={styles.selectionBanner}>
+          <div className={styles.selectionText}>Selected Teams: <strong>{selectedTeams.length}</strong></div>
           <button 
-            className="btn" 
-            style={{ background: 'white', color: 'var(--accent-primary)', fontWeight: 600, border: 'none' }}
+            className={styles.selectionBtn}
             onClick={() => {
               const selectedTeamNames = selectedTeams.map(id => masterTeams.find(t => t.id === id)?.teamName || 'Unknown');
               setSelectionSession({ trainingType: tab, fiscalYear: selectedFY, teams: selectedTeamNames, teamIds: selectedTeams });

@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { BarChart3 } from 'lucide-react';
 import { KPIBox } from './KPIBox';
 import { calculateIPDistribution, calculateTSDistribution } from '../utils/srmCalculations';
+import styles from './SRMSnapshot.module.css';
 
 interface SRMSnapshotProps {
   records: any[];
@@ -39,47 +40,42 @@ export const SRMSnapshot: React.FC<SRMSnapshotProps> = ({ records, className = '
   }, [records]);
 
   return (
-    <div className={`dashboard-grid ${className}`} style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+    <div className={`dashboard-grid ${className} ${styles.container}`}>
       <KPIBox
-        label="Avg TS"
+        title="Avg TS"
         value={metrics.avgTS.toString()}
-        unit=""
-        trend="stable"
-        icon={<BarChart3 size={20} />}
+        icon={BarChart3}
       />
       <KPIBox
-        label="Avg IP Score"
-        value={metrics.avgIP.toString()}
-        unit="/100"
-        trend="stable"
-        icon={<BarChart3 size={20} />}
+        title="Avg IP Score"
+        value={`${metrics.avgIP}/100`}
+        icon={BarChart3}
       />
       <KPIBox
-        label="Total Candidates"
+        title="Total Candidates"
         value={metrics.totalCount.toString()}
-        unit={`IP Present`}
-        trend="stable"
-        icon={<BarChart3 size={20} />}
+        subValue="IP Present"
+        icon={BarChart3}
       />
       {metrics.ipDist && (
-        <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '12px', fontWeight: 600 }}>IP Distribution</div>
-          <div style={{ display: 'flex', gap: '8px', fontSize: '12px' }}>
-            <div style={{ flex: 1, textAlign: 'center' }}>
-              <div style={{ fontWeight: 600, color: 'var(--danger)' }}>{metrics.ipDist.below50Pct}%</div>
-              <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>&lt;50</div>
+        <div className={`glass-panel ${styles.distPanel}`}>
+          <div className={styles.distHeader}>IP Distribution</div>
+          <div className={styles.distRow}>
+            <div className={styles.distCol}>
+              <div className={`${styles.distVal} ${styles.danger}`}>{metrics.ipDist.below50Pct}%</div>
+              <div className={styles.distLabel}>&lt;50</div>
             </div>
-            <div style={{ flex: 1, textAlign: 'center' }}>
-              <div style={{ fontWeight: 600, color: 'var(--warning)' }}>{metrics.ipDist.range50_75Pct}%</div>
-              <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>50-75</div>
+            <div className={styles.distCol}>
+              <div className={`${styles.distVal} ${styles.warning}`}>{metrics.ipDist.range50_75Pct}%</div>
+              <div className={styles.distLabel}>50-75</div>
             </div>
-            <div style={{ flex: 1, textAlign: 'center' }}>
-              <div style={{ fontWeight: 600, color: 'var(--accent-primary)' }}>{metrics.ipDist.range75_90Pct}%</div>
-              <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>75-90</div>
+            <div className={styles.distCol}>
+              <div className={`${styles.distVal} ${styles.primary}`}>{metrics.ipDist.range75_90Pct}%</div>
+              <div className={styles.distLabel}>75-90</div>
             </div>
-            <div style={{ flex: 1, textAlign: 'center' }}>
-              <div style={{ fontWeight: 600, color: 'var(--success)' }}>{metrics.ipDist.above90Pct}%</div>
-              <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>&gt;90</div>
+            <div className={styles.distCol}>
+              <div className={`${styles.distVal} ${styles.success}`}>{metrics.ipDist.above90Pct}%</div>
+              <div className={styles.distLabel}>&gt;90</div>
             </div>
           </div>
         </div>

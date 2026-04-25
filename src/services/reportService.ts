@@ -106,13 +106,13 @@ export function buildUnifiedDataset(
 
     return {
       employee: { ...emp, teamId, cluster } as Employee,
-      attendance: { ...a, trainingType: type as any, teamId: teamId },
+      attendance: { ...a, trainingType: type as any, teamId: teamId } as Attendance,
       score: sc,
       nomination: nm,
       eligibilityStatus: el?.eligibilityStatus,
       eligibilityReason: el?.reasonIfNotEligible
-    };
-  }).filter(r => r.employee);
+    } as UnifiedRecord;
+  }).filter((r): r is UnifiedRecord => !!r);
 }
 
 // ─── FILTER ENGINE ─────────────────────────────────────────────────────────
@@ -161,10 +161,10 @@ export function groupData(
     else if (by === 'Team') k = r.employee.team || '—';
     else {
       const teamId = r.attendance.teamId || r.employee.teamId;
-      if (!teamId) return;
+      if (!teamId) continue;
 
       k = teamMap[teamId]?.cluster;
-      if (!k) return;
+      if (!k) continue;
     }
 
     if (!m.has(k)) m.set(k, { key: k, records: [], nominations: [], metric: 0 });
@@ -185,9 +185,9 @@ export function groupData(
     else if (by === 'Team') k = n.team || '—';
     else {
       const teamId = n.teamId;
-      if (!teamId) return; // Skip if no valid teamId
+      if (!teamId) continue; // Skip if no valid teamId
       k = teamMap[teamId]?.cluster;
-      if (!k) return;
+      if (!k) continue;
     }
 
     if (!m.has(k)) m.set(k, { key: k, records: [], nominations: [], metric: 0 });

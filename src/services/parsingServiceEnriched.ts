@@ -172,9 +172,9 @@ export async function parseExcelFileEnriched(file: File): Promise<EnrichedParseR
         const rawAadhaar = rowObject['Aadhaar Number'];
         const rawMobile = rowObject['Mobile Number'];
 
-        const employeeId = rawEmployeeId ? String(rawEmployeeId).trim() : null;
-        const aadhaarNumber = rawAadhaar ? String(rawAadhaar).trim() : null;
-        const mobileNumber = rawMobile ? String(rawMobile).trim() : null;
+        const employeeId = rawEmployeeId ? String(rawEmployeeId).trim() : undefined;
+        const aadhaarNumber = rawAadhaar ? String(rawAadhaar).trim() : undefined;
+        const mobileNumber = rawMobile ? String(rawMobile).trim() : undefined;
 
         // Step 6b: FLEXIBLE IDENTITY VALIDATION
         // Row is valid if ANY ONE identifier is present

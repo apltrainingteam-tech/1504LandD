@@ -1,0 +1,377 @@
+.page {
+  padding: 24px;
+}
+
+.header {
+  margin-bottom: 20px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.subtitle {
+  margin: 5px 0 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.metricsGrid {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.metricCard {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 10px 16px;
+  min-width: 76px;
+  text-align: center;
+}
+
+.metricValue {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.metricLabel {
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  margin-top: 3px;
+}
+
+.filterBar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.sourceToggle {
+  display: flex;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+}
+
+.toggleBtn {
+  padding: 5px 11px;
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  background: transparent;
+  color: var(--text-secondary);
+  transition: all .12s;
+}
+
+.toggleBtnActive {
+  background: var(--accent-primary);
+  color: #fff;
+}
+
+.select {
+  padding: 6px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.clearBtn {
+  padding: 5px 12px;
+  border-radius: 7px;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.showingText {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.emptyState {
+  padding: 56px;
+  text-align: center;
+  color: var(--text-secondary);
+  border: 1px dashed var(--border-color);
+  border-radius: 12px;
+}
+
+.emptyIcon {
+  margin: 0 auto 14px;
+  color: var(--border-color);
+}
+
+.emptyTitle {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.emptyText {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* Batch Card */
+.batchCard {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.batchHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 18px;
+  background: var(--bg-card);
+  cursor: pointer;
+  transition: background .12s;
+}
+
+.batchHeaderOpen {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.batchHeader:hover {
+  background: rgba(99,102,241,.03);
+}
+
+.chevron {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.sourceBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.typeBadge {
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: rgba(99,102,241,.1);
+  color: var(--accent-primary);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.teamName {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.dateRange {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.trainerName {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.batchMetrics {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+/* Table */
+.tableContainer {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.th {
+  padding: 8px 12px;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  background: rgba(0,0,0,.022);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.tr {
+  border-bottom: 1px solid var(--border-color);
+  transition: background .1s;
+}
+
+.trOdd {
+  background: rgba(0,0,0,.01);
+}
+
+.tr:hover {
+  background: rgba(99,102,241,.035);
+}
+
+.td {
+  padding: 9px 12px;
+}
+
+.tdEmpId {
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.tdName {
+  font-weight: 500;
+}
+
+.tdSecondary {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.scoreInput {
+  width: 62px;
+  padding: 4px 7px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  font-size: 12px;
+  background: var(--bg);
+  color: var(--text-primary);
+  text-align: center;
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.reNominate {
+  margin-top: 3px;
+  font-size: 10px;
+  color: #d97706;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 600;
+}
+
+/* Att Toggle */
+.attToggle {
+  display: flex;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  width: fit-content;
+}
+
+.attToggleBtn {
+  padding: 4px 11px;
+  border: none;
+  font-size: 12px;
+  font-weight: 700;
+  transition: all .12s;
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.attToggleReadOnly {
+  opacity: 0.7;
+}
+
+.attToggleBtnEnabled {
+  cursor: pointer;
+}
+
+.attToggleBtnDisabled {
+  cursor: default;
+}
+
+/* Pill */
+.pill {
+  text-align: center;
+  min-width: 36px;
+}
+
+.pillValue {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pillLabel {
+  font-size: 9px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.noResults {
+  padding: 40px;
+  text-align: center;
+  color: var(--text-secondary);
+  border: 1px dashed var(--border-color);
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.statusPending { background: rgba(245, 158, 11, 0.12); color: #d97706; }
+.statusPresent { background: rgba(16, 185, 129, 0.12); color: #059669; }
+.statusAbsent { background: rgba(239, 68, 68, 0.12); color: var(--danger); }
+
+.sourceNotification { background: rgba(37, 99, 235, 0.1); color: #2563eb; }
+.sourceUpload { background: rgba(5, 150, 105, 0.1); color: #059669; }
+
+.textPrimary { color: var(--text-primary); }
+.textSuccess { color: #059669; }
+.textDanger { color: var(--danger); }
+.textWarning { color: #d97706; }
+.textAccent { color: var(--accent-primary); }
