@@ -98,6 +98,7 @@ export interface IPMonthMapNode {
 export interface IPAggregates {
   clusterMonthMap: Record<string, IPMonthMapNode>;
   teamMonthMap: Record<string, Record<string, IPMonthMapNode>>;
+  recordsCount: number;
   globalKPIs: {
     totalCandidates: number;
     elitePct: number;

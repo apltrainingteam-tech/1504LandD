@@ -271,7 +271,8 @@ const App = () => {
             notificationDate = parseAnyDate(notificationDate) || notificationDate;
           }
           
-          const teamId = mapTeamCodeToId(r.team || row.team, masterTeams);
+          const teamRef = r.team || row.team;
+          const teamId = mapTeamCodeToId(teamRef, masterTeams) || (teamRef ? `unmapped::${normalizeText(teamRef)}` : undefined);
           if (teamId) {
             n.push({
               id: row._id || Math.random().toString(),
@@ -289,8 +290,6 @@ const App = () => {
               hq: r.hq || row.hq || '',
               state: r.state || row.state || '',
             } as TrainingNomination);
-          } else {
-            // Unmapped team, quietly skip since teamIdMapper logs uniquely.
           }
         }
       });
@@ -304,7 +303,7 @@ const App = () => {
       });
       
       setEmps(((e as any[]).map(row => {
-        const teamId = row.teamId || mapTeamCodeToId(row.team, masterTeams);
+        const teamId = row.teamId || mapTeamCodeToId(row.team, masterTeams) || (row.team ? `unmapped::${normalizeText(row.team)}` : undefined);
         if (!teamId) return null;
         return {
           ...row,

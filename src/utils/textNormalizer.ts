@@ -1,5 +1,5 @@
 const UPPERCASE_EXCEPTIONS = new Set([
-  'CDC', 'DTF', 'RTM', 'RSM', 'DM', 'SM', 'DSM', 'SO', 'TSO'
+  'CDC', 'DTF', 'RTM', 'RSM', 'DM', 'SM', 'DSM', 'SO', 'TSO', 'NUVENTA', 'GENCARE', 'PRISMA'
 ]);
 
 export function normalizeText(value: string): string {

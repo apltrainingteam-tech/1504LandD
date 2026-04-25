@@ -97,12 +97,11 @@ export function buildUnifiedDataset(
     const el = eligibilityMap.get(tid);
     
     // Ensure employee has teamId and cluster resolved even if placeholder
-    const teamId = emp.teamId || mapTeamCodeToId(emp.team, masterTeams);
+    const teamId = emp.teamId || mapTeamCodeToId(emp.team, masterTeams) || (emp.team ? `unmapped::${normalizeText(emp.team)}` : undefined);
     if (!teamId) {
-      console.error("Assertion failed: teamId must be defined for report calculation");
-      return; // Skip employee lacking team mapping
+      return; // Skip only if absolutely no team info exists
     }
-    const cluster = emp.cluster || teamMap[teamId]?.cluster || 'Unknown';
+    const cluster = normalizeText(emp.cluster || teamMap[teamId]?.cluster || 'Unmapped');
 
     return {
       employee: { ...emp, teamId, cluster } as Employee,

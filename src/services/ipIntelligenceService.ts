@@ -59,7 +59,8 @@ export function calculateWeightedScore(e: number, h: number, m: number, l: numbe
 export function normalizeToIPRecords(ds: UnifiedRecord[]): IPRecord[] {
   const records: IPRecord[] = [];
   ds.forEach(r => {
-    if (r.attendance.attendanceStatus !== 'Present') return;
+    const status = String(r.attendance.attendanceStatus || '').trim().toLowerCase();
+    if (status !== 'present') return;
     // Prefer schema camelCase keys, fallback to legacy Title Case if needed.
     const s = normalizeScore(
       r.score?.scores?.['percent'] ?? 
@@ -83,8 +84,7 @@ export function normalizeToIPRecords(ds: UnifiedRecord[]): IPRecord[] {
     
     // DEFENSIVE: Skip known dummy/orphaned data entirely
     if (['Unknown', '—', 'Unknown Team', 'Unmapped'].includes(team)) return;
-
-    const cluster = r.employee.cluster || 'Unmapped';
+    const cluster = normalizeText(r.employee.cluster || 'Unmapped');
     
     const month = r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7);
     records.push({
@@ -167,6 +167,7 @@ export function buildIPAggregates(ds: UnifiedRecord[]): IPAggregates {
   return {
     clusterMonthMap,
     teamMonthMap,
+    recordsCount: records.length,
     globalKPIs: {
       totalCandidates,
       elitePct: totalCandidates > 0 ? (gE / totalCandidates) * 100 : 0,

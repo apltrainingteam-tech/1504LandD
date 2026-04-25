@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 
 import { Employee } from '../../types/employee';
-import { Attendance, TrainingScore, TrainingNomination, TrainingType, EligibilityRule } from '../../types/attendance';
+import { Attendance, TrainingScore, TrainingNomination, TrainingType, EligibilityRule, Demographics } from '../../types/attendance';
 import { buildUnifiedDataset, applyFilters, normalizeTrainingType } from '../../services/reportService';
 import { getFiscalMonths, getCurrentFY, buildIPAggregates } from '../../services/ipIntelligenceService';
 import { buildEmployeeTimelines, buildAPMonthlyMatrix, filterTimelines } from '../../services/apIntelligenceService';
@@ -52,6 +52,7 @@ interface PerformanceChartsProps {
   attendance: Attendance[];
   scores: TrainingScore[];
   nominations: TrainingNomination[];
+  demographics: Demographics[];
   onNavigate?: (view: any) => void;
 }
 
@@ -266,10 +267,19 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
     const totalRaw = normalizedAttendance.length;
     const typeMatched = normalizedAttendance.filter(a => normalizeTrainingType(a.trainingType) === activeNT).length;
     const fyMatched = rawUnified.filter(r => MONTHS.includes(r.attendance.month || '')).length;
-    const hasScores = rawUnified.filter(r => !!r.score).length;
+    const hasScoresTotal = rawUnified.filter(r => !!r.score).length;
     
-    return { totalRaw, typeMatched, fyMatched, hasScores, activeNT, selectedFY };
-  }, [normalizedAttendance, rawUnified, activeNT, selectedFY, MONTHS]);
+    // IP Specific drilldown for current FY
+    const unifiedInFY = unified.length;
+    const ipNormalizedCount = tab === 'IP' ? buildIPAggregates(unified).recordsCount : 0; // We'll add this count to service
+    const withScoresInFY = unified.filter(r => !!r.score).length;
+    
+    return { 
+      totalRaw, typeMatched, fyMatched, hasScoresTotal, 
+      activeNT, selectedFY, 
+      unifiedInFY, withScoresInFY, ipNormalizedCount
+    };
+  }, [normalizedAttendance, rawUnified, unified, activeNT, selectedFY, MONTHS, tab]);
 
   // --- CHART RESOLVERS ---
   const distributionData = useMemo(() => {
@@ -465,10 +475,12 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
                       <h4 className="m-0 font-bold">Data Diagnostics</h4>
                     </div>
                     <div className="grid grid-cols-2 gap-y-3 text-sm">
-                      <span className="text-secondary">Total Attendance Records:</span> <span className="font-mono font-bold">{diagnostics.totalRaw}</span>
-                      <span className="text-secondary">Matching Type ({diagnostics.activeNT}):</span> <span className="font-mono font-bold">{diagnostics.typeMatched}</span>
-                      <span className="text-secondary">Matching Fiscal Year ({diagnostics.selectedFY}):</span> <span className="font-mono font-bold">{diagnostics.fyMatched}</span>
-                      <span className="text-secondary">Records with Linked Scores:</span> <span className="font-mono font-bold">{diagnostics.hasScores}</span>
+                      <span className="text-secondary">Total Matching Type ({diagnostics.activeNT}):</span> <span className="font-mono font-bold">{diagnostics.typeMatched}</span>
+                      <span className="text-secondary">Records with Linked Scores (Global):</span> <span className="font-mono font-bold">{diagnostics.hasScoresTotal}</span>
+                      <div className="col-span-2 h-px bg-warning opacity-20 my-1" />
+                      <span className="text-warning font-bold">Selected Year ({diagnostics.selectedFY}):</span> <span className="font-mono font-bold">{diagnostics.fyMatched}</span>
+                      <span className="text-secondary"> - Linked Scores in Year:</span> <span className="font-mono font-bold">{diagnostics.withScoresInFY}</span>
+                      <span className="text-secondary"> - Passed Normalization:</span> <span className="font-mono font-bold text-primary">{diagnostics.ipNormalizedCount}</span>
                     </div>
                     <p className="mt-16 text-xs text-secondary italic">If "Linked Scores" is 0 but "Matching Type" is high, check if Training Type names match exactly in both Attendance and Score sheets.</p>
                   </div>
