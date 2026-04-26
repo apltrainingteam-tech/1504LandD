@@ -49,6 +49,7 @@ import { RecruitmentQuality } from './features/srm/RecruitmentQuality';
 import { TrainingCalendar } from './features/calendar/TrainingCalendar';
 import { MasterSettings } from './features/settings/MasterSettings';
 import { PerformanceCharts } from './features/dashboard/PerformanceCharts';
+import { DataQualityCenter } from './features/dashboard/DataQualityCenter';
 
 // Services & Types
 import { getCollection, deleteRecordsByQuery } from './core/engines/apiClient';
@@ -63,7 +64,7 @@ import { getTeamId, mapTeamCodeToId } from './core/utils/teamIdMapper';
 
 import { useAppData } from './shared/hooks/useAppData';
 
-type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'nominations' | 'notification' | 'training-data' | 'gap-analysis' | 'performance-tables' | 'performance-charts' | 'performance' | 'srm' | 'calendar' | 'master-settings';
+type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'nominations' | 'notification' | 'training-data' | 'gap-analysis' | 'performance-tables' | 'performance-charts' | 'performance' | 'srm' | 'calendar' | 'master-settings' | 'data-quality';
 interface SidebarItem {
   label: string;
   view: string;
@@ -113,7 +114,8 @@ const sidebarSections: SidebarSection[] = [
   {
     title: "OPERATIONS",
     items: [
-      { label: "Upload Portal", view: "attendance", icon: UploadCloud }
+      { label: "Upload Portal", view: "attendance", icon: UploadCloud },
+      { label: "Data Quality", view: "data-quality", icon: ListChecks }
     ]
   },
   {
@@ -189,6 +191,7 @@ const App = () => {
       case 'demographics': return <Demographics />;
       case 'gap-analysis': return <GapAnalysis employees={emps} attendance={att} nominations={noms} onNavigate={setView} />;
       case 'master-settings': return <MasterSettings />;
+      case 'data-quality': return <DataQualityCenter />;
       default: return <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} />;
     }
   };

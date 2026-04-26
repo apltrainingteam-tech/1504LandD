@@ -1,5 +1,9 @@
-import React, { useState, useMemo } from 'react';
-import { Users, UploadCloud, CheckCircle, X, Check, AlertTriangle, XCircle, Upload, Search, Database } from 'lucide-react';
+import { Users, UploadCloud, CheckCircle, X, Check, AlertTriangle, XCircle, Upload, Search, Database, Edit3 } from 'lucide-react';
+import { useMasterData } from '../../core/context/MasterDataContext';
+import { useErrorFilter } from '../../shared/hooks/useErrorFilter';
+import { ErrorPanel } from '../../shared/components/ui/ErrorPanel';
+import { createUpdateEdit } from '../../core/engines/editEngine';
+import { getClosestMatch } from '../../core/utils/stringMatch';
 import { useEmployeeUpload } from './hooks/useEmployeeUpload';
 import { validateFileSize, MAX_UPLOAD_SIZE_BYTES } from '../../core/utils/fileValidation';
 import { ParsedRow } from '../../core/engines/parsingEngine';
@@ -54,7 +58,19 @@ export const Employees: React.FC<EmployeesProps> = ({
   filterZone = '',
   onFilterZoneChange,
 }) => {
-  const { uploading, uploadProgress, performUpload, parseFile } = useEmployeeUpload(onUploadComplete);
+  const { 
+    finalData, 
+    activeError, 
+    setActiveError, 
+    addEdit, 
+    teams: masterTeams,
+    refreshTransactional 
+  } = useMasterData();
+
+  const { uploading, uploadProgress, performUpload, parseFile } = useEmployeeUpload(() => {
+    refreshTransactional();
+    onUploadComplete?.();
+  });
   const [step, setStep] = useState<'view' | 'upload' | 'preview' | 'done'>('view');
   const [dragOver, setDragOver] = useState(false);
   const [fileName, setFileName] = useState('');
@@ -118,17 +134,33 @@ export const Employees: React.FC<EmployeesProps> = ({
     setFileName('');
   };
   
-  // Use pre-filtered list from parent if provided, otherwise compute locally (fallback)
-  const filteredEmployees = filteredFromParent ?? employees.filter(e => {
-    const q = (searchQuery || '').toLowerCase();
-    const matchesSearch = !q ||
-      (e.name || '').toLowerCase().includes(q) ||
-      (e.employeeId || '').toLowerCase().includes(q);
-    const matchesDesignation = !filterDesignation || e.designation === filterDesignation;
-    const matchesTeam = !filterTeam || e.team === filterTeam;
-    const matchesZone = !filterZone || e.zone === filterZone;
-    return matchesSearch && matchesDesignation && matchesTeam && matchesZone;
-  });
+  // Integration with Validation Trace
+  const { 
+    filteredData: errorFilteredData, 
+    isFiltered: isValidationErrorFiltered, 
+    highlights 
+  } = useErrorFilter(activeError, filteredEmployees, 'employee');
+
+  const displayEmployees = isValidationErrorFiltered ? errorFilteredData : filteredEmployees;
+
+  const handleCellEdit = (recordId: string, field: string, currentValue: any) => {
+    const newValue = prompt(`Edit ${field}:`, currentValue);
+    if (newValue !== null && newValue !== currentValue) {
+      addEdit(createUpdateEdit('employee', recordId, { [field]: newValue }));
+    }
+  };
+
+  const handleBulkFix = (field: string, oldValue: any) => {
+    const masterValues = field === 'team' ? masterTeams.map(t => t.teamName) : [];
+    const suggestion = getClosestMatch(String(oldValue), masterValues);
+    
+    if (suggestion && confirm(`Bulk fix '${oldValue}' to '${suggestion}' for all matching records?`)) {
+      const affected = employees.filter(e => String((e as any)[field]) === String(oldValue));
+      affected.forEach(emp => {
+        addEdit(createUpdateEdit('employee', emp.id || emp._id || emp.employeeId, { [field]: suggestion }));
+      });
+    }
+  };
 
   if (step === 'done') {
     return (
@@ -239,6 +271,15 @@ export const Employees: React.FC<EmployeesProps> = ({
         </div>
       )}
 
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 mb-8">
+        <div className="lg:col-span-3">
+          {/* Main Content Area */}
+        </div>
+        <div className="lg:col-span-1">
+          <ErrorPanel />
+        </div>
+      </div>
+
       {/* Roster View */}
       <div className={`glass-panel ${styles.glassOverflowHidden}`}>
         <div className={styles.toolbar}>
@@ -313,8 +354,13 @@ export const Employees: React.FC<EmployeesProps> = ({
           )}
 
           <div className={`badge badge-info ${styles.badgeInfo}`}>
-            {filteredEmployees.length} / {employees.length}
+            {displayEmployees.length} / {employees.length}
           </div>
+          {isValidationErrorFiltered && (
+            <button className="btn btn-secondary btn-sm" onClick={() => setActiveError(null)}>
+              Clear Validation Filter <X size={14} />
+            </button>
+          )}
         </div>
         <div className={styles.tableContainer}>
           <table className="data-table">
@@ -332,16 +378,23 @@ export const Employees: React.FC<EmployeesProps> = ({
               </tr>
             </thead>
             <tbody>
-              {filteredEmployees.map(emp => (
-                <tr key={emp.employeeId}>
-                  <td className={styles.tdEmpId}>{emp.employeeId}</td>
-                  <td>{emp.name}</td>
-                  <td>{emp.mobileNumber}</td>
-                  <td><span className="badge badge-secondary">{emp.designation}</span></td>
-                  <td>{emp.team}</td>
-                  <td>{emp.hq}</td>
-                  <td>{emp.state}</td>
-                  <td>{emp.doj || '--'}</td>
+              {displayEmployees.map(emp => (
+                <tr key={emp.employeeId} className={highlights.rowIds.has(emp.id || emp._id || emp.employeeId) ? styles.highlightedRow : ''}>
+                  <td className={`${styles.tdEmpId} ${highlights.activeField === 'employeeId' ? styles.errorCell : ''}`} onClick={() => handleCellEdit(emp.id || emp._id || emp.employeeId, 'employeeId', emp.employeeId)}>{emp.employeeId}</td>
+                  <td className={highlights.activeField === 'name' ? styles.errorCell : ''} onClick={() => handleCellEdit(emp.id || emp._id || emp.employeeId, 'name', emp.name)}>{emp.name}</td>
+                  <td className={highlights.activeField === 'mobileNumber' ? styles.errorCell : ''} onClick={() => handleCellEdit(emp.id || emp._id || emp.employeeId, 'mobileNumber', emp.mobileNumber)}>{emp.mobileNumber}</td>
+                  <td>
+                    <span className={`badge badge-secondary ${highlights.activeField === 'designation' ? styles.errorCell : ''}`} onClick={() => handleCellEdit(emp.id || emp._id || emp.employeeId, 'designation', emp.designation)}>
+                      {emp.designation}
+                    </span>
+                  </td>
+                  <td className={`${highlights.activeField === 'team' ? styles.errorCell : ''} ${styles.editableCell}`} onClick={() => handleCellEdit(emp.id || emp._id || emp.employeeId, 'team', emp.team)}>
+                    {emp.team}
+                    {highlights.activeField === 'team' && <button className={styles.bulkFixBtn} onClick={(e) => { e.stopPropagation(); handleBulkFix('team', emp.team); }} title="Bulk Fix Similarity"><Edit3 size={10} /></button>}
+                  </td>
+                  <td className={highlights.activeField === 'hq' ? styles.errorCell : ''} onClick={() => handleCellEdit(emp.id || emp._id || emp.employeeId, 'hq', emp.hq)}>{emp.hq}</td>
+                  <td className={highlights.activeField === 'state' ? styles.errorCell : ''} onClick={() => handleCellEdit(emp.id || emp._id || emp.employeeId, 'state', emp.state)}>{emp.state}</td>
+                  <td className={highlights.activeField === 'doj' ? styles.errorCell : ''} onClick={() => handleCellEdit(emp.id || emp._id || emp.employeeId, 'doj', emp.doj)}>{emp.doj || '--'}</td>
                   <td>
                     <span className="badge badge-info" title={emp.doj || ''}>
                       {calcTenure(emp.doj)}
@@ -349,10 +402,10 @@ export const Employees: React.FC<EmployeesProps> = ({
                   </td>
                 </tr>
               ))}
-              {filteredEmployees.length === 0 && (
+              {displayEmployees.length === 0 && (
                 <tr>
                   <td colSpan={9} className={`text-muted ${styles.emptyRow}`}>
-                    No employees active or matching search.
+                    {isValidationErrorFiltered ? 'No records match this specific validation error.' : 'No employees active or matching search.'}
                   </td>
                 </tr>
               )}

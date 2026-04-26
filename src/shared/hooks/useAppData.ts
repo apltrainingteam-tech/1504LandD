@@ -15,58 +15,20 @@ export const useAppData = () => {
   const [refreshKey, setRefreshKey] = useState(0);
   const [isSeeding, setIsSeeding] = useState(false);
   const [isCleaning, setIsCleaning] = useState(false);
-  const { teams: masterTeams, loading: masterLoading } = useMasterData();
+  const { 
+    teams: masterTeams, 
+    loading: masterLoading,
+    finalData,
+    refreshTransactional
+  } = useMasterData();
 
-  const [emps, setEmps] = useState<Employee[]>([]);
-  const [att, setAtt] = useState<Attendance[]>([]);
-  const [scs, setScs] = useState<TrainingScore[]>([]);
-  const [noms, setNoms] = useState<TrainingNomination[]>([]);
-  const [demos, setDemos] = useState<DemoType[]>([]);
-
-  // Employee Master filter state
-  const [empSearch, setEmpSearch] = useState('');
-  const [empFilterDesignation, setEmpFilterDesignation] = useState('');
-  const [empFilterTeam, setEmpFilterTeam] = useState('');
-  const [empFilterZone, setEmpFilterZone] = useState('');
-
-  const filteredEmps = useMemo(() => emps.filter(e => {
-    const q = empSearch.toLowerCase();
-    const matchesSearch = !q ||
-      (e.name || '').toLowerCase().includes(q) ||
-      (e.employeeId || '').toLowerCase().includes(q);
-    const matchesDesignation = !empFilterDesignation || e.designation === empFilterDesignation;
-    const matchesTeam = !empFilterTeam || e.team === empFilterTeam;
-    const matchesZone = !empFilterZone || e.zone === empFilterZone;
-    return matchesSearch && matchesDesignation && matchesTeam && matchesZone;
-  }), [emps, empSearch, empFilterDesignation, empFilterTeam, empFilterZone]);
-
-  const empFiltersActive = !!(empSearch || empFilterDesignation || empFilterTeam || empFilterZone);
-
-  const handleSeed = async () => {
-    if (!confirm('Seed database with Master Data?')) return;
-    setIsSeeding(true);
-    const success = await seedMasterData();
-    if (success) {
-      setRefreshKey(k => k + 1);
-    }
-    setIsSeeding(false);
-  };
-
-  const loadAll = async () => {
-    if (masterLoading) return;
-    setLoading(true);
-    try {
-      const [e, trainingDataRaw, d] = await Promise.all([
-        getCollection('employees'),
-        getCollection('training_data'),
-        getCollection('demographics')
-      ]);
-      
-      const a: Attendance[] = [];
-      const s: TrainingScore[] = [];
-      const n: TrainingNomination[] = [];
-
-      (trainingDataRaw as any[]).forEach((row) => {
+  // Derive transactional structures from finalData
+  const { att, scs, noms, demos } = useMemo(() => {
+    const a: Attendance[] = [];
+    const s: TrainingScore[] = [];
+    const n: TrainingNomination[] = [];
+    
+    finalData.trainingData.forEach((row, index) => {
         if (!row) return;
 
         const r = row.mapped || row.data || row;
@@ -82,7 +44,7 @@ export const useAppData = () => {
           const teamId = mapTeamCodeToId(teamRef, masterTeams) || (teamRef ? `unmapped::${normalizeText(teamRef)}` : undefined);
           if (teamId) {
             a.push({
-              id: row._id || Math.random().toString(),
+              id: row.id || row._id || `td-${index}`,
               employeeId: String(employeeId),
               trainingType,
               attendanceDate,
@@ -123,7 +85,7 @@ export const useAppData = () => {
 
         if (Object.keys(scoresObj).length > 0) {
           s.push({
-            id: row._id || Math.random().toString(),
+            id: row.id || row._id || `ts-${index}`,
             employeeId: String(employeeId),
             trainingType,
             dateStr: attendanceDate,
@@ -139,7 +101,7 @@ export const useAppData = () => {
           const teamId = mapTeamCodeToId(teamRef, masterTeams) || (teamRef ? `unmapped::${normalizeText(teamRef)}` : undefined);
           if (teamId) {
             n.push({
-              id: row._id || Math.random().toString(),
+              id: row.id || row._id || `nom-${index}`,
               employeeId: String(employeeId),
               trainingType,
               notificationDate,
@@ -156,27 +118,45 @@ export const useAppData = () => {
             } as TrainingNomination);
           }
         }
-      });
+    });
 
-      setEmps(((e as any[]).map(row => {
-        const teamId = row.teamId || mapTeamCodeToId(row.team, masterTeams) || (row.team ? `unmapped::${normalizeText(row.team)}` : undefined);
-        if (!teamId) return null;
-        return {
-          ...row,
-          id: row.id || row._id,
-          employeeId: String(row.employeeId),
-          teamId
-        };
-      })).filter(Boolean) as Employee[]);
-      setAtt(a);
-      setScs(s);
-      setNoms(n);
-      setDemos(d as DemoType[]);
-    } catch (err) {
-      console.error('Failed to load collections:', err);
-    } finally {
-      setLoading(false);
+    return { att: a, scs: s, noms: n, demos: finalData.nominationData as any[] };
+  }, [finalData, masterTeams]);
+
+  const emps = finalData.employeeData;
+
+  // Employee Master filter state
+  const [empSearch, setEmpSearch] = useState('');
+  const [empFilterDesignation, setEmpFilterDesignation] = useState('');
+  const [empFilterTeam, setEmpFilterTeam] = useState('');
+  const [empFilterZone, setEmpFilterZone] = useState('');
+
+  const filteredEmps = useMemo(() => emps.filter(e => {
+    const q = empSearch.toLowerCase();
+    const matchesSearch = !q ||
+      (e.name || '').toLowerCase().includes(q) ||
+      (e.employeeId || '').toLowerCase().includes(q);
+    const matchesDesignation = !empFilterDesignation || e.designation === empFilterDesignation;
+    const matchesTeam = !empFilterTeam || e.team === empFilterTeam;
+    const matchesZone = !empFilterZone || e.zone === empFilterZone;
+    return matchesSearch && matchesDesignation && matchesTeam && matchesZone;
+  }), [emps, empSearch, empFilterDesignation, empFilterTeam, empFilterZone]);
+
+  const empFiltersActive = !!(empSearch || empFilterDesignation || empFilterTeam || empFilterZone);
+
+  const handleSeed = async () => {
+    if (!confirm('Seed database with Master Data?')) return;
+    setIsSeeding(true);
+    const success = await seedMasterData();
+    if (success) {
+      setRefreshKey(k => k + 1);
     }
+    setIsSeeding(false);
+  };
+
+  const loadAll = async () => {
+    // This is now managed by MasterDataContext
+    refreshTransactional();
   };
 
   useEffect(() => {

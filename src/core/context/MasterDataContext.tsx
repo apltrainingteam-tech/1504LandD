@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
 
 /**
  * MasterDataContext
@@ -17,6 +17,11 @@ import React, { createContext, useContext, useState, ReactNode, useEffect } from
  */
 import { getCollection, upsertDoc, updateDocument } from '../engines/apiClient';
 import { EligibilityRule } from '../../types/attendance';
+import { ValidationError } from '../contracts/validation.contract';
+import { DataEdit } from '../contracts/edit.contract';
+import { applyEdits } from '../engines/editEngine';
+import { validateTrainingData, validateNominationData, validateEmployeeData } from '../engines/validationEngine';
+import { Employee } from '../../types/employee';
 
 export interface Cluster {
   id: string;
@@ -55,6 +60,32 @@ interface MasterDataContextType {
   deleteTeam: (id: string) => Promise<void>;
 
   addCluster: (name: string) => Promise<void>;
+
+  // --- NEW: Data Quality & Edit Layer ---
+  baseData: {
+    trainingData: any[];
+    nominationData: any[];
+    employeeData: Employee[];
+  };
+  finalData: {
+    trainingData: any[];
+    nominationData: any[];
+    employeeData: Employee[];
+  };
+  edits: DataEdit[];
+  validationErrors: ValidationError[];
+  activeError: ValidationError | null;
+
+  addEdit: (edit: DataEdit) => void;
+  bulkEdit: (edits: DataEdit[]) => void;
+  clearEdits: (module?: string) => void;
+  setActiveError: (error: ValidationError | null) => void;
+  refreshTransactional: () => Promise<void>;
+  errorIndex: {
+    byType: Record<string, ValidationError[]>;
+    byField: Record<string, ValidationError[]>;
+    byValue: Record<string, ValidationError[]>;
+  };
 }
 
 const MasterDataContext = createContext<MasterDataContextType | undefined>(undefined);
@@ -98,6 +129,20 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
   const [eligibilityRules, setEligibilityRules] = useState<EligibilityRule[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // --- Transactional Data & Edits ---
+  const [baseData, setBaseData] = useState<{
+    trainingData: any[];
+    nominationData: any[];
+    employeeData: Employee[];
+  }>({
+    trainingData: [],
+    nominationData: [],
+    employeeData: []
+  });
+
+  const [edits, setEdits] = useState<DataEdit[]>([]);
+  const [activeError, setActiveError] = useState<ValidationError | null>(null);
+
   // Sync with DB
   const loadMasterData = async () => {
     setLoading(true);
@@ -125,7 +170,68 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
 
   useEffect(() => {
     loadMasterData();
+    loadTransactionalData();
   }, []);
+
+  const loadTransactionalData = async () => {
+    try {
+      const [td, emps] = await Promise.all([
+        getCollection('training_data'),
+        getCollection('employees')
+      ]);
+      
+      // Separate nominations if they are marked in training_data
+      const nominations = (td as any[]).filter(x => x.notified || x.data?.notified);
+
+      setBaseData({
+        trainingData: td as any[],
+        nominationData: nominations,
+        employeeData: emps as Employee[]
+      });
+    } catch (e) {
+      console.error("Failed to load transactional data:", e);
+    }
+  };
+
+  // --- Derived State: Final Data & Validation ---
+  const finalData = useMemo(() => {
+    return {
+      trainingData: applyEdits(baseData.trainingData, edits, 'trainingData'),
+      nominationData: applyEdits(baseData.nominationData, edits, 'nomination'),
+      employeeData: applyEdits(baseData.employeeData, edits, 'employee')
+    };
+  }, [baseData, edits]);
+
+  const validationErrors = useMemo(() => {
+    const masterInfo = {
+      employeeIds: new Set(finalData.employeeData.map((e: Employee) => String(e.employeeId))),
+      teamNames: new Set(teams.map(t => t.teamName.toUpperCase())),
+      trainerIds: new Set(trainers.map(t => t.id))
+    };
+
+    return [
+      ...validateTrainingData(finalData.trainingData, masterInfo),
+      ...validateNominationData(finalData.nominationData, masterInfo),
+      ...validateEmployeeData(finalData.employeeData, masterInfo)
+    ];
+  }, [finalData, teams, trainers]);
+
+  // --- Edit Handlers ---
+  const addEdit = (edit: DataEdit) => {
+    setEdits(prev => [...prev, edit]);
+  };
+
+  const bulkEdit = (newEdits: DataEdit[]) => {
+    setEdits(prev => [...prev, ...newEdits]);
+  };
+
+  const clearEdits = (module?: string) => {
+    if (module) {
+      setEdits(prev => prev.filter(e => e.module !== module));
+    } else {
+      setEdits([]);
+    }
+  };
 
   // Trainer Handlers
   const addTrainer = async (t: Omit<Trainer, 'id'>) => {
@@ -176,12 +282,40 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
     }
   };
 
+  const errorIndex = useMemo(() => {
+    const idx = {
+      byType: {} as Record<string, ValidationError[]>,
+      byField: {} as Record<string, ValidationError[]>,
+      byValue: {} as Record<string, ValidationError[]>,
+    };
+
+    validationErrors.forEach((err: ValidationError) => {
+      const typeKey = err.errorType;
+      const fieldKey = err.field;
+      const valueKey = String(err.value || 'NULL');
+
+      if (!idx.byType[typeKey]) idx.byType[typeKey] = [];
+      if (!idx.byField[fieldKey]) idx.byField[fieldKey] = [];
+      if (!idx.byValue[valueKey]) idx.byValue[valueKey] = [];
+
+      idx.byType[typeKey].push(err);
+      idx.byField[fieldKey].push(err);
+      idx.byValue[valueKey].push(err);
+    });
+
+    return idx;
+  }, [validationErrors]);
+
   return (
     <MasterDataContext.Provider value={{
       clusters, trainers, teams, eligibilityRules, loading,
       addTrainer, updateTrainer, deleteTrainer,
       addTeam, updateTeam, deleteTeam,
-      addCluster
+      addCluster,
+      baseData, finalData, edits, validationErrors, activeError,
+      addEdit, bulkEdit, clearEdits, setActiveError,
+      refreshTransactional: loadTransactionalData,
+      errorIndex
     }}>
       {children}
     </MasterDataContext.Provider>
