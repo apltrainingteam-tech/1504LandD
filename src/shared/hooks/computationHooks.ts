@@ -109,7 +109,7 @@ export function useFilterOptions(
   selectedClusters: string[] = []
 ) {
   const allClusters = useMemo(() => {
-    const clusters = [...new Set(unified.map(r => r.employee.cluster).filter(Boolean))].sort();
+    const clusters = [...new Set(unified.map(r => r?.employee?.cluster).filter(Boolean))].sort();
     console.log("[FilterHook] Derived Clusters:", clusters);
     return clusters;
   }, [unified]);
@@ -117,14 +117,14 @@ export function useFilterOptions(
   const allTeams = useMemo(() => {
     let filtered = unified;
     if (selectedClusters.length > 0) {
-      filtered = unified.filter(r => selectedClusters.includes(r.employee.cluster));
+      filtered = unified.filter(r => selectedClusters.includes(r?.employee?.cluster || ''));
     }
     
     // Build unique team list from data
     const teamMap = new Map<string, string>(); // id -> label
     filtered.forEach(r => {
-      const id = r.employee.teamId;
-      const label = r.employee.team;
+      const id = r?.employee?.teamId;
+      const label = r?.employee?.team;
       if (id && label) {
         teamMap.set(id, label);
       }
@@ -139,13 +139,18 @@ export function useFilterOptions(
     if (trainingType) {
       return getAvailableTrainers(trainingType, masterTrainers).map(t => ({
         id: t.id,
-        label: `${t.trainerName} (${t.category})`
+        label: `${t.trainerName} (${t.category})`,
+        imageUrl: t.imageUrl
       }));
     }
     if (masterTrainers && masterTrainers.length > 0) {
       return masterTrainers
         .filter(t => t.status === 'Active')
-        .map(t => ({ id: t.id, label: `${t.trainerName} (${t.category})` }));
+        .map(t => ({ 
+          id: t.id, 
+          label: `${t.trainerName} (${t.category})`,
+          imageUrl: t.imageUrl 
+        }));
     }
     const uniqueIds = [...new Set(attendance.map(a => a.trainerId).filter((tr): tr is string => Boolean(tr)))].sort();
     return uniqueIds.map(id => ({ id, label: id }));

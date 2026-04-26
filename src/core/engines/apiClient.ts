@@ -367,6 +367,34 @@ export async function queryByField(collectionName: string, field: string, value:
   return getCollection(collectionName, field, value);
 }
 
+/**
+ * POST /api/upload-avatar
+ * Upload a trainer avatar image
+ */
+export async function uploadAvatar(file: File): Promise<string> {
+  try {
+    const url = `${API_BASE}/media/upload-avatar`;
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    const response = await fetchWithRetry(url, {
+      method: 'POST',
+      body: formData
+    });
+    const result = await safeParseJson(response);
+
+    if (!response.ok) {
+      throw new Error(result.error || `Upload failed with status ${response.status}`);
+    }
+
+    // Convert relative /uploads path to absolute URL using host reference established above
+    return host + result.url;
+  } catch (error) {
+    console.error("Upload failure:", error);
+    throw error;
+  }
+}
+
 export default {
   getCollection,
   getDocumentById,
@@ -380,7 +408,8 @@ export default {
   clearCollection,
   findByQuery,
   updateByQuery,
-  queryByField
+  queryByField,
+  uploadAvatar
 };
 
 

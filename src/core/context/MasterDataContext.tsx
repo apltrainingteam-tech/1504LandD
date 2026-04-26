@@ -35,6 +35,7 @@ export interface Trainer {
   code: string;
   category: 'HO' | 'RTM';
   status: 'Active' | 'Inactive';
+  imageUrl?: string;
 }
 
 export interface Team {

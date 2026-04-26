@@ -176,7 +176,7 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
   const trainerScatterData = useMemo(() => {
     return trainerStats.map((t: any) => ({ name: t.trainerId, volume: t.trainingsConducted, score: t.avgScore })).sort((a: any, b: any) => b.volume - a.volume).slice(0, 30);
   }, [trainerStats]);
-  const { allClusters, allTeams, allTrainers } = useFilterOptions(unified, attendance, tab, masterTrainers, pageFilters.clusters);
+  const { allClusters, allTeams, allTrainers } = useFilterOptions(rawUnified, attendance, tab, masterTrainers, pageFilters.clusters);
   const monthsOptions = useMonthsFromData(rawUnified);
 
   useEffect(() => {
@@ -339,8 +339,9 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
                               setPageFilters({ ...pageFilters, trainers: newTrainers });
                             }}
                             className={`${styles.avatarChip} ${isActive ? styles.active : ''}`}
+                            style={t.imageUrl ? { backgroundImage: `url(${t.imageUrl})`, backgroundSize: 'cover', color: 'transparent' } : {}}
                           >
-                            {initials}
+                            {!t.imageUrl && initials}
                           </motion.button>
                         );
                       })}

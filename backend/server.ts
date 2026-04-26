@@ -3,6 +3,10 @@ dotenv.config();
 
 import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 import {
   getCollection,
   getDocumentById,
@@ -25,6 +29,38 @@ import {
 const app: Express = express();
 const PORT = process.env.PORT || 5000;
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Ensure uploads directory exists
+const uploadDir = path.join(__dirname, 'uploads', 'avatars');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Multer configuration
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, 'avatar-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only images are allowed'));
+    }
+  }
+});
+
 // Global CORS Configuration
 app.use(cors());
 
@@ -33,6 +69,9 @@ app.options('*', cors());
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// Static files for uploads
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Root health check
 app.get("/", (req, res) => {
@@ -63,6 +102,25 @@ app.get('/api/health', (req: Request, res: Response) => {
     database: isConnected ? "connected" : "disconnected",
     timestamp: new Date().toISOString()
   });
+});
+
+/**
+ * POST /api/media/upload-avatar
+ * Upload a trainer avatar image (multi-segment path to avoid conflict with /api/:collection)
+ */
+app.post('/api/media/upload-avatar', upload.single('avatar'), (req: Request, res: Response) => {
+  console.log("UPLOAD ROUTE HIT - Path:", req.path, "File:", req.file ? 'Received' : 'Missing');
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'No file uploaded' });
+    }
+
+    const fileUrl = `/uploads/avatars/${req.file.filename}`;
+    res.json({ success: true, url: fileUrl });
+  } catch (error: any) {
+    console.error('Upload error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 /**
@@ -108,9 +166,9 @@ app.get('/api/:collection', async (req: Request, res: Response) => {
 
     let result;
     if (field && value) {
-      result = await queryByField(collection, String(field), value);
+      result = await queryByField(String(collection), String(field), value);
     } else {
-      result = await getCollection(collection);
+      result = await getCollection(String(collection));
     }
 
     res.json({ success: true, data: result });
@@ -130,7 +188,7 @@ app.get('/api/:collection/:id', async (req: Request, res: Response) => {
 
     console.log(`[GET /api/${collection}/${id}]`);
 
-    const result = await getDocumentById(collection, id);
+    const result = await getDocumentById(String(collection), String(id));
     res.json({ success: true, data: result });
   } catch (error: any) {
     console.error('Error fetching document:', error);
@@ -170,7 +228,7 @@ app.post('/api/:collection', async (req: Request, res: Response) => {
         });
       }
 
-      await addBatch(collection, items);
+      await addBatch(String(collection), items);
 
       console.log(`[BATCH INSERT] Attempted: ${items.length}`);
 
@@ -180,11 +238,11 @@ app.post('/api/:collection', async (req: Request, res: Response) => {
       });
     } else if (upsert && id) {
       // Upsert document
-      await upsertDoc(collection, id, data);
+      await upsertDoc(String(collection), String(id), data);
       result = { upsertedId: id };
     } else if (data) {
       // Single insert
-      const insertedId = await insertDocument(collection, data);
+      const insertedId = await insertDocument(String(collection), data);
       result = { insertedId };
     } else {
       throw new Error('Invalid request body');
@@ -209,7 +267,7 @@ app.put('/api/:collection/:id', async (req: Request, res: Response) => {
 
     console.log(`[PUT /api/${collection}/${id}]`);
 
-    await upsertDoc(collection, id, data);
+    await upsertDoc(String(collection), String(id), data);
     res.json({ success: true, updatedId: id });
   } catch (error: any) {
     console.error('Error updating document:', error);
@@ -227,7 +285,7 @@ app.delete('/api/:collection/:id', async (req: Request, res: Response) => {
 
     console.log(`[DELETE /api/${collection}/${id}]`);
 
-    await deleteDocument(collection, id);
+    await deleteDocument(String(collection), String(id));
     res.json({ success: true, deletedId: id });
   } catch (error: any) {
     console.error('Error deleting document:', error);
@@ -255,16 +313,16 @@ app.delete('/api/:collection', async (req: Request, res: Response) => {
 
     if (clear === 'true') {
       // Clear entire collection
-      await clearCollection(collection);
+      await clearCollection(String(collection));
       res.json({ success: true, clearedCollection: true });
     } else if (clearByField === 'true' && field && value) {
       // Clear by field value
-      deletedCount = await clearCollectionByField(collection, String(field), value);
+      deletedCount = await clearCollectionByField(String(collection), String(field), value);
       res.json({ success: true, deletedCount });
     } else if (field && values) {
       // Delete by field values
       const valueArray = String(values).split(',').map(v => v.trim());
-      deletedCount = await deleteRecordsByQuery(collection, String(field), valueArray);
+      deletedCount = await deleteRecordsByQuery(String(collection), String(field), valueArray);
       res.json({ success: true, deletedCount });
     } else {
       throw new Error('Missing required parameters for delete operation');
@@ -291,7 +349,7 @@ app.post('/api/:collection/query', async (req: Request, res: Response) => {
 
     console.log(`[POST /api/${collection}/query]`, query);
 
-    const result = await findByQuery(collection, query);
+    const result = await findByQuery(String(collection), query);
     res.json({ success: true, data: result });
   } catch (error: any) {
     console.error('Error querying collection:', error);
@@ -315,7 +373,7 @@ app.patch('/api/:collection', async (req: Request, res: Response) => {
 
     console.log(`[PATCH /api/${collection}]`, query);
 
-    const modifiedCount = await updateByQuery(collection, query, updateData);
+    const modifiedCount = await updateByQuery(String(collection), query, updateData);
     res.json({ success: true, modifiedCount });
   } catch (error: any) {
     console.error('Error updating documents:', error);

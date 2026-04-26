@@ -9,6 +9,7 @@ export interface Trainer {
   id: string;
   trainerName: string;
   category: 'HO' | 'RTM';
+  imageUrl?: string;
 }
 
 export const TRAINERS: Trainer[] = [

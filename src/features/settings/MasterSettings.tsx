@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, Save, X, Settings, Users, Layers } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Plus, Edit2, Trash2, Save, X, Settings, Users, Layers, Upload, Loader2 } from 'lucide-react';
 import { useMasterData, Trainer, Team, Cluster } from '../../core/context/MasterDataContext';
+import { uploadAvatar } from '../../core/engines/apiClient';
 import styles from './MasterSettings.module.css';
 
 export const MasterSettings: React.FC = () => {
@@ -61,13 +62,26 @@ export const MasterSettings: React.FC = () => {
         <MasterModal
           config={showModal}
           onClose={() => setShowModal(null)}
-          onSubmit={(data: any) => {
+          onSubmit={async (data: any, avatarFile: File | null) => {
+            let finalData = { ...data };
+            
+            // If there's a new avatar file, upload it first
+            if (avatarFile) {
+              try {
+                const uploadedUrl = await uploadAvatar(avatarFile);
+                finalData.imageUrl = uploadedUrl;
+              } catch (error) {
+                alert("Failed to upload avatar: " + error);
+                return;
+              }
+            }
+
             if (showModal.type === 'trainer') {
-              if (showModal.mode === 'add') addTrainer(data);
-              else updateTrainer(showModal.data.id, data);
+              if (showModal.mode === 'add') addTrainer(finalData);
+              else updateTrainer(showModal.data.id, finalData);
             } else {
-              if (showModal.mode === 'add') addTeam(data);
-              else updateTeam(showModal.data.id, data);
+              if (showModal.mode === 'add') addTeam(finalData);
+              else updateTeam(showModal.data.id, finalData);
             }
             setShowModal(null);
           }}
@@ -100,7 +114,18 @@ const TrainersList = ({ trainers, onAdd, onEdit, onDelete }: any) => (
         <tbody>
           {trainers.map((t: Trainer) => (
             <tr key={t.id} className={`${styles.tr} ${t.status === 'Inactive' ? styles.trInactive : ''}`}>
-              <td className={styles.tdBold}>{t.trainerName}</td>
+              <td className={styles.tdBold}>
+                <div className="flex items-center gap-12">
+                  {t.imageUrl ? (
+                    <img src={t.imageUrl} alt={t.trainerName} className={styles.avatar} />
+                  ) : (
+                    <div className={styles.avatarPlaceholder}>
+                      {t.code.slice(0, 2)}
+                    </div>
+                  )}
+                  {t.trainerName}
+                </div>
+              </td>
               <td className={styles.td}><code className={styles.codeTag}>{t.code}</code></td>
               <td className={styles.td}>
                 <span className={`badge ${t.category === 'HO' ? 'badge-primary' : 'badge-secondary'}`}>{t.category}</span>
@@ -165,26 +190,87 @@ const TeamsList = ({ teams, clusters, onAdd, onEdit, onDelete, onAddCluster }: a
   </div>
 );
 
+const AvatarUpload = ({ value, onChange, trainerCode }: { value?: string, onChange: (file: File | null) => void, trainerCode?: string }) => {
+  const [preview, setPreview] = useState(value);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) return alert("File too large (max 2MB)");
+      if (!file.type.startsWith("image/")) return alert("Only images allowed");
+      
+      const reader = new FileReader();
+      reader.onloadend = () => setPreview(reader.result as string);
+      reader.readAsDataURL(file);
+      onChange(file);
+    }
+  };
+
+  return (
+    <div className={styles.avatarUploadContainer}>
+      <div 
+        className={styles.avatarPreview} 
+        style={{ backgroundImage: preview ? `url(${preview})` : 'none' }}
+        onClick={() => fileInputRef.current?.click()}
+      >
+        {!preview && (
+          <div className={styles.avatarFallback}>
+            {trainerCode || <Users size={24} color="var(--text-muted)" />}
+          </div>
+        )}
+      </div>
+      <div className={styles.avatarControls}>
+        <button 
+          type="button" 
+          className="btn btn-secondary btn-sm" 
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <Upload size={14} className="mr-2" /> Upload Avatar
+        </button>
+        <p className={styles.uploadHint}>Max 2MB. JPG/PNG.</p>
+      </div>
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        className={styles.hiddenInput} 
+        accept="image/*"
+        title="Upload avatar file"
+        aria-label="Upload avatar file"
+        onChange={handleFileChange} 
+      />
+    </div>
+  );
+};
 const MasterModal = ({ config, onClose, onSubmit, clusters, existingTrainers, existingTeams }: any) => {
   const [formData, setFormData] = useState(config.data || {
-    trainerName: '', code: '', category: 'HO', status: 'Active',
+    trainerName: '', code: '', category: 'HO', status: 'Active', imageUrl: '',
     teamName: '', cluster: clusters[0]?.id || ''
   });
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const isTrainer = config.type === 'trainer';
   const originalCode = config.data?.code || '';
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const code = formData.code.trim().toUpperCase();
     if (code.length < 2) return alert('Code must be at least 2 characters.');
     const isDuplicate = isTrainer
       ? existingTrainers.some((t: any) => t.code === code && t.id !== config.data?.id)
       : existingTeams.some((t: any) => t.code === code && t.id !== config.data?.id);
     if (isDuplicate) return alert(`Code "${code}" already exists in the system.`);
+    
     if (config.mode === 'edit' && code !== originalCode) {
       if (!confirm(`Are you sure you want to change the code from "${originalCode}" to "${code}"?`)) return;
     }
-    onSubmit({ ...formData, code });
+    
+    setIsUploading(true);
+    try {
+      await onSubmit(formData, avatarFile);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -211,6 +297,14 @@ const MasterModal = ({ config, onClose, onSubmit, clusters, existingTrainers, ex
                   <option value="HO">HO (Authorized for all)</option>
                   <option value="RTM">RTM (Limited Access)</option>
                 </select>
+              </div>
+              <div>
+                <label className={styles.fieldLabel}>Profile Avatar</label>
+                <AvatarUpload 
+                  value={formData.imageUrl} 
+                  trainerCode={formData.code}
+                  onChange={(file) => setAvatarFile(file)} 
+                />
               </div>
             </>
           ) : (
@@ -245,7 +339,17 @@ const MasterModal = ({ config, onClose, onSubmit, clusters, existingTrainers, ex
         </div>
         <div className={styles.modalFooter}>
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleSave}><Save size={16} /> Save Changes</button>
+          <button 
+            className="btn btn-primary" 
+            onClick={handleSave}
+            disabled={isUploading}
+          >
+            {isUploading ? (
+              <><Loader2 size={16} className="animate-spin mr-2" /> Saving...</>
+            ) : (
+              <><Save size={16} className="mr-2" /> {config.mode === 'add' ? 'Create' : 'Save Changes'}</>
+            )}
+          </button>
         </div>
       </div>
     </div>

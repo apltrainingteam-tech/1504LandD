@@ -59,10 +59,15 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
     eligibilityRules: rules,
     activeError,
     patchRecord,
-    attendance: rawAttendance
+    finalData
   } = useMasterData();
 
-  const [pageFilters, setPageFilters] = useState<GlobalFilters>({ cluster: '', team: '', trainer: '', month: '' });
+  const rawAttendance = finalData.trainingData;
+
+  const [pageFilters, setPageFilters] = useState<GlobalFilters>({ 
+    cluster: '', team: '', trainer: '', month: '',
+    clusters: [], teams: [], trainers: [], trainerTypes: []
+  });
   const activeFilterCount = getActiveFilterCount(pageFilters);
   const [showGlobalFilters, setShowGlobalFilters] = useState(false);
 
@@ -202,8 +207,9 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
     }
   }, [tab, subView]);
 
-  const { allTeams, allTrainers } = useFilterOptions(employees, attendance, tab, masterTeams, masterTrainers);
-  const allClusters = useMemo(() => masterClusters.map(c => c.name), [masterClusters]);
+  // Moved after usePerformanceData to use rawUnified source of truth
+  // const { allTeams, allTrainers } = useFilterOptions(employees, attendance, tab, masterTeams, masterTrainers);
+  // const allClusters = useMemo(() => masterClusters.map(c => c.name), [masterClusters]);
 
   const handleGlobalApply = useCallback((f: GlobalFilters) => {
     setPageFilters(f);
@@ -219,13 +225,17 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
   }, []);
 
   const handleGlobalClear = useCallback(() => {
-    setPageFilters({ cluster: '', team: '', trainer: '', month: '' });
+    setPageFilters({ 
+      cluster: '', team: '', trainer: '', month: '',
+      clusters: [], teams: [], trainers: [], trainerTypes: []
+    });
     setFilter({ monthFrom: '', monthTo: '', teams: [], clusters: [], trainer: '' });
   }, []);
 
   const {
     MONTHS,
     unified,
+    rawUnified,
     apAttData: apData,
     mipAttData: mipAttendanceData,
     refresherAttData,
@@ -253,6 +263,8 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
     employees, attendance, scores, nominations, rules, masterTeams,
     tab, selectedFY, filter, viewBy, tsMode, pageMode
   });
+
+  const { allClusters, allTeams, allTrainers } = useFilterOptions(rawUnified, attendance, tab, masterTrainers, pageFilters.clusters);
 
   const toggleExpand = useCallback((k: string) => {
     setExpanded(prev => {
@@ -611,8 +623,8 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
           ) : (
             <InsightStrip
               text={`${tab} Training Cycle: Data suggests increasing coverage. 45 personnel scheduled.`}
-              variant="info"
-              icon="info"
+              variant="primary"
+              icon="none"
             />
           )}
       </Fragment>
@@ -953,7 +965,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
         initialFilters={pageFilters}
         clusterOptions={allClusters}
         teamOptions={allTeams}
-        trainerOptions={allTrainers}
+        trainerOptions={allTrainers as any}
         monthOptions={MONTHS}
         onClearAll={handleGlobalClear}
       />

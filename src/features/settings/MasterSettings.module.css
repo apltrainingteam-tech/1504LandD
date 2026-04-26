@@ -200,3 +200,74 @@
   justify-content: flex-end;
   gap: 12px;
 }
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--bg-surface);
+  background: var(--bg);
+}
+
+.avatarPlaceholder {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg-surface);
+  border: 1px dashed var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+}
+
+.avatarUploadContainer {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.avatarPreview {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background-size: cover;
+  background-position: center;
+  background-color: var(--bg-surface);
+  border: 2px dashed var(--border-color);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+
+.avatarPreview:hover {
+  border-color: var(--accent-primary);
+  background-color: rgba(var(--accent-primary-rgb), 0.1);
+}
+
+.avatarFallback {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+
+.avatarControls {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.uploadHint {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.hiddenInput {
+  display: none;
+}
+

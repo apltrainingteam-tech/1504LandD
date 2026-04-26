@@ -338,6 +338,8 @@
   color: var(--text-muted);
   cursor: pointer;
   transition: all 0.2s;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 .avatarChip.active {
