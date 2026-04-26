@@ -16,9 +16,9 @@ interface ApiResponse<T> {
 }
 
 /**
- * Helper to handle fetch with retries (for cold starts)
+ * Helper to handle fetch with retries (for cold starts and network glitches)
  */
-async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 2, delay = 2000): Promise<Response> {
+async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 5, delay = 1000): Promise<Response> {
   try {
     const response = await fetch(url, options);
 
@@ -26,19 +26,20 @@ async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 
     if (!response.ok && [502, 503, 504].includes(response.status) && retries > 0) {
       console.warn(`[API] Backend busy (cold start?), retrying in ${delay}ms... (${retries} left)`);
       await new Promise(resolve => setTimeout(resolve, delay));
-      return fetchWithRetry(url, options, retries - 1, delay * 1.5);
+      return fetchWithRetry(url, options, retries - 1, delay * 1.2);
     }
 
     return response;
   } catch (error) {
     if (retries > 0) {
-      console.warn(`[API] Network error, retrying in ${delay}ms... (${retries} left)`, error);
+      console.warn(`[API] Network error (possibly QUIC or connection reset), retrying in ${delay}ms... (${retries} left)`, error);
       await new Promise(resolve => setTimeout(resolve, delay));
       return fetchWithRetry(url, options, retries - 1, delay * 1.5);
     }
     throw error;
   }
 }
+
 
 /**
  * Helper to parse JSON safely and handle HTML error pages

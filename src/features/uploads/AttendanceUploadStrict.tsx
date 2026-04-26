@@ -13,7 +13,8 @@ interface AttendanceUploadStrictProps {
 export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ onUploadComplete }) => {
   // ─── UI STATE ────────────────────────────────────────────────────────────
   const { 
-    step, setStep, uploadProgress, uploadResult, uploadMode, setUploadMode, startUpload, testInsert, setUploadResult, setUploadProgress 
+    step, setStep, uploadProgress, uploadResult, uploadMode, setUploadMode, 
+    previewResult, startValidation, confirmUpload, testInsert, setUploadResult, setUploadProgress 
   } = useUploadAction(onUploadComplete);
 
   const [dragOver, setDragOver] = useState(false);
@@ -27,34 +28,7 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
   // ─── DEBUG LOGGING ───────────────────────────────────────────────────────
   useEffect(() => {
     console.log('═══════════════════════════════════════════════════════════════');
-    console.log('🚀 ENRICHED UPLOAD SYSTEM ACTIVE');
-    console.log('═══════════════════════════════════════════════════════════════');
-    console.log('');
-    console.log('✅ PARSER: uploadServiceEnriched');
-    console.log('   - Flexible validation: Accepts Employee ID, Aadhaar, Mobile');
-    console.log('   - No "Employee ID required" errors');
-    console.log('   - Automatic master data enrichment');
-    console.log('');
-    console.log('✅ DATE PARSER: Optimized system active');
-    console.log('   - Excel numeric dates (serial format)');
-    console.log('   - ISO 8601 format (YYYY-MM-DD)');
-    console.log('   - Common formats (DD/MM/YYYY, MM/DD/YYYY, DD-MM-YYYY)');
-    console.log('   - No "YYYY-MM-DD required" validation errors');
-    console.log('');
-    console.log('✅ TEMPLATES: uploadTemplatesStrict');
-    console.log('   - Strict, deterministic template detection');
-    console.log('   - Exact column matching (no fuzzy matching)');
-    console.log('');
-    console.log('✅ VALIDATION BEHAVIOR:');
-    console.log('   ✓ Rows without Employee ID accepted if Aadhaar/Mobile exists');
-    console.log('   ✓ Excel dates parsed correctly');
-    console.log('   ✓ No legacy validation restrictions');
-    console.log('');
-    console.log('✅ ERROR REPORTING:');
-    console.log('   - Detailed with row numbers');
-    console.log('   - Enrichment status tracking');
-    console.log('   - Active/Inactive employee status');
-    console.log('');
+    console.log('🚀 GUIDED DEBUG UPLOAD SYSTEM ACTIVE');
     console.log('═══════════════════════════════════════════════════════════════');
   }, []);
 
@@ -86,9 +60,8 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
   const handleFileSelect = useCallback((file: File) => {
     setFileName(file.name);
     currentFileRef.current = file;
-    // Auto-upload after selection (can be changed to preview step if needed)
-    handleStartUpload(file);
-  }, []);
+    startValidation(file);
+  }, [startValidation]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -103,8 +76,9 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
   }, [handleFileSelect]);
 
   const handleStartUpload = useCallback((file: File) => {
-    startUpload(file);
-  }, [startUpload]);
+    confirmUpload(file);
+  }, [confirmUpload]);
+
 
   const handleReset = useCallback(() => {
     setStep('upload');
@@ -156,7 +130,65 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
     );
   }
 
+  // ─── RENDER: PREVIEW STAGE ───────────────────────────────────────────────
+  if (step === 'preview' && previewResult) {
+    const errorRows = previewResult.rows.filter(r => r.errors.length > 0);
+    const validCount = previewResult.rows.length - errorRows.length;
+
+    return (
+      <div className={`animate-fade-in ${styles.doneContainer}`}>
+        <div className={styles.successHeader}>
+          <div className={styles.successIconWrapper}>
+            <AlertTriangle size={48} className="text-warning" />
+          </div>
+          <h2 className={styles.successTitle}>Validation Preview</h2>
+          <p className="text-muted">Review file data before committing to the database</p>
+          
+          <div className={styles.statsRow}>
+            <div className={`${styles.statBadge} ${styles.statBadgeSuccess}`}>
+              <strong>{validCount}</strong> Ready to Upload ✅
+            </div>
+            {errorRows.length > 0 && (
+              <div className={`${styles.statBadge} ${styles.statBadgeDanger}`}>
+                <strong>{errorRows.length}</strong> Rejected/Invalid ❌
+              </div>
+            )}
+          </div>
+        </div>
+
+        {errorRows.length > 0 && (
+          <div className={styles.errorBox}>
+            <h4 className={styles.errorLabel}>❌ Detected Errors (These rows will be skipped)</h4>
+            <div className={styles.errorList}>
+              {errorRows.slice(0, 8).map((r, i) => (
+                <div key={i} className="mb-4">
+                  <strong>Row {r.rowNum}:</strong> {r.errors.join('; ')}
+                </div>
+              ))}
+              {errorRows.length > 8 && (
+                <div className={styles.moreItemsText}>... and {errorRows.length - 8} more errors</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className={styles.actionsRow}>
+          <button className={`btn btn-secondary ${styles.actionBtnLarge}`} onClick={handleReset}>
+            ↺ Cancel & Re-select
+          </button>
+          <button 
+            className={`btn btn-primary ${styles.actionBtnLarge}`} 
+            onClick={() => currentFileRef.current && handleStartUpload(currentFileRef.current)}
+          >
+            🚀 Confirm & Upload {validCount} Rows
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // ─── RENDER: DONE STAGE ──────────────────────────────────────────────────
+
   if (step === 'done' && uploadResult) {
     const isSuccess = uploadResult.success;
 

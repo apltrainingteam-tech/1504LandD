@@ -8,8 +8,10 @@ import { IPRecord, IPAggregates, IPMonthMapNode, IPHeritageMapCell, IPMonthlyTea
 import { normalizeText } from '../utils/textNormalizer';
 import { getFiscalMonths, FISCAL_YEARS } from '../utils/fiscalYear';
 import { normalizeScore } from '../utils/scoreNormalizer';
+import { traceEngine } from '../debug/traceEngine';
 
 export { getFiscalMonths, FISCAL_YEARS };
+
 
 
 
@@ -89,8 +91,11 @@ export function normalizeToIPRecords(ds: UnifiedRecord[]): IPRecord[] {
   return records;
 }
 
-export function buildIPAggregates(ds: UnifiedRecord[]): IPAggregates {
+
+export const buildIPAggregates = traceEngine("buildIPAggregates", (ds: UnifiedRecord[]): IPAggregates => {
   const records = normalizeToIPRecords(ds);
+
+
   
   const dedupMap = new Map<string, IPRecord>();
   records.forEach(r => {
@@ -182,7 +187,8 @@ export function buildIPAggregates(ds: UnifiedRecord[]): IPAggregates {
     },
     penaltyEnabled: IP_CONFIG.penaltyEnabled
   };
-}
+});
+
 
 /**
  * Partial Recompute for IP Engine

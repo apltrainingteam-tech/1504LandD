@@ -1,10 +1,18 @@
 import React from 'react';
-import { AlertCircle, ChevronRight, X } from 'lucide-react';
+import { AlertCircle, ChevronRight, X, Check, Zap } from 'lucide-react';
 import { useMasterData } from '../../../core/context/MasterDataContext';
 import styles from './ErrorPanel.module.css';
 
 export const ErrorPanel: React.FC = () => {
-  const { errorIndex, setActiveError, activeError } = useMasterData();
+  const { errorIndex, setActiveError, activeError, patchRecord } = useMasterData();
+
+  const handleBulkFix = (field: string, oldValue: any, newValue: any) => {
+    const affected = errorIndex.byValue[String(oldValue || 'NULL')] || [];
+    affected.filter(e => e.field === field).forEach(e => {
+      patchRecord(e.module, e.recordId, field, newValue);
+    });
+    setActiveError(null);
+  };
 
   if (Object.keys(errorIndex.byType).length === 0) {
     return (
@@ -35,11 +43,45 @@ export const ErrorPanel: React.FC = () => {
       </div>
 
       <div className={styles.content}>
+        {activeError && (
+          <div className={styles.activeErrorDetail}>
+            <div className="text-xs-bold mb-4 uppercase text-danger">Active Troubleshooting</div>
+            <div className="text-sm mb-8">
+              <strong>{activeError.field}:</strong> <span className="text-muted">{String(activeError.value)}</span>
+            </div>
+            
+            {activeError.suggestions && activeError.suggestions.length > 0 && (
+              <div className={styles.suggestions}>
+                <div className={styles.suggestionTitle}>Guided Suggestions</div>
+                {activeError.suggestions.map(s => (
+                  <button 
+                    key={s} 
+                    className={styles.suggestionBtn}
+                    onClick={() => patchRecord(activeError.module, activeError.recordId, activeError.field, s)}
+                  >
+                    <div className="flex-between">
+                      <span>Apply "{s}"</span>
+                      <Check size={12} />
+                    </div>
+                  </button>
+                ))}
+                
+                <button 
+                  className="btn btn-primary btn-xs mt-8 w-full flex-center gap-2"
+                  onClick={() => handleBulkFix(activeError.field, activeError.value, activeError.suggestions![0])}
+                >
+                  <Zap size={12} />
+                  Bulk Fix All "{activeError.value}" → "{activeError.suggestions![0]}"
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {Object.entries(errorIndex.byType).map(([type, errors]) => (
           <div key={type} className={styles.errorTypeGroup}>
             <div className={styles.typeTitle}>{type.replace(/_/g, ' ')}</div>
             <div className={styles.valueList}>
-              {/* Group by value within type */}
               {Array.from(new Set(errors.map(e => String(e.value || 'NULL')))).map(valStr => {
                 const groupErrors = errors.filter(e => String(e.value || 'NULL') === valStr);
                 const count = groupErrors.length;
@@ -64,3 +106,4 @@ export const ErrorPanel: React.FC = () => {
     </div>
   );
 };
+

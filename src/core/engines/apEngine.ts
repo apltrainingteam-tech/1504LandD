@@ -7,8 +7,10 @@ import { normalizeText } from '../utils/textNormalizer';
 import { Team } from '../context/MasterDataContext';
 import { getTeamId } from '../utils/teamIdMapper';
 import { normalizeTrainingType } from './reportEngine';
+import { traceEngine } from '../debug/traceEngine';
 
 // ─── TYPES & INTERFACES ──────────────────────────────────────────────────────
+
 
 export type EmployeeEventTimeline = {
   employeeId: string;
@@ -94,13 +96,14 @@ export interface APPerformanceAggregates {
 
 // ─── INTELLIGENCE ENGINE ─────────────────────────────────────────────────────
 
-export function buildEmployeeTimelines(
+export const buildEmployeeTimelines = traceEngine("buildEmployeeTimelines", (
   attendances: Attendance[],
   nominations: TrainingNomination[],
   masterTeams: Team[],
   targetType: string = 'AP',
   scores: TrainingScore[] = []
-): Map<string, EmployeeEventTimeline> {
+): Map<string, EmployeeEventTimeline> => {
+
   const map = new Map<string, EmployeeEventTimeline>();
   const teamMap = Object.fromEntries(masterTeams.map(t => [t.id, t]));
 
@@ -153,12 +156,14 @@ export function buildEmployeeTimelines(
   }
 
   return map;
-}
+});
 
-export function filterTimelines(
+
+export const filterTimelines = traceEngine("filterTimelines", (
   rawTimelines: Map<string, EmployeeEventTimeline>,
   filters: { trainer?: string; validMonths?: string[] }
-): Map<string, EmployeeEventTimeline> {
+): Map<string, EmployeeEventTimeline> => {
+
   const filtered = new Map<string, EmployeeEventTimeline>();
 
   for (const [empId, timeline] of rawTimelines.entries()) {
@@ -182,12 +187,14 @@ export function filterTimelines(
     }
   }
   return filtered;
-}
+});
 
-export function buildAPMonthlyMatrix(
+
+export const buildAPMonthlyMatrix = traceEngine("buildAPMonthlyMatrix", (
   timelines: Map<string, EmployeeEventTimeline>,
   fyMonths: string[]
-): APAggregates {
+): APAggregates => {
+
   const clusterMonthMap: Record<string, APMonthMapNode> = {};
   const teamMonthMap: Record<string, Record<string, APMonthMapNode>> = {};
   const DUMMY_TEAMS = new Set(['Team A', '—', 'Unknown Team']);
@@ -265,14 +272,17 @@ export function buildAPMonthlyMatrix(
       compositeScore: scoredSessions > 0 ? totalScoreSum / scoredSessions : 0
     }
   };
-}
+});
+
+
 
 // ─── PERFORMANCE ENGINE ──────────────────────────────────────────────────────
 
-export function getAPPerformanceAggregates(
+export const getAPPerformanceAggregates = traceEngine("getAPPerformanceAggregates", (
   filteredTimelines: Map<string, EmployeeEventTimeline>,
   fyMonths: string[]
-): APPerformanceAggregates {
+): APPerformanceAggregates => {
+
   const clusterMap: Record<string, APClusterRow> = {};
   const DUMMY_TEAMS = new Set(['Team A', '—', 'Unknown Team']);
   let globalKnowledgeSum = 0;
@@ -377,7 +387,9 @@ export function getAPPerformanceAggregates(
       highPerformersPct: uniqueCandidateIds.size > 0 ? (highPerformersCount / uniqueCandidateIds.size) * 100 : 0
     }
   };
-}
+});
+
+
 
 export function getAPDrilldownList(
   filteredTimelines: Map<string, EmployeeEventTimeline>,

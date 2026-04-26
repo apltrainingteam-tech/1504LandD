@@ -4,7 +4,9 @@
  */
 import { normalizeText } from '../utils/textNormalizer';
 import { normalizeScore } from '../utils/scoreNormalizer';
+import { traceEngine } from '../debug/traceEngine';
 import { Employee } from '../../types/employee';
+
 
 /**
  * Robust Training Type Normalizer (STRICT)
@@ -42,14 +44,15 @@ const avgScores = (scores: Record<string, number | null> | undefined): number =>
 };
 
 // ─── UNIFIED DATASET BUILDER ───────────────────────────────────────────────
-export function buildUnifiedDataset(
+export const buildUnifiedDataset = traceEngine("buildUnifiedDataset", (
   emps: Employee[],
   att: Attendance[],
   scs: TrainingScore[],
   noms: TrainingNomination[],
   eligibilityResults: EligibilityResult[] = [],
   masterTeams: Team[]
-): UnifiedRecord[] {
+): UnifiedRecord[] => {
+
   const teamMap = Object.fromEntries(masterTeams.map(t => [t.id, t]));
   const empMap = new Map<string, Employee>();
   for (const e of emps) {
@@ -130,7 +133,8 @@ export function buildUnifiedDataset(
       eligibilityReason: el?.reasonIfNotEligible
     } as UnifiedRecord;
   }).filter((r): r is UnifiedRecord => !!r);
-}
+});
+
 
 // ─── FILTER ENGINE ─────────────────────────────────────────────────────────
 export function applyFilters(ds: UnifiedRecord[], filter: ReportFilter, masterTeams: Team[]): UnifiedRecord[] {

@@ -133,6 +133,8 @@ export async function uploadTrainingDataStrict(
         await clearCollection(collectionName);
       }
 
+      const uploadBatchId = `batch-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+      
       // Upload in chunks
       for (let i = 0; i < validRows.length; i += chunkSize) {
         const chunk = validRows.slice(i, i + chunkSize);
@@ -145,10 +147,12 @@ export async function uploadTrainingDataStrict(
             return {
               _id,
               ...row,
+              uploadBatchId,
               uploadedAt: new Date(),
               uploadedBy: 'system'
             };
           });
+
 
           // Upload batch via API (backend handles upsert)
           await addBatch(collectionName, docsToInsert);
@@ -233,9 +237,14 @@ export async function uploadTrainingDataStrict(
   }
 }
 
+export async function validateFile(file: File): Promise<ParseResult> {
+  return await parseExcelFileStrict(file);
+}
+
 /**
  * Format upload result for user display
  */
+
 export function formatUploadResult(result: UploadResult): string {
   if (!result.success) {
     return (

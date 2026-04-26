@@ -9,6 +9,8 @@ import { standardizeDesignation } from '../utils/designationMapper';
 import { getTeamId } from '../utils/teamIdMapper';
 import { Team } from '../context/MasterDataContext';
 import { STATE_ZONE } from '../../seed/masterData';
+import { traceEngine } from '../debug/traceEngine';
+
 
 // Zone lookup from state
 const getZoneFromState = (state?: string): string => {
@@ -155,7 +157,8 @@ export const aggregateClusterMetrics = (groupedData: Map<string, Map<string, Gap
 // enrichEmployees removed - using Master Data directly in computeGapAnalysis
 
 // Main function to compute gap analysis
-export const computeGapAnalysis = (
+export const computeGapAnalysis = traceEngine("computeGapAnalysis", (
+
   trainingType: TrainingType,
   employees: Employee[],
   attendance: Attendance[],
@@ -163,6 +166,7 @@ export const computeGapAnalysis = (
   masterTeams: Team[],
   zoneFilter?: string
 ): { data: GapAnalysisData[], drilldownData: Map<string, EmployeeGapDetail[]> } => {
+
   // Training type mapping for common variations
   const trainingTypeMap: { [key: string]: TrainingType } = {
     'REFRESHER_SO': 'Refresher',
@@ -382,7 +386,8 @@ export const computeGapAnalysis = (
   });
 
   return { data, drilldownData };
-};
+});
+
 
 /**
  * Partial Recompute for Gap Engine

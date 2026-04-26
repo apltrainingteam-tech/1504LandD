@@ -95,7 +95,9 @@ interface MasterDataContextType {
   debugIndex: DebugIndex | null;
   activeDebugContext: number[]; // row indexes
   setActiveDebugContext: (indexes: number[]) => void;
+  patchRecord: (module: "trainingData" | "nomination" | "employee", recordId: string, field: string, newValue: any) => void;
 }
+
 
 
 const MasterDataContext = createContext<MasterDataContextType | undefined>(undefined);
@@ -221,8 +223,10 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
     const masterInfo = {
       employeeIds: new Set(finalData.employeeData.map((e: Employee) => String(e.employeeId))),
       teamNames: new Set(teams.map(t => t.teamName.toUpperCase())),
-      trainerIds: new Set(trainers.map(t => t.id))
+      trainerIds: new Set(trainers.map(t => t.id)),
+      rawMasterTeams: teams.map(t => t.teamName)
     };
+
 
     return [
       ...validateTrainingData(finalData.trainingData, masterInfo),
@@ -327,16 +331,28 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
     return buildDebugIndex(baseData.trainingData);
   }, [baseData.trainingData]);
 
+  const patchRecord = (module: "trainingData" | "nomination" | "employee", recordId: string, field: string, newValue: any) => {
+    addEdit({
+      id: `edit-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      module: module,
+      recordId,
+      field,
+      newValue,
+      timestamp: Date.now(),
+      status: 'applied'
+    });
+  };
+
   return (
     <MasterDataContext.Provider value={{
       clusters, trainers, teams, eligibilityRules, loading,
       addTrainer, updateTrainer, deleteTrainer,
-      addTeam, updateTeam, deleteTeam, addCluster,
+      addTeam, updateTeam, deleteTeam,
+      addCluster,
       baseData, finalData, edits, validationErrors, activeError,
-      addEdit, bulkEdit, clearEdits, setActiveError,
-      refreshTransactional: loadTransactionalData,
-      errorIndex,
-      debugMode, setDebugMode, debugIndex, activeDebugContext, setActiveDebugContext
+      addEdit, bulkEdit, clearEdits, setActiveError, refreshTransactional: loadTransactionalData, errorIndex,
+      debugMode, setDebugMode, debugIndex, activeDebugContext, setActiveDebugContext,
+      patchRecord
     }}>
       {children}
     </MasterDataContext.Provider>

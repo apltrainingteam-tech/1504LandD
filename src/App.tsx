@@ -48,6 +48,8 @@ import { GapAnalysis } from './features/gap-analysis/GapAnalysis';
 import { RecruitmentQuality } from './features/srm/RecruitmentQuality';
 import { TrainingCalendar } from './features/calendar/TrainingCalendar';
 import { MasterSettings } from './features/settings/MasterSettings';
+import { DebugPanel } from './shared/components/debug/DebugPanel';
+
 import { PerformanceCharts } from './features/dashboard/PerformanceCharts';
 import { DataQualityCenter } from './features/dashboard/DataQualityCenter';
 
@@ -310,8 +312,12 @@ const App = () => {
         <PageTransition pageKey={view}>
           {renderView()}
         </PageTransition>
+
+        {/* Global Debug Layer */}
+        <DebugPanel />
       </main>
         </div>
+
         </FilterProvider>
       </PlanningFlowProvider>
   );

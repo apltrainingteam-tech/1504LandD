@@ -1,9 +1,10 @@
 import { useState, useRef, useCallback } from 'react';
-import { uploadTrainingDataStrict, UploadProgress, UploadResult } from '../../../core/engines/uploadEngine';
+import { uploadTrainingDataStrict, validateFile, UploadProgress, UploadResult } from '../../../core/engines/uploadEngine';
+import { ParseResult, getValidRows, getErrorRows } from '../../../core/engines/parsingEngine';
 import { addBatch } from '../../../core/engines/apiClient';
 
 export const useUploadAction = (onUploadComplete?: () => void) => {
-  const [step, setStep] = useState<'upload' | 'uploading' | 'done'>('upload');
+  const [step, setStep] = useState<'upload' | 'preview' | 'uploading' | 'done'>('upload');
   const [uploadProgress, setUploadProgress] = useState<UploadProgress>({
     stage: 'parsing',
     processed: 0,
@@ -11,11 +12,35 @@ export const useUploadAction = (onUploadComplete?: () => void) => {
     message: 'Ready to upload'
   });
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
+  const [previewResult, setPreviewResult] = useState<ParseResult | null>(null);
   const [uploadMode, setUploadMode] = useState<'append' | 'replace'>('append');
   
   const isMountedRef = useRef(true);
 
-  const startUpload = useCallback(async (file: File) => {
+  const startValidation = useCallback(async (file: File) => {
+    setStep('uploading');
+    setUploadProgress({
+      stage: 'parsing',
+      processed: 30,
+      total: 100,
+      message: 'Validating file...'
+    });
+
+    try {
+      const result = await validateFile(file);
+      if (isMountedRef.current) {
+        setPreviewResult(result);
+        setStep('preview');
+      }
+    } catch (err: any) {
+      if (isMountedRef.current) {
+        alert(`Validation failed: ${err.message}`);
+        setStep('upload');
+      }
+    }
+  }, []);
+
+  const confirmUpload = useCallback(async (file: File) => {
     setStep('uploading');
     setUploadResult(null);
     setUploadProgress({
@@ -51,8 +76,6 @@ export const useUploadAction = (onUploadComplete?: () => void) => {
           totalRows: 0,
           uploadedRows: 0,
           rejectedRows: 0,
-          activeEmployees: 0,
-          inactiveEmployees: 0,
           errors: [{ rowNum: 0, message: errorMsg }],
           warnings: [],
           debugLog: errorMsg
@@ -61,6 +84,7 @@ export const useUploadAction = (onUploadComplete?: () => void) => {
       }
     }
   }, [uploadMode, onUploadComplete]);
+
 
   const testInsert = useCallback(async () => {
     try {
@@ -88,9 +112,12 @@ export const useUploadAction = (onUploadComplete?: () => void) => {
     uploadResult,
     uploadMode,
     setUploadMode,
-    startUpload,
+    previewResult,
+    startValidation,
+    confirmUpload,
     testInsert,
     setUploadResult,
     setUploadProgress
   };
 };
+

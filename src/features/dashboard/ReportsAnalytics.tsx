@@ -704,14 +704,25 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                       </tr>
                     </thead>
                     <tbody>
-                      {getDebugData(activeDebugContext, attendance as any).map((row, i) => (
+                      {getDebugData(activeDebugContext, attendance as any).map((row: any, i) => (
                         <tr key={i} className="hover-highlight">
-                          {Object.values(row || {}).map((v: any, j) => (
-                            <td key={j} className="text-xs">{String(v)}</td>
+                          {Object.keys(row || {}).map((k) => (
+                            <td 
+                              key={k} 
+                              className={`text-xs ${activeError?.field === k ? 'bg-danger/10 border-l-2 border-danger' : ''}`}
+                              onDoubleClick={() => {
+                                const newVal = prompt(`Edit ${k}:`, String(row[k]));
+                                if (newVal !== null) patchRecord('trainingData', row.id, k, newVal);
+                              }}
+                              title="Double-click to edit"
+                            >
+                              {String(row[k])}
+                            </td>
                           ))}
                         </tr>
                       ))}
                     </tbody>
+
                  </table>
                </div>
              </div>

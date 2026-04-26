@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { buildUnifiedDataset, applyFilters, normalizeTrainingType } from '../../../core/engines/reportEngine';
 import { getEligibleEmployees } from '../../../core/engines/eligibilityEngine';
 import { getFiscalMonths } from '../../../core/utils/fiscalYear';
@@ -18,6 +18,10 @@ import { Attendance, TrainingScore, TrainingNomination, EligibilityRule, Trainin
 import { ReportFilter, ViewByOption } from '../../../types/reports';
 import { PerformanceDataset } from '../../../core/contracts/performance.contract';
 import { globalComputationCaches } from '../../../core/utils/computationCache';
+import { logStep } from '../../../core/debug/pipelineTracer';
+import { saveSnapshot } from '../../../core/debug/snapshotStore';
+import { saveSession } from '../../../core/debug/debugSession';
+
 
 // Domain Hooks
 import { useIPData } from './useIPData';
@@ -62,50 +66,69 @@ export const usePerformanceData = ({
   tab, selectedFY, filter, viewBy = 'Team', tsMode = 'score', pageMode
 }: UsePerformanceDataProps): PerformanceDataset => {
 
+  useEffect(() => {
+    saveSession({ employees, attendance, scores, nominations, rules, masterTeams, tab, selectedFY, filter });
+  }, [employees, attendance, scores, nominations, rules, masterTeams, tab, selectedFY, filter]);
+
+
   const MONTHS = useMemo(() => getFiscalMonths(selectedFY), [selectedFY]);
   const activeNT = useMemo(() => normalizeTrainingType(tab), [tab]);
 
   // Data Normalization (Heavy - Cached internally)
   const normalizedAttendance = useMemo(() => {
-    return attendance.map(a => {
-      let m = a.month || a.attendanceDate || '';
-      if (m && !/^\d{4}-\d{2}$/.test(m)) m = m.substring(0, 7);
-      return { ...a, month: m };
+    return logStep("Attendance Normalization", () => {
+      const result = attendance.map(a => {
+        let m = a.month || a.attendanceDate || '';
+        if (m && !/^\d{4}-\d{2}$/.test(m)) m = m.substring(0, 7);
+        return { ...a, month: m };
+      });
+      saveSnapshot("normalizedAttendance", result);
+      return result;
     });
   }, [attendance]);
 
+
   const rawUnified = useMemo(() => {
-    // We use a simple hash of input lengths to decide if we should re-compute
-    const inputHash = [employees.length, attendance.length, scores.length, nominations.length, rules.length].join('|');
-    
-    return globalComputationCaches.grouping.compute([inputHash, activeNT], () => {
-      const att = normalizedAttendance.filter(a => normalizeTrainingType(a.trainingType) === activeNT);
-      const scs = scores.filter(s => normalizeTrainingType(s.trainingType) === activeNT);
-      const noms = nominations
-        .map(n => {
-          let m = n.month || n.notificationDate || '';
-          if (m && !/^\d{4}-\d{2}$/.test(m)) m = m.substring(0, 7);
-          return { ...n, month: m };
-        })
-        .filter(n => normalizeTrainingType(n.trainingType) === activeNT);
-        
-      const rule = rules.find(r => normalizeTrainingType(r.trainingType) === activeNT);
-      const eligResults = getEligibleEmployees(tab as TrainingType, rule, employees, attendance, nominations);
+    return logStep("Unified Dataset Construction", () => {
+      // We use a simple hash of input lengths to decide if we should re-compute
+      const inputHash = [employees.length, attendance.length, scores.length, nominations.length, rules.length].join('|');
       
-      return buildUnifiedDataset(employees, att, scs, noms, eligResults, masterTeams);
+      const result = globalComputationCaches.grouping.compute([inputHash, activeNT], () => {
+        const att = normalizedAttendance.filter(a => normalizeTrainingType(a.trainingType) === activeNT);
+        const scs = scores.filter(s => normalizeTrainingType(s.trainingType) === activeNT);
+        const noms = nominations
+          .map(n => {
+            let m = n.month || n.notificationDate || '';
+            if (m && !/^\d{4}-\d{2}$/.test(m)) m = m.substring(0, 7);
+            return { ...n, month: m };
+          })
+          .filter(n => normalizeTrainingType(n.trainingType) === activeNT);
+          
+        const rule = rules.find(r => normalizeTrainingType(r.trainingType) === activeNT);
+        const eligResults = getEligibleEmployees(tab as TrainingType, rule, employees, attendance, nominations);
+        
+        return buildUnifiedDataset(employees, att, scs, noms, eligResults, masterTeams);
+      });
+      saveSnapshot("rawUnified", result);
+      return result;
     });
   }, [activeNT, normalizedAttendance, scores, nominations, employees, masterTeams, rules, tab, attendance]);
 
+
   const unified = useMemo(() => {
-    let ds = applyFilters(rawUnified, filter, masterTeams);
-    if (['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'PRE_AP'].includes(tab)) {
-      ds = ds.filter(r => {
-        const m = r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7);
-        return MONTHS.includes(m);
-      });
-    }
-    return ds;
+    return logStep("Filter Application", () => {
+      let ds = applyFilters(rawUnified, filter, masterTeams);
+      if (['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'PRE_AP'].includes(tab)) {
+        ds = ds.filter(r => {
+          const m = r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7);
+          return MONTHS.includes(m);
+        });
+      }
+      saveSnapshot("filteredUnified", ds);
+      return ds;
+    });
   }, [rawUnified, filter, tab, MONTHS, masterTeams]);
+
 
   // Domain Orchestration
   const tabNoms = useMemo(() => nominations.filter(n => normalizeTrainingType(n.trainingType) === activeNT), [nominations, activeNT]);

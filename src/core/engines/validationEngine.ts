@@ -1,10 +1,12 @@
 import { ValidationError } from '../contracts/validation.contract';
 import { getSchema } from '../constants/trainingSchemas';
+import { getClosestMatches } from '../utils/suggestionEngine';
 
 export interface ValidationMasterData {
   employeeIds: Set<string>;
   teamNames: Set<string>;
   trainerIds: Set<string>;
+  rawMasterTeams: string[]; // Add this for suggestions
 }
 
 export function validateTrainingData(data: any[], masterData: ValidationMasterData): ValidationError[] {
@@ -23,6 +25,7 @@ export function validateTrainingData(data: any[], masterData: ValidationMasterDa
           rowIndex: index,
           recordId,
           field,
+          column: field,
           value: row[field],
           errorType: 'MISSING_FIELD',
           message: `Field '${field}' is required for ${type} training.`
@@ -38,26 +41,30 @@ export function validateTrainingData(data: any[], masterData: ValidationMasterDa
         rowIndex: index,
         recordId,
         field: 'employeeId',
+        column: 'Employee ID',
         value: row.employeeId,
         errorType: 'UNKNOWN_VALUE',
-        message: `Employee ID '${row.employeeId}' not found in Master Roster.`
+        message: `Employee ID '${row.employeeId}' not found in Master Roster.`,
+        suggestions: getClosestMatches(String(row.employeeId), Array.from(masterData.employeeIds))
       });
     }
 
     // Team existence check (if present)
     if (row.team && !masterData.teamNames.has(row.team.toUpperCase())) {
-       // We use MAPPING_ERROR if it doesn't match master teams
        errors.push({
          id: `${recordId}-team-unknown`,
          module: 'trainingData',
          rowIndex: index,
          recordId,
          field: 'team',
+         column: 'Team',
          value: row.team,
          errorType: 'MAPPING_ERROR',
-         message: `Team '${row.team}' not found in Team Master.`
+         message: `Team '${row.team}' not found in Team Master.`,
+         suggestions: getClosestMatches(row.team, masterData.rawMasterTeams)
        });
     }
+
 
     // Score numeric check
     schema.scoreFields.forEach(field => {
