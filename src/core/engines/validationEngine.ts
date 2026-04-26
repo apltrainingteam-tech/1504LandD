@@ -1,6 +1,7 @@
 import { ValidationError } from '../contracts/validation.contract';
 import { getSchema } from '../constants/trainingSchemas';
-import { getClosestMatches } from '../utils/suggestionEngine';
+// NOTE: getClosestMatches removed from validation loop — was causing O(n×m) freeze.
+// Suggestions are now computed on-demand when user clicks an error, not during validation.
 import { traceEngine } from '../debug/traceEngine';
 
 export interface ValidationMasterData {
@@ -45,8 +46,7 @@ export const validateTrainingData = traceEngine("validateTrainingData", (data: a
         column: 'Employee ID',
         value: row.employeeId,
         errorType: 'UNKNOWN_VALUE',
-        message: `Employee ID '${row.employeeId}' not found in Master Roster.`,
-        suggestions: getClosestMatches(String(row.employeeId), Array.from(masterData.employeeIds))
+        message: `Employee ID '${row.employeeId}' not found in Master Roster.`
       });
     }
 
@@ -61,8 +61,7 @@ export const validateTrainingData = traceEngine("validateTrainingData", (data: a
          column: 'Team',
          value: row.team,
          errorType: 'MAPPING_ERROR',
-         message: `Team '${row.team}' not found in Team Master.`,
-         suggestions: getClosestMatches(row.team, masterData.rawMasterTeams)
+         message: `Team '${row.team}' not found in Team Master.`
        });
     }
 

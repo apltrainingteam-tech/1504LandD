@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useCallback, useRef } from 'react';
-import { Search, Database, ListChecks, ClipboardList, Users, AlertTriangle, Edit3 } from 'lucide-react';
+import React, { useState, useCallback, useRef } from 'react';
+import { Search, Database, ListChecks, ClipboardList, Users, AlertTriangle, Edit3, ShieldAlert } from 'lucide-react';
 import { useMasterData } from '../../core/context/MasterDataContext';
 import { createUpdateEdit } from '../../core/engines/editEngine';
 import { getClosestMatch } from '../../core/utils/stringMatch';
@@ -7,7 +7,7 @@ import styles from './DataQualityCenter.module.css';
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const ROW_HARD_LIMIT = 50;
-const SEARCH_DEBOUNCE_MS = 250;
+const SEARCH_DEBOUNCE_MS = 300;
 
 type Module = 'trainingData' | 'nomination' | 'employee';
 
@@ -23,50 +23,87 @@ const HEADERS: Record<Module, string[]> = {
   employee:     ['Employee ID', 'Name', 'Designation', 'Team', 'HQ'],
 };
 
-// ─── LIGHTWEIGHT SCANNER — no pre-index, O(n) with early exit at 50 ─────────
-// Runs in ~5ms even on 25k rows because it stops as soon as limit is reached.
+// ─── LIGHTWEIGHT SCANNER — O(n) with hard early exit at limit ────────────────
 function scanRows(data: any[], query: string, limit: number): any[] {
   if (!query || !data.length) return [];
   const q = query.toLowerCase().trim();
   if (!q) return [];
-
-  const results: any[] = [];
+  const out: any[] = [];
   for (let i = 0; i < data.length; i++) {
-    if (results.length >= limit) break;
+    if (out.length >= limit) break;
     const row = data[i];
-    const values = Object.values(row);
-    for (let j = 0; j < values.length; j++) {
-      const v = values[j];
-      if (v !== null && v !== undefined && String(v).toLowerCase().includes(q)) {
-        results.push(row);
-        break; // matched — move to next row
+    const vals = Object.values(row);
+    for (let j = 0; j < vals.length; j++) {
+      const v = vals[j];
+      if (v != null && String(v).toLowerCase().includes(q)) {
+        out.push(row);
+        break;
       }
     }
   }
-  return results;
+  return out;
 }
 
-// ─── COMPONENT ────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// EXPORTED COMPONENT — 100% dormant wrapper. Zero hooks. Zero context.
+// Nothing runs until user clicks "Activate Inspector".
+// ═══════════════════════════════════════════════════════════════════════════════
 export const DataQualityCenter: React.FC = () => {
-  const { baseData, validationErrors, addEdit, teams: masterTeams } = useMasterData();
+  const [isActive, setIsActive] = useState(false);
+
+  if (!isActive) {
+    return (
+      <div className={`animate-fade-in ${styles.page}`}>
+        <div className={styles.header}>
+          <div>
+            <h1 className={styles.title}>Data Quality Inspector</h1>
+            <p className={styles.subtitle}>Search-only diagnostic view for data records</p>
+          </div>
+        </div>
+        <div className="glass-panel p-48 flex flex-col items-center gap-20 text-center mt-24">
+          <ShieldAlert size={48} className="text-warning opacity-50" />
+          <h2 className="text-xl font-bold">Inspector is Dormant</h2>
+          <p className="text-sm text-muted max-w-480">
+            No data is loaded or computed until you explicitly activate this panel.
+            Once active, search specific records by any field value.
+          </p>
+          <button
+            className="btn btn-primary px-32 py-12"
+            onClick={() => setIsActive(true)}
+          >
+            Activate Inspector
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return <ActiveInspector />;
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// INNER — only mounted after explicit activation click.
+// This is where useMasterData() is called — never before.
+// ═══════════════════════════════════════════════════════════════════════════════
+const ActiveInspector: React.FC = () => {
+  const { baseData, teams: masterTeams, addEdit, validationErrors } = useMasterData();
 
   const [activeModule, setActiveModule] = useState<Module>('trainingData');
-  const [query, setQuery]               = useState('');
-  const [results, setResults]           = useState<any[]>([]);
-  const [hasSearched, setHasSearched]   = useState(false);
-  const debounceRef                     = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [query, setQuery]             = useState('');
+  const [results, setResults]         = useState<any[]>([]);
+  const [hasSearched, setHasSearched] = useState(false);
+  const debounceRef                   = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ─── Active source dataset (ref — no re-render) ──────────────────────────
-  const activeSource = useMemo(() => {
-    if (activeModule === 'trainingData') return baseData.trainingData;
-    if (activeModule === 'nomination')   return baseData.nominationData;
+  // ─── Get active source array by module ────────────────────────────────────
+  const getSource = useCallback((mod: Module) => {
+    if (mod === 'trainingData') return baseData.trainingData;
+    if (mod === 'nomination')   return baseData.nominationData;
     return baseData.employeeData as any[];
-  }, [activeModule, baseData]);
+  }, [baseData]);
 
-  // ─── Debounced search — fires scanRows only after user pauses typing ──────
+  // ─── Debounced search ─────────────────────────────────────────────────────
   const handleSearch = useCallback((raw: string) => {
     setQuery(raw);
-
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     if (!raw.trim()) {
@@ -76,12 +113,10 @@ export const DataQualityCenter: React.FC = () => {
     }
 
     debounceRef.current = setTimeout(() => {
-      // scanRows is O(n) with early exit — runs in < 10ms for 25k rows
-      const found = scanRows(activeSource, raw, ROW_HARD_LIMIT);
-      setResults(found);
+      setResults(scanRows(getSource(activeModule), raw, ROW_HARD_LIMIT));
       setHasSearched(true);
     }, SEARCH_DEBOUNCE_MS);
-  }, [activeSource]);
+  }, [activeModule, getSource]);
 
   // ─── Module switch ────────────────────────────────────────────────────────
   const handleModuleSwitch = (m: Module) => {
@@ -92,7 +127,7 @@ export const DataQualityCenter: React.FC = () => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
   };
 
-  // ─── Edit cell (only when results exist) ─────────────────────────────────
+  // ─── Edit — gated behind results.length > 0 ──────────────────────────────
   const handleCellEdit = useCallback((recordId: string, field: string, current: any) => {
     if (!results.length) return;
     const next = prompt(`Edit ${field}:`, current);
@@ -101,7 +136,7 @@ export const DataQualityCenter: React.FC = () => {
     }
   }, [results, addEdit, activeModule]);
 
-  // ─── Bulk fix (only when results exist) ──────────────────────────────────
+  // ─── Bulk fix — gated behind results.length > 0 ──────────────────────────
   const handleBulkFix = useCallback((field: string, oldValue: any) => {
     if (!results.length) return;
     const master = field === 'team' ? masterTeams.map(t => t.teamName) : [];
@@ -120,9 +155,11 @@ export const DataQualityCenter: React.FC = () => {
   // ─── Row renderer ─────────────────────────────────────────────────────────
   const renderRow = (row: any, idx: number) => {
     const recordId = row.id || row._id || row.employeeId;
-    const rowErrors = validationErrors.filter(
-      e => e.recordId === recordId && e.module === activeModule
-    );
+    // Error check ONLY runs when we have results — never on mount
+    const rowErrors = results.length > 0
+      ? validationErrors.filter(e => e.recordId === recordId && e.module === activeModule)
+      : [];
+
     return (
       <tr key={recordId || idx} className={rowErrors.length > 0 ? styles.highlightedRow : ''}>
         {activeModule === 'trainingData' && (<>
@@ -168,69 +205,54 @@ export const DataQualityCenter: React.FC = () => {
   // ─── RENDER ───────────────────────────────────────────────────────────────
   return (
     <div className={`animate-fade-in ${styles.page}`}>
-
-      {/* Header */}
       <div className={styles.header}>
         <div>
           <h1 className={styles.title}>Data Quality Inspector</h1>
-          <p className={styles.subtitle}>Enter a search term to locate records · Max {ROW_HARD_LIMIT} rows shown</p>
+          <p className={styles.subtitle}>Search to inspect records · Max {ROW_HARD_LIMIT} rows</p>
         </div>
         <div className={styles.moduleTabs}>
-          {MODULES.map(m => {
-            const errCount = validationErrors.filter(e => e.module === m.id).length;
-            return (
-              <button
-                key={m.id}
-                className={`${styles.tab} ${activeModule === m.id ? styles.activeTab : ''}`}
-                onClick={() => handleModuleSwitch(m.id)}
-              >
-                <m.icon size={16} />
-                {m.label}
-                {errCount > 0 && <span className={styles.errorBadge}>{errCount}</span>}
-              </button>
-            );
-          })}
+          {MODULES.map(m => (
+            <button
+              key={m.id}
+              className={`${styles.tab} ${activeModule === m.id ? styles.activeTab : ''}`}
+              onClick={() => handleModuleSwitch(m.id)}
+            >
+              <m.icon size={16} />
+              {m.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Search Bar */}
       <div className="glass-panel p-16 mb-20 relative">
         <Search size={18} className="absolute left-28 top-1/2 transform -translate-y-1/2 text-muted" />
         <input
           id="dqc-search"
           type="text"
           className="form-input pl-44 w-full"
-          placeholder={`Search ${activeModule} — type any value to find records`}
+          placeholder={`Search ${activeModule} — employee ID, name, team…`}
           value={query}
           onChange={e => handleSearch(e.target.value)}
           autoFocus
         />
         {hasSearched && (
           <span className="absolute right-16 top-1/2 transform -translate-y-1/2 text-xs text-muted">
-            {results.length === ROW_HARD_LIMIT
-              ? `${ROW_HARD_LIMIT}+ matches (showing ${ROW_HARD_LIMIT})`
-              : `${results.length} match${results.length !== 1 ? 'es' : ''}`}
+            {results.length >= ROW_HARD_LIMIT ? `${ROW_HARD_LIMIT}+ matches` : `${results.length} match${results.length !== 1 ? 'es' : ''}`}
           </span>
         )}
       </div>
 
-      {/* Body */}
       {!hasSearched ? (
         <div className="glass-panel p-40 flex flex-col items-center gap-12 text-center">
           <Database size={40} className="text-muted opacity-40" />
           <h3 className="text-lg font-bold text-muted">Search to begin</h3>
-          <p className="text-xs text-muted max-w-400">
-            Type any value — employee ID, name, team, training type, date — to locate records instantly.<br/>
-            Results are capped at <strong>{ROW_HARD_LIMIT} rows</strong>.
-          </p>
+          <p className="text-xs text-muted">Type any value. Results capped at {ROW_HARD_LIMIT} rows.</p>
         </div>
-
       ) : results.length === 0 ? (
         <div className="glass-panel p-40 flex flex-col items-center gap-8 text-center">
           <AlertTriangle size={32} className="text-warning opacity-60" />
-          <p className="text-muted text-sm">No records matched <strong>"{query}"</strong> in {activeModule}</p>
+          <p className="text-muted text-sm">No records matched <strong>"{query}"</strong></p>
         </div>
-
       ) : (
         <div className={styles.mainLayout}>
           <div className={styles.tableArea}>
@@ -239,24 +261,13 @@ export const DataQualityCenter: React.FC = () => {
                 <div className="flex-center gap-4">
                   <Database size={16} className="text-muted" />
                   <span className="font-bold text-xs uppercase">{activeModule}</span>
-                  <span className="text-xs text-muted">
-                    {results.length < ROW_HARD_LIMIT
-                      ? `${results.length} rows`
-                      : `${ROW_HARD_LIMIT} rows (limit reached)`}
-                  </span>
+                  <span className="text-xs text-muted">{results.length} rows</span>
                 </div>
               </div>
               <div className={styles.tableContainer}>
                 <table className="data-table">
-                  <thead>
-                    <tr>
-                      {headers.map(h => <th key={h}>{h}</th>)}
-                      <th>Issues</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {results.map((row, idx) => renderRow(row, idx))}
-                  </tbody>
+                  <thead><tr>{headers.map(h => <th key={h}>{h}</th>)}<th>Issues</th></tr></thead>
+                  <tbody>{results.map((row, idx) => renderRow(row, idx))}</tbody>
                 </table>
               </div>
             </div>
