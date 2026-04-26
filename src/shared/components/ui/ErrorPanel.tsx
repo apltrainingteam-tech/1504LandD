@@ -26,8 +26,7 @@ export const ErrorPanel: React.FC = () => {
         </div>
         {activeError && (
           <button 
-            className="btn btn-secondary btn-sm" 
-            style={{ padding: '2px 8px', fontSize: '10px' }}
+            className={`${styles.clearBtn} btn btn-secondary btn-sm`} 
             onClick={() => setActiveError(null)}
           >
             Clear Filter <X size={12} />

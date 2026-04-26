@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, Fragment } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  LineChart, Line, Cell, PieChart, Pie, ScatterChart, Scatter, ZAxis, ComposedChart
+  LineChart, Line, Cell, PieChart, Pie, ScatterChart, Scatter, ZAxis, ComposedChart, ResponsiveContainer
 } from 'recharts';
 import {
   BarChart3, TrendingUp, Users, Target, Table, Trophy, GraduationCap, AlertTriangle, Calendar, Zap, CheckCircle2, Filter, ListOrdered, Info
@@ -158,7 +158,7 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
   }, [timeSeries]);
 
   const trainerScatterData = useMemo(() => {
-    return trainerStats.map((t) => ({ name: t.trainerId, volume: t.trainingsConducted, score: t.avgScore })).sort((a, b) => b.volume - a.volume).slice(0, 30);
+    return trainerStats.map((t: any) => ({ name: t.trainerId, volume: t.trainingsConducted, score: t.avgScore })).sort((a: any, b: any) => b.volume - a.volume).slice(0, 30);
   }, [trainerStats]);
   const { allTeams, allTrainers } = useFilterOptions(employees, attendance, tab, masterTeams, masterTrainers);
   const allClusters = useMemo(() => masterClusters.map(c => c.name), [masterClusters]);
@@ -245,7 +245,7 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
                       <span className="text-secondary">Total Matching Type ({diagnostics.activeNT}):</span> <span className="font-mono font-bold">{diagnostics.typeMatched}</span>
                       <span className="text-secondary">Records with Linked Scores (Global):</span> <span className="font-mono font-bold">{diagnostics.hasScoresTotal}</span>
                       <div className="col-span-2 h-px bg-warning opacity-20 my-1" />
-                      <span className="text-warning font-bold">Selected Year ({diagnostics.selectedFY}):</span> <span className="font-mono font-bold">{diagnostics.fyMatched}</span>
+                      <span className="text-warning font-bold">Selected Year ({selectedFY}):</span> <span className="font-mono font-bold">{diagnostics.fyMatched}</span>
                       <span className="text-secondary"> - Linked Scores in Year:</span> <span className="font-mono font-bold">{diagnostics.withScoresInFY}</span>
                       <span className="text-secondary"> - Passed Normalization:</span> <span className="font-mono font-bold text-primary">{diagnostics.ipNormalizedCount}</span>
                     </div>
@@ -430,7 +430,7 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
                     <ZAxis type="category" dataKey="name" name="Trainer" />
                     <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ borderRadius: '12px' }} />
                     <Scatter name="Trainers" data={trainerScatterData}>
-                      {trainerScatterData.map((e, i) => <Cell key={i} fill={e.score >= 80 ? '#22c55e' : e.score >= 60 ? '#f59e0b' : '#ef4444'} />)}
+                      {trainerScatterData.map((e: any, i: number) => <Cell key={i} fill={e.score >= 80 ? '#22c55e' : e.score >= 60 ? '#f59e0b' : '#ef4444'} />)}
                     </Scatter>
                   </ScatterChart>
                 </ResponsiveContainer>

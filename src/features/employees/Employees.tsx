@@ -1,3 +1,4 @@
+import React, { useState, useMemo } from 'react';
 import { Users, UploadCloud, CheckCircle, X, Check, AlertTriangle, XCircle, Upload, Search, Database, Edit3 } from 'lucide-react';
 import { useMasterData } from '../../core/context/MasterDataContext';
 import { useErrorFilter } from '../../shared/hooks/useErrorFilter';
@@ -139,9 +140,9 @@ export const Employees: React.FC<EmployeesProps> = ({
     filteredData: errorFilteredData, 
     isFiltered: isValidationErrorFiltered, 
     highlights 
-  } = useErrorFilter(activeError, filteredEmployees, 'employee');
+  } = useErrorFilter(activeError, filteredFromParent || [], 'employee');
 
-  const displayEmployees = isValidationErrorFiltered ? errorFilteredData : filteredEmployees;
+  const displayEmployees = isValidationErrorFiltered ? errorFilteredData : (filteredFromParent || []);
 
   const handleCellEdit = (recordId: string, field: string, currentValue: any) => {
     const newValue = prompt(`Edit ${field}:`, currentValue);
@@ -156,8 +157,8 @@ export const Employees: React.FC<EmployeesProps> = ({
     
     if (suggestion && confirm(`Bulk fix '${oldValue}' to '${suggestion}' for all matching records?`)) {
       const affected = employees.filter(e => String((e as any)[field]) === String(oldValue));
-      affected.forEach(emp => {
-        addEdit(createUpdateEdit('employee', emp.id || emp._id || emp.employeeId, { [field]: suggestion }));
+      affected.forEach((emp: any) => {
+        addEdit(createUpdateEdit('employee', emp.id || (emp as any)._id || emp.employeeId, { [field]: suggestion }));
       });
     }
   };
@@ -181,10 +182,10 @@ export const Employees: React.FC<EmployeesProps> = ({
   }
 
   if (step === 'preview') {
-    const validCount = rows.filter(r => r.status === 'valid').length;
-    const warnCount = rows.filter(r => r.status === 'warn').length;
-    const errCount = rows.filter(r => r.status === 'error').length;
-    const uploadableCount = rows.filter(r => r.status !== 'error').length;
+    const validCount = rows.filter((r: any) => r.status === 'valid').length;
+    const warnCount = rows.filter((r: any) => r.status === 'warn').length;
+    const errCount = rows.filter((r: any) => r.status === 'error').length;
+    const uploadableCount = rows.filter((r: any) => r.status !== 'error').length;
 
     return (
       <div className="animate-fade-in">
@@ -310,7 +311,7 @@ export const Employees: React.FC<EmployeesProps> = ({
             aria-label="Filter Designation"
           >
             <option value="">All Designations</option>
-            {designationOptions.map(d => <option key={d} value={d}>{d}</option>)}
+            {designationOptions.map((d: any) => <option key={d} value={d}>{d}</option>)}
           </select>
 
           {/* Team filter */}
@@ -325,7 +326,7 @@ export const Employees: React.FC<EmployeesProps> = ({
             aria-label="Filter Team"
           >
             <option value="">All Teams</option>
-            {teamOptions.map(t => <option key={t} value={t}>{t}</option>)}
+            {teamOptions.map((t: any) => <option key={t} value={t}>{t}</option>)}
           </select>
 
           {/* Zone filter */}
@@ -340,7 +341,7 @@ export const Employees: React.FC<EmployeesProps> = ({
             aria-label="Filter Zone"
           >
             <option value="">All Zones</option>
-            {zoneOptions.map(z => <option key={z} value={z}>{z}</option>)}
+            {zoneOptions.map((z: any) => <option key={z} value={z}>{z}</option>)}
           </select>
 
           {/* Clear filters */}
@@ -378,7 +379,7 @@ export const Employees: React.FC<EmployeesProps> = ({
               </tr>
             </thead>
             <tbody>
-              {displayEmployees.map(emp => (
+              {displayEmployees.map((emp: any) => (
                 <tr key={emp.employeeId} className={highlights.rowIds.has(emp.id || emp._id || emp.employeeId) ? styles.highlightedRow : ''}>
                   <td className={`${styles.tdEmpId} ${highlights.activeField === 'employeeId' ? styles.errorCell : ''}`} onClick={() => handleCellEdit(emp.id || emp._id || emp.employeeId, 'employeeId', emp.employeeId)}>{emp.employeeId}</td>
                   <td className={highlights.activeField === 'name' ? styles.errorCell : ''} onClick={() => handleCellEdit(emp.id || emp._id || emp.employeeId, 'name', emp.name)}>{emp.name}</td>

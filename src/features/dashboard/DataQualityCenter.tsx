@@ -127,7 +127,7 @@ export const DataQualityCenter: React.FC = () => {
                             <td>{row.trainingType}</td>
                             <td className={`${highlights.activeField === 'team' ? styles.errorCell : ''} ${styles.editableCell}`} onClick={() => handleCellEdit(recordId, 'team', row.team)}>
                               {row.team}
-                              {highlights.activeField === 'team' && <button className={styles.bulkFixBtn} onClick={(e) => { e.stopPropagation(); handleBulkFix('team', row.team); }}><Edit3 size={10} /></button>}
+                              {highlights.activeField === 'team' && <button className={styles.bulkFixBtn} onClick={(e) => { e.stopPropagation(); handleBulkFix('team', row.team); }} title="Bulk fix similar team names"><Edit3 size={10} /></button>}
                             </td>
                             <td>{row.attendanceDate}</td>
                             <td>{row.attendanceStatus}</td>

@@ -41,7 +41,7 @@
   padding: 6px 12px;
   font-size: 13px;
   border: 1px solid var(--border-color);
-  borderRadius: 8px;
+  border-radius: 8px;
   background: transparent;
 }
 

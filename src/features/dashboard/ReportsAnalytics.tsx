@@ -26,6 +26,7 @@ import { flagScore, flagClass, flagLabel } from '../../core/utils/scoreNormalize
 import { useFilterOptions } from '../../shared/hooks/computationHooks';
 import { useMasterData } from '../../core/context/MasterDataContext';
 import { usePerformanceData } from './hooks/usePerformanceData';
+import { ProgressBar } from '../../shared/components/ui/ProgressBar';
 
 const ALL_TRAINING_TYPES = ['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'PRE_AP'];
 const VIEW_BY_OPTIONS: ViewByOption[] = ['Team', 'Cluster', 'Month'];
@@ -758,9 +759,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                     <td className="td-center font-mono">{g.total}</td>
                     <td className="td-center font-bold">{g.metric.toFixed(1)}</td>
                     <td>
-                      <div className="progress-bar-container">
-                        <div className={`progress-bar-fill ${flagClass(flagScore(g.metric))}`} style={{ width: `${Math.min(100, g.metric)}%` }} />
-                      </div>
+                      <ProgressBar width={g.metric} colorClass={flagClass(flagScore(g.metric))} />
                     </td>
                   </tr>
                 ))}
@@ -814,9 +813,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                 <td className="font-mono">{t.trainingsConducted}</td>
                 <td className="font-bold">{t.avgScore.toFixed(1)}</td>
                 <td>
-                  <div className="progress-bar-container">
-                    <div className="progress-bar-fill bg-primary" style={{ width: `${(t.avgScore / 100) * 100}%` }} />
-                  </div>
+                  <ProgressBar width={(t.avgScore / 100) * 100} colorClass="bg-primary" />
                 </td>
               </tr>
             ))}
@@ -914,9 +911,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                     <td className="td-center">{data.total}</td>
                     <td className="td-center font-bold">{data.avg.toFixed(1)}</td>
                     <td>
-                      <div className="progress-bar-container">
-                        <div className={`progress-bar-fill ${flagClass(flagScore(data.avg))}`} style={{ width: `${data.avg}%` }} />
-                      </div>
+                      <ProgressBar width={data.avg} colorClass={flagClass(flagScore(data.avg))} />
                     </td>
                   </tr>
                 ))}

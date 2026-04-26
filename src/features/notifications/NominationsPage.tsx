@@ -79,9 +79,9 @@ export const NominationsPage: React.FC<Props> = ({ employees, nominations, atten
   const sessionTeamIds = selectionSession?.teamIds ?? [];
   const sessionType    = selectionSession?.trainingType;
 
+  const [activeTeamId, setActiveTeamId]   = useState<string>(sessionTeamIds[0] ?? '');
   const { teamEmps } = useNominationsData(employees, attendance, nominations, sessionType, activeTeamId, sessionTeamIds);
 
-  const [activeTeamId, setActiveTeamId]   = useState<string>(sessionTeamIds[0] ?? '');
   const [filterMode, setFilterMode]       = useState<FilterMode>('all');
 
   const teamDrafts = useMemo(() => getDrafts({ teamIds: sessionTeamIds }), [getDrafts, sessionTeamIds]);
