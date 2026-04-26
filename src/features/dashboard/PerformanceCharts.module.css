@@ -192,6 +192,13 @@
   width: 100%;
 }
 
+.vizWrapperFixed {
+  width: 100%;
+  height: 350px;
+  position: relative;
+  display: block;
+}
+
 .vizWrapperTall {
   height: 400px;
   width: 100%;

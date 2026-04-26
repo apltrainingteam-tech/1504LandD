@@ -149,9 +149,8 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
     rankingData,
     trendData,
     attFunnelData,
-    diagnostics
   } = useChartData({
-    tab, activeNT, ipData, activePerfData, activeAttData, MONTHS, normalizedAttendance: attendance, rawUnified, unified
+    tab, activeNT, ipData, activePerfData, activeAttData, MONTHS
   });
 
   const tsChartData = useMemo(() => timeSeries.map((r) => ({ label: r.label, ...r.cells })), [timeSeries]);
@@ -239,86 +238,78 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
                     <p className="text-subtitle max-w-400 mx-auto">No records found for {tab} in FY {selectedFY}. This usually means the scores aren't linking to the attendance or the fiscal year filter is excluding all records.</p>
                   </div>
                   
-                  {/* Diagnostics Panel */}
+                  {/* Help Panel — diagnostics removed from chart pipeline */}
                   <div className="max-w-600 mx-auto glass-panel p-20 text-left bg-warning-subtle border-warning">
                     <div className="flex-center gap-2 mb-12 text-warning">
                       <Info size={18} />
-                      <h4 className="m-0 font-bold">Data Diagnostics</h4>
+                      <h4 className="m-0 font-bold">No Data Available</h4>
                     </div>
-                    <div className="grid grid-cols-2 gap-y-3 text-sm">
-                      <span className="text-secondary">Total Matching Type ({diagnostics.activeNT}):</span> <span className="font-mono font-bold">{diagnostics.typeMatched}</span>
-                      <span className="text-secondary">Records with Linked Scores (Global):</span> <span className="font-mono font-bold">{diagnostics.hasScoresTotal}</span>
-                      <div className="col-span-2 h-px bg-warning opacity-20 my-1" />
-                      <span className="text-warning font-bold">Selected Year ({selectedFY}):</span> <span className="font-mono font-bold">{diagnostics.fyMatched}</span>
-                      <span className="text-secondary"> - Linked Scores in Year:</span> <span className="font-mono font-bold">{diagnostics.withScoresInFY}</span>
-                      <span className="text-secondary"> - Passed Normalization:</span> <span className="font-mono font-bold text-primary">{diagnostics.ipNormalizedCount}</span>
-                    </div>
-                    <p className="mt-16 text-xs text-secondary italic">If "Linked Scores" is 0 but "Matching Type" is high, check if Training Type names match exactly in both Attendance and Score sheets.</p>
+                    <p className="text-sm text-secondary">No performance records found for <strong>{tab}</strong> in FY <strong>{selectedFY}</strong>. Check that Training Type names match exactly in both Attendance and Score uploads.</p>
                   </div>
                 </div>
               ) : (
                 <>
                   <div className={`${styles.chartCard} ${styles.chartCardLarge}`}>
                     <div className={styles.chartHeader}><h3 className={styles.chartTitle}><BarChart3 size={18} className={styles.chartTitleIcon} /> Distribution Profile</h3></div>
-                    <div className={styles.vizWrapper}>
-                      <div className={styles.chartScrollWrapper}>
+                    <div className={styles.vizWrapperFixed}>
+                      <ResponsiveContainer width="100%" height="100%">
                         {tab === 'IP' ? (
-                          <BarChart width={1000} height={330} data={distributionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                          <BarChart data={distributionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
                             <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
                             <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} domain={[0, 100]} />
                             <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px' }} />
                             <Legend wrapperStyle={{ paddingTop: '10px' }} />
-                            <Bar minPointSize={0} dataKey="Elite" stackId="a" fill="#22c55e" />
-                            <Bar minPointSize={0} dataKey="High" stackId="a" fill="#3b82f6" />
-                            <Bar minPointSize={0} dataKey="Medium" stackId="a" fill="#f59e0b" />
-                            <Bar minPointSize={0} dataKey="Low" stackId="a" fill="#ef4444" />
+                            <Bar dataKey="Elite" stackId="a" fill="#22c55e" />
+                            <Bar dataKey="High" stackId="a" fill="#3b82f6" />
+                            <Bar dataKey="Medium" stackId="a" fill="#f59e0b" />
+                            <Bar dataKey="Low" stackId="a" fill="#ef4444" />
                           </BarChart>
                         ) : activeNT === 'AP' ? (
-                          <BarChart width={1000} height={330} data={distributionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                          <BarChart data={distributionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
                             <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
                             <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} domain={[0, 100]} />
                             <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px' }} />
                             <Legend wrapperStyle={{ paddingTop: '10px' }} />
-                            <Bar minPointSize={0} dataKey="Knowledge" fill="#3b82f6" barSize={20} />
-                            <Bar minPointSize={0} dataKey="BSE" fill="#22c55e" barSize={20} />
+                            <Bar dataKey="Knowledge" fill="#3b82f6" barSize={20} />
+                            <Bar dataKey="BSE" fill="#22c55e" barSize={20} />
                           </BarChart>
                         ) : (activeNT === 'MIP' || activeNT === 'Refresher') ? (
-                          <BarChart width={1000} height={330} data={distributionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                          <BarChart data={distributionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
                             <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
                             <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} domain={[0, 100]} />
                             <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px' }} />
                             <Legend wrapperStyle={{ paddingTop: '10px' }} />
-                            <Bar minPointSize={0} dataKey="Science" fill="#8b5cf6" barSize={20} />
-                            <Bar minPointSize={0} dataKey="Skill" fill="#06b6d4" barSize={20} />
+                            <Bar dataKey="Science" fill="#8b5cf6" barSize={20} />
+                            <Bar dataKey="Skill" fill="#06b6d4" barSize={20} />
                           </BarChart>
                         ) : (
-                          <BarChart width={1000} height={330} data={distributionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                          <BarChart data={distributionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
                             <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
                             <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} domain={[0, 100]} />
                             <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px' }} />
                             <Legend wrapperStyle={{ paddingTop: '10px' }} />
-                            <Bar minPointSize={0} dataKey="Score" fill="#3b82f6" barSize={30} />
+                            <Bar dataKey="Score" fill="#3b82f6" barSize={30} />
                           </BarChart>
                         )}
-                      </div>
+                      </ResponsiveContainer>
                     </div>
                   </div>
                   <div className={`${styles.chartCard} ${styles.chartCardSmall}`}>
                     <div className={styles.chartHeader}><h3 className={styles.chartTitle}><ListOrdered size={18} className="text-warning" /> Ranking</h3></div>
-                    <div className={styles.vizWrapper}>
-                      <div className={styles.chartHiddenOverflow}>
-                        <BarChart width={350} height={330} layout="vertical" data={rankingData} margin={{ top: 5, right: 10, left: 20, bottom: 5 }}>
-                          <XAxis type="number" hide domain={[0, 100]} /><YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-primary)', fontSize: 10 }} width={80} />
+                    <div className={styles.vizWrapperFixed}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart layout="vertical" data={rankingData} margin={{ top: 5, right: 10, left: 20, bottom: 5 }}>
+                          <XAxis type="number" hide domain={[0, 100]} /><YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-primary)', fontSize: 10 }} width={90} />
                           <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px' }} />
-                          <Bar minPointSize={0} dataKey="score" fill="#3b82f6" barSize={14}>
+                          <Bar dataKey="score" fill="#3b82f6" barSize={14}>
                             {rankingData.map((e, i) => <Cell key={i} fill={i < 3 ? '#22c55e' : i < 7 ? '#3b82f6' : '#f59e0b'} opacity={Math.max(0.5, 1 - (i * 0.04))} />)}
                           </Bar>
                         </BarChart>
-                      </div>
+                      </ResponsiveContainer>
                     </div>
                   </div>
                   <div className={`${styles.chartCard} ${styles.chartCardFull}`}>
@@ -353,13 +344,15 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
                 <div className={styles.chartHeader}><h3 className={styles.chartTitle}><BarChart3 size={18} className="text-primary" /> Attendance Funnel Over Time</h3></div>
                 <div className={styles.vizWrapper}>
                   <div className={styles.chartScrollWrapper}>
-                    <ComposedChart width={1000} height={330} data={attFunnelData}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                      <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
-                      <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px' }} /><Legend />
-                      <Bar minPointSize={0} dataKey="Notified" fill="#3b82f6" barSize={40} /><Bar minPointSize={0} dataKey="Attended" fill="#22c55e" barSize={40} />
-                    </ComposedChart>
+                      <ResponsiveContainer width="99%" height={330}>
+                        <ComposedChart data={attFunnelData}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                          <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
+                          <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
+                          <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px' }} /><Legend />
+                          <Bar dataKey="Notified" fill="#3b82f6" barSize={40} /><Bar dataKey="Attended" fill="#22c55e" barSize={40} />
+                        </ComposedChart>
+                      </ResponsiveContainer>
                   </div>
                 </div>
               </div>

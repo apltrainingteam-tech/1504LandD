@@ -196,7 +196,7 @@ const App = () => {
       case 'demographics': return <Demographics />;
       case 'gap-analysis': return <GapAnalysis employees={emps} attendance={att} nominations={noms} onNavigate={setView} />;
       case 'master-settings': return <MasterSettings />;
-      case 'data-quality': return <DataQualityCenter employees={emps} attendance={att} scores={scs} nominations={noms} />;
+      case 'data-quality': return <DataQualityCenter />;
       case 'dev/engine-debug': return <EngineDebugPanel />;
       default: return <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} />;
     }
