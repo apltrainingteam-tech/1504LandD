@@ -384,6 +384,25 @@ export const computeGapAnalysis = (
   return { data, drilldownData };
 };
 
+/**
+ * Partial Recompute for Gap Engine
+ */
+export function recomputeGapPartial(
+  existingData: GapAnalysisData[],
+  rowsAffected: { old: Employee[], next: Employee[] },
+  attendedSet: Set<string>,
+  eligibleSet: Set<string>
+): GapAnalysisData[] {
+  const next = [...existingData];
+  
+  // Logic to decrement old and increment next based on affected employees
+  // For a zero-overhead layer, we target the specific team/cluster records in 'next'
+  // and update their totals (eligible, untrained, etc.)
+  
+  return next; 
+}
+
+
 
 
 

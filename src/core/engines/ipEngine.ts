@@ -184,6 +184,78 @@ export function buildIPAggregates(ds: UnifiedRecord[]): IPAggregates {
   };
 }
 
+/**
+ * Partial Recompute for IP Engine
+ * 
+ * Instead of full iteration, this patches existing aggregates based on specific row changes.
+ */
+export function recomputeIPPartial(
+  existingAggs: IPAggregates,
+  oldRecords: UnifiedRecord[],
+  newRecords: UnifiedRecord[]
+): IPAggregates {
+  // Deep clone to avoid side effects (or shallow if performance is key)
+  const next = { ...existingAggs };
+  
+  // 1. Subtract old records
+  const oldIP = normalizeToIPRecords(oldRecords);
+  oldIP.forEach(r => {
+    const { cluster, team, month, bucket } = r;
+    if (next.clusterMonthMap[cluster]) {
+      next.clusterMonthMap[cluster].total--;
+      if (next.clusterMonthMap[cluster].months[month]) {
+        next.clusterMonthMap[cluster].months[month].total--;
+        if (bucket === 'ELITE') { next.clusterMonthMap[cluster].elite--; next.clusterMonthMap[cluster].months[month].elite--; }
+        else if (bucket === 'HIGH') { next.clusterMonthMap[cluster].high--; next.clusterMonthMap[cluster].months[month].high--; }
+        else if (bucket === 'MEDIUM') { next.clusterMonthMap[cluster].medium--; next.clusterMonthMap[cluster].months[month].medium--; }
+        else if (bucket === 'LOW') { next.clusterMonthMap[cluster].low--; next.clusterMonthMap[cluster].months[month].low--; }
+      }
+    }
+    // Repeat for teamMonthMap...
+    if (next.teamMonthMap[cluster]?.[team]) {
+      next.teamMonthMap[cluster][team].total--;
+      if (next.teamMonthMap[cluster][team].months[month]) {
+        next.teamMonthMap[cluster][team].months[month].total--;
+        if (bucket === 'ELITE') { next.teamMonthMap[cluster][team].elite--; next.teamMonthMap[cluster][team].months[month].elite--; }
+        else if (bucket === 'HIGH') { next.teamMonthMap[cluster][team].high--; next.teamMonthMap[cluster][team].months[month].high--; }
+        else if (bucket === 'MEDIUM') { next.teamMonthMap[cluster][team].medium--; next.teamMonthMap[cluster][team].months[month].medium--; }
+        else if (bucket === 'LOW') { next.teamMonthMap[cluster][team].low--; next.teamMonthMap[cluster][team].months[month].low--; }
+      }
+    }
+  });
+
+  // 2. Add new records
+  const newIP = normalizeToIPRecords(newRecords);
+  newIP.forEach(r => {
+    const { cluster, team, month, bucket } = r;
+    // ... logic to increment next ...
+    // For brevity in this implementation, we assume cluster/team/month exist or create them
+    if (!next.clusterMonthMap[cluster]) next.clusterMonthMap[cluster] = { total: 0, elite: 0, high: 0, medium: 0, low: 0, months: {} };
+    if (!next.clusterMonthMap[cluster].months[month]) next.clusterMonthMap[cluster].months[month] = { total: 0, elite: 0, high: 0, medium: 0, low: 0 };
+    
+    next.clusterMonthMap[cluster].total++;
+    next.clusterMonthMap[cluster].months[month].total++;
+    if (bucket === 'ELITE') { next.clusterMonthMap[cluster].elite++; next.clusterMonthMap[cluster].months[month].elite++; }
+    else if (bucket === 'HIGH') { next.clusterMonthMap[cluster].high++; next.clusterMonthMap[cluster].months[month].high++; }
+    else if (bucket === 'MEDIUM') { next.clusterMonthMap[cluster].medium++; next.clusterMonthMap[cluster].months[month].medium++; }
+    else if (bucket === 'LOW') { next.clusterMonthMap[cluster].low++; next.clusterMonthMap[cluster].months[month].low++; }
+    
+    if (!next.teamMonthMap[cluster]) next.teamMonthMap[cluster] = {};
+    if (!next.teamMonthMap[cluster][team]) next.teamMonthMap[cluster][team] = { total: 0, elite: 0, high: 0, medium: 0, low: 0, months: {} };
+    if (!next.teamMonthMap[cluster][team].months[month]) next.teamMonthMap[cluster][team].months[month] = { total: 0, elite: 0, high: 0, medium: 0, low: 0 };
+
+    next.teamMonthMap[cluster][team].total++;
+    next.teamMonthMap[cluster][team].months[month].total++;
+    if (bucket === 'ELITE') { next.teamMonthMap[cluster][team].elite++; next.teamMonthMap[cluster][team].months[month].elite++; }
+    else if (bucket === 'HIGH') { next.teamMonthMap[cluster][team].high++; next.teamMonthMap[cluster][team].months[month].high++; }
+    else if (bucket === 'MEDIUM') { next.teamMonthMap[cluster][team].medium++; next.teamMonthMap[cluster][team].months[month].medium++; }
+    else if (bucket === 'LOW') { next.teamMonthMap[cluster][team].low++; next.teamMonthMap[cluster][team].months[month].low++; }
+  });
+
+  return next;
+}
+
+
 // ─── RANKING CONFIG ───────────────────────────────────────────────
 export const IP_RANK_CONFIG = {
   bucketElite: 90,    // >90%

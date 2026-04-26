@@ -1,9 +1,12 @@
 import React, { useState, useMemo, useEffect, Fragment, memo, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import { getDebugData, searchDebug } from '../../core/engines/debugIndexEngine';
+
 import {
   Table, Calendar, GraduationCap, AlertTriangle, ChevronRight, ChevronDown,
-  Trophy, Zap, ShieldCheck, CheckCircle2, ChartNetwork, Download, Filter, X, ListOrdered, BarChart3, TrendingUp, AlertCircle, Users
+  Trophy, Zap, ShieldCheck, CheckCircle2, ChartNetwork, Download, Filter, X, ListOrdered, BarChart3, TrendingUp, AlertCircle, Users, Bug, Search as SearchIcon
 } from 'lucide-react';
+
 import { Employee } from '../../types/employee';
 import { Attendance, TrainingScore, TrainingNomination, Demographics, TrainingType } from '../../types/attendance';
 import { ViewByOption, GroupedData, ReportFilter } from '../../types/reports';
@@ -17,7 +20,9 @@ import { TrainerTable } from '../../features/dashboard/components/TrainerTable';
 import { DrilldownPanel } from '../../features/dashboard/components/DrilldownPanel';
 import { InsightStrip } from '../../features/dashboard/components/InsightStrip';
 import { GlobalFilterPanel } from '../../shared/components/ui/GlobalFilterPanel';
+import { ErrorPanel } from '../../shared/components/ui/ErrorPanel';
 import { GlobalFilters, getActiveFilterCount } from '../../core/context/filterContext';
+
 import { APPerformanceMatrix } from './components/APPerformanceMatrix';
 import { MIPAttendanceMatrix, MIPPerformanceMatrix } from '../../features/dashboard/components/MIPDualMatrix';
 import { RefresherAttendanceMatrix, RefresherPerformanceMatrix } from '../../features/dashboard/components/RefresherDualMatrix';
@@ -48,7 +53,21 @@ type SubView = 'grouped' | 'timeseries' | 'trainer' | 'drilldown' | 'gap' | 'ip_
 const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
   employees, attendance, scores, nominations, demographics, pageMode = 'overview', onNavigate
 }) => {
-  const { trainers: masterTrainers, teams: masterTeams, clusters: masterClusters, eligibilityRules: rules } = useMasterData();
+  const { 
+    trainers: masterTrainers, 
+    teams: masterTeams, 
+    clusters: masterClusters, 
+    eligibilityRules: rules,
+    debugMode,
+    setDebugMode,
+    debugIndex,
+    activeDebugContext,
+    setActiveDebugContext
+  } = useMasterData();
+
+  const [debugSearch, setDebugSearch] = useState('');
+
+
 
   const [pageFilters, setPageFilters] = useState<GlobalFilters>({ cluster: '', team: '', trainer: '', month: '' });
   const activeFilterCount = getActiveFilterCount(pageFilters);
@@ -448,8 +467,51 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
             {activeFilterCount > 0 && <span className="text-xs-bold min-w-16">{activeFilterCount}</span>}
           </button>
           <button className="btn btn-secondary" onClick={handleExport} title="Export CSV"><Download size={16} /></button>
+          
+          <div className="v-divider mx-1" />
+          
+          <button 
+            className={`btn ${debugMode ? 'btn-primary' : 'btn-secondary'}`} 
+            onClick={() => {
+              setDebugMode(!debugMode);
+              if (!debugMode) setActiveDebugContext([]); // Clear on entry
+            }}
+            title={debugMode ? "Exit Debug Mode" : "Enter Debug Mode"}
+          >
+            <Bug size={16} className={debugMode ? 'animate-pulse' : ''} />
+            <span className="ml-2">{debugMode ? 'Debug Mode' : 'Normal'}</span>
+          </button>
         </div>
       </div>
+
+      {debugMode && (
+        <div className="glass-panel p-16 mb-24 flex gap-12 animate-slide-down">
+          <div className="flex-1 relative">
+            <SearchIcon size={18} className="absolute left-12 top-1/2 transform -translate-y-1/2 text-muted" />
+            <input 
+              type="text"
+              className="form-input pl-40 w-full"
+              placeholder="Instant Debug Search (e.g. 'Aureus')..."
+              value={debugSearch}
+              onChange={(e) => {
+                const val = e.target.value;
+                setDebugSearch(val);
+                if (debugIndex && val) {
+                  const results = searchDebug(debugIndex, val);
+                  setActiveDebugContext(results);
+                } else {
+
+                  setActiveDebugContext([]);
+                }
+              }}
+            />
+          </div>
+          <div className="badge badge-info flex-center">
+            {activeDebugContext.length} matches found
+          </div>
+        </div>
+      )}
+
 
       {/* Training Type Tabs */}
       <div className="tab-row">
@@ -479,9 +541,11 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
       </div>
 
       {/* KPI Cards */}
-      {kpiStage === 'loading' ? (
+      {debugMode ? null : kpiStage === 'loading' ? (
         <KPISkeletons />
       ) : (
+
+
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -580,23 +644,34 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
         </motion.div>
       )}
 
+
       {/* Insight Strip */}
-      {tab === 'IP' ? (
-        <InsightStrip
-          text="Performance stable; Revance declining; 120 candidates pending training."
-          variant="primary"
-          icon="trending"
-        />
-      ) : pageMode === 'performance-insights' ? (
-        <InsightStrip
-          text="Iluma leading consistently; Derma shows volatility in last 3 months."
-          variant="primary"
-          icon="check"
-        />
-      ) : null}
+      {!debugMode && (
+        <Fragment>
+          {tab === 'IP' ? (
+            <InsightStrip
+              text="Performance stable; Revance declining; 120 candidates pending training."
+              variant="primary"
+              icon="trending"
+            />
+          ) : pageMode === 'performance-insights' ? (
+            <InsightStrip
+              text="Iluma leading consistently; Derma shows volatility in last 3 months."
+              variant="primary"
+              icon="trending"
+            />
+          ) : (
+            <InsightStrip
+              text={`${tab} Training Cycle: Data suggests increasing coverage. 45 personnel scheduled.`}
+              variant="info"
+              icon="info"
+            />
+          )}
+        </Fragment>
+      )}
 
       {/* Top / Bottom 3 */}
-      {subView === 'grouped' && tab !== 'IP' && tab !== 'AP' && ranked.length > 3 && (
+      {!debugMode && subView === 'grouped' && tab !== 'IP' && tab !== 'AP' && ranked.length > 3 && (
         <div className="grid-2 mb-24">
           <div className="glass-panel p-20 rank-card-success">
             <div className="flex-center mb-4 text-success-bold uppercase"><Trophy size={18} className="mr-2" />Top Performance</div>
@@ -609,7 +684,48 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
         </div>
       )}
 
-      {/* --- IP SPECIFIC VIEWS --- */}
+      {/* Debug Mode Data Isolation Layer */}
+      {debugMode && (
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-24 mt-24">
+          <div className="lg:col-span-3">
+             <div className="glass-panel p-20 border-t-4 border-primary">
+               <h3 className="mb-16 flex-between">
+                  <span>Debug View: Isolation Layer</span>
+                  <span className="text-xs text-muted italic">Only filtered rows shown</span>
+               </h3>
+               <div className="overflow-x-auto max-h-600 custom-scrollbar">
+                 <table className="data-table w-full">
+                    <thead>
+                      <tr>
+                        {activeDebugContext.length > 0 && Object.keys(attendance[0] || {}).map(k => (
+                          <th key={k} className="text-xs uppercase">{k}</th>
+                        ))}
+                        {activeDebugContext.length === 0 && <th>No rows selected for debug. Use search above.</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {getDebugData(activeDebugContext, attendance as any).map((row, i) => (
+                        <tr key={i} className="hover-highlight">
+                          {Object.values(row || {}).map((v: any, j) => (
+                            <td key={j} className="text-xs">{String(v)}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                 </table>
+               </div>
+             </div>
+          </div>
+          <div className="lg:col-span-1">
+            <ErrorPanel />
+          </div>
+        </div>
+      )}
+
+      {/* --- NORMAL MODE SUBVIEWS --- */}
+      {!debugMode && (
+        <Fragment>
+
       {subView === 'ip_matrix' && ipData && (
         matrixStage === 'loading' ? (
           <MatrixSkeleton />
@@ -919,6 +1035,8 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
             </table>
           </div>
         </div>
+      )}
+        </Fragment>
       )}
 
       <GlobalFilterPanel

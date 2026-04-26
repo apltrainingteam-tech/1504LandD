@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
+import { DebugIndex, buildDebugIndex } from '../engines/debugIndexEngine';
+
 
 /**
  * MasterDataContext
@@ -86,7 +88,15 @@ interface MasterDataContextType {
     byField: Record<string, ValidationError[]>;
     byValue: Record<string, ValidationError[]>;
   };
+
+  // --- DEBUG LAYER ---
+  debugMode: boolean;
+  setDebugMode: (mode: boolean) => void;
+  debugIndex: DebugIndex | null;
+  activeDebugContext: number[]; // row indexes
+  setActiveDebugContext: (indexes: number[]) => void;
 }
+
 
 const MasterDataContext = createContext<MasterDataContextType | undefined>(undefined);
 
@@ -142,6 +152,11 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
 
   const [edits, setEdits] = useState<DataEdit[]>([]);
   const [activeError, setActiveError] = useState<ValidationError | null>(null);
+
+  // Debug Layer State
+  const [debugMode, setDebugMode] = useState(false);
+  const [activeDebugContext, setActiveDebugContext] = useState<number[]>([]);
+
 
   // Sync with DB
   const loadMasterData = async () => {
@@ -306,16 +321,22 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
     return idx;
   }, [validationErrors]);
 
+  const debugIndex = useMemo(() => {
+    // Only build index if baseData has content and we are in debugMode or likely to enter it
+    if (baseData.trainingData.length === 0) return null;
+    return buildDebugIndex(baseData.trainingData);
+  }, [baseData.trainingData]);
+
   return (
     <MasterDataContext.Provider value={{
       clusters, trainers, teams, eligibilityRules, loading,
       addTrainer, updateTrainer, deleteTrainer,
-      addTeam, updateTeam, deleteTeam,
-      addCluster,
+      addTeam, updateTeam, deleteTeam, addCluster,
       baseData, finalData, edits, validationErrors, activeError,
       addEdit, bulkEdit, clearEdits, setActiveError,
       refreshTransactional: loadTransactionalData,
-      errorIndex
+      errorIndex,
+      debugMode, setDebugMode, debugIndex, activeDebugContext, setActiveDebugContext
     }}>
       {children}
     </MasterDataContext.Provider>
