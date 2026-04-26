@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
-import { DebugIndex, buildDebugIndex } from '../engines/debugIndexEngine';
 
 
 /**
@@ -89,12 +88,6 @@ interface MasterDataContextType {
     byValue: Record<string, ValidationError[]>;
   };
 
-  // --- DEBUG LAYER ---
-  debugMode: boolean;
-  setDebugMode: (mode: boolean) => void;
-  debugIndex: DebugIndex | null;
-  activeDebugContext: number[]; // row indexes
-  setActiveDebugContext: (indexes: number[]) => void;
   patchRecord: (module: "trainingData" | "nomination" | "employee", recordId: string, field: string, newValue: any) => void;
 }
 
@@ -155,11 +148,7 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
   const [edits, setEdits] = useState<DataEdit[]>([]);
   const [activeError, setActiveError] = useState<ValidationError | null>(null);
 
-  // Debug Layer State
-  const [debugMode, setDebugMode] = useState(false);
-  const [activeDebugContext, setActiveDebugContext] = useState<number[]>([]);
-
-
+  // Removed Debug Layer State
   // Sync with DB
   const loadMasterData = async () => {
     setLoading(true);
@@ -325,11 +314,7 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
     return idx;
   }, [validationErrors]);
 
-  const debugIndex = useMemo(() => {
-    // Only build index if baseData has content and we are in debugMode or likely to enter it
-    if (baseData.trainingData.length === 0) return null;
-    return buildDebugIndex(baseData.trainingData);
-  }, [baseData.trainingData]);
+  // --- DEBUG INDEXES removed from context — built lazily in DataQualityCenter ---
 
   const patchRecord = (module: "trainingData" | "nomination" | "employee", recordId: string, field: string, newValue: any) => {
     addEdit({
@@ -351,8 +336,7 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
       addCluster,
       baseData, finalData, edits, validationErrors, activeError,
       addEdit, bulkEdit, clearEdits, setActiveError, refreshTransactional: loadTransactionalData, errorIndex,
-      debugMode, setDebugMode, debugIndex, activeDebugContext, setActiveDebugContext,
-      patchRecord
+      patchRecord,
     }}>
       {children}
     </MasterDataContext.Provider>

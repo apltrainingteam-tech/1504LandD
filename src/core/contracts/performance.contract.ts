@@ -50,4 +50,5 @@ export interface PerformanceDataset {
   refresherKPI: any;
   capsuleKPI: any;
   preApKPI: any;
+  isDebugMode?: boolean;
 }

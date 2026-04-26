@@ -1,14 +1,15 @@
-import { SNAPSHOT_ENABLED } from '../constants/debugConfig';
+import { SNAPSHOT_ENABLED } from "../constants/debugConfig";
 
 const snapshots: Record<string, any> = {};
 
 export function saveSnapshot(key: string, data: any) {
   if (!SNAPSHOT_ENABLED) return;
-  
   try {
-    snapshots[key] = JSON.parse(JSON.stringify(data)); // structuredClone might fail on some objects
+    snapshots[key] = structuredClone(data);
   } catch (e) {
-    console.warn(`[Snapshot] Failed to save snapshot for ${key}`, e);
+    console.warn(`[Snapshot] Failed to clone data for key: ${key}`, e);
+    // Fallback if structuredClone fails (e.g. for non-serializable objects)
+    snapshots[key] = data; 
   }
 }
 
@@ -17,7 +18,7 @@ export function getSnapshot(key: string) {
 }
 
 export function getAllSnapshots() {
-  return { ...snapshots };
+  return snapshots;
 }
 
 export function clearSnapshots() {

@@ -9,6 +9,7 @@ import { normalizeText } from '../utils/textNormalizer';
 import { getFiscalMonths, FISCAL_YEARS } from '../utils/fiscalYear';
 import { normalizeScore } from '../utils/scoreNormalizer';
 import { traceEngine } from '../debug/traceEngine';
+import { debugError } from '../debug/debugError';
 
 export { getFiscalMonths, FISCAL_YEARS };
 
@@ -66,9 +67,12 @@ export function normalizeToIPRecords(ds: UnifiedRecord[]): IPRecord[] {
     );
 
     if (s == null) {
-      // DEBUG: If IP training exists but score is missing, we might want to log it
-      // console.warn(`[IP Engine] Missing score for ${r.employee.employeeId} in ${r.attendance.month}`);
-      return;
+      throw debugError("Missing score", {
+        employeeId: r.employee.employeeId,
+        engine: "ipEngine",
+        source: "TrainingData",
+        month: r.attendance.month
+      });
     }
     
     // Normalize team name to match map keys reliably

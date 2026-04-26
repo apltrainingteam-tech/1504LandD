@@ -48,8 +48,7 @@ import { GapAnalysis } from './features/gap-analysis/GapAnalysis';
 import { RecruitmentQuality } from './features/srm/RecruitmentQuality';
 import { TrainingCalendar } from './features/calendar/TrainingCalendar';
 import { MasterSettings } from './features/settings/MasterSettings';
-import { DebugPanel } from './shared/components/debug/DebugPanel';
-
+import { EngineDebugPanel } from './core/debug/engine-debug/EngineDebugPanel';
 import { PerformanceCharts } from './features/dashboard/PerformanceCharts';
 import { DataQualityCenter } from './features/dashboard/DataQualityCenter';
 
@@ -65,8 +64,9 @@ import { normalizeText } from './core/utils/textNormalizer';
 import { getTeamId, mapTeamCodeToId } from './core/utils/teamIdMapper';
 
 import { useAppData } from './shared/hooks/useAppData';
+import { getCurrentUser } from './core/context/userContext';
 
-type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'nominations' | 'notification' | 'training-data' | 'gap-analysis' | 'performance-tables' | 'performance-charts' | 'performance' | 'srm' | 'calendar' | 'master-settings' | 'data-quality';
+type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'nominations' | 'notification' | 'training-data' | 'gap-analysis' | 'performance-tables' | 'performance-charts' | 'performance' | 'srm' | 'calendar' | 'master-settings' | 'data-quality' | 'dev/engine-debug';
 interface SidebarItem {
   label: string;
   view: string;
@@ -139,6 +139,9 @@ const App = () => {
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
   const isSidebarCollapsed = !isSidebarPinned && !isSidebarHovered;
 
+  const user = getCurrentUser();
+  const isSuperAdmin = user.role === 'super_admin' || user.role === 'SUPERADMIN' as any;
+
   const {
     loading,
     refreshKey,
@@ -193,7 +196,8 @@ const App = () => {
       case 'demographics': return <Demographics />;
       case 'gap-analysis': return <GapAnalysis employees={emps} attendance={att} nominations={noms} onNavigate={setView} />;
       case 'master-settings': return <MasterSettings />;
-      case 'data-quality': return <DataQualityCenter />;
+      case 'data-quality': return <DataQualityCenter employees={emps} attendance={att} scores={scs} nominations={noms} />;
+      case 'dev/engine-debug': return <EngineDebugPanel />;
       default: return <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} />;
     }
   };
@@ -248,6 +252,22 @@ const App = () => {
               })}
             </div>
           ))}
+
+          {/* SUPERADMIN-only Engine Debug link — DEV mode only */}
+          {isSuperAdmin && process.env.NODE_ENV !== 'production' && (
+            <div className="sidebar-section">
+              <div className="section-title" style={{ color: 'var(--danger)', opacity: 0.6 }}>SYSTEM</div>
+              <button
+                className={`nav-item ${'dev/engine-debug' === view ? 'active' : ''}`}
+                onClick={() => setView('dev/engine-debug')}
+                title="Engine Debug Panel (SUPERADMIN only)"
+                style={{ borderLeft: '2px solid var(--danger)', opacity: 0.8 }}
+              >
+                <Activity size={20} />
+                <span>Engine Debug</span>
+              </button>
+            </div>
+          )}
         </nav>
 
         <div className="user-profile">
@@ -312,9 +332,6 @@ const App = () => {
         <PageTransition pageKey={view}>
           {renderView()}
         </PageTransition>
-
-        {/* Global Debug Layer */}
-        <DebugPanel />
       </main>
         </div>
 

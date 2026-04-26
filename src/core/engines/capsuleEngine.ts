@@ -3,6 +3,7 @@
  * ⚠️ DO NOT IMPORT IN COMPONENTS — USE HOOKS ONLY
  */
 import { EmployeeEventTimeline } from './apEngine';
+import { traceEngine } from '../debug/traceEngine';
 
 // ─── TYPES & INTERFACES ──────────────────────────────────────────────────────
 
@@ -67,10 +68,10 @@ export interface CapsulePerformanceAggregates {
 
 // ─── ATTENDANCE ENGINE ───────────────────────────────────────────────────────
 
-export function buildCapsuleAttendanceMatrix(
+export const buildCapsuleAttendanceMatrix = traceEngine("buildCapsuleAttendanceMatrix", (
   timelines: Map<string, EmployeeEventTimeline>,
   fyMonths: string[]
-): CapsuleAttendanceAggregates {
+): CapsuleAttendanceAggregates => {
   const clusterMonthMap: Record<string, CapsuleMonthMapNode> = {};
   const DUMMY_TEAMS = new Set(['Team A', '—', 'Unknown Team']);
 
@@ -99,7 +100,7 @@ export function buildCapsuleAttendanceMatrix(
   }
 
   return { clusterMonthMap };
-}
+});
 
 export function getCapsuleAttendanceDrilldown(
   timelines: Map<string, EmployeeEventTimeline>,
@@ -124,10 +125,10 @@ export function getCapsuleAttendanceDrilldown(
 
 // ─── PERFORMANCE ENGINE ──────────────────────────────────────────────────────
 
-export function getCapsulePerformanceAggregates(
+export const getCapsulePerformanceAggregates = traceEngine("getCapsulePerformanceAggregates", (
   timelines: Map<string, EmployeeEventTimeline>,
   fyMonths: string[]
-): CapsulePerformanceAggregates {
+): CapsulePerformanceAggregates => {
   const clusterMap: Record<string, CapsulePerformanceClusterRow> = {};
   const DUMMY_TEAMS = new Set(['Team A', '—', 'Unknown Team']);
 
@@ -208,7 +209,7 @@ export function getCapsulePerformanceAggregates(
       highPerformersPct: uniqueIds.size > 0 ? (highPerformersCount / uniqueIds.size) * 100 : 0
     }
   };
-}
+});
 
 export function getCapsulePerformanceDrilldown(
   timelines: Map<string, EmployeeEventTimeline>,

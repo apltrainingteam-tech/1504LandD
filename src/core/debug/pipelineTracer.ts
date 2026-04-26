@@ -2,7 +2,7 @@ export type PipelineStep = {
   step: string;
   status: "ok" | "failed";
   error?: any;
-  timestamp: number;
+  timestamp: string;
 };
 
 const pipelineLog: PipelineStep[] = [];
@@ -10,14 +10,18 @@ const pipelineLog: PipelineStep[] = [];
 export function logStep<T>(step: string, fn: () => T): T {
   try {
     const result = fn();
-    pipelineLog.push({ step, status: "ok", timestamp: Date.now() });
+    pipelineLog.push({ 
+      step, 
+      status: "ok",
+      timestamp: new Date().toISOString()
+    });
     return result;
   } catch (error) {
     pipelineLog.push({ 
       step, 
       status: "failed", 
-      error: error instanceof Error ? error.message : error, 
-      timestamp: Date.now() 
+      error,
+      timestamp: new Date().toISOString()
     });
     throw error;
   }

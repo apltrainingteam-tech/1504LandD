@@ -18,6 +18,7 @@
 
 import { parseExcelFileStrict, getValidRows, getErrorRows, getSummary, ParseResult } from './parsingEngine';
 import { addBatch, clearCollection } from './apiClient';
+import { traceEngine } from '../debug/traceEngine';
 
 export interface UploadOptions {
   mode: 'append' | 'replace';  // append: add to existing; replace: clear collection first
@@ -51,10 +52,10 @@ export interface UploadResult {
  * 3. Upload valid rows to MongoDB
  * 4. Return detailed result
  */
-export async function uploadTrainingDataStrict(
+export const uploadTrainingDataStrict = traceEngine("uploadTrainingDataStrict", async (
   file: File,
   options: UploadOptions = { mode: 'append' }
-): Promise<UploadResult> {
+): Promise<UploadResult> => {
   const chunkSize = options.chunkSize || 50;
   const debugLog: string[] = [];
 
@@ -235,7 +236,7 @@ export async function uploadTrainingDataStrict(
       debugLog: debugLog.join('\n')
     };
   }
-}
+});
 
 export async function validateFile(file: File): Promise<ParseResult> {
   return await parseExcelFileStrict(file);

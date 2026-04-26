@@ -3,6 +3,7 @@
  * ⚠️ DO NOT IMPORT IN COMPONENTS — USE HOOKS ONLY
  */
 import { normalizeTrainingType } from './reportEngine';
+import { traceEngine } from '../debug/traceEngine';
 
 export interface Trainer {
   id: string;
@@ -27,7 +28,7 @@ export const TRAINERS: Trainer[] = [
 
 const RTM_ALLOWED_TYPES = ["IP", "Pre_AP", "Capsule", "Refresher"];
 
-export function getAvailableTrainers(selectedTrainingType: string, trainers: Trainer[] = TRAINERS): Trainer[] {
+export const getAvailableTrainers = traceEngine("getAvailableTrainers", (selectedTrainingType: string, trainers: Trainer[] = TRAINERS): Trainer[] => {
   if (!selectedTrainingType) return trainers;
 
   const normalized = normalizeTrainingType(selectedTrainingType);
@@ -50,5 +51,5 @@ export function getAvailableTrainers(selectedTrainingType: string, trainers: Tra
   }
 
   return filtered;
-}
+});
 

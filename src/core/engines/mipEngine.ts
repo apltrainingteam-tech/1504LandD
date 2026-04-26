@@ -3,6 +3,7 @@
  * ⚠️ DO NOT IMPORT IN COMPONENTS — USE HOOKS ONLY
  */
 import { EmployeeEventTimeline } from './apEngine';
+import { traceEngine } from '../debug/traceEngine';
 
 // ─── TYPES & INTERFACES ──────────────────────────────────────────────────────
 
@@ -62,10 +63,10 @@ export interface MIPPerformanceAggregates {
 
 // ─── ATTENDANCE ENGINE ───────────────────────────────────────────────────────
 
-export function buildMIPAttendanceMatrix(
+export const buildMIPAttendanceMatrix = traceEngine("buildMIPAttendanceMatrix", (
   timelines: Map<string, EmployeeEventTimeline>,
   fyMonths: string[]
-): MIPAttendanceAggregates {
+): MIPAttendanceAggregates => {
   const clusterMonthMap: Record<string, MIPMonthMapNode> = {};
   const DUMMY_TEAMS = new Set(['Team A', '—', 'Unknown Team']);
 
@@ -94,14 +95,14 @@ export function buildMIPAttendanceMatrix(
   }
 
   return { clusterMonthMap };
-}
+});
 
 // ─── PERFORMANCE ENGINE ──────────────────────────────────────────────────────
 
-export function getMIPPerformanceAggregates(
+export const getMIPPerformanceAggregates = traceEngine("getMIPPerformanceAggregates", (
   timelines: Map<string, EmployeeEventTimeline>,
   fyMonths: string[]
-): MIPPerformanceAggregates {
+): MIPPerformanceAggregates => {
   const clusterMap: Record<string, MIPPerformanceClusterRow> = {};
   const DUMMY_TEAMS = new Set(['Team A', '—', 'Unknown Team']);
 
@@ -206,7 +207,7 @@ export function getMIPPerformanceAggregates(
       highPerformersPct: uniqueIds.size > 0 ? (highPerformersCount / uniqueIds.size) * 100 : 0
     }
   };
-}
+});
 
 export function getMIPDrilldownList(
   timelines: Map<string, EmployeeEventTimeline>,

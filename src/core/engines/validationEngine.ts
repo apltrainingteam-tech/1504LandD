@@ -1,6 +1,7 @@
 import { ValidationError } from '../contracts/validation.contract';
 import { getSchema } from '../constants/trainingSchemas';
 import { getClosestMatches } from '../utils/suggestionEngine';
+import { traceEngine } from '../debug/traceEngine';
 
 export interface ValidationMasterData {
   employeeIds: Set<string>;
@@ -9,7 +10,7 @@ export interface ValidationMasterData {
   rawMasterTeams: string[]; // Add this for suggestions
 }
 
-export function validateTrainingData(data: any[], masterData: ValidationMasterData): ValidationError[] {
+export const validateTrainingData = traceEngine("validateTrainingData", (data: any[], masterData: ValidationMasterData): ValidationError[] => {
   const errors: ValidationError[] = [];
   data.forEach((row, index) => {
     const type = row.trainingType || 'UNKNOWN';
@@ -87,9 +88,9 @@ export function validateTrainingData(data: any[], masterData: ValidationMasterDa
     });
   });
   return errors;
-}
+});
 
-export function validateNominationData(data: any[], masterData: ValidationMasterData): ValidationError[] {
+export const validateNominationData = traceEngine("validateNominationData", (data: any[], masterData: ValidationMasterData): ValidationError[] => {
   const errors: ValidationError[] = [];
   data.forEach((row, index) => {
     const recordId = row.id || row._id || `nom-${index}`;
@@ -132,9 +133,9 @@ export function validateNominationData(data: any[], masterData: ValidationMaster
     }
   });
   return errors;
-}
+});
 
-export function validateEmployeeData(data: any[], masterData: ValidationMasterData): ValidationError[] {
+export const validateEmployeeData = traceEngine("validateEmployeeData", (data: any[], masterData: ValidationMasterData): ValidationError[] => {
   const errors: ValidationError[] = [];
   const seenIds = new Set<string>();
 
@@ -198,4 +199,4 @@ export function validateEmployeeData(data: any[], masterData: ValidationMasterDa
     }
   });
   return errors;
-}
+});

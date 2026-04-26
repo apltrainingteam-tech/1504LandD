@@ -1,4 +1,5 @@
 import { useMemo, useEffect } from 'react';
+import { useDebugStore } from '../../../core/debug/debugStore';
 import { buildUnifiedDataset, applyFilters, normalizeTrainingType } from '../../../core/engines/reportEngine';
 import { getEligibleEmployees } from '../../../core/engines/eligibilityEngine';
 import { getFiscalMonths } from '../../../core/utils/fiscalYear';
@@ -65,6 +66,44 @@ export const usePerformanceData = ({
   employees, attendance, scores, nominations, rules, masterTeams,
   tab, selectedFY, filter, viewBy = 'Team', tsMode = 'score', pageMode
 }: UsePerformanceDataProps): PerformanceDataset => {
+  const isEngineDebugActive = useDebugStore(state => state.enabled);
+
+  if (isEngineDebugActive) {
+    return {
+      MONTHS: [],
+      activeNT: tab,
+      rawUnified: [],
+      unified: [],
+      ipData: null,
+      ipRankData: null,
+      rawTimelines: new Map(),
+      filteredTimelines: new Map(),
+      apAttData: null,
+      mipAttData: null,
+      refresherAttData: null,
+      capsuleAttData: null,
+      apPerfData: null,
+      mipPerfData: null,
+      refresherPerfData: null,
+      capsulePerfData: null,
+      eligibilityResults: [],
+      gapMetrics: null,
+      groups: [],
+      ranked: [],
+      trainerStats: null,
+      drilldownNodes: [],
+      months: [],
+      timeSeries: [],
+      tabNoms: [],
+      ipKPI: null,
+      apKPI: null,
+      mipKPI: null,
+      refresherKPI: null,
+      capsuleKPI: null,
+      preApKPI: null,
+      isDebugMode: true
+    };
+  }
 
   useEffect(() => {
     saveSession({ employees, attendance, scores, nominations, rules, masterTeams, tab, selectedFY, filter });

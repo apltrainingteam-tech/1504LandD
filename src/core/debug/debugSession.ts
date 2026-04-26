@@ -2,16 +2,17 @@ let lastSession: any = null;
 
 export function saveSession(input: any) {
   try {
-    lastSession = JSON.parse(JSON.stringify(input));
+    lastSession = structuredClone(input);
   } catch (e) {
-    console.warn("[Session] Failed to save session", e);
+    console.warn("[Session] Failed to clone session data", e);
+    lastSession = input;
   }
 }
 
-export function replaySession<T>(fn: (input: any) => T): T | undefined {
+export function replaySession<TInput, TOutput>(fn: (input: TInput) => TOutput) {
   if (!lastSession) {
-    console.warn("[Session] No last session to replay");
-    return undefined;
+    console.warn("[Session] No session data to replay");
+    return;
   }
   return fn(lastSession);
 }

@@ -3,14 +3,15 @@ import { Attendance, TrainingNomination } from '../../types/attendance';
 import { ELIGIBILITY_RULES } from '../constants/eligibilityRules';
 import { standardizeDesignation } from '../utils/designationMapper';
 import { parseAnyDate } from '../utils/dateParser';
+import { traceEngine } from '../debug/traceEngine';
 
-export function applyEligibilityRules(
+export const applyEligibilityRules = traceEngine("applyEligibilityRules", (
   trainingType: string,
   employees: Employee[],
   attendance: Attendance[],
   nominations: TrainingNomination[],
   overrideRule?: Record<string, any> | null
-): Employee[] {
+): Employee[] => {
   // Use overrideRule from DB if provided, otherwise fall back to static config
   const rule = overrideRule
     ?? (ELIGIBILITY_RULES as any)[trainingType]
@@ -117,7 +118,7 @@ export function applyEligibilityRules(
 
     return true;
   });
-}
+});
 
 
 

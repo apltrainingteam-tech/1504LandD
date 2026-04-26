@@ -15,6 +15,7 @@ import { useMasterData } from '../../core/context/MasterDataContext';
 import { GlobalFilterPanel } from '../../shared/components/ui/GlobalFilterPanel';
 import { GlobalFilters, getActiveFilterCount } from '../../core/context/filterContext';
 import { useFilterOptions, useMonthsFromData } from '../../shared/hooks/computationHooks';
+import { useDebugStore } from '../../core/debug/debugStore';
 import { usePerformanceData } from './hooks/usePerformanceData';
 import { useChartData } from './hooks/useChartData';
 
@@ -93,6 +94,9 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
   const [showGlobalFilters, setShowGlobalFilters] = useState(false);
   const activeFilterCount = getActiveFilterCount(pageFilters);
   const [tsMode, setTsMode] = useState<'score' | 'count'>('score');
+  const isEngineDebugActive = useDebugStore(state => state.enabled);
+
+  if (isEngineDebugActive) return null;
 
   // --- SYNC GLOBAL MONTH FILTER WITH FISCAL YEAR SELECTOR ---
   useEffect(() => {

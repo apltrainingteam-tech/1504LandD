@@ -26,6 +26,7 @@ import {
   createDebugInfo,
   ParseDebugInfo
 } from '../constants/uploadTemplates';
+import { traceEngine } from '../debug/traceEngine';
 
 export interface ParsedRowStrict {
   rowNum: number;
@@ -44,7 +45,7 @@ export interface ParseResult {
 /**
  * MAIN: Parse Excel file with strict template validation
  */
-export async function parseExcelFileStrict(file: File): Promise<ParseResult> {
+export const parseExcelFileStrict = traceEngine("parseExcelFileStrict", async (file: File): Promise<ParseResult> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
 
@@ -197,7 +198,7 @@ export async function parseExcelFileStrict(file: File): Promise<ParseResult> {
 
     reader.readAsArrayBuffer(file);
   });
-}
+});
 
 /**
  * Extract valid rows from parse result
@@ -264,7 +265,7 @@ export interface ParsedRow {
  * Parses an Employee Master Excel file.
  * Produces one ParsedRow per data row with validation status.
  */
-export const parseEmployeeMasterExcel = (file: File): Promise<{ rows: ParsedRow[] }> => {
+export const parseEmployeeMasterExcel = traceEngine("parseEmployeeMasterExcel", (file: File): Promise<{ rows: ParsedRow[] }> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (ev) => {
@@ -332,5 +333,5 @@ export const parseEmployeeMasterExcel = (file: File): Promise<{ rows: ParsedRow[
     reader.onerror = (err) => reject(err);
     reader.readAsArrayBuffer(file);
   });
-};
+});
 

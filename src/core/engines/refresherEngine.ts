@@ -3,6 +3,7 @@
  * ⚠️ DO NOT IMPORT IN COMPONENTS — USE HOOKS ONLY
  */
 import { EmployeeEventTimeline } from './apEngine';
+import { traceEngine } from '../debug/traceEngine';
 
 // ─── TYPES & INTERFACES ──────────────────────────────────────────────────────
 
@@ -71,10 +72,10 @@ export interface RefresherPerformanceAggregates {
 
 // ─── ATTENDANCE ENGINE ───────────────────────────────────────────────────────
 
-export function buildRefresherAttendanceMatrix(
+export const buildRefresherAttendanceMatrix = traceEngine("buildRefresherAttendanceMatrix", (
   timelines: Map<string, EmployeeEventTimeline>,
   fyMonths: string[]
-): RefresherAttendanceAggregates {
+): RefresherAttendanceAggregates => {
   const clusterMonthMap: Record<string, RefresherMonthMapNode> = {};
   const DUMMY_TEAMS = new Set(['Team A', '—', 'Unknown Team']);
 
@@ -103,14 +104,14 @@ export function buildRefresherAttendanceMatrix(
   }
 
   return { clusterMonthMap };
-}
+});
 
 // ─── PERFORMANCE ENGINE ──────────────────────────────────────────────────────
 
-export function getRefresherPerformanceAggregates(
+export const getRefresherPerformanceAggregates = traceEngine("getRefresherPerformanceAggregates", (
   timelines: Map<string, EmployeeEventTimeline>,
   fyMonths: string[]
-): RefresherPerformanceAggregates {
+): RefresherPerformanceAggregates => {
   const clusterMap: Record<string, RefresherPerformanceClusterRow> = {};
   const DUMMY_TEAMS = new Set(['Team A', '—', 'Unknown Team']);
 
@@ -205,7 +206,7 @@ export function getRefresherPerformanceAggregates(
       highPerformersPct: uniqueIds.size > 0 ? (highPerformersCount / uniqueIds.size) * 100 : 0
     }
   };
-}
+});
 
 export function getRefresherDrilldownList(
   timelines: Map<string, EmployeeEventTimeline>,

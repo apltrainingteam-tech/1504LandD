@@ -11,6 +11,7 @@ import {
 } from '../../types/attendance';
 import { ELIGIBILITY_RULES } from '../constants/eligibilityRules';
 import { standardizeDesignation } from '../utils/designationMapper';
+import { traceEngine } from '../debug/traceEngine';
 
 // Utility function for normalizing strings for comparison
 const normalize = (val?: string) => val?.toLowerCase().trim();
@@ -38,7 +39,7 @@ const normalizeId = (id: string | number | undefined | null): string => {
 /**
  * Dynamics Rule Engine for Training Eligibility
  */
-export const getEligibleEmployees = (
+export const getEligibleEmployees = traceEngine("getEligibleEmployees", (
   trainingType: TrainingType,
   rule: EligibilityRule | undefined,
   employees: Employee[],
@@ -148,7 +149,7 @@ export const getEligibleEmployees = (
       reasonIfNotEligible: reason
     };
   });
-};
+});
 
 // Helper to calculate experience years from DOJ
 const getExperienceYears = (doj?: string): number => {

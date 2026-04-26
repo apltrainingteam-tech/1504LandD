@@ -1,20 +1,22 @@
 .debugPanel {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  width: 400px;
-  max-height: 80vh;
   background: rgba(15, 23, 42, 0.95);
+  -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
-  z-index: 9999;
   color: #e2e8f0;
   font-family: 'Inter', system-ui, sans-serif;
   overflow: hidden;
+}
+
+.fullPage {
+  position: relative;
+  width: 100%;
+  height: calc(100vh - 100px);
+  margin-top: 20px;
 }
 
 .header {

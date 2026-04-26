@@ -1,18 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { Terminal, Bug, Play, Trash2, ChevronDown, ChevronUp, Layers, Activity } from 'lucide-react';
-import { DEBUG_MODE } from '../../../core/constants/debugConfig';
-import { getTraceLogs, clearTraceLogs, TraceLog } from '../../../core/debug/traceEngine';
-import { getPipelineLog, clearPipelineLog, PipelineStep } from '../../../core/debug/pipelineTracer';
-import { getAllSnapshots, clearSnapshots } from '../../../core/debug/snapshotStore';
-import { replaySession } from '../../../core/debug/debugSession';
-import styles from './DebugPanel.module.css';
+import { Terminal, Bug, Play, Trash2, Layers, Activity } from 'lucide-react';
+import { useDebugStore } from '../debugStore';
+import { getCurrentUser } from '../../context/userContext';
+import { DEBUG_MODE } from '../../constants/debugConfig';
+import { getTraceLogs, clearTraceLogs, TraceLog } from '../traceEngine';
+import { getPipelineLog, clearPipelineLog, PipelineStep } from '../pipelineTracer';
+import { getAllSnapshots, clearSnapshots } from '../snapshotStore';
+import { replaySession } from '../debugSession';
+import styles from './EngineDebugPanel.module.css';
 
-export const DebugPanel: React.FC = () => {
-  const [isOpen, setIsOpen] = useState(false);
+export const EngineDebugPanel: React.FC = () => {
   const [traces, setTraces] = useState<TraceLog[]>([]);
   const [pipeline, setPipeline] = useState<PipelineStep[]>([]);
   const [snapshots, setSnapshots] = useState<Record<string, any>>({});
   const [activeTab, setActiveTab] = useState<'traces' | 'pipeline' | 'snapshots'>('traces');
+
+  const { enabled, toggle } = useDebugStore();
 
   useEffect(() => {
     if (!DEBUG_MODE) return;
@@ -26,7 +29,18 @@ export const DebugPanel: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  if (!DEBUG_MODE) return null;
+  const isDev = process.env.NODE_ENV === "development" || process.env.NODE_ENV !== "production";
+  const user = getCurrentUser();
+  const isSuperAdmin = user.role === "SUPERADMIN" || user.role === "super_admin" as any;
+
+  if (!isDev || !isSuperAdmin) {
+    return (
+      <div className="flex-center h-full flex-col gap-4 p-24">
+        <h2 className="text-xl text-danger font-bold">Unauthorized Access</h2>
+        <p className="text-muted">You do not have permission to access the Engine Debug Panel.</p>
+      </div>
+    );
+  }
 
   const handleClear = () => {
     clearTraceLogs();
@@ -46,30 +60,19 @@ export const DebugPanel: React.FC = () => {
     });
   };
 
-  if (!isOpen) {
-    return (
-      <div className={`${styles.debugPanel} ${styles.minimized}`} onClick={() => setIsOpen(true)}>
-        <div className={styles.title}>
-          <Bug size={16} />
-          <span>Execution Debug Layer</span>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className={styles.debugPanel}>
+    <div className={`${styles.debugPanel} ${styles.fullPage}`}>
       <div className={styles.header}>
         <div className={styles.title}>
           <Bug size={18} />
-          <span>Execution Debug Layer</span>
+          <span>Execution Debug Layer (Engine Only)</span>
         </div>
         <div className="flex gap-2">
+          <button className={`btn btn-sm ${enabled ? 'btn-primary animate-pulse' : 'btn-secondary'}`} onClick={toggle} title="Toggle Isolation Mode">
+            {enabled ? 'Isolation ON' : 'Isolation OFF'}
+          </button>
           <button className={styles.toggleBtn} onClick={handleClear} title="Clear Logs">
             <Trash2 size={16} />
-          </button>
-          <button className={styles.toggleBtn} onClick={() => setIsOpen(false)}>
-            <ChevronDown size={18} />
           </button>
         </div>
       </div>
