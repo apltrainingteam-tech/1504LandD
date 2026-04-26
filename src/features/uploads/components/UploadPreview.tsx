@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { DataTable } from '../../../components/DataTable';
-import { displayScore } from '../../../utils/scoreNormalizer';
+import { DataTable } from '../../../shared/components/ui/DataTable';
+import { displayScore } from '../../../core/utils/scoreNormalizer';
 import { SCORE_SCHEMAS } from '../../../types/reports';
 import { Check, AlertTriangle, XCircle, Download } from 'lucide-react';
-import { exportUnmatchedRows, exportFullDiagnostics } from '../../../utils/exportUnmatched';
+import { exportUnmatchedRows, exportFullDiagnostics } from '../../../core/utils/exportUnmatched';
 import styles from './UploadPreview.module.css';
 
 interface UploadPreviewProps {
@@ -262,3 +262,7 @@ export const UploadPreview: React.FC<UploadPreviewProps> = ({ rows, trainingType
     </div>
   );
 };
+
+
+
+

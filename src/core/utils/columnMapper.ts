@@ -1,0 +1,111 @@
+// Standard Column Map (any Excel header → standard key)
+import { normalizeText } from './textNormalizer';
+
+export const ALIAS_MAP: Record<string, string> = {
+  'aadhaar number': 'aadhaarNumber',
+  'aadhaar': 'aadhaarNumber',
+  'aadhar': 'aadhaarNumber',
+  'aadhar number': 'aadhaarNumber',
+  'aadhaar no': 'aadhaarNumber',
+  'aadhar no': 'aadhaarNumber',
+  'employee id': 'employeeId',
+  'emp id': 'employeeId',
+  'employeeid': 'employeeId',
+  'empid': 'employeeId',
+  'emp_id': 'employeeId',
+  'employee code': 'employeeId',
+  'mobile number': 'mobileNumber',
+  'mobile': 'mobileNumber',
+  'phone': 'mobileNumber',
+  'mobile no': 'mobileNumber',
+  'contact': 'mobileNumber',
+  'employee name': 'name',
+  'name': 'name',
+  'emp name': 'name',
+  'empname': 'name',
+  'full name': 'name',
+  'pr_e_mail': 'email',
+  'email': 'email',
+  'doj': 'doj',
+  'date of joining': 'doj',
+  'joining date': 'doj',
+  'dob': 'dob',
+  'date of birth': 'dob',
+  'aplexp': 'aplExperience',
+  'apl experience': 'aplExperience',
+  'pastexp': 'pastExperience',
+  'past experience': 'pastExperience',
+  'basic qualification': 'basicQualification',
+  'qualification': 'basicQualification',
+  'trainer': 'trainerId',
+  'trainer id': 'trainerId',
+  'trainer name': 'trainerId',
+  'team': 'team',
+  'team name': 'team',
+  'designation': 'designation',
+  'desig': 'designation',
+  'cluster': 'cluster',
+  'cluster name': 'cluster',
+  'hq': 'hq',
+  'headquarter': 'hq',
+  'headquarters': 'hq',
+  'head quarter': 'hq',
+  'state': 'state',
+  'notification date': 'notificationDate',
+  'attendance date': 'attendanceDate',
+  'date': 'attendanceDate',
+  'training date': 'attendanceDate',
+  'att date': 'attendanceDate',
+  'attendance status': 'attendanceStatus',
+  'status': 'attendanceStatus',
+  'present/absent': 'attendanceStatus',
+  'attendance': 'attendanceStatus',
+  // Score columns
+  'score': 'Score',
+  'test score': 'T Score',
+  'detailing / percent': 'Percent',
+  'detailing percent': 'Percent',
+  'percent': 'Percent',
+  't score': 'T Score',
+  'test score %': 'Percent',
+  'ip score': 'Percent',
+  'knowledge': 'knowledge',
+  'bse': 'bse',
+  'grasping': 'grasping',
+  'detailing': 'detailing',
+  'situation handling': 'situationHandling',
+  'english': 'english',
+  'local language': 'localLanguage',
+  'involvement': 'involvement',
+  'effort': 'effort',
+  'confidence': 'confidence',
+  'science score': 'scienceScore',
+  'skill score': 'skillScore',
+};
+
+export const getValue = (row: any, key: string) => {
+  const lcKey = key.toLowerCase().trim();
+  const directValue = row[key];
+  if (directValue !== undefined) return directValue;
+
+  // Try aliases
+  for (const [alias, standard] of Object.entries(ALIAS_MAP)) {
+    if (standard === key && row[alias] !== undefined) {
+      return row[alias];
+    }
+  }
+
+  return undefined;
+};
+
+export const toCamel = (str: any) => {
+  return normalizeText(str);
+};
+
+export const detectTrainingType = (cols: string[]) => {
+  const lc = cols.map((c) => (ALIAS_MAP[c.toLowerCase().trim()] || c.toLowerCase()));
+  if (lc.some((c) => c === 'scienceScore' || c === 'skillScore')) return 'MIP';
+  if (lc.some((c) => c === 'knowledge' || c === 'BSE' || c === 'grasping' || c === 'confidence')) return 'AP';
+  return 'IP';
+};
+

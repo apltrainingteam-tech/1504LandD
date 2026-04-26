@@ -1,8 +1,8 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { UploadCloud, CheckCircle, X, AlertTriangle, XCircle, Download } from 'lucide-react';
-import { uploadTrainingDataEnriched, UploadProgress, UploadResultEnriched } from '../../services/uploadServiceEnriched';
-import { getTemplateForDownload, getAllTemplateTypes } from '../../services/uploadTemplatesStrict';
-import { parseExcelDate } from '../../services/dateParserService';
+import { useUploadAction } from './hooks/useUploadAction';
+import { UploadProgress, UploadResult as UploadResultEnriched } from '../../core/engines/uploadEngine';
+import { getTemplateForDownload, getAllTemplateTypes } from '../../core/constants/uploadTemplates';
 import * as XLSX from 'xlsx';
 import styles from './AttendanceUploadStrict.module.css';
 
@@ -12,21 +12,13 @@ interface AttendanceUploadStrictProps {
 
 export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ onUploadComplete }) => {
   // ─── UI STATE ────────────────────────────────────────────────────────────
-  const [step, setStep] = useState<'upload' | 'uploading' | 'done'>('upload');
+  const { 
+    step, setStep, uploadProgress, uploadResult, uploadMode, setUploadMode, startUpload, testInsert, setUploadResult, setUploadProgress 
+  } = useUploadAction(onUploadComplete);
+
   const [dragOver, setDragOver] = useState(false);
   const [selectedTemplateType, setSelectedTemplateType] = useState('IP');
   const [fileName, setFileName] = useState('');
-
-  // ─── UPLOAD STATE ────────────────────────────────────────────────────────
-  const [uploadProgress, setUploadProgress] = useState<UploadProgress>({
-    stage: 'parsing',
-    processed: 0,
-    total: 100,
-    message: 'Ready to upload'
-  });
-
-  const [uploadResult, setUploadResult] = useState<UploadResultEnriched | null>(null);
-  const [uploadMode, setUploadMode] = useState<'append' | 'replace'>('append');
   const [confirmReplace, setConfirmReplace] = useState(false);
 
   const isMountedRef = useRef(true);
@@ -43,7 +35,7 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
     console.log('   - No "Employee ID required" errors');
     console.log('   - Automatic master data enrichment');
     console.log('');
-    console.log('✅ DATE PARSER: parseExcelDate() from dateParserService');
+    console.log('✅ DATE PARSER: Optimized system active');
     console.log('   - Excel numeric dates (serial format)');
     console.log('   - ISO 8601 format (YYYY-MM-DD)');
     console.log('   - Common formats (DD/MM/YYYY, MM/DD/YYYY, DD-MM-YYYY)');
@@ -110,53 +102,9 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
     if (f) handleFileSelect(f);
   }, [handleFileSelect]);
 
-  const handleStartUpload = useCallback(async (file: File) => {
-    setStep('uploading');
-    setUploadResult(null);
-    setUploadProgress({
-      stage: 'parsing',
-      processed: 0,
-      total: 100,
-      message: 'Starting upload process...'
-    });
-
-    try {
-      const result = await uploadTrainingDataEnriched(file, {
-        mode: uploadMode,
-        onProgress: (progress) => {
-          if (isMountedRef.current) {
-            setUploadProgress(progress);
-          }
-        }
-      });
-
-      if (isMountedRef.current) {
-        setUploadResult(result);
-        setStep('done');
-
-        if (result.success && onUploadComplete) {
-          onUploadComplete();
-        }
-      }
-    } catch (err: any) {
-      if (isMountedRef.current) {
-        const errorMsg = err?.message || 'Upload failed';
-        setUploadResult({
-          success: false,
-          templateType: 'UNKNOWN',
-          totalRows: 0,
-          uploadedRows: 0,
-          rejectedRows: 0,
-          activeEmployees: 0,
-          inactiveEmployees: 0,
-          errors: [{ rowNum: 0, message: errorMsg }],
-          warnings: [],
-          debugLog: errorMsg
-        });
-        setStep('done');
-      }
-    }
-  }, [uploadMode, onUploadComplete]);
+  const handleStartUpload = useCallback((file: File) => {
+    startUpload(file);
+  }, [startUpload]);
 
   const handleReset = useCallback(() => {
     setStep('upload');
@@ -171,36 +119,16 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
     setUploadMode('append');
     setConfirmReplace(false);
     currentFileRef.current = null;
-  }, []);
+  }, [setStep, setUploadResult, setUploadProgress, setUploadMode]);
 
-  // ─── TEST: Insert Fallback Test Record ──────────────────────────────────
   const handleTestInsert = useCallback(async () => {
-    try {
-      alert('Testing database connectivity...\nInserting 1 dummy test record...');
-
-      const { createBatch } = await import('../../services/apiService');
-
-      const testRecord = {
-        _id: `test_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        employeeId: 'TEST-' + Math.random().toString(36).substr(2, 6).toUpperCase(),
-        attendanceDate: new Date().toISOString().split('T')[0],
-        trainingType: 'TEST',
-        score: 99,
-        testRecord: true,
-        uploadedAt: new Date().toISOString(),
-        note: 'Database connectivity test - can safely delete'
-      };
-
-      console.log('[TEST] Inserting test record:', testRecord);
-      const result = await createBatch('training_data', [testRecord]);
-
-      console.log('[TEST] ✅ Test insert succeeded:', result);
-      alert(`✅ SUCCESS!\n\nTest record inserted successfully.\nThis confirms database connectivity is working.\n\nYou can manually delete this record from MongoDB if desired.\n\nAPI Response:\n${JSON.stringify(result, null, 2)}`);
-    } catch (err: any) {
-      console.error('[TEST] ❌ Test insert failed:', err);
-      alert(`❌ TEST FAILED\n\n${err.message}\n\nDatabase connectivity issue or API error.`);
+    const res = await testInsert();
+    if (res.success) {
+      alert('✅ Test insert succeeded!');
+    } else {
+      alert(`❌ TEST FAILED: ${res.error}`);
     }
-  }, []);
+  }, [testInsert]);
 
   // ─── RENDER: UPLOADING STAGE ──────────────────────────────────────────────
   if (step === 'uploading') {
@@ -477,3 +405,5 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
     </div>
   );
 };
+
+

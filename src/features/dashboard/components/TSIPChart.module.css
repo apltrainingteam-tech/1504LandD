@@ -1,0 +1,101 @@
+.panel {
+  padding: 24px;
+  overflow-x: auto;
+}
+
+.empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+
+.bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  min-height: 300px;
+  justify-content: center;
+}
+
+.barGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 120px;
+}
+
+.barTrack {
+  display: flex;
+  flex-direction: column;
+  width: 80px;
+  height: 220px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.barSegment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  height: var(--segment-height, 0%);
+}
+
+.segBelow50    { background: rgba(239, 68, 68, 0.6); }
+.seg50to75     { background: rgba(245, 158, 11, 0.6); }
+.seg75to90     { background: rgba(59, 130, 246, 0.6); }
+.segAbove90    { background: rgba(16, 185, 129, 0.6); }
+
+.barLabels {
+  text-align: center;
+}
+
+.barLabelMain {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.barLabelSub {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.legend {
+  margin-top: 24px;
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legendSwatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
+}
+
+.swatchBelow50 { background: rgba(239, 68, 68, 0.6); }
+.swatch50to75  { background: rgba(245, 158, 11, 0.6); }
+.swatch75to90  { background: rgba(59, 130, 246, 0.6); }
+.swatchAbove90 { background: rgba(16, 185, 129, 0.6); }
+
+.legendLabel {
+  font-size: 12px;
+}

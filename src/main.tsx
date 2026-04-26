@@ -8,8 +8,8 @@ if (!rootElement) {
 }
 
 const root = ReactDOM.createRoot(rootElement);
-import { ThemeProvider } from './context/ThemeContext';
-import { MasterDataProvider } from './context/MasterDataContext';
+import { ThemeProvider } from './core/context/ThemeContext';
+import { MasterDataProvider } from './core/context/MasterDataContext';
 
 root.render(
   <React.StrictMode>
@@ -20,5 +20,9 @@ root.render(
     </MasterDataProvider>
   </React.StrictMode>
 );
+
+
+
+
 
 

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { ClipboardList, Bell, Activity } from 'lucide-react';
-import { usePlanningFlow } from '../../context/PlanningFlowContext';
-import { useMasterData } from '../../context/MasterDataContext';
+import { usePlanningFlow } from '../../core/context/PlanningFlowContext';
+import { useMasterData } from '../../core/context/MasterDataContext';
 import { Employee } from '../../types/employee';
 import { Attendance, TrainingNomination } from '../../types/attendance';
 import { NominationsPage }  from './NominationsPage';
@@ -97,3 +97,7 @@ export const Notified: React.FC<NotifiedProps> = ({ employees, attendance, nomin
     </div>
   );
 };
+
+
+
+

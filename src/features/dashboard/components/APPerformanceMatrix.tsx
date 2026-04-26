@@ -1,7 +1,8 @@
 import React, { useState, Fragment } from 'react';
 import { ChevronRight, ChevronDown, X } from 'lucide-react';
-import { APPerformanceAggregates, APCandidatePerformance, getDrilldownList } from '../../../services/apPerformanceService';
-import { EmployeeEventTimeline } from '../../../services/apIntelligenceService';
+import { formatMonthLabel } from '../../../core/utils/fiscalYear';
+import { APPerformanceAggregates, APCandidatePerformance, getAPDrilldownList } from '../../../core/engines/apEngine';
+import { EmployeeEventTimeline } from '../../../core/engines/apEngine';
 import styles from './APPerformanceMatrix.module.css';
 
 const SCORE_THRESHOLDS = {
@@ -35,7 +36,7 @@ interface APDrilldownModalProps {
 }
 
 const APDrilldownModal: React.FC<APDrilldownModalProps> = ({ cluster, team, month, timelines, onClose }) => {
-  const records = getDrilldownList(timelines, { cluster, team, month });
+  const records = getAPDrilldownList(timelines, { cluster, team, month });
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [sortField, setSortField] = useState<'knowledge' | 'bse'>('knowledge');
 
@@ -160,14 +161,6 @@ export const APPerformanceMatrix: React.FC<APPerformanceMatrixProps> = ({ data, 
     setExpanded(next);
   };
 
-  const formatMonthLabel = (month: string) => {
-    const m = month.split('-')[1];
-    const MONTH_LABELS: Record<string, string> = {
-      '04': 'Apr', '05': 'May', '06': 'Jun', '07': 'Jul', '08': 'Aug', '09': 'Sep',
-      '10': 'Oct', '11': 'Nov', '12': 'Dec', '01': 'Jan', '02': 'Feb', '03': 'Mar'
-    };
-    return MONTH_LABELS[m] || month;
-  };
 
   return (
     <Fragment>
@@ -256,3 +249,4 @@ export const APPerformanceMatrix: React.FC<APPerformanceMatrixProps> = ({ data, 
     </Fragment>
   );
 };
+

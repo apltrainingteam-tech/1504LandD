@@ -10,25 +10,13 @@ import {
 
 import { Employee } from '../../types/employee';
 import { Attendance, TrainingScore, TrainingNomination, TrainingType, EligibilityRule, Demographics } from '../../types/attendance';
-import { buildUnifiedDataset, applyFilters, normalizeTrainingType } from '../../services/reportService';
-import { getFiscalMonths, getCurrentFY, buildIPAggregates } from '../../services/ipIntelligenceService';
-import { buildEmployeeTimelines, buildAPMonthlyMatrix, filterTimelines } from '../../services/apIntelligenceService';
-import { getAPPerformanceAggregates } from '../../services/apPerformanceService';
-import { buildMIPAttendanceMatrix } from '../../services/mipAttendanceService';
-import { getMIPPerformanceAggregates } from '../../services/mipPerformanceService';
-import { buildRefresherAttendanceMatrix } from '../../services/refresherAttendanceService';
-import { getRefresherPerformanceAggregates } from '../../services/refresherPerformanceService';
-import { buildCapsuleAttendanceMatrix } from '../../services/capsuleAttendanceService';
-import { getCapsulePerformanceAggregates } from '../../services/capsulePerformanceService';
-import { getEligibleEmployees } from '../../services/eligibilityService';
-import { getFiscalYears } from '../../utils/fiscalYear';
-import { useMasterData } from '../../context/MasterDataContext';
-import { GlobalFilterPanel } from '../../components/GlobalFilterPanel';
-import { GlobalFilters, getActiveFilterCount } from '../../context/filterContext';
-import { getCollection } from '../../services/apiClient';
-import {
-  useMonthsFromData, useFilterOptions, useGroupedData, useTrainerStats, useTimeSeries, useGapMetrics
-} from '../../utils/computationHooks';
+import { getCurrentFYString, getFiscalYears } from '../../core/utils/fiscalYear';
+import { useMasterData } from '../../core/context/MasterDataContext';
+import { GlobalFilterPanel } from '../../shared/components/ui/GlobalFilterPanel';
+import { GlobalFilters, getActiveFilterCount } from '../../core/context/filterContext';
+import { useFilterOptions, useMonthsFromData } from '../../shared/hooks/computationHooks';
+import { usePerformanceData } from './hooks/usePerformanceData';
+import { useChartData } from './hooks/useChartData';
 
 import styles from './PerformanceCharts.module.css';
 
@@ -88,7 +76,7 @@ const normalizeMonthStr = (m: any): string => {
  * Determine Fiscal Year from YYYY-MM
  */
 const getFYFromMonth = (month: string): string => {
-  if (!month || month.length < 7) return getCurrentFY();
+  if (!month || month.length < 7) return getCurrentFYString();
   const [y, m] = month.split('-').map(Number);
   const startYear = m >= 4 ? y : y - 1;
   return `${startYear}-${String(startYear + 1).slice(-2)}`;
@@ -97,19 +85,14 @@ const getFYFromMonth = (month: string): string => {
 export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
   employees, attendance, scores, nominations, onNavigate
 }) => {
-  const { teams: masterTeams, clusters: masterClusters, trainers: masterTrainers } = useMasterData();
+  const { teams: masterTeams, clusters: masterClusters, trainers: masterTrainers, eligibilityRules: rules } = useMasterData();
   const [tab, setTab] = useState<string>('IP');
   const [subView, setSubView] = useState<string>('performance');
-  const [selectedFY, setSelectedFY] = useState<string>(getCurrentFY());
+  const [selectedFY, setSelectedFY] = useState<string>(getCurrentFYString());
   const [pageFilters, setPageFilters] = useState<GlobalFilters>({ cluster: '', team: '', trainer: '', month: '' });
   const [showGlobalFilters, setShowGlobalFilters] = useState(false);
   const activeFilterCount = getActiveFilterCount(pageFilters);
-  const [rules, setRules] = useState<EligibilityRule[]>([]);
   const [tsMode, setTsMode] = useState<'score' | 'count'>('score');
-
-  useEffect(() => {
-    getCollection('eligibility_rules').then(data => setRules(data as EligibilityRule[]));
-  }, []);
 
   // --- SYNC GLOBAL MONTH FILTER WITH FISCAL YEAR SELECTOR ---
   useEffect(() => {
@@ -121,289 +104,61 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
     }
   }, [pageFilters.month]);
 
-  const MONTHS = useMemo(() => getFiscalMonths(selectedFY), [selectedFY]);
-  const activeNT = useMemo(() => normalizeTrainingType(tab), [tab]);
-
-  // Data Normalization
-  const normalizedAttendance = useMemo(() => {
-    return attendance.map(a => ({ ...a, month: normalizeMonthStr(a.month || a.attendanceDate || '') }));
-  }, [attendance]);
-
-  const rawUnified = useMemo(() => {
-    const att = normalizedAttendance.filter(a => normalizeTrainingType(a.trainingType) === activeNT);
-    const scs = scores.filter(s => normalizeTrainingType(s.trainingType) === activeNT);
-    const noms = nominations
-      .map(n => ({ ...n, month: normalizeMonthStr(n.month || n.notificationDate || '') }))
-      .filter(n => normalizeTrainingType(n.trainingType) === activeNT);
-    return buildUnifiedDataset(employees, att, scs, noms, [], masterTeams);
-  }, [activeNT, normalizedAttendance, scores, nominations, employees, masterTeams]);
-
-  const unified = useMemo(() => {
-    const filter = {
+  const {
+    MONTHS,
+    activeNT,
+    rawUnified,
+    unified,
+    ipData,
+    apAttData,
+    mipAttData,
+    refresherAttData,
+    capsuleAttData,
+    apPerfData,
+    mipPerfData,
+    refresherPerfData,
+    capsulePerfData,
+    eligibilityResults,
+    gapMetrics,
+    groups,
+    trainerStats,
+    months: dataMonths,
+    timeSeries
+  } = usePerformanceData({
+    employees, attendance, scores, nominations, rules, masterTeams,
+    tab, selectedFY, filter: {
       monthFrom: pageFilters.month ? normalizeMonthStr(pageFilters.month) : '', 
       monthTo: pageFilters.month ? normalizeMonthStr(pageFilters.month) : '',
       teams: pageFilters.team ? [pageFilters.team] : [],
       clusters: pageFilters.cluster ? [pageFilters.cluster] : [],
       trainer: pageFilters.trainer || ''
-    };
-    let ds = applyFilters(rawUnified, filter, masterTeams);
-    return ds.filter(r => MONTHS.includes(r.attendance.month || ''));
-  }, [rawUnified, pageFilters, MONTHS, masterTeams]);
+    }, viewBy: 'Month', tsMode, pageMode: 'performance-charts'
+  });
 
-  // Engines
-  const ipData = useMemo(() => buildIPAggregates(unified), [unified]);
-  
-  const rawTimelines = useMemo(() => {
-    if (['AP', 'MIP', 'Refresher', 'Capsule', 'Pre_AP'].includes(activeNT)) {
-      const normalizedNoms = nominations
-        .map(n => ({ ...n, month: normalizeMonthStr(n.month || n.notificationDate || '') }))
-        .filter(n => normalizeTrainingType(n.trainingType) === activeNT);
-      
-      return buildEmployeeTimelines(
-        normalizedAttendance.filter(a => normalizeTrainingType(a.trainingType) === activeNT),
-        normalizedNoms,
-        masterTeams, activeNT,
-        scores.filter(s => normalizeTrainingType(s.trainingType) === activeNT)
-      );
-    }
-    return new Map();
-  }, [normalizedAttendance, nominations, scores, activeNT, masterTeams]);
+  const activeAttData = activeNT === 'AP' ? apAttData : activeNT === 'MIP' ? mipAttData : activeNT === 'Refresher' ? refresherAttData : (activeNT === 'Pre_AP' ? apAttData : capsuleAttData);
+  const activePerfData = activeNT === 'AP' ? apPerfData : activeNT === 'MIP' ? mipPerfData : activeNT === 'Refresher' ? refresherPerfData : (activeNT === 'Pre_AP' ? apPerfData : capsulePerfData);
 
-  const filteredTimelines = useMemo(() => {
-    return filterTimelines(rawTimelines, { trainer: pageFilters.trainer, validMonths: MONTHS });
-  }, [rawTimelines, pageFilters.trainer, MONTHS]);
+  const {
+    matrixData,
+    kpis,
+    distributionData,
+    rankingData,
+    trendData,
+    attFunnelData,
+    diagnostics
+  } = useChartData({
+    tab, activeNT, ipData, activePerfData, activeAttData, MONTHS, normalizedAttendance: attendance, rawUnified, unified
+  });
 
-  const apAttData = useMemo(() => (activeNT === 'AP' || activeNT === 'Pre_AP') ? buildAPMonthlyMatrix(filteredTimelines, MONTHS) : null, [activeNT, filteredTimelines, MONTHS]);
-  const mipAttData = useMemo(() => activeNT === 'MIP' ? buildMIPAttendanceMatrix(filteredTimelines, MONTHS) : null, [activeNT, filteredTimelines, MONTHS]);
-  const refAttData = useMemo(() => activeNT === 'Refresher' ? buildRefresherAttendanceMatrix(filteredTimelines, MONTHS) : null, [activeNT, filteredTimelines, MONTHS]);
-  const capAttData = useMemo(() => activeNT === 'Capsule' ? buildCapsuleAttendanceMatrix(filteredTimelines, MONTHS) : null, [activeNT, filteredTimelines, MONTHS]);
-  
-  const apPerfData = useMemo(() => (activeNT === 'AP' || activeNT === 'Pre_AP') ? getAPPerformanceAggregates(filteredTimelines, MONTHS) : null, [activeNT, filteredTimelines, MONTHS]);
-  const mipPerfData = useMemo(() => activeNT === 'MIP' ? getMIPPerformanceAggregates(filteredTimelines, MONTHS) : null, [activeNT, filteredTimelines, MONTHS]);
-  const refPerfData = useMemo(() => activeNT === 'Refresher' ? getRefresherPerformanceAggregates(filteredTimelines, MONTHS) : null, [activeNT, filteredTimelines, MONTHS]);
-  const capPerfData = useMemo(() => activeNT === 'Capsule' ? getCapsulePerformanceAggregates(filteredTimelines, MONTHS) : null, [activeNT, filteredTimelines, MONTHS]);
-
-  const activeAttData = activeNT === 'AP' ? apAttData : activeNT === 'MIP' ? mipAttData : activeNT === 'Refresher' ? refAttData : (activeNT === 'Pre_AP' ? apAttData : capAttData);
-  const activePerfData = activeNT === 'AP' ? apPerfData : activeNT === 'MIP' ? mipPerfData : activeNT === 'Refresher' ? refPerfData : (activeNT === 'Pre_AP' ? apPerfData : capPerfData);
-
-  // --- TRANSFORMATION ---
-  const matrixData: MatrixCluster[] = useMemo(() => {
-    let clusterMap: Record<string, any> = {};
-    if (tab === 'IP') {
-      // IP service has separate clusterMonthMap and teamMonthMap
-      // We need to merge them to fit the expected { cluster, teams: [...] } structure
-      Object.entries(ipData.clusterMonthMap).forEach(([clusterName, clusterData]: [string, any]) => {
-        clusterMap[clusterName] = { 
-          ...clusterData, 
-          teams: {} 
-        };
-      });
-      
-      // Add teams from teamMonthMap to their clusters
-      Object.entries(ipData.teamMonthMap).forEach(([clusterName, teams]: [string, any]) => {
-        if (clusterMap[clusterName]) {
-          clusterMap[clusterName].teams = teams;
-        }
-      });
-    } else if (activePerfData) {
-      clusterMap = (activePerfData as any).clusterMap || (activePerfData as any).clusterMonthMap || {};
-    }
-
-    return Object.entries(clusterMap).map(([clusterName, clusterData]: [string, any]) => {
-      const teams: MatrixTeam[] = [];
-      const teamSources = Object.entries(clusterData.teams || {});
-
-      teamSources.forEach(([teamName, teamData]: [string, any]) => {
-        let score = 0;
-        let metrics: Record<string, number> = {};
-        const teamMonths = Object.values(teamData.months || {}) as any[];
-        const activeMonths = teamMonths.filter(m => (m.count > 0 || m.attended > 0 || m.total > 0));
-        
-        const teamTotal = activeMonths.reduce((sum, m) => sum + (m.count || m.attended || 0), 0);
-
-        if (tab === 'IP') {
-          const tot = teamData.total || 1;
-          score = ((teamData.elite * 98) + (teamData.high * 85) + (teamData.medium * 65) + (teamData.low * 35)) / tot;
-          metrics = { Elite: (teamData.elite/tot)*100, High: (teamData.high/tot)*100, Medium: (teamData.medium/tot)*100, Low: (teamData.low/tot)*100 };
-        } else if (activeNT === 'AP') {
-          const avgK = activeMonths.reduce((s, m) => s + (m.avgKnowledge || 0), 0) / (activeMonths.length || 1);
-          const avgB = activeMonths.reduce((s, m) => s + (m.avgBSE || 0), 0) / (activeMonths.length || 1);
-          score = (avgK + avgB) / 2;
-          metrics = { Knowledge: avgK, BSE: avgB };
-        } else if (activeNT === 'MIP' || activeNT === 'Refresher') {
-          const avgSci = activeMonths.reduce((s, m) => s + (m.avgScience ?? 0), 0) / (activeMonths.length || 1);
-          const avgSki = activeMonths.reduce((s, m) => s + (m.avgSkill ?? 0), 0) / (activeMonths.length || 1);
-          score = (avgSci + avgSki) / 2;
-          metrics = { Science: avgSci, Skill: avgSki };
-        } else if (activeNT === 'Capsule' || activeNT === 'Pre_AP') {
-          score = activeMonths.reduce((s, m) => s + (m.avgScore ?? m.avgKnowledge ?? 0), 0) / (activeMonths.length || 1);
-          metrics = { Score: score };
-        }
-
-        if (activeMonths.length > 0 || tab === 'IP') {
-          teams.push({ name: teamName, total: teamTotal || teamData.total || 0, score, metrics, monthly: teamData.months || {} });
-        }
-      });
-
-      return {
-        cluster: clusterName,
-        teams: teams.sort((a, b) => b.score - a.score),
-        avgScore: teams.length > 0 ? teams.reduce((s, t) => s + t.score, 0) / teams.length : 0
-      };
-    }).filter(c => c.teams.length > 0).sort((a, b) => b.avgScore - a.avgScore);
-  }, [tab, activeNT, ipData, activePerfData]);
-
-  const kpis = useMemo(() => {
-    const allTeams = matrixData.flatMap(c => c.teams);
-    if (allTeams.length === 0) return { total: 0, score: 0, best: '—', worst: '—' };
-    const total = allTeams.reduce((sum, t) => sum + t.total, 0);
-    const avgScore = allTeams.reduce((sum, t) => sum + t.score, 0) / (allTeams.length || 1);
-    const sorted = [...allTeams].sort((a, b) => b.score - a.score);
-    return { total, score: avgScore, best: sorted[0]?.name || '—', worst: sorted[sorted.length - 1]?.name || '—' };
-  }, [matrixData]);
-
-  // --- DIAGNOSTICS ---
-  const diagnostics = useMemo(() => {
-    const totalRaw = normalizedAttendance.length;
-    const typeMatched = normalizedAttendance.filter(a => normalizeTrainingType(a.trainingType) === activeNT).length;
-    const fyMatched = rawUnified.filter(r => MONTHS.includes(r.attendance.month || '')).length;
-    const hasScoresTotal = rawUnified.filter(r => !!r.score).length;
-    
-    // IP Specific drilldown for current FY
-    const unifiedInFY = unified.length;
-    const ipNormalizedCount = tab === 'IP' ? buildIPAggregates(unified).recordsCount : 0; // We'll add this count to service
-    const withScoresInFY = unified.filter(r => !!r.score).length;
-    
-    return { 
-      totalRaw, typeMatched, fyMatched, hasScoresTotal, 
-      activeNT, selectedFY, 
-      unifiedInFY, withScoresInFY, ipNormalizedCount
-    };
-  }, [normalizedAttendance, rawUnified, unified, activeNT, selectedFY, MONTHS, tab]);
-
-  // --- CHART RESOLVERS ---
-  const distributionData = useMemo(() => {
-    return MONTHS.map(m => {
-      const parts = m.split('-');
-      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      const label = `${monthNames[parseInt(parts[1]) - 1]} ${parts[0].slice(-2)}`;
-      const buckets: any = { label };
-      let foundData = false;
-      let count = 0;
-      matrixData.forEach(c => c.teams.forEach(t => {
-        const mon = Object.entries(t.monthly).find(([k]) => normalizeMonthStr(k) === m)?.[1];
-        if (mon && (mon.count > 0 || mon.attended > 0 || mon.total > 0)) {
-          foundData = true;
-          count++;
-          if (tab === 'IP') {
-            const tot = mon.total || 1;
-            buckets.Elite = (buckets.Elite || 0) + (mon.elite / tot) * 100;
-            buckets.High = (buckets.High || 0) + (mon.high / tot) * 100;
-            buckets.Medium = (buckets.Medium || 0) + (mon.medium / tot) * 100;
-            buckets.Low = (buckets.Low || 0) + (mon.low / tot) * 100;
-          } else if (activeNT === 'AP') {
-            buckets.Knowledge = (buckets.Knowledge || 0) + (mon.avgKnowledge || 0);
-            buckets.BSE = (buckets.BSE || 0) + (mon.avgBSE || 0);
-          } else if (activeNT === 'MIP' || activeNT === 'Refresher') {
-            buckets.Science = (buckets.Science || 0) + (mon.avgScience ?? 0);
-            buckets.Skill = (buckets.Skill || 0) + (mon.avgSkill ?? 0);
-          } else if (activeNT === 'Capsule') {
-            buckets.Score = (buckets.Score || 0) + (mon.avgScore ?? 0);
-          }
-        }
-      }));
-      if (foundData && count > 0) {
-        Object.keys(buckets).forEach(k => { if (k !== 'label') buckets[k] /= count; });
-        return buckets;
-      }
-      
-      // Prevent Recharts minPointSize stack crash by providing 0s instead of undefined
-      if (tab === 'IP') return { label, Elite: 0, High: 0, Medium: 0, Low: 0 };
-      if (activeNT === 'AP') return { label, Knowledge: 0, BSE: 0 };
-      if (activeNT === 'MIP' || activeNT === 'Refresher') return { label, Science: 0, Skill: 0 };
-      return { label, Score: 0 };
-    });
-  }, [matrixData, MONTHS, tab, activeNT]);
-
-  const rankingData = useMemo(() => { console.log('MATRIX DATA:', JSON.stringify(matrixData, null, 2));
-    return matrixData.flatMap(c => c.teams).sort((a, b) => b.score - a.score).slice(0, 15)
-      .map(t => ({ name: t.name, score: Math.round(t.score * 10) / 10 }));
-  }, [matrixData]);
-
-  const trendData = useMemo(() => {
-    const data = MONTHS.map(m => {
-      const parts = m.split('-');
-      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      const label = `${monthNames[parseInt(parts[1]) - 1]} ${parts[0].slice(-2)}`;
-      const row: any = { label };
-      let hasAny = false;
-      matrixData.forEach(c => {
-        let clusterScore = 0, count = 0;
-        c.teams.forEach(t => {
-          const mon = Object.entries(t.monthly).find(([k]) => normalizeMonthStr(k) === m)?.[1];
-          if (mon && (mon.count > 0 || mon.attended > 0 || mon.total > 0)) {
-            count++;
-            if (tab === 'IP') {
-              const tot = mon.total || 1;
-              clusterScore += ((mon.elite * 98) + (mon.high * 85) + (mon.medium * 65) + (mon.low * 35)) / tot;
-            } else if (activeNT === 'AP') {
-              clusterScore += ((mon.avgKnowledge || 0) + (mon.avgBSE || 0)) / 2;
-            } else if (activeNT === 'MIP' || activeNT === 'Refresher') {
-              clusterScore += ((mon.avgScience ?? 0) + (mon.avgSkill ?? 0)) / 2;
-            } else if (activeNT === 'Capsule') {
-              clusterScore += (mon.avgScore ?? 0);
-            }
-          }
-        });
-        if (count > 0) {
-          row[c.cluster] = Math.round((clusterScore / count) * 10) / 10;
-          hasAny = true;
-        }
-      });
-      return hasAny ? row : { label, empty: true };
-    });
-    return { data, clusters: matrixData.map(c => c.cluster) };
-  }, [matrixData, MONTHS, tab, activeNT]);
-
-  const attFunnelData = useMemo(() => {
-    if (!activeAttData) return [];
-    return MONTHS.map(m => {
-      let notified = 0, attended = 0;
-      Object.values(activeAttData.clusterMonthMap).forEach((c: any) => {
-        const mData = Object.entries(c.months).find(([k]) => normalizeMonthStr(k) === m)?.[1];
-        if (mData) {
-          notified += (mData as any).notified || 0;
-          attended += (mData as any).attended || 0;
-        }
-      });
-      const parts = m.split('-');
-      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      const label = `${monthNames[parseInt(parts[1]) - 1]} ${parts[0].slice(-2)}`;
-      return { label, Notified: notified, Attended: attended };
-    });
-  }, [activeAttData, MONTHS]);
-
-  const eligibilityResults = useMemo(() => {
-    const rule = rules.find(r => normalizeTrainingType(r.trainingType) === activeNT);
-    return getEligibleEmployees(activeNT as TrainingType, rule, employees, attendance, nominations);
-  }, [activeNT, rules, employees, attendance, nominations]);
-  const gapMetrics = useGapMetrics(tab, eligibilityResults, attendance);
-
-  const tabNoms = useMemo(() => nominations.filter(n => normalizeTrainingType(n.trainingType) === activeNT), [nominations, activeNT]);
-  const groups = useGroupedData(unified, 'Month', tabNoms, employees, masterTeams);
-  const dataMonths = useMonthsFromData(unified);
-  const timeSeries = useTimeSeries(groups, dataMonths, tab, tsMode);
-  const trainerStats = useTrainerStats(unified);
-
-  const tsChartData = useMemo(() => timeSeries.map(r => ({ label: r.label, ...r.cells })), [timeSeries]);
+  const tsChartData = useMemo(() => timeSeries.map((r) => ({ label: r.label, ...r.cells })), [timeSeries]);
   const tsKeys = useMemo(() => {
     const keys = new Set<string>();
-    timeSeries.forEach(r => Object.keys(r.cells).forEach(k => keys.add(k)));
+    timeSeries.forEach((r) => Object.keys(r.cells).forEach(k => keys.add(k)));
     return Array.from(keys);
   }, [timeSeries]);
 
   const trainerScatterData = useMemo(() => {
-    return trainerStats.map(t => ({ name: t.trainerId, volume: t.trainingsConducted, score: t.avgScore })).sort((a, b) => b.volume - a.volume).slice(0, 30);
+    return trainerStats.map((t) => ({ name: t.trainerId, volume: t.trainingsConducted, score: t.avgScore })).sort((a, b) => b.volume - a.volume).slice(0, 30);
   }, [trainerStats]);
   const { allTeams, allTrainers } = useFilterOptions(employees, attendance, tab, masterTeams, masterTrainers);
   const allClusters = useMemo(() => masterClusters.map(c => c.name), [masterClusters]);
@@ -432,10 +187,18 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
           <div className="v-divider mx-1" />
           <div className="flex-center gap-2 glass-panel px-3 py-1 rounded-lg">
             <Calendar size={14} className="text-primary" />
-            <select value={selectedFY} onChange={(e) => {
-              setSelectedFY(e.target.value);
-              setPageFilters(prev => ({ ...prev, month: '' })); // Clear conflicting month filter
-            }} className="form-select border-none bg-transparent font-bold" title="Fiscal Year">
+            <label htmlFor="fy-select-main" className="sr-only">Fiscal Year</label>
+            <select 
+              id="fy-select-main"
+              name="fy-select"
+              value={selectedFY} 
+              onChange={(e) => {
+                setSelectedFY(e.target.value);
+                setPageFilters(prev => ({ ...prev, month: '' })); // Clear conflicting month filter
+              }} 
+              className="form-select border-none bg-transparent font-bold" 
+              title="Fiscal Year"
+            >
               {FY_OPTIONS.map(fy => <option key={fy} value={fy}>{fy}</option>)}
             </select>
           </div>
@@ -704,3 +467,11 @@ const KPICard = ({ title, value, icon, colorType }: { title: string, value: stri
     </div>
   );
 };
+
+
+
+
+
+
+
+

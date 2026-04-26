@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Mail, Users, Lock, Check, Copy, ExternalLink, X, ChevronDown, ChevronRight } from 'lucide-react';
-import { usePlanningFlow, NominationDraft } from '../../context/PlanningFlowContext';
-import { useMasterData } from '../../context/MasterDataContext';
+import { usePlanningFlow, NominationDraft } from '../../core/context/PlanningFlowContext';
+import { useMasterData } from '../../core/context/MasterDataContext';
 import { Employee } from '../../types/employee';
 import styles from './NotificationPage.module.css';
 
@@ -390,3 +390,7 @@ export const NotificationPage: React.FC<Props> = ({ employees }) => {
     </div>
   );
 };
+
+
+
+

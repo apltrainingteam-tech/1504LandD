@@ -4,22 +4,21 @@ import { Employee } from '../../types/employee';
 import { Attendance, TrainingScore } from '../../types/attendance';
 import { SCORE_SCHEMAS } from '../../types/reports';
 import { STATE_ZONE } from '../../seed/masterData';
-import { buildUnifiedDataset } from '../../services/reportService';
-import { DataTable } from '../../components/DataTable';
-import { Filters } from '../../components/Filters';
-import { KPIBox } from '../../components/KPIBox';
-import { InsightStrip } from '../../components/InsightStrip';
-import { formatDateForDisplay } from '../../utils/dateParser';
-import { displayScore } from '../../utils/scoreNormalizer';
-import TopRightControls from '../../components/TopRightControls';
-import { GlobalFilters, getActiveFilterCount } from '../../context/filterContext';
-import { getPrimaryMetricRaw, normalizeTrainingType } from '../../services/reportService';
-import { GlobalFilterPanel } from '../../components/GlobalFilterPanel';
-import { getFiscalYears, getFiscalYearFromDate } from '../../utils/fiscalYear';
-import { normalizeText } from '../../utils/textNormalizer';
-import { getSchema } from '../../services/trainingSchemas';
-import { useFilterOptions } from '../../utils/computationHooks';
-import { useMasterData } from '../../context/MasterDataContext';
+import { useTrainingsViewerData } from './hooks/useTrainingsViewerData';
+import { DataTable } from '../../shared/components/ui/DataTable';
+import { Filters } from '../../shared/components/ui/Filters';
+import { KPIBox } from '../../shared/components/ui/KPIBox';
+import { InsightStrip } from '../../features/dashboard/components/InsightStrip';
+import { formatDateForDisplay } from '../../core/utils/dateParser';
+import { displayScore } from '../../core/utils/scoreNormalizer';
+import TopRightControls from '../../shared/components/ui/TopRightControls';
+import { GlobalFilters, getActiveFilterCount } from '../../core/context/filterContext';
+import { GlobalFilterPanel } from '../../shared/components/ui/GlobalFilterPanel';
+import { getFiscalYears, getFiscalYearFromDate } from '../../core/utils/fiscalYear';
+import { normalizeText } from '../../core/utils/textNormalizer';
+import { getSchema } from '../../core/constants/trainingSchemas';
+import { useFilterOptions } from '../../shared/hooks/computationHooks';
+import { useMasterData } from '../../core/context/MasterDataContext';
 import styles from './TrainingsViewer.module.css';
 
 // Training type normalization
@@ -63,75 +62,7 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
     return ['All Zones', ...Array.from(uniqueZones).sort()];
   }, []);
 
-  // ─── SINGLE SOURCE OF TRUTH: FILTERED DATASET ──────────────────────────
-  const filtered = useMemo(() => {
-    const normalizedTab = normalizeTrainingType(tab);
-    let data = attendance.filter(a => normalizeTrainingType(a.trainingType) === normalizedTab);
-    const scs = scores.filter(s => normalizeTrainingType(s.trainingType) === normalizedTab);
-    
-    // Build initial unified dataset for this tab
-    let ds = buildUnifiedDataset(employees, data, scs, [], [], masterTeams);
-
-    // 2. Filter by Fiscal Year
-    if (selectedFY) {
-      ds = ds.filter(r => getFiscalYearFromDate(r.attendance.attendanceDate) === selectedFY);
-    }
-
-    // 3. Filter by Zone
-    if (selectedZone !== 'All Zones') {
-      ds = ds.filter(r => {
-        const empZone = r.employee.zone || getZoneFromState(r.employee.state);
-        return empZone === selectedZone;
-      });
-    }
-
-    // 4. Page-scoped Global Filters
-    if (pageFilters.cluster) {
-      ds = ds.filter(r => (r.employee.cluster || '') === pageFilters.cluster);
-    }
-    if (pageFilters.team) {
-      ds = ds.filter(r => (r.employee.team || '') === pageFilters.team);
-    }
-    if (pageFilters.trainer) {
-      ds = ds.filter(r => (r.attendance.trainerId || '') === pageFilters.trainer);
-    }
-    if (pageFilters.month) {
-      ds = ds.filter(r => {
-        const m = r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7);
-        return m === pageFilters.month;
-      });
-    }
-
-    // 5. Search Filter
-    if (search) {
-      const s = search.toLowerCase();
-      ds = ds.filter(r => 
-        r.employee.name.toLowerCase().includes(s) || 
-        r.employee.employeeId.toLowerCase().includes(s) ||
-        (r.employee.aadhaarNumber || '').includes(s)
-      );
-    }
-
-    console.log(`🔍 [FILTER ENGINE] Tab=${normalizedTab}, FY=${selectedFY}, Zone=${selectedZone}, Count=${ds.length}`);
-    return ds;
-  }, [employees, attendance, scores, tab, selectedFY, selectedZone, pageFilters, search]);
-
-  // ─── KPI CALCULATIONS ────────────────────────────────────────────────────
-  const kpis = useMemo(() => {
-    const total = filtered.length;
-    const present = filtered.filter(r => r.attendance.attendanceStatus === 'Present');
-    const attPercent = total > 0 ? ((present.length / total) * 100).toFixed(1) : '0';
-    
-    // Calculate avg score using the same metric logic as dashboard
-    const avg = getPrimaryMetricRaw(filtered, tab);
-    
-    return {
-      total,
-      attPercent,
-      avg: typeof avg === 'number' ? avg.toFixed(1) : avg,
-      totalUnified: filtered.length // Total in this filtered view
-    };
-  }, [filtered, tab]);
+  const { filtered, kpis } = useTrainingsViewerData(tab, employees, attendance, scores, selectedFY, selectedZone, pageFilters, search, masterTeams);
 
   const { allTeams, allTrainers } = useFilterOptions(employees, attendance, tab, masterTeams, masterTrainers);
   const allClusters = useMemo(() => masterClusters.map(c => c.name), [masterClusters]);
@@ -284,5 +215,14 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
     </div>
   );
 };
+
+
+
+
+
+
+
+
+
 
 

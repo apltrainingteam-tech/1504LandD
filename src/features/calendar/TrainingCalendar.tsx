@@ -1,13 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, X, AlertTriangle, Trash2, Calendar as CalIcon, Save, CheckCircle } from 'lucide-react';
-import TopRightControls from '../../components/TopRightControls';
-import { getFiscalYears, getFiscalYearFromDate, parseFiscalYear, getCurrentFiscalYear } from '../../utils/fiscalYear';
-import { usePlanningFlow } from '../../context/PlanningFlowContext';
-import { getAvailableTrainers, Trainer } from '../../services/trainerService';
+import TopRightControls from '../../shared/components/ui/TopRightControls';
+import { getFiscalYears, getFiscalYearFromDate, parseFiscalYear, getCurrentFiscalYear } from '../../core/utils/fiscalYear';
+import { usePlanningFlow } from '../../core/context/PlanningFlowContext';
+import { getAvailableTrainers, Trainer } from '../../core/engines/trainerEngine';
 import { Employee } from '../../types/employee';
 import { Attendance } from '../../types/attendance';
-import { useMasterData } from '../../context/MasterDataContext';
-import { getTeamName } from '../../utils/teamIdMapper';
+import { useMasterData } from '../../core/context/MasterDataContext';
+import { getTeamName } from '../../core/utils/teamIdMapper';
 import styles from './TrainingCalendar.module.css';
 
 interface ChecklistItem { name: string; completed: boolean; }
@@ -620,3 +620,11 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
     </div>
   );
 };
+
+
+
+
+
+
+
+

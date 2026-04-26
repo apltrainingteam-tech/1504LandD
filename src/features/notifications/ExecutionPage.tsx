@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { CheckCircle, AlertCircle, TrendingDown, RotateCcw } from 'lucide-react';
-import { usePlanningFlow } from '../../context/PlanningFlowContext';
+import { usePlanningFlow } from '../../core/context/PlanningFlowContext';
 import { Employee } from '../../types/employee';
 import { Attendance } from '../../types/attendance';
 import styles from './ExecutionPage.module.css';
@@ -128,3 +128,6 @@ export const ExecutionPage: React.FC<Props> = ({ employees, attendance }) => {
     </div>
   );
 };
+
+
+

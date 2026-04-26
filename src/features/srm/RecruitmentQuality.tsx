@@ -1,27 +1,20 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { BarChart3, Zap } from 'lucide-react';
-import { buildUnifiedDataset, applyFilters } from '../../services/reportService';
-import {
-  filterSRMRecords,
-  calculateClusterMetrics,
-  calculateTeamMetrics,
-  calculateMonthlyTrend
-} from '../../utils/srmCalculations';
-import { generateInsights, getDiagnosisSummary } from '../../utils/srmInsights';
-import { SRMSnapshot } from '../../components/SRMSnapshot';
-import { TSIPChart } from '../../components/TSIPChart';
-import { SRMTable } from '../../components/SRMTable';
-import { InsightsPanel } from '../../components/InsightsPanel';
-import { GlobalFilterPanel } from '../../components/GlobalFilterPanel';
-import { GlobalFilters, getActiveFilterCount } from '../../context/filterContext';
+import { useQualityMetrics } from './hooks/useQualityMetrics';
+import { SRMSnapshot } from './components/SRMSnapshot';
+import { TSIPChart } from '../dashboard/components/TSIPChart';
+import { SRMTable } from './components/SRMTable';
+import { InsightsPanel } from '../dashboard/components/InsightsPanel';
+import { GlobalFilterPanel } from '../../shared/components/ui/GlobalFilterPanel';
+import { GlobalFilters, getActiveFilterCount } from '../../core/context/filterContext';
 import { Employee } from '../../types/employee';
 import { Attendance, TrainingScore } from '../../types/attendance';
-import { scheduleIdle } from '../../utils/stagedComputation';
-import { useMasterData } from '../../context/MasterDataContext';
-import { useFilterOptions } from '../../utils/computationHooks';
-import TopRightControls from '../../components/TopRightControls';
-import { getFiscalYears } from '../../utils/fiscalYear';
+import { scheduleIdle } from '../../core/utils/stagedComputation';
+import { useMasterData } from '../../core/context/MasterDataContext';
+import { useFilterOptions } from '../../shared/hooks/computationHooks';
+import TopRightControls from '../../shared/components/ui/TopRightControls';
+import { getFiscalYears } from '../../core/utils/fiscalYear';
 import styles from './RecruitmentQuality.module.css';
 
 interface RecruitmentQualityProps {
@@ -52,25 +45,7 @@ export const RecruitmentQuality: React.FC<RecruitmentQualityProps> = ({
     return [...m].sort();
   }, [attendance]);
 
-  const unifiedDataset = useMemo(() => buildUnifiedDataset(employees, attendance, scores, [], [], masterTeams), [employees, attendance, scores, masterTeams]);
-
-  const filteredDataset = useMemo(() => applyFilters(unifiedDataset, {
-    monthFrom: filters.month, monthTo: filters.month,
-    teams: filters.team ? [filters.team] : [],
-    clusters: filters.cluster ? [filters.cluster] : [],
-    trainer: filters.trainer
-  }, masterTeams), [unifiedDataset, filters, masterTeams]);
-
-  const srmRecords = useMemo(() => filterSRMRecords(filteredDataset), [filteredDataset]);
-
-  const insights = useMemo(() => {
-    const clusterMetrics = calculateClusterMetrics(srmRecords);
-    const teamMetrics = calculateTeamMetrics(srmRecords);
-    const monthlyTrends = calculateMonthlyTrend(srmRecords);
-    return generateInsights(srmRecords, clusterMetrics, teamMetrics, monthlyTrends);
-  }, [srmRecords]);
-
-  const diagnosis = useMemo(() => getDiagnosisSummary(srmRecords), [srmRecords]);
+  const { srmRecords, insights, diagnosis } = useQualityMetrics(employees, attendance, scores, filters, masterTeams);
 
   useEffect(() => {
     if (renderStage === 0) scheduleIdle(() => 1, setRenderStage);
@@ -194,3 +169,12 @@ export const RecruitmentQuality: React.FC<RecruitmentQualityProps> = ({
 };
 
 export default RecruitmentQuality;
+
+
+
+
+
+
+
+
+

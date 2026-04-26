@@ -1,6 +1,6 @@
 import { Employee } from './employee';
 import { Attendance, TrainingScore, TrainingNomination } from './attendance';
-export { TRAINING_SCHEMAS, getSchema } from '../services/trainingSchemas';
+export { TRAINING_SCHEMAS, getSchema } from '../core/constants/trainingSchemas';
 
 export interface UnifiedRecord {
   employee: Employee;
@@ -136,4 +136,5 @@ export interface IPMonthlyRankMatrix {
     }>;
   }>;
 }
+
 

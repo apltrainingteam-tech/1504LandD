@@ -1,11 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { CheckCircle, Lock, AlertTriangle, Filter, Users } from 'lucide-react';
-import { usePlanningFlow, NominationDraft } from '../../context/PlanningFlowContext';
+import { usePlanningFlow, NominationDraft } from '../../core/context/PlanningFlowContext';
 import { Employee } from '../../types/employee';
 import { TrainingNomination, Attendance } from '../../types/attendance';
-import { parseAnyDate } from '../../utils/dateParser';
-import { applyEligibilityRules } from '../../services/applyEligibilityRules';
-import { getCollection } from '../../services/apiClient';
+import { parseAnyDate } from '../../core/utils/dateParser';
+import { useNominationsData } from './hooks/useNominationsData';
 import styles from './NominationsPage.module.css';
 
 /** Calculates tenure from DOJ to today → "Xyr Ym" */
@@ -80,48 +79,7 @@ export const NominationsPage: React.FC<Props> = ({ employees, nominations, atten
   const sessionTeamIds = selectionSession?.teamIds ?? [];
   const sessionType    = selectionSession?.trainingType;
 
-  const [dbRules, setDbRules] = useState<Record<string, any>>({});
-
-  const convertDbRule = (raw: any): Record<string, any> | null => {
-    if (!raw) return null;
-    const desMode = raw.designation?.mode;
-    let designations: string[] | 'ALL' = 'ALL';
-    if (desMode === 'INCLUDE' && Array.isArray(raw.designation?.values) && raw.designation.values.length > 0) {
-      designations = raw.designation.values.map((v: string) => v.toUpperCase());
-    }
-    const preTraining: string[] = [];
-    const preTrainingApplicableTo: string[] = [];
-    if (raw.previousTraining?.mode === 'INCLUDE' && Array.isArray(raw.previousTraining?.values)) {
-      raw.previousTraining.values.forEach((v: any) => {
-        const type = typeof v === 'string' ? v : v?.type;
-        if (type) preTraining.push(type.toUpperCase());
-        if (Array.isArray(v?.designations)) {
-          v.designations.forEach((d: string) => {
-            if (!preTrainingApplicableTo.includes(d.toUpperCase())) preTrainingApplicableTo.push(d.toUpperCase());
-          });
-        }
-      });
-    }
-    const aplMode = raw.aplExperience?.mode;
-    return {
-      designations,
-      preTraining,
-      preTrainingApplicableTo: preTrainingApplicableTo.length > 0 ? preTrainingApplicableTo : 'ALL',
-      minYears: aplMode === 'RANGE' ? raw.aplExperience?.min : null,
-      maxYears: aplMode === 'RANGE' ? raw.aplExperience?.max : null,
-      noAPInNext90Days: raw.specialConditions?.noAPInNext90Days ?? false,
-      preAPOnlyIfNominated: raw.specialConditions?.preAPOnlyIfInvited ?? false,
-      excludeIfAlreadyTrained: true,
-    };
-  };
-
-  useEffect(() => {
-    getCollection('eligibility_rules').then(rows => {
-      const map: Record<string, any> = {};
-      rows.forEach((r: any) => { if (r.trainingType) map[r.trainingType] = r; });
-      setDbRules(map);
-    }).catch(console.error);
-  }, []);
+  const { teamEmps } = useNominationsData(employees, attendance, nominations, sessionType, activeTeamId, sessionTeamIds);
 
   const [activeTeamId, setActiveTeamId]   = useState<string>(sessionTeamIds[0] ?? '');
   const [filterMode, setFilterMode]       = useState<FilterMode>('all');
@@ -133,13 +91,6 @@ export const NominationsPage: React.FC<Props> = ({ employees, nominations, atten
   );
 
   const noticeMap = useMemo(() => buildNoticeHistory(nominations, sessionType), [nominations, sessionType]);
-
-  const teamEmps = useMemo(() => {
-    const allTeamEmps = employees.filter(e => e.teamId === (activeTeamId || sessionTeamIds[0]));
-    if (!sessionType) return allTeamEmps;
-    const ruleOverride = convertDbRule(dbRules[sessionType] ?? dbRules[sessionType.toUpperCase()] ?? null);
-    return applyEligibilityRules(sessionType, allTeamEmps, attendance, nominations, ruleOverride);
-  }, [employees, activeTeamId, sessionTeamIds, sessionType, attendance, nominations, dbRules]);
 
   const filteredEmps = useMemo(() => {
     let list: Employee[];
@@ -353,3 +304,9 @@ export const NominationsPage: React.FC<Props> = ({ employees, nominations, atten
     </div>
   );
 };
+
+
+
+
+
+

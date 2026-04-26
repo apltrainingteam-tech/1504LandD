@@ -1,20 +1,19 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronRight, ChevronDown, Users, CheckCircle2, AlertTriangle, TrendingUp, Search, X, MapPin } from 'lucide-react';
-import { usePlanningFlow } from '../../context/PlanningFlowContext';
+import { usePlanningFlow } from '../../core/context/PlanningFlowContext';
 import { Employee } from '../../types/employee';
 import { Attendance, TrainingScore, TrainingNomination } from '../../types/attendance';
 import { STATE_ZONE } from '../../seed/masterData';
-import { computeGapAnalysis, GapAnalysisData, EmployeeGapDetail } from '../../services/gapAnalysisService';
-import { applyEligibilityRules } from '../../services/applyEligibilityRules';
-import { getCollection } from '../../services/apiClient';
-import { KPIBox } from '../../components/KPIBox';
-import { InsightStrip } from '../../components/InsightStrip';
-import TopRightControls from '../../components/TopRightControls';
-import { GlobalFilterPanel } from '../../components/GlobalFilterPanel';
-import { GlobalFilters, getActiveFilterCount } from '../../context/filterContext';
-import { getFiscalYears } from '../../utils/fiscalYear';
-import { useFilterOptions } from '../../utils/computationHooks';
-import { useMasterData } from '../../context/MasterDataContext';
+import { useGapAnalysisData } from './hooks/useGapAnalysisData';
+import { KPIBox } from '../../shared/components/ui/KPIBox';
+import { InsightStrip } from '../../features/dashboard/components/InsightStrip';
+import TopRightControls from '../../shared/components/ui/TopRightControls';
+import { GlobalFilterPanel } from '../../shared/components/ui/GlobalFilterPanel';
+import { GlobalFilters, getActiveFilterCount } from '../../core/context/filterContext';
+import { getFiscalYears } from '../../core/utils/fiscalYear';
+import { useFilterOptions } from '../../shared/hooks/computationHooks';
+import { useMasterData } from '../../core/context/MasterDataContext';
+import { GapAnalysisData } from '../../core/engines/gapEngine';
 import styles from './GapAnalysis.module.css';
 
 // Zone lookup from state
@@ -48,68 +47,23 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
   const [showGlobalFilters, setShowGlobalFilters] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: 'total' | 'mr90', direction: 'asc' | 'desc' }>({ key: 'total', direction: 'desc' });
 
-  // DB-loaded eligibility rules (loaded once on mount, reloaded when tab changes)
-  const [dbRules, setDbRules] = useState<Record<string, any>>({});
-
-  /** Convert DB rule format → flat format used by applyEligibilityRules */
-  const convertDbRule = (raw: any): Record<string, any> | null => {
-    if (!raw) return null;
-    // Designation
-    const desMode = raw.designation?.mode;
-    let designations: string[] | 'ALL' = 'ALL';
-    if (desMode === 'INCLUDE' && Array.isArray(raw.designation?.values) && raw.designation.values.length > 0) {
-      designations = raw.designation.values.map((v: string) => v.toUpperCase());
-    } else if (desMode === 'EXCLUDE') {
-      // EXCLUDE mode: treat as ALL (gap analysis shows all, designation filter is advisory only)
-      designations = 'ALL';
-    }
-    // Previous training prerequisites
-    const preTraining: string[] = [];
-    const preTrainingApplicableTo: string[] = [];
-    if (raw.previousTraining?.mode === 'INCLUDE' && Array.isArray(raw.previousTraining?.values)) {
-      raw.previousTraining.values.forEach((v: any) => {
-        const type = typeof v === 'string' ? v : v?.type;
-        if (type) preTraining.push(type.toUpperCase());
-        if (Array.isArray(v?.designations) && v.designations.length > 0) {
-          v.designations.forEach((d: string) => {
-            if (!preTrainingApplicableTo.includes(d.toUpperCase())) preTrainingApplicableTo.push(d.toUpperCase());
-          });
-        }
-      });
-    }
-    // Experience bracket
-    const aplMode = raw.aplExperience?.mode;
-    const minYears = aplMode === 'RANGE' ? (raw.aplExperience?.min ?? null) : null;
-    const maxYears = aplMode === 'RANGE' ? (raw.aplExperience?.max ?? null) : null;
-
-    return {
-      designations,
-      preTraining,
-      preTrainingApplicableTo: preTrainingApplicableTo.length > 0 ? preTrainingApplicableTo : 'ALL',
-      minYears,
-      maxYears,
-      noAPInNext90Days: raw.specialConditions?.noAPInNext90Days ?? false,
-      preAPOnlyIfNominated: raw.specialConditions?.preAPOnlyIfInvited ?? false,
-      excludeIfAlreadyTrained: false, // gap analysis always shows untrained pool
-    };
-  };
-
-  useEffect(() => {
-    getCollection('eligibility_rules')
-      .then(rows => {
-        const map: Record<string, any> = {};
-        rows.forEach((r: any) => {
-          if (r.trainingType) map[r.trainingType] = r;
-        });
-        setDbRules(map);
-        console.log('[GAP] Loaded eligibility_rules from DB:', Object.keys(map));
-      })
-      .catch(err => console.warn('[GAP] Could not load DB eligibility rules, using static fallback:', err.message));
-  }, []);
+  // Orchestrated Data
+  const { data, drilldownData } = useGapAnalysisData(tab, employees, attendance, nominations, masterTeams, pageFilters, zoneFilter);
 
   useEffect(() => {
     setSelectedTeams([]);
   }, [tab]);
+
+  const toggleExpanded = (key: string) => {
+    const newExpanded = new Set(expanded);
+    if (newExpanded.has(key)) newExpanded.delete(key);
+    else newExpanded.add(key);
+    setExpanded(newExpanded);
+  };
+
+  const toggleTeamSelection = (teamId: string) => {
+    setSelectedTeams(prev => prev.includes(teamId) ? prev.filter(t => t !== teamId) : [...prev, teamId]);
+  };
 
   // Get unique zones from masterData
   const zones = useMemo(() => {
@@ -122,7 +76,10 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
   const allClusters = useMemo(() => masterClusters.map(c => c.name), [masterClusters]);
   const months = useMemo(() => {
     const m = new Set<string>();
-    attendance.forEach(a => { if (a.month) m.add(a.month); if (a.attendanceDate) m.add((a.attendanceDate || '').substring(0,7)); });
+    attendance.forEach(a => { 
+      if (a.month) m.add(a.month); 
+      if (a.attendanceDate) m.add((a.attendanceDate || '').substring(0,7)); 
+    });
     return [...m].sort();
   }, [attendance]);
 
@@ -136,88 +93,6 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
     const cleared: GlobalFilters = { cluster: '', team: '', trainer: '', month: '' };
     setPageFilters(cleared);
     setShowGlobalFilters(false);
-  };
-
-  const { data, drilldownData } = useMemo(() => {
-    const teamMap = Object.fromEntries(masterTeams.map(t => [t.id, t]));
-
-    // Apply page-scoped filters to employees/attendance/nominations prior to gap computation
-    let filteredEmployees = employees;
-    if (pageFilters.cluster) {
-      filteredEmployees = filteredEmployees.filter(emp => {
-        if (!emp.teamId) {
-          console.error("Assertion failed: teamId must be defined for employee", emp.employeeId);
-          return false;
-        }
-        const cluster = teamMap[emp.teamId]?.cluster;
-        if (!cluster) {
-          console.error("Unmapped teamId:", emp.teamId);
-          return false;
-        }
-        return cluster === pageFilters.cluster;
-      });
-    }
-    
-    if (pageFilters.team) {
-      filteredEmployees = filteredEmployees.filter(emp => {
-        // Assume global filter provides team name or ID consistently.
-        return emp.teamId === pageFilters.team || emp.team === pageFilters.team;
-      });
-    }
-
-    // Filter by zone if Refresher tab and zone filter selected
-    if (tab === 'Refresher' && zoneFilter) {
-      filteredEmployees = filteredEmployees.filter(emp => {
-        const empZone = emp.zone || getZoneFromState(emp.state);
-        return empZone === zoneFilter;
-      });
-    }
-
-    const filteredAttendance = attendance.filter(a => {
-      if (pageFilters.trainer && a.trainerId !== pageFilters.trainer) return false;
-      if (pageFilters.month) {
-        const m = a.month || (a.attendanceDate || '').substring(0,7);
-        if (m !== pageFilters.month) return false;
-      }
-      return true;
-    });
-
-    const filteredNominations = nominations.filter(n => {
-      if (pageFilters.month) {
-        const m = n.notificationDate ? n.notificationDate.substring(0,7) : '';
-        if (m !== pageFilters.month) return false;
-      }
-      return true;
-    });
-
-    console.log(`📊 GAP ANALYSIS: Tab=${tab}, Zone=${zoneFilter || 'All'}, FilteredEmployees=${filteredEmployees.length}, TotalEmployees=${employees.length}`);
-
-    const strictlyEligibleEmployees = applyEligibilityRules(
-      tab,
-      filteredEmployees,
-      filteredAttendance,
-      filteredNominations,
-      convertDbRule(dbRules[tab] ?? dbRules[tab.toUpperCase()] ?? null)
-    );
-
-    const result = computeGapAnalysis(tab, strictlyEligibleEmployees, filteredAttendance, filteredNominations, masterTeams, zoneFilter);
-    console.log(`✓ RESULT for ${tab}: ${result.data.length} rows`);
-    if (result.data.length > 0) {
-      console.log(`  - Total Active: ${result.data.reduce((s, d) => s + d.totalActive, 0)}`);
-      console.log(`  - Total Eligible: ${result.data.reduce((s, d) => s + d.eligible, 0)}`);
-    }
-    return result;
-  }, [tab, employees, attendance, nominations, zoneFilter, masterTeams, dbRules]);
-
-  const toggleExpanded = (key: string) => {
-    const newExpanded = new Set(expanded);
-    if (newExpanded.has(key)) newExpanded.delete(key);
-    else newExpanded.add(key);
-    setExpanded(newExpanded);
-  };
-
-  const toggleTeamSelection = (teamId: string) => {
-    setSelectedTeams(prev => prev.includes(teamId) ? prev.filter(t => t !== teamId) : [...prev, teamId]);
   };
 
   const sortedData = useMemo(() => {
@@ -459,4 +334,13 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
     </div>
   );
 };
+
+
+
+
+
+
+
+
+
 

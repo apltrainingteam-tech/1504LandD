@@ -7,12 +7,10 @@ import {
   Trash2, 
   Save, 
   AlertCircle, 
-  Check, 
   ChevronRight,
   UserPlus,
   ChevronDown
 } from 'lucide-react';
-import { getCollection, upsertDoc, deleteDocument } from '../../services/apiClient';
 import { DESIGNATIONS } from '../../seed/masterData';
 import { 
   TeamClusterMapping, 
@@ -20,7 +18,8 @@ import {
   EligibilityRule, 
   TrainingType 
 } from '../../types/attendance';
-import { DataTable } from '../../components/DataTable';
+import { DataTable } from '../../shared/components/ui/DataTable';
+import { useDemographicsData } from './hooks/useDemographicsData';
 import styles from './Demographics.module.css';
 
 const TRAINING_TYPES: TrainingType[] = ['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'Pre_AP', 'GTG'];
@@ -28,48 +27,29 @@ const TRAINER_TYPES: TrainingType[] = ['HO', 'RTM'];
 
 export const Demographics = () => {
   const [tab, setTab] = useState<'mapping' | 'trainers' | 'rules'>('mapping');
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
+  
+  const {
+    loading,
+    saving,
+    mapping,
+    trainers,
+    rules,
+    refresh: loadData,
+    addMapping: apiAddMapping,
+    removeMapping: apiRemoveMapping,
+    addTrainer: apiAddTrainer,
+    removeTrainer: apiRemoveTrainer,
+    saveRule: apiSaveRule
+  } = useDemographicsData(tab);
 
-  // Section A: Cluster Mapping State
-  const [mapping, setMapping] = useState<TeamClusterMapping[]>([]);
+  // UI state only
   const [newTeam, setNewTeam] = useState('');
   const [newCluster, setNewCluster] = useState('');
-
-  // Section B: Trainer State
-  const [trainers, setTrainers] = useState<Trainer[]>([]);
   const [newTrainer, setNewTrainer] = useState({ name: '', types: [] as TrainingType[] });
-
-  // Section C: Rules State
-  const [rules, setRules] = useState<EligibilityRule[]>([]);
   const [activeRuleType, setActiveRuleType] = useState<TrainingType>('IP');
   const [editingRule, setEditingRule] = useState<EligibilityRule | null>(null);
   const [designationDropdownOpen, setDesignationDropdownOpen] = useState(false);
   const [openPrerequisiteDropdown, setOpenPrerequisiteDropdown] = useState<TrainingType | null>(null);
-
-  useEffect(() => {
-    loadData();
-  }, [tab]);
-
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      if (tab === 'mapping') {
-        const data = await getCollection('team_cluster_mapping');
-        setMapping(data as TeamClusterMapping[]);
-      } else if (tab === 'trainers') {
-        const data = await getCollection('trainers');
-        setTrainers(data as Trainer[]);
-      } else if (tab === 'rules') {
-        const data = await getCollection('eligibility_rules');
-        setRules(data as EligibilityRule[]);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // --- Handlers: Mapping ---
   const saveMapping = async () => {
@@ -87,17 +67,12 @@ export const Demographics = () => {
       return;
     }
 
-    setSaving(true);
     try {
-      const id = team.replace(/\s+/g, '_');
-      await upsertDoc('team_cluster_mapping', id, { id, team, cluster });
+      await apiAddMapping(team, cluster);
       alert('Mapping added successfully!');
       setNewTeam(''); setNewCluster('');
-      await loadData();
     } catch (err: any) {
       alert('Error saving mapping: ' + err.message);
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -107,17 +82,12 @@ export const Demographics = () => {
       alert('Please enter a Trainer Name');
       return;
     }
-    setSaving(true);
     try {
-      const id = newTrainer.name.replace(/\s+/g, '_');
-      await upsertDoc('trainers', id, { id, trainerName: newTrainer.name, trainingTypes: newTrainer.types });
+      await apiAddTrainer(newTrainer.name, newTrainer.types);
       alert('Trainer registered successfully!');
       setNewTrainer({ name: '', types: [] });
-      await loadData();
     } catch (err: any) {
       alert('Error saving trainer: ' + err.message);
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -158,15 +128,11 @@ export const Demographics = () => {
 
   const saveRule = async () => {
     if (!editingRule) return;
-    setSaving(true);
     try {
-      await upsertDoc('eligibility_rules', editingRule.id, editingRule);
+      await apiSaveRule(editingRule);
       alert('Eligibility rule for ' + activeRuleType + ' saved successfully!');
-      await loadData();
     } catch (err: any) {
       alert('Error saving rule: ' + err.message);
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -175,17 +141,10 @@ export const Demographics = () => {
       alert('Invalid ID. Cannot delete.');
       return;
     }
-
-    if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
-    setSaving(true);
-    try {
-      await deleteDocument(col, id);
-      alert(`Deleted ${name} successfully`);
-      await loadData();
-    } catch (err: any) {
-      alert('Delete failed: ' + err.message);
-    } finally {
-      setSaving(false);
+    if (col === 'trainers') {
+      await apiRemoveTrainer(id);
+    } else if (col === 'team_cluster_mapping') {
+      await apiRemoveMapping(id);
     }
   };
 
@@ -209,12 +168,12 @@ export const Demographics = () => {
           <div className="md:col-span-1 glass-panel p-6">
             <h3 className="mb-4">Advisory: Team Mapping</h3>
             <div className="form-group">
-              <label>Team Name</label>
-              <input value={newTeam} onChange={e => setNewTeam(e.target.value)} className="form-input" placeholder="e.g. Gamma Squad" aria-label="Team Name" />
+              <label htmlFor="new-team-name">Team Name</label>
+              <input id="new-team-name" name="teamName" value={newTeam} onChange={e => setNewTeam(e.target.value)} className="form-input" placeholder="e.g. Gamma Squad" aria-label="Team Name" />
             </div>
             <div className="form-group">
-              <label>Cluster</label>
-              <input value={newCluster} onChange={e => setNewCluster(e.target.value)} className="form-input" placeholder="e.g. North Zone" aria-label="Cluster" />
+              <label htmlFor="new-cluster-name">Cluster</label>
+              <input id="new-cluster-name" name="clusterName" value={newCluster} onChange={e => setNewCluster(e.target.value)} className="form-input" placeholder="e.g. North Zone" aria-label="Cluster" />
             </div>
             <button 
               className="btn btn-primary w-full mt-4" 
@@ -253,8 +212,8 @@ export const Demographics = () => {
           <div className="md:col-span-1 glass-panel p-6">
             <h3 className="mb-4">Register Trainer</h3>
             <div className="form-group">
-              <label>Trainer Name</label>
-              <input value={newTrainer.name} onChange={e => setNewTrainer({ ...newTrainer, name: e.target.value })} className="form-input" aria-label="Trainer Name" />
+              <label htmlFor="new-trainer-name">Trainer Name</label>
+              <input id="new-trainer-name" name="trainerName" value={newTrainer.name} onChange={e => setNewTrainer({ ...newTrainer, name: e.target.value })} className="form-input" aria-label="Trainer Name" />
             </div>
             <div className="form-group">
               <label>Authorized Types</label>
@@ -498,14 +457,16 @@ export const Demographics = () => {
               </div>
               {editingRule.aplExperience.mode === 'RANGE' && (
                 <div className="flex gap-8 mt-4">
+                <div className="flex gap-8 mt-4">
                   <div className="form-group flex-1">
-                    <label>Min Years</label>
-                    <input type="number" className="form-input" value={editingRule.aplExperience.min} onChange={e => setEditingRule({ ...editingRule, aplExperience: { ...editingRule.aplExperience, min: parseInt(e.target.value) } })} aria-label="Min Years" />
+                    <label htmlFor="min-years">Min Years</label>
+                    <input id="min-years" name="minYears" type="number" className="form-input" value={editingRule.aplExperience.min} onChange={e => setEditingRule({ ...editingRule, aplExperience: { ...editingRule.aplExperience, min: parseInt(e.target.value) } })} aria-label="Min Years" />
                   </div>
                   <div className="form-group flex-1">
-                    <label>Max Years</label>
-                    <input type="number" className="form-input" value={editingRule.aplExperience.max} onChange={e => setEditingRule({ ...editingRule, aplExperience: { ...editingRule.aplExperience, max: parseInt(e.target.value) } })} aria-label="Max Years" />
+                    <label htmlFor="max-years">Max Years</label>
+                    <input id="max-years" name="maxYears" type="number" className="form-input" value={editingRule.aplExperience.max} onChange={e => setEditingRule({ ...editingRule, aplExperience: { ...editingRule.aplExperience, max: parseInt(e.target.value) } })} aria-label="Max Years" />
                   </div>
+                </div>
                 </div>
               )}
             </div>
@@ -535,3 +496,5 @@ export const Demographics = () => {
     </div>
   );
 };
+
+

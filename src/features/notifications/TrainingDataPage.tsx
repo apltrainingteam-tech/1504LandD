@@ -4,8 +4,8 @@ import {
   RotateCcw, TrendingUp, Users, AlertCircle, Filter,
   Upload, BellRing
 } from 'lucide-react';
-import { usePlanningFlow, TrainingBatch, CandidateRecord, BatchAttStatus } from '../../context/PlanningFlowContext';
-import { useMasterData } from '../../context/MasterDataContext';
+import { usePlanningFlow, TrainingBatch, CandidateRecord, BatchAttStatus } from '../../core/context/PlanningFlowContext';
+import { useMasterData } from '../../core/context/MasterDataContext';
 import { Employee } from '../../types/employee';
 import { Attendance } from '../../types/attendance';
 import styles from './TrainingDataPage.module.css';
@@ -461,3 +461,7 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
     </div>
   );
 };
+
+
+
+

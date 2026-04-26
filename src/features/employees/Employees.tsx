@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { Users, UploadCloud, CheckCircle, X, Check, AlertTriangle, XCircle, Upload, Search, Database } from 'lucide-react';
-import { parseEmployeeMasterExcel, ParsedRow } from '../../services/parsingService';
-import { validateFileSize, MAX_UPLOAD_SIZE_BYTES } from '../../utils/fileValidation';
-import { clearCollection, addBatch } from '../../services/apiClient';
+import { useEmployeeUpload } from './hooks/useEmployeeUpload';
+import { validateFileSize, MAX_UPLOAD_SIZE_BYTES } from '../../core/utils/fileValidation';
+import { ParsedRow } from '../../core/engines/parsingEngine';
 import { Employee } from '../../types/employee';
-import { parseAnyDate } from '../../utils/dateParser';
+import { parseAnyDate } from '../../core/utils/dateParser';
 import styles from './Employees.module.css';
 
 /**
@@ -54,12 +54,11 @@ export const Employees: React.FC<EmployeesProps> = ({
   filterZone = '',
   onFilterZoneChange,
 }) => {
+  const { uploading, uploadProgress, performUpload, parseFile } = useEmployeeUpload(onUploadComplete);
   const [step, setStep] = useState<'view' | 'upload' | 'preview' | 'done'>('view');
   const [dragOver, setDragOver] = useState(false);
   const [fileName, setFileName] = useState('');
   const [rows, setRows] = useState<ParsedRow[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
 
   // Derive unique sorted options from the employee list
   const designationOptions = useMemo(() =>
@@ -85,13 +84,12 @@ export const Employees: React.FC<EmployeesProps> = ({
       return;
     }
     setFileName(file.name);
-    try {
-      const { rows: processed } = await parseEmployeeMasterExcel(file);
-      setRows(processed);
+    const res = await parseFile(file);
+    if (res.success && res.rows) {
+      setRows(res.rows);
       setStep('preview');
-    } catch (err: any) {
-      alert('Parse failed: ' + err.message);
-      console.error(err);
+    } else {
+      alert('Parse failed: ' + res.error);
     }
   };
 
@@ -106,29 +104,11 @@ export const Employees: React.FC<EmployeesProps> = ({
   };
 
   const doUpload = async () => {
-    setUploading(true);
-    setUploadProgress(0);
-    try {
-      const uploadable = rows.filter(r => r.status !== 'error').map(r => r.data);
-      const total = uploadable.length;
-      
-      // Step 1: Wipe the active index! Full replace.
-      await clearCollection('employees');
-      
-      // Step 2: Batch upload progressively
-      const chunkSize = 50; 
-      for (let i = 0; i < total; i += chunkSize) {
-         const chunk = uploadable.slice(i, i + chunkSize);
-         await addBatch('employees', chunk);
-         setUploadProgress(Math.round(((i + chunk.length) / total) * 100));
-      }
-      
+    const res = await performUpload(rows);
+    if (res.success) {
       setStep('done');
-      onUploadComplete?.();
-    } catch (err: any) {
-      alert('Database Replacement failed: ' + err.message);
-    } finally {
-      setUploading(false);
+    } else {
+      alert('Database Replacement failed: ' + res.error);
     }
   };
 
@@ -265,7 +245,10 @@ export const Employees: React.FC<EmployeesProps> = ({
           {/* Search */}
           <div className={styles.searchWrapper}>
             <Search size={16} className={styles.searchIcon} />
+            <label htmlFor="employee-search" className="sr-only">Search name or ID</label>
             <input
+              id="employee-search"
+              name="search"
               type="text"
               className={`form-input ${styles.searchInput}`}
               placeholder="Search name or ID…"
@@ -275,7 +258,10 @@ export const Employees: React.FC<EmployeesProps> = ({
           </div>
 
           {/* Designation filter */}
+          <label htmlFor="roster-filter-designation" className="sr-only">Filter Designation</label>
           <select
+            id="roster-filter-designation"
+            name="designation"
             className={`form-input ${styles.filterSelect} ${filterDesignation ? styles.filterSelectActive : styles.filterSelectInactive}`}
             value={filterDesignation}
             onChange={e => onFilterDesignationChange?.(e.target.value)}
@@ -287,7 +273,10 @@ export const Employees: React.FC<EmployeesProps> = ({
           </select>
 
           {/* Team filter */}
+          <label htmlFor="roster-filter-team" className="sr-only">Filter Team</label>
           <select
+            id="roster-filter-team"
+            name="team"
             className={`form-input ${styles.filterSelect} ${filterTeam ? styles.filterSelectActive : styles.filterSelectInactive}`}
             value={filterTeam}
             onChange={e => onFilterTeamChange?.(e.target.value)}
@@ -299,7 +288,10 @@ export const Employees: React.FC<EmployeesProps> = ({
           </select>
 
           {/* Zone filter */}
+          <label htmlFor="roster-filter-zone" className="sr-only">Filter Zone</label>
           <select
+            id="roster-filter-zone"
+            name="zone"
             className={`form-input ${styles.filterSelect} ${filterZone ? styles.filterSelectActive : styles.filterSelectInactive}`}
             value={filterZone}
             onChange={e => onFilterZoneChange?.(e.target.value)}
@@ -371,5 +363,9 @@ export const Employees: React.FC<EmployeesProps> = ({
     </div>
   );
 };
+
+
+
+
 
 

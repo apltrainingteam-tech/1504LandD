@@ -25,12 +25,12 @@ import {
   Pin,
   PinOff
 } from 'lucide-react';
-import { useTheme } from './context/ThemeContext';
-import { FilterProvider } from './context/FilterProvider';
-import { PlanningFlowProvider } from './context/PlanningFlowContext';
-import { MasterDataProvider, useMasterData } from './context/MasterDataContext';
-import { PageTransition } from './components/PageTransition';
-import { SkeletonDashboard } from './components/SkeletonDashboard';
+import { useTheme } from './core/context/ThemeContext';
+import { FilterProvider } from './core/context/FilterProvider';
+import { PlanningFlowProvider } from './core/context/PlanningFlowContext';
+import { MasterDataProvider, useMasterData } from './core/context/MasterDataContext';
+import { PageTransition } from './shared/components/ui/PageTransition';
+import { SkeletonDashboard } from './shared/components/ui/SkeletonDashboard';
 import './index.css';
 
 const logoUrl = new URL('./assets/ajanta-pharma-logo.svg', import.meta.url).href;
@@ -51,15 +51,17 @@ import { MasterSettings } from './features/settings/MasterSettings';
 import { PerformanceCharts } from './features/dashboard/PerformanceCharts';
 
 // Services & Types
-import { getCollection, deleteRecordsByQuery } from './services/apiClient';
-import { seedDatabase, seedMasterData } from './seed';
+import { getCollection, deleteRecordsByQuery } from './core/engines/apiClient';
+import { seedMasterData } from './seed';
 import { Employee } from './types/employee';
 import { Attendance, TrainingScore, TrainingNomination, Demographics as DemoType } from './types/attendance';
-import { parseAnyDate } from './utils/dateParser';
-import { normalizeScore } from './utils/scoreNormalizer';
-import { getSchema, mapHeader } from './services/trainingSchemas';
-import { normalizeText } from './utils/textNormalizer';
-import { getTeamId, mapTeamCodeToId } from './utils/teamIdMapper';
+import { parseAnyDate } from './core/utils/dateParser';
+import { normalizeScore } from './core/utils/scoreNormalizer';
+import { getSchema, mapHeader } from './core/constants/trainingSchemas';
+import { normalizeText } from './core/utils/textNormalizer';
+import { getTeamId, mapTeamCodeToId } from './core/utils/teamIdMapper';
+
+import { useAppData } from './shared/hooks/useAppData';
 
 type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'nominations' | 'notification' | 'training-data' | 'gap-analysis' | 'performance-tables' | 'performance-charts' | 'performance' | 'srm' | 'calendar' | 'master-settings';
 interface SidebarItem {
@@ -127,226 +129,32 @@ const sidebarSections: SidebarSection[] = [
 const App = () => {
   const { theme, toggleTheme } = useTheme();
   const [view, setView] = useState<ViewMode>('reports');
-  const [loading, setLoading] = useState(true);
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [isSeeding, setIsSeeding] = useState(false);
-  const [isCleaning, setIsCleaning] = useState(false);
-  const { teams: masterTeams, loading: masterLoading } = useMasterData();
-
-  // Global State
-  const [emps, setEmps] = useState<Employee[]>([]);
-  const [att, setAtt] = useState<Attendance[]>([]);
-  const [scs, setScs] = useState<TrainingScore[]>([]);
-  const [noms, setNoms] = useState<TrainingNomination[]>([]);
-  const [demos, setDemos] = useState<DemoType[]>([]);
-
-  // Employee Master filter state (lifted so KPI card reflects filters)
-  const [empSearch, setEmpSearch] = useState('');
-  const [empFilterDesignation, setEmpFilterDesignation] = useState('');
-  const [empFilterTeam, setEmpFilterTeam] = useState('');
-  const [empFilterZone, setEmpFilterZone] = useState('');
-
+  
   // Sidebar State
   const [isSidebarPinned, setIsSidebarPinned] = useState(false);
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
   const isSidebarCollapsed = !isSidebarPinned && !isSidebarHovered;
 
-  const filteredEmps = useMemo(() => emps.filter(e => {
-    const q = empSearch.toLowerCase();
-    const matchesSearch = !q ||
-      (e.name || '').toLowerCase().includes(q) ||
-      (e.employeeId || '').toLowerCase().includes(q);
-    const matchesDesignation = !empFilterDesignation || e.designation === empFilterDesignation;
-    const matchesTeam = !empFilterTeam || e.team === empFilterTeam;
-    const matchesZone = !empFilterZone || e.zone === empFilterZone;
-    return matchesSearch && matchesDesignation && matchesTeam && matchesZone;
-  }), [emps, empSearch, empFilterDesignation, empFilterTeam, empFilterZone]);
-
-  const empFiltersActive = !!(empSearch || empFilterDesignation || empFilterTeam || empFilterZone);
-
-  const handleSeed = async () => {
-    if (!confirm('Seed database with Master Data?')) return;
-    setIsSeeding(true);
-    const success = await seedMasterData();
-    if (success) {
-      setRefreshKey(k => k + 1);
-    }
-    setIsSeeding(false);
-  };
-
-  const loadAll = async () => {
-    if (masterLoading) return; // Wait for master teams to map IDs
-    setLoading(true);
-    try {
-      const [e, trainingDataRaw, d] = await Promise.all([
-        getCollection('employees'),
-        getCollection('training_data'),
-        getCollection('demographics')
-      ]);
-      
-      const a: Attendance[] = [];
-      const s: TrainingScore[] = [];
-      const n: TrainingNomination[] = [];
-
-      (trainingDataRaw as any[]).forEach((row) => {
-        if (!row) return;
-
-        // UNWRAP: Some records might be nested in 'mapped' or 'data' due to enrichment/legacy storage
-        const r = row.mapped || row.data || row;
-        
-        // Ensure root-level fields like attendanceDate/trainingType are preserved if they were outside 'mapped'
-        let attendanceDate = r.attendanceDate || row.attendanceDate;
-        if (attendanceDate) {
-          attendanceDate = parseAnyDate(attendanceDate) || attendanceDate;
-        }
-
-        const trainingType = r.trainingType || row.trainingType;
-        const employeeId = r.employeeId || r.aadhaarNumber || row.employeeId || row.aadhaarNumber;
-        
-        if (!employeeId) return;
-
-        // Populate Attendance
-        if (attendanceDate) {
-          const teamRef = r.team || row.team;
-          const teamId = mapTeamCodeToId(teamRef, masterTeams) || (teamRef ? `unmapped::${normalizeText(teamRef)}` : undefined);
-          if (teamId) {
-            a.push({
-              id: row._id || Math.random().toString(),
-              employeeId: String(employeeId),
-              trainingType: trainingType,
-              attendanceDate: attendanceDate,
-              month: (attendanceDate as string).substring(0, 7),
-              attendanceStatus: r.attendanceStatus || 'Present',
-              employeeStatus: r.employeeStatus || 'Active',
-              aadhaarNumber: r.aadhaarNumber || row.aadhaarNumber,
-              mobileNumber: r.mobileNumber || row.mobileNumber,
-              name: r.name || row.name,
-              team: r.team || row.team,
-              teamId: teamId,
-              designation: r.designation || row.designation,
-              hq: r.hq || row.hq,
-              state: r.state || row.state,
-            } as Attendance);
-          }
-        }
-
-        // Populate Scores - Using official training schema definitions
-        const scoresObj: Record<string, number> = {};
-        const schema = getSchema(trainingType);
-        
-        const extractBySchema = (source: any) => {
-          if (!source) return;
-          // Strategy: Scan all keys in source, map them using mapHeader, 
-          // and if they match a scoreField in our schema, extract them.
-          Object.keys(source).forEach(rawKey => {
-            const canonicalKey = mapHeader(rawKey);
-            if (schema.scoreFields.includes(canonicalKey)) {
-              const val = source[rawKey];
-              const normalized = normalizeScore(val);
-              if (normalized !== null) {
-                scoresObj[canonicalKey] = normalized;
-              }
-            }
-          });
-        };
-
-        extractBySchema(r); 
-        extractBySchema(row);
-
-        if (Object.keys(scoresObj).length > 0) {
-          s.push({
-            id: row._id || Math.random().toString(),
-            employeeId: String(employeeId),
-            trainingType: trainingType,
-            dateStr: attendanceDate,
-            scores: scoresObj
-          } as TrainingScore);
-        }
-
-        // Populate Nominations
-        if (trainingType === 'PreAP' || r.notified || row.notified) {
-          let notificationDate = r.apDate || attendanceDate || '';
-          if (notificationDate) {
-            notificationDate = parseAnyDate(notificationDate) || notificationDate;
-          }
-          
-          const teamRef = r.team || row.team;
-          const teamId = mapTeamCodeToId(teamRef, masterTeams) || (teamRef ? `unmapped::${normalizeText(teamRef)}` : undefined);
-          if (teamId) {
-            n.push({
-              id: row._id || Math.random().toString(),
-              employeeId: String(employeeId),
-              trainingType: trainingType,
-              notificationDate: notificationDate,
-              month: (notificationDate as string).substring(0, 7),
-              notificationCount: 1,
-              aadhaarNumber: r.aadhaarNumber || row.aadhaarNumber || '',
-              mobileNumber: r.mobileNumber || row.mobileNumber || '',
-              name: r.name || row.name || '',
-              designation: r.designation || row.designation || '',
-              team: r.team || row.team || '',
-              teamId: teamId,
-              hq: r.hq || row.hq || '',
-              state: r.state || row.state || '',
-            } as TrainingNomination);
-          }
-        }
-      });
-
-      console.log('Loaded unified collections:', {
-        employees: e.length,
-        attendance_derived: a.length,
-        scores_derived: s.length,
-        nominations_derived: n.length,
-        demographics: d.length
-      });
-      
-      setEmps(((e as any[]).map(row => {
-        const teamId = row.teamId || mapTeamCodeToId(row.team, masterTeams) || (row.team ? `unmapped::${normalizeText(row.team)}` : undefined);
-        if (!teamId) return null;
-        return {
-          ...row,
-          id: row.id || row._id,
-          employeeId: String(row.employeeId),
-          teamId
-        };
-      })).filter(Boolean) as Employee[]);
-      setAtt(a);
-      setScs(s);
-      setNoms(n);
-      setDemos(d as DemoType[]);
-    } catch (err) {
-      console.error('Failed to load collections:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadAll();
-  }, [refreshKey, masterLoading]);
-
-  const handlePurge = async () => {
-    if (!window.confirm("This will PERMANENTLY delete all records for 'Team A' and 'Unknown' categories. Proceed?")) return;
-    setIsCleaning(true);
-    try {
-      const dummyValues = ['Team A', 'Unknown', '—', 'Unknown Team', 'Unmapped'];
-      
-      const counts = await Promise.all([
-        deleteRecordsByQuery('attendance', 'team', dummyValues),
-        deleteRecordsByQuery('training_scores', 'team', dummyValues),
-        deleteRecordsByQuery('employees', 'team', dummyValues)
-      ]);
-
-      const totalDeleted = counts.reduce((a, b) => a + b, 0);
-      alert(`Cleanup Complete! ${totalDeleted} dummy records purged from live database.`);
-      setRefreshKey(k => k + 1);
-    } catch (e) {
-      alert('Cleanup failed: ' + (e as any).message);
-    } finally {
-      setIsCleaning(false);
-    }
-  };
+  const {
+    loading,
+    refreshKey,
+    setRefreshKey,
+    emps,
+    att,
+    scs,
+    noms,
+    demos,
+    filteredEmps,
+    empFiltersActive,
+    empSearch,
+    setEmpSearch,
+    empFilterDesignation,
+    setEmpFilterDesignation,
+    empFilterTeam,
+    setEmpFilterTeam,
+    empFilterZone,
+    setEmpFilterZone
+  } = useAppData();
 
   const renderView = () => {
     if (loading) {
@@ -507,3 +315,11 @@ const App = () => {
 };
 
 export default App;
+
+
+
+
+
+
+
+

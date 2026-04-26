@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, Save, X, Settings, Users, Layers } from 'lucide-react';
-import { useMasterData, Trainer, Team, Cluster } from '../../context/MasterDataContext';
+import { useMasterData, Trainer, Team, Cluster } from '../../core/context/MasterDataContext';
 import styles from './MasterSettings.module.css';
 
 export const MasterSettings: React.FC = () => {
@@ -251,3 +251,6 @@ const MasterModal = ({ config, onClose, onSubmit, clusters, existingTrainers, ex
     </div>
   );
 };
+
+
+
