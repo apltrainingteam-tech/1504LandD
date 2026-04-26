@@ -137,8 +137,9 @@ export const buildUnifiedDataset = traceEngine("buildUnifiedDataset", (
 
 
 // ─── FILTER ENGINE ─────────────────────────────────────────────────────────
-export function applyFilters(ds: UnifiedRecord[], filter: ReportFilter, masterTeams: Team[]): UnifiedRecord[] {
+export function applyFilters(ds: UnifiedRecord[], filter: ReportFilter, masterTeams: Team[], masterTrainers: any[] = []): UnifiedRecord[] {
   const teamMap = Object.fromEntries(masterTeams.map(t => [t.id, t]));
+  const trainerMap = Object.fromEntries(masterTrainers.map(t => [t.id, t]));
 
   return ds.filter(r => {
     const month = r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7);
@@ -155,7 +156,20 @@ export function applyFilters(ds: UnifiedRecord[], filter: ReportFilter, masterTe
       if (!filter.clusters.includes(cluster)) return false;
     }
 
-    if (filter.trainer && r.attendance.trainerId !== filter.trainer) return false;
+    if (filter.trainers && filter.trainers.length > 0) {
+      if (!filter.trainers.includes(r.attendance.trainerId)) return false;
+    } else if (filter.trainer && r.attendance.trainerId !== filter.trainer) {
+      // Legacy fallback
+      return false;
+    }
+
+    if (filter.trainerTypes && filter.trainerTypes.length > 0) {
+      const tId = r.attendance.trainerId;
+      if (!tId) return false;
+      const type = trainerMap[tId]?.category || "Unknown";
+      if (!filter.trainerTypes.includes(type)) return false;
+    }
+
     return true;
   });
 }

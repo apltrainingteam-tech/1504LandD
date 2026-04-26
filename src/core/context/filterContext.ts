@@ -1,10 +1,17 @@
 import { createContext, useContext } from 'react';
 
 export interface GlobalFilters {
+  // Legacy single-select (deprecate)
   cluster: string;
   team: string;
   trainer: string;
   month: string;
+  
+  // New Array-based Multi-Select
+  clusters: string[];
+  teams: string[];
+  trainers: string[];
+  trainerTypes: string[];
 }
 
 export interface FilterContextType {
@@ -19,6 +26,10 @@ const defaultFilters: GlobalFilters = {
   team: '',
   trainer: '',
   month: '',
+  clusters: [],
+  teams: [],
+  trainers: [],
+  trainerTypes: [],
 };
 
 export const FilterContext = createContext<FilterContextType>({
@@ -37,6 +48,16 @@ export const useGlobalFilters = () => {
 };
 
 export const getActiveFilterCount = (filters: GlobalFilters): number => {
-  return Object.values(filters).filter(value => value && value.length > 0).length;
+  if (!filters) return 0;
+  let count = 0;
+  if (filters.cluster) count++;
+  if (filters.team) count++;
+  if (filters.trainer) count++;
+  if (filters.month) count++;
+  if (filters.clusters?.length > 0) count += filters.clusters.length;
+  if (filters.teams?.length > 0) count += filters.teams.length;
+  if (filters.trainers?.length > 0) count += filters.trainers.length;
+  if (filters.trainerTypes?.length > 0) count += filters.trainerTypes.length;
+  return count;
 };
 

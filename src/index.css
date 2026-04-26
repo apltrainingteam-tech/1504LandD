@@ -133,6 +133,24 @@ button {
   overflow: hidden;
 }
 
+/* Presentation Mode Overrides */
+body.presentation-active .sidebar {
+  display: none !important;
+}
+
+body.presentation-active .app-container {
+  padding-left: 0 !important;
+}
+
+body.presentation-active .header {
+  display: none !important;
+}
+
+body.presentation-active .main-content {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
 /* Sidebar */
 .sidebar {
   width: 280px;
@@ -613,8 +631,14 @@ button {
 .text-danger-bold { color: var(--danger); font-weight: 700; font-size: 13px; }
 .text-danger { color: var(--danger); }
 .text-success { color: var(--success); }
-.text-muted-70 { opacity: 0.7; }
-.text-muted-30 { opacity: 0.3; }
+.opacity-60 { opacity: 0.6; }
+.opacity-80 { opacity: 0.8; }
+
+.nav-item-debug {
+  border-left: 2px solid var(--danger);
+  opacity: 0.8;
+}
+
 .rank-card-success { border-left: 4px solid var(--success); }
 .rank-card-danger { border-left: 4px solid var(--danger); }
 .rank-item { font-size: 14px; margin-bottom: 8px; }

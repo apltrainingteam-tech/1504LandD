@@ -256,12 +256,11 @@ const App = () => {
           {/* SUPERADMIN-only Engine Debug link — DEV mode only */}
           {isSuperAdmin && process.env.NODE_ENV !== 'production' && (
             <div className="sidebar-section">
-              <div className="section-title" style={{ color: 'var(--danger)', opacity: 0.6 }}>SYSTEM</div>
+              <div className="section-title text-danger opacity-60">SYSTEM</div>
               <button
-                className={`nav-item ${'dev/engine-debug' === view ? 'active' : ''}`}
+                className={`nav-item nav-item-debug ${'dev/engine-debug' === view ? 'active' : ''}`}
                 onClick={() => setView('dev/engine-debug')}
                 title="Engine Debug Panel (SUPERADMIN only)"
-                style={{ borderLeft: '2px solid var(--danger)', opacity: 0.8 }}
               >
                 <Activity size={20} />
                 <span>Engine Debug</span>

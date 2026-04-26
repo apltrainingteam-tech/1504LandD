@@ -11,6 +11,10 @@ export const FilterProvider: React.FC<FilterProviderProps> = ({ children }) => {
     team: '',
     trainer: '',
     month: '',
+    clusters: [],
+    teams: [],
+    trainers: [],
+    trainerTypes: [],
   });
 
   const activeFilterCount = getActiveFilterCount(filters);
@@ -21,6 +25,10 @@ export const FilterProvider: React.FC<FilterProviderProps> = ({ children }) => {
       team: '',
       trainer: '',
       month: '',
+      clusters: [],
+      teams: [],
+      trainers: [],
+      trainerTypes: [],
     });
   };
 

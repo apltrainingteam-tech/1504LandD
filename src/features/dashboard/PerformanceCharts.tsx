@@ -13,7 +13,7 @@ import { Attendance, TrainingScore, TrainingNomination, TrainingType, Eligibilit
 import { getCurrentFYString, getFiscalYears } from '../../core/utils/fiscalYear';
 import { useMasterData } from '../../core/context/MasterDataContext';
 import { GlobalFilterPanel } from '../../shared/components/ui/GlobalFilterPanel';
-import { GlobalFilters, getActiveFilterCount } from '../../core/context/filterContext';
+import { GlobalFilters, useGlobalFilters } from '../../core/context/filterContext';
 import { useFilterOptions, useMonthsFromData } from '../../shared/hooks/computationHooks';
 import { useDebugStore } from '../../core/debug/debugStore';
 import { usePerformanceData } from './hooks/usePerformanceData';
@@ -90,13 +90,22 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
   const [tab, setTab] = useState<string>('IP');
   const [subView, setSubView] = useState<string>('performance');
   const [selectedFY, setSelectedFY] = useState<string>(getCurrentFYString());
-  const [pageFilters, setPageFilters] = useState<GlobalFilters>({ cluster: '', team: '', trainer: '', month: '' });
-  const [showGlobalFilters, setShowGlobalFilters] = useState(false);
-  const activeFilterCount = getActiveFilterCount(pageFilters);
+  const { filters: pageFilters, setFilters: setPageFilters, activeFilterCount, clearFilters } = useGlobalFilters();
   const [tsMode, setTsMode] = useState<'score' | 'count'>('score');
   const isEngineDebugActive = useDebugStore(state => state.enabled);
+  const [presentationMode, setPresentationMode] = useState(false);
 
   if (isEngineDebugActive) return null;
+
+  // --- PRESENTATION MODE SIDEBAR HIDING ---
+  useEffect(() => {
+    if (presentationMode) {
+      document.body.classList.add('presentation-active');
+    } else {
+      document.body.classList.remove('presentation-active');
+    }
+    return () => document.body.classList.remove('presentation-active');
+  }, [presentationMode]);
 
   // --- SYNC GLOBAL MONTH FILTER WITH FISCAL YEAR SELECTOR ---
   useEffect(() => {
@@ -129,12 +138,14 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
     months: dataMonths,
     timeSeries
   } = usePerformanceData({
-    employees, attendance, scores, nominations, rules, masterTeams,
+    employees, attendance, scores, nominations, rules, masterTeams, masterTrainers,
     tab, selectedFY, filter: {
       monthFrom: pageFilters.month ? normalizeMonthStr(pageFilters.month) : '', 
       monthTo: pageFilters.month ? normalizeMonthStr(pageFilters.month) : '',
-      teams: pageFilters.team ? [pageFilters.team] : [],
-      clusters: pageFilters.cluster ? [pageFilters.cluster] : [],
+      teams: pageFilters.teams.length > 0 ? pageFilters.teams : (pageFilters.team ? [pageFilters.team] : []),
+      clusters: pageFilters.clusters.length > 0 ? pageFilters.clusters : (pageFilters.cluster ? [pageFilters.cluster] : []),
+      trainers: pageFilters.trainers,
+      trainerTypes: pageFilters.trainerTypes,
       trainer: pageFilters.trainer || ''
     }, viewBy: 'Month', tsMode, pageMode: 'performance-charts'
   });
@@ -188,35 +199,230 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
         <div className="flex-center gap-2">
           <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Switch to Tables"><Table size={16} /></button>
           <div className="v-divider mx-1" />
-          <div className="flex-center gap-2 glass-panel px-3 py-1 rounded-lg">
-            <Calendar size={14} className="text-primary" />
-            <label htmlFor="fy-select-main" className="sr-only">Fiscal Year</label>
-            <select 
-              id="fy-select-main"
-              name="fy-select"
-              value={selectedFY} 
-              onChange={(e) => {
-                setSelectedFY(e.target.value);
-                setPageFilters(prev => ({ ...prev, month: '' })); // Clear conflicting month filter
-              }} 
-              className="form-select border-none bg-transparent font-bold" 
-              title="Fiscal Year"
-            >
-              {FY_OPTIONS.map(fy => <option key={fy} value={fy}>{fy}</option>)}
-            </select>
-          </div>
-          <button className={`btn btn-secondary ${activeFilterCount > 0 ? 'active' : ''}`} onClick={() => setShowGlobalFilters(true)} title="Advanced Filters">
-            <Filter size={16} />
-            {activeFilterCount > 0 && <span className="text-xs-bold ml-1">{activeFilterCount}</span>}
+          <button className={`btn ${presentationMode ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setPresentationMode(!presentationMode)} title="Presentation Mode">
+            <TrendingUp size={16} /> {presentationMode ? 'Exit Presentation' : 'Present'}
           </button>
         </div>
       </div>
 
-      <div className="tab-row mb-20">
+      <div className={`${styles.segmentedControl} mb-20 ${presentationMode ? 'scale-110 mb-32' : ''}`}>
         {ALL_TRAINING_TYPES.map(t => (
-          <button key={t} onClick={() => setTab(t)} className={`btn btn-tab ${tab === t ? 'btn-primary' : 'btn-secondary'}`}>{t}</button>
+          <button 
+            key={t} 
+            onClick={() => setTab(t)} 
+            className={`${styles.segmentedBtn} ${tab === t ? styles.active : ''}`}
+          >
+            {t}
+          </button>
         ))}
       </div>
+
+      {/* COMMAND BAR - The Control Surface */}
+      <div className={`glass-panel p-20 mb-16 sticky top-0 z-50 transition-all duration-300 ${presentationMode ? 'scale-105 shadow-2xl border-primary bg-black/60' : ''}`}>
+        <div className="flex flex-col gap-6">
+          
+          {/* Row 1: Clusters & Global Controls */}
+          <div className="flex-between flex-wrap gap-4">
+            <div className="flex gap-3 items-center flex-wrap">
+              <span className="text-xs-bold text-muted uppercase tracking-wider w-16">Clusters:</span>
+              <div className="flex gap-2 flex-wrap">
+                <motion.button 
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setPageFilters({ ...pageFilters, clusters: [], teams: [] })}
+                  className={`${styles.chipBtn} ${pageFilters.clusters.length === 0 ? `${styles.active} ${styles.glow}` : ''}`}
+                >
+                  All
+                </motion.button>
+                {allClusters.map(c => (
+                  <motion.button 
+                    key={c}
+                    whileHover={{ scale: 1.05, y: -2 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      const newClusters = pageFilters.clusters.includes(c) 
+                        ? pageFilters.clusters.filter(x => x !== c)
+                        : [...pageFilters.clusters, c];
+                      setPageFilters({ ...pageFilters, clusters: newClusters, teams: [] });
+                    }}
+                    className={`${styles.chipBtn} ${pageFilters.clusters.includes(c) ? `${styles.active} ${styles.glow}` : ''}`}
+                  >
+                    {c}
+                  </motion.button>
+                ))}
+              </div>
+            </div>
+            
+            <div className="flex-center gap-3">
+              <div className="flex-center gap-2 bg-white/5 px-4 py-2 rounded-xl border border-white/10">
+                <Calendar size={14} className="text-primary" />
+                <select 
+                  value={selectedFY} 
+                  title="Fiscal Year Selector"
+                  onChange={(e) => setSelectedFY(e.target.value)} 
+                  className="form-select border-none bg-transparent font-bold text-sm outline-none cursor-pointer" 
+                >
+                  {FY_OPTIONS.map(fy => <option key={fy} value={fy} className="bg-gray-900">{fy}</option>)}
+                </select>
+              </div>
+              <button 
+                className="btn btn-secondary flex-center gap-2 px-4 py-2 hover:bg-danger/20 hover:text-danger border-white/10" 
+                onClick={clearFilters}
+              >
+                <Zap size={14} /> <span className="text-sm font-bold">Reset Surface</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Row 2: Teams (Dependent) */}
+          {(pageFilters.clusters.length > 0 || allTeams.length > 0) && (
+            <div className="flex gap-3 items-start flex-wrap">
+              <span className="text-xs-bold text-muted uppercase tracking-wider w-16 mt-2">Teams:</span>
+              <div className={`flex-1 flex gap-2 flex-wrap max-h-24 overflow-y-auto pr-2 ${styles.customScrollbar}`}>
+                {allTeams.map(t => (
+                  <motion.button 
+                    key={t.id}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      const newTeams = pageFilters.teams.includes(t.id)
+                        ? pageFilters.teams.filter(x => x !== t.id)
+                        : [...pageFilters.teams, t.id];
+                      setPageFilters({ ...pageFilters, teams: newTeams });
+                    }}
+                    className={`${styles.chipBtnSm} ${pageFilters.teams.includes(t.id) ? `${styles.active} ${styles.glow}` : ''}`}
+                  >
+                    {t.label}
+                  </motion.button>
+                ))}
+                {allTeams.length === 0 && <span className="text-xs text-muted italic p-1">No teams in selected clusters</span>}
+              </div>
+            </div>
+          )}
+
+          {/* Row 3: Trainer Control (Dual-Layer Avatar Chips) */}
+          <div className="flex gap-3 items-start flex-wrap pt-2 border-t border-white/5">
+            <span className="text-xs-bold text-muted uppercase tracking-wider w-16 mt-3">Trainers:</span>
+            
+            <div className="flex-1 flex flex-col gap-4">
+              {['HO', 'RTM'].map(type => {
+                const trainersOfType = allTrainers.filter((t: any) => t.label.includes(type));
+                if (trainersOfType.length === 0) return null;
+                
+                return (
+                  <div key={type} className="flex gap-4 items-center">
+                    <button 
+                      onClick={() => {
+                        const isAllSelected = trainersOfType.every((t: any) => pageFilters.trainers.includes(t.id));
+                        const newTrainers = isAllSelected 
+                          ? pageFilters.trainers.filter(id => !trainersOfType.find((t: any) => t.id === id))
+                          : [...new Set([...pageFilters.trainers, ...trainersOfType.map((t: any) => t.id)])];
+                        setPageFilters({ ...pageFilters, trainers: newTrainers });
+                      }}
+                      className={`text-[10px] font-bold px-2 py-1 rounded bg-white/5 border border-white/10 uppercase tracking-widest hover:bg-white/10 transition-colors ${trainersOfType.every((t: any) => pageFilters.trainers.includes(t.id)) ? 'text-primary border-primary/40' : 'text-muted'}`}
+                    >
+                      {type}
+                    </button>
+                    <div className="flex gap-2 flex-wrap">
+                      {trainersOfType.map((t: any) => {
+                        const initials = t.label.split(' ')[0].substring(0, 2).toUpperCase();
+                        const isActive = pageFilters.trainers.includes(t.id);
+                        return (
+                          <motion.button
+                            key={t.id}
+                            title={t.label}
+                            whileHover={{ scale: 1.1, y: -2 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={() => {
+                              const newTrainers = isActive 
+                                ? pageFilters.trainers.filter(x => x !== t.id)
+                                : [...pageFilters.trainers, t.id];
+                              setPageFilters({ ...pageFilters, trainers: newTrainers });
+                            }}
+                            className={`${styles.avatarChip} ${isActive ? `${styles.active} ${styles.glow}` : ''}`}
+                          >
+                            {initials}
+                          </motion.button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ACTIVE FILTER SUMMARY BAR */}
+      <div className="flex gap-2 items-center flex-wrap mb-24 min-h-[32px] px-4">
+        <span className="text-[10px] font-bold text-muted uppercase tracking-widest mr-2">Control Path:</span>
+        <AnimatePresence>
+          {pageFilters.clusters.map(c => (
+            <motion.span key={`c-${c}`} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} className={`${styles.filterTag} ${styles.cluster}`}>
+              {c} <button onClick={() => setPageFilters({ ...pageFilters, clusters: pageFilters.clusters.filter(x => x !== c) })}>✕</button>
+            </motion.span>
+          ))}
+          {pageFilters.teams.map(tid => {
+            const label = allTeams.find(t => t.id === tid)?.label || tid;
+            return (
+              <motion.span key={`t-${tid}`} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} className={`${styles.filterTag} ${styles.team}`}>
+                {label} <button onClick={() => setPageFilters({ ...pageFilters, teams: pageFilters.teams.filter(x => x !== tid) })}>✕</button>
+              </motion.span>
+            );
+          })}
+          {pageFilters.trainers.map(tid => {
+            const label = allTrainers.find((t: any) => t.id === tid)?.label.split(' (')[0] || tid;
+            return (
+              <motion.span key={`tr-${tid}`} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} className={`${styles.filterTag} ${styles.trainer}`}>
+                {label} <button onClick={() => setPageFilters({ ...pageFilters, trainers: pageFilters.trainers.filter(x => x !== tid) })}>✕</button>
+              </motion.span>
+            );
+          })}
+          {pageFilters.month && (
+            <motion.span initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} className={`${styles.filterTag} ${styles.month}`}>
+              {pageFilters.month} <button onClick={() => setPageFilters({ ...pageFilters, month: '' })}>✕</button>
+            </motion.span>
+          )}
+        </AnimatePresence>
+        {activeFilterCount === 0 && <span className="text-xs text-muted/40 italic">Entire Fleet Steering (No active overrides)</span>}
+      </div>
+
+      {/* QUICK SCENARIO BUTTONS */}
+      {!presentationMode && (
+        <div className="flex gap-3 mb-24 overflow-x-auto pb-2 px-2 no-scrollbar">
+          <motion.button whileHover={{ y: -2 }} whileTap={{ scale: 0.98 }} onClick={clearFilters} className={styles.scenarioBtn}>
+            <Users size={14} /> Full Snapshot
+          </motion.button>
+          <motion.button 
+            whileHover={{ y: -2 }} 
+            whileTap={{ scale: 0.98 }} 
+            onClick={() => {
+              // Scenario: Only show teams with Elite members
+              const topTeams = rankingData.filter(r => r.score > 80).map(r => masterTeams.find(t => t.teamName === r.name)?.id).filter(Boolean) as string[];
+              setPageFilters({ ...pageFilters, teams: topTeams, trainers: [], clusters: [], month: '' });
+            }} 
+            className={styles.scenarioBtn}
+          >
+            <Trophy size={14} className="text-success" /> Elite Squads
+          </motion.button>
+          <motion.button 
+            whileHover={{ y: -2 }} 
+            whileTap={{ scale: 0.98 }} 
+            onClick={() => {
+              // Scenario: Only show teams with significant gaps
+              const lowTeams = rankingData.filter(r => r.score < 60).map(r => masterTeams.find(t => t.teamName === r.name)?.id).filter(Boolean) as string[];
+              setPageFilters({ ...pageFilters, teams: lowTeams, trainers: [], clusters: [], month: '' });
+            }} 
+            className={styles.scenarioBtn}
+          >
+            <AlertTriangle size={14} className="text-danger" /> Risk Focus
+          </motion.button>
+          <motion.button whileHover={{ y: -2 }} whileTap={{ scale: 0.98 }} onClick={() => setSubView('gap')} className={styles.scenarioBtn}>
+            <Target size={14} className="text-warning" /> High Gap Areas
+          </motion.button>
+        </div>
+      )}
 
       <AnimatePresence mode="wait">
         <motion.div key={`${tab}-${subView}-${selectedFY}`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
@@ -254,7 +460,12 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
                     <div className={styles.vizWrapperFixed}>
                       <ResponsiveContainer width="100%" height="100%">
                         {tab === 'IP' ? (
-                          <BarChart data={distributionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                          <BarChart data={distributionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} onClick={(data: any) => {
+                            if (data?.activeLabel) {
+                              const label = String(data.activeLabel);
+                              setPageFilters({ ...pageFilters, month: pageFilters.month === label ? '' : label });
+                            }
+                          }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
                             <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
                             <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} domain={[0, 100]} />
@@ -266,7 +477,12 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
                             <Bar dataKey="Low" stackId="a" fill="#ef4444" />
                           </BarChart>
                         ) : activeNT === 'AP' ? (
-                          <BarChart data={distributionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                          <BarChart data={distributionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} onClick={(data: any) => {
+                            if (data?.activeLabel) {
+                              const label = String(data.activeLabel);
+                              setPageFilters({ ...pageFilters, month: pageFilters.month === label ? '' : label });
+                            }
+                          }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
                             <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
                             <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} domain={[0, 100]} />
@@ -276,7 +492,12 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
                             <Bar dataKey="BSE" fill="#22c55e" barSize={20} />
                           </BarChart>
                         ) : (activeNT === 'MIP' || activeNT === 'Refresher') ? (
-                          <BarChart data={distributionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                          <BarChart data={distributionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} onClick={(data: any) => {
+                            if (data?.activeLabel) {
+                              const label = String(data.activeLabel);
+                              setPageFilters({ ...pageFilters, month: pageFilters.month === label ? '' : label });
+                            }
+                          }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
                             <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
                             <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} domain={[0, 100]} />
@@ -286,7 +507,12 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
                             <Bar dataKey="Skill" fill="#06b6d4" barSize={20} />
                           </BarChart>
                         ) : (
-                          <BarChart data={distributionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                          <BarChart data={distributionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} onClick={(data: any) => {
+                            if (data?.activeLabel) {
+                              const label = String(data.activeLabel);
+                              setPageFilters({ ...pageFilters, month: pageFilters.month === label ? '' : label });
+                            }
+                          }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
                             <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
                             <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} domain={[0, 100]} />
@@ -302,7 +528,16 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
                     <div className={styles.chartHeader}><h3 className={styles.chartTitle}><ListOrdered size={18} className="text-warning" /> Ranking</h3></div>
                     <div className={styles.vizWrapperFixed}>
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart layout="vertical" data={rankingData} margin={{ top: 5, right: 10, left: 20, bottom: 5 }}>
+                        <BarChart layout="vertical" data={rankingData} margin={{ top: 5, right: 10, left: 20, bottom: 5 }} onClick={(data: any) => {
+                          if (data && data.activePayload && data.activePayload.length > 0) {
+                            const teamName = String(data.activePayload[0].payload.name);
+                            const teamId = masterTeams.find(t => t.teamName === teamName)?.id || teamName;
+                            const newTeams = pageFilters.teams.includes(teamId)
+                              ? pageFilters.teams.filter(x => x !== teamId)
+                              : [...pageFilters.teams, teamId];
+                            setPageFilters({ ...pageFilters, teams: newTeams });
+                          }
+                        }}>
                           <XAxis type="number" hide domain={[0, 100]} /><YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-primary)', fontSize: 10 }} width={90} />
                           <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px' }} />
                           <Bar dataKey="score" fill="#3b82f6" barSize={14}>
@@ -383,7 +618,12 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
                 <div className={styles.chartHeader}><h3 className={styles.chartTitle}>Gap by Cluster</h3></div>
                 <div className={styles.vizWrapper}>
                   <ResponsiveContainer>
-                    <BarChart data={matrixData.map(c => ({ name: c.cluster, Trained: c.teams.reduce((s, t) => s + t.total, 0) }))}>
+                      <BarChart data={matrixData.map(c => ({ name: c.cluster, Trained: c.teams.reduce((s, t) => s + t.total, 0) }))} onClick={(data: any) => {
+                        if (data?.activeLabel) {
+                          const label = String(data.activeLabel);
+                          setPageFilters({ ...pageFilters, cluster: pageFilters.cluster === label ? '' : label, team: '' });
+                        }
+                      }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
                       <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
                       <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
@@ -426,7 +666,15 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
                     <YAxis type="number" dataKey="score" name="Avg Score" domain={[0, 100]} axisLine={false} tickLine={false} />
                     <ZAxis type="category" dataKey="name" name="Trainer" />
                     <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ borderRadius: '12px' }} />
-                    <Scatter name="Trainers" data={trainerScatterData}>
+                    <Scatter name="Trainers" data={trainerScatterData} onClick={(data: any) => {
+                      if (data && data.name) {
+                        const tId = data.name;
+                        const newTrainers = pageFilters.trainers.includes(tId)
+                          ? pageFilters.trainers.filter(x => x !== tId)
+                          : [...pageFilters.trainers, tId];
+                        setPageFilters({ ...pageFilters, trainers: newTrainers });
+                      }
+                    }}>
                       {trainerScatterData.map((e: any, i: number) => <Cell key={i} fill={e.score >= 80 ? '#22c55e' : e.score >= 60 ? '#f59e0b' : '#ef4444'} />)}
                     </Scatter>
                   </ScatterChart>
@@ -438,12 +686,6 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
         </motion.div>
       </AnimatePresence>
 
-      <GlobalFilterPanel
-        isOpen={showGlobalFilters} onClose={() => setShowGlobalFilters(false)}
-        onApply={(f) => setPageFilters(f)} initialFilters={pageFilters}
-        clusterOptions={allClusters} teamOptions={allTeams} trainerOptions={allTrainers} monthOptions={monthsOptions}
-        onClearAll={() => setPageFilters({ cluster: '', team: '', trainer: '', month: '' })}
-      />
     </div>
   );
 };

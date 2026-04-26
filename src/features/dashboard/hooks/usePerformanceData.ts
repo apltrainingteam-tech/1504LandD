@@ -38,6 +38,7 @@ export interface UsePerformanceDataProps {
   nominations: TrainingNomination[];
   rules: EligibilityRule[];
   masterTeams: any[];
+  masterTrainers?: any[];
   tab: string;
   selectedFY: string;
   filter: ReportFilter;

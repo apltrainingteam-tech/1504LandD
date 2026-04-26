@@ -52,7 +52,9 @@ export interface ReportFilter {
   monthTo: string;    // YYYY-MM, empty = no upper bound
   teams: string[];    // empty = all
   clusters: string[]; // empty = all
-  trainer: string;    // empty = all
+  trainer: string;    // empty = all (comma separated fallback if needed)
+  trainers?: string[];
+  trainerTypes?: string[];
 }
 
 // Legacy alias kept for any remaining consumers — prefer getSchema() from trainingSchemas.ts
