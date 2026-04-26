@@ -66,8 +66,22 @@ export interface UsePerformanceDataProps {
 export const usePerformanceData = ({
   employees, attendance, scores, nominations, rules, masterTeams,
   tab, selectedFY, filter, viewBy = 'Team', tsMode = 'score', pageMode
-}: UsePerformanceDataProps): PerformanceDataset => {
+}: UsePerformanceDataProps): PerformanceDataset & { resolutionLevel: 'Global' | 'Cluster' | 'Team' } => {
   const isEngineDebugActive = useDebugStore(state => state.enabled);
+
+  const resolutionLevel = useMemo(() => {
+    const hasTeam = filter.teams.length > 0 || filter.team;
+    const hasCluster = filter.clusters.length > 0 || (filter.cluster && filter.cluster !== 'All');
+    
+    if (hasTeam) return 'Team';
+    if (hasCluster) return 'Cluster'; // Viewing teams within a cluster
+    return 'Global'; // Viewing clusters
+  }, [filter.teams, filter.team, filter.clusters, filter.cluster]);
+
+  const effectiveViewBy = useMemo(() => {
+    if (resolutionLevel === 'Global') return 'Cluster' as ViewByOption;
+    return 'Team' as ViewByOption;
+  }, [resolutionLevel]);
 
   if (isEngineDebugActive) {
     return {
@@ -215,7 +229,7 @@ export const usePerformanceData = ({
   const gapMetrics = useGapMetrics(tab, eligibilityResults, attendance);
 
   // Analytics Computation
-  const groups = useGroupedData(unified, viewBy, tabNoms, employees, masterTeams);
+  const groups = useGroupedData(unified, effectiveViewBy, tabNoms, employees, masterTeams);
   const ranked = useRankedGroups(groups, tab);
   const trainerStats = useTrainerStats(unified);
   const drilldownNodes = useDrilldownNodes(unified, tab);
@@ -255,6 +269,7 @@ export const usePerformanceData = ({
     mipKPI,
     refresherKPI,
     capsuleKPI,
-    preApKPI
+    preApKPI,
+    resolutionLevel
   };
 };

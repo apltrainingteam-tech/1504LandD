@@ -80,13 +80,13 @@ export function normalizeToIPRecords(ds: UnifiedRecord[]): IPRecord[] {
     
     // DEFENSIVE: Skip known dummy/orphaned data entirely
     if (['Team A', '—', 'Unknown Team'].includes(team)) return;
-    const cluster = normalizeText(r.employee.cluster || 'Unmapped');
+    const cluster = normalizeText(r.employee.cluster || 'Others');
     
     const month = r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7);
     records.push({
       employeeId: r.employee.employeeId,
       team: team || '—',
-      cluster: cluster || 'Unmapped',
+      cluster: cluster || 'Others',
       month: month,
       score: s as number,
       bucket: classifyBucket(s as number)
@@ -290,7 +290,7 @@ function applyRanking(list: IPMonthlyTeamRank[], rankField: 'overallRank' | 'clu
 }
 
 export function buildIPMonthlyTeamRanks(ds: UnifiedRecord[], fyMonths?: string[]): IPMonthlyRankMatrix {
-  const DUMMY_TEAMS = new Set(['Team A', 'Unknown', '—', 'Unknown Team', 'Unmapped']);
+  const DUMMY_TEAMS = new Set(['Team A', 'Unknown', '—', 'Unknown Team', 'Others']);
 
 
   const dedupMap = new Map<string, UnifiedRecord>();
@@ -317,7 +317,7 @@ export function buildIPMonthlyTeamRanks(ds: UnifiedRecord[], fyMonths?: string[]
 
     if (!team || DUMMY_TEAMS.has(team)) return;
 
-    const cluster = r.employee.cluster || 'Unmapped';
+    const cluster = r.employee.cluster || 'Others';
 
     // Score: prefer schema camelCase keys → fallback to legacy Title Case
     const rawScore = normalizeScore(

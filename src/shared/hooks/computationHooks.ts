@@ -102,48 +102,56 @@ export function useMonthsFromData(unified: UnifiedRecord[]) {
  * Separate from main component to avoid inline mapping
  */
 export function useFilterOptions(
-  employees: Employee[], 
+  unified: UnifiedRecord[],
   attendance: any[], 
   trainingType?: string,
-  masterTeams?: any[],
-  masterTrainers?: Trainer[]
+  masterTrainers?: Trainer[],
+  selectedClusters: string[] = []
 ) {
+  const allClusters = useMemo(() => {
+    const clusters = [...new Set(unified.map(r => r.employee.cluster).filter(Boolean))].sort();
+    console.log("[FilterHook] Derived Clusters:", clusters);
+    return clusters;
+  }, [unified]);
+
   const allTeams = useMemo(() => {
-    // If masterTeams provided, use Active teams from there
-    if (masterTeams && masterTeams.length > 0) {
-      return masterTeams
-        .filter(t => t.status === 'Active')
-        .map(t => ({ 
-          id: t.id, 
-          label: t.teamName 
-        }))
-        .sort((a, b) => a.label.localeCompare(b.label));
+    let filtered = unified;
+    if (selectedClusters.length > 0) {
+      filtered = unified.filter(r => selectedClusters.includes(r.employee.cluster));
     }
-    // Fallback to extraction from employees
-    const uniqueNames = [...new Set(employees.map(e => e.team).filter((t): t is string => Boolean(t)))].sort();
-    return uniqueNames.map(name => ({ id: name, label: name }));
-  }, [employees, masterTeams]);
+    
+    // Build unique team list from data
+    const teamMap = new Map<string, string>(); // id -> label
+    filtered.forEach(r => {
+      const id = r.employee.teamId;
+      const label = r.employee.team;
+      if (id && label) {
+        teamMap.set(id, label);
+      }
+    });
+
+    return Array.from(teamMap.entries())
+      .map(([id, label]) => ({ id, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [unified, selectedClusters]);
   
   const allTrainers = useMemo(() => {
-    // If trainingType and masterTrainers provided, use dynamic service logic
     if (trainingType) {
       return getAvailableTrainers(trainingType, masterTrainers).map(t => ({
         id: t.id,
         label: `${t.trainerName} (${t.category})`
       }));
     }
-    // Fallback to active trainers from master list if no training type
     if (masterTrainers && masterTrainers.length > 0) {
       return masterTrainers
         .filter(t => t.status === 'Active')
         .map(t => ({ id: t.id, label: `${t.trainerName} (${t.category})` }));
     }
-    // Deep fallback to existing data extraction
     const uniqueIds = [...new Set(attendance.map(a => a.trainerId).filter((tr): tr is string => Boolean(tr)))].sort();
     return uniqueIds.map(id => ({ id, label: id }));
   }, [attendance, trainingType, masterTrainers]);
   
-  return { allTeams, allTrainers };
+  return { allClusters, allTeams, allTrainers };
 }
 
 

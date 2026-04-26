@@ -53,11 +53,36 @@ export const buildUnifiedDataset = traceEngine("buildUnifiedDataset", (
   masterTeams: Team[]
 ): UnifiedRecord[] => {
 
-  const teamMap = Object.fromEntries(masterTeams.map(t => [t.id, t]));
+  const teamIdMap = new Map<string, string>();
+  const clusterMapLookup = new Map<string, string>();
+  
+  console.log(`[ReportEngine] Master Teams Count: ${masterTeams.length}`);
+  
+  // 1. Build robust lookup maps from master data
+  masterTeams.forEach(t => {
+    const normName = t.teamName.trim().toLowerCase();
+    teamIdMap.set(normName, t.id);
+    // Sanitize legacy cluster names during lookup build
+    let cluster = t.cluster || 'Others';
+    if (['MIS', 'ALL', 'UNMAPPED'].includes(cluster.toUpperCase())) {
+      cluster = 'Others';
+    }
+    clusterMapLookup.set(t.id, cluster);
+  });
+
   const empMap = new Map<string, Employee>();
+  const unmappedTeams = new Set<string>();
+
   for (const e of emps) {
-    const teamId = getTeamId(e.team, masterTeams);
-    const cluster = (teamId ? teamMap[teamId]?.cluster : null) || 'Unmapped';
+    const rawTeam = (e.team || '').trim();
+    const normTeam = rawTeam.toLowerCase();
+    
+    // Resolve ID and Cluster
+    const teamId = e.teamId || teamIdMap.get(normTeam);
+    const cluster = teamId ? (clusterMapLookup.get(teamId) || 'Others') : 'Others';
+    
+    if (!teamId && rawTeam) unmappedTeams.add(rawTeam);
+    
     empMap.set(e.employeeId || e.id, { ...e, teamId, cluster });
   }
 
@@ -90,7 +115,11 @@ export const buildUnifiedDataset = traceEngine("buildUnifiedDataset", (
     eligibilityMap.set(tid, el);
   }
 
-  return att.map(a => {
+  let totalMapped = 0;
+  let totalRecords = 0;
+  const clusterDist: Record<string, number> = {};
+
+  const result = att.map((a, idx) => {
     const tid = String(a.employeeId).trim();
     const type = normalizeTrainingType(a.trainingType);
     
@@ -107,6 +136,7 @@ export const buildUnifiedDataset = traceEngine("buildUnifiedDataset", (
       doj: '', dob: '', email: '', basicQualification: '',
       aplExperience: 0, pastExperience: 0, totalExperience: 0, age: 0,
       status: 'Active' as const,
+      cluster: 'Others'
     };
 
     let sc = scoreMap.get(`${tid}::${type}::${a.attendanceDate}`) || null;
@@ -117,12 +147,21 @@ export const buildUnifiedDataset = traceEngine("buildUnifiedDataset", (
     const nm = nominationMap.get(`${tid}::${type}`) || null;
     const el = eligibilityMap.get(tid);
     
-    // Ensure employee has teamId and cluster resolved even if placeholder
-    const teamId = emp.teamId || mapTeamCodeToId(emp.team, masterTeams) || (emp.team ? `unmapped::${normalizeText(emp.team)}` : undefined);
-    if (!teamId) {
-      return; // Skip only if absolutely no team info exists
+    // Final resolution of metadata
+    const rawTeam = (emp.team || '').trim();
+    const normTeam = rawTeam.toLowerCase();
+    const teamId = emp.teamId || teamIdMap.get(normTeam) || (emp.team ? `unmapped::${normalizeText(emp.team)}` : undefined);
+    
+    if (!teamId) return; 
+    
+    let cluster = emp.cluster || clusterMapLookup.get(teamId) || 'Others';
+    if (['MIS', 'ALL', 'UNMAPPED'].includes(cluster.toUpperCase())) {
+      cluster = 'Others';
     }
-    const cluster = normalizeText(emp.cluster || teamMap[teamId]?.cluster || 'Unmapped');
+    
+    totalRecords++;
+    if (cluster !== 'Others') totalMapped++;
+    clusterDist[cluster] = (clusterDist[cluster] || 0) + 1;
 
     return {
       employee: { ...emp, teamId, cluster } as Employee,
@@ -133,6 +172,20 @@ export const buildUnifiedDataset = traceEngine("buildUnifiedDataset", (
       eligibilityReason: el?.reasonIfNotEligible
     } as UnifiedRecord;
   }).filter((r): r is UnifiedRecord => !!r);
+
+  const engineClusters = [...new Set(result.map(d => d.employee.cluster))];
+  console.log("ENGINE CLUSTERS:", engineClusters);
+
+  const unmappedPct = totalRecords > 0 ? ((totalRecords - totalMapped) / totalRecords) * 100 : 0;
+  console.log(`[ReportEngine] Mapping Summary: Total=${totalRecords}, Mapped=${totalMapped}, Unmapped=${totalRecords - totalMapped} (${unmappedPct.toFixed(1)}%)`);
+  console.log(`[ReportEngine] Cluster Distribution:`, clusterDist);
+
+  if (unmappedPct > 20) {
+    console.error(`[ReportEngine] CRITICAL: High unmapped percentage (${unmappedPct.toFixed(1)}%). Check master data unit names.`);
+    if (unmappedTeams.size > 0) console.warn(`[ReportEngine] Unmapped teams list:`, Array.from(unmappedTeams));
+  }
+
+  return result;
 });
 
 
@@ -152,12 +205,12 @@ export function applyFilters(ds: UnifiedRecord[], filter: ReportFilter, masterTe
     if (filter.teams.length > 0 && !filter.teams.includes(teamId)) return false;
     
     if (filter.clusters.length > 0) {
-      const cluster = teamMap[teamId]?.cluster || "Unknown";
+      const cluster = r.employee.cluster || "Others";
       if (!filter.clusters.includes(cluster)) return false;
     }
 
     if (filter.trainers && filter.trainers.length > 0) {
-      if (!filter.trainers.includes(r.attendance.trainerId)) return false;
+      if (!r.attendance.trainerId || !filter.trainers.includes(r.attendance.trainerId)) return false;
     } else if (filter.trainer && r.attendance.trainerId !== filter.trainer) {
       // Legacy fallback
       return false;
@@ -195,11 +248,7 @@ export function groupData(
     if (by === 'Month') k = r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7) || '—';
     else if (by === 'Team') k = r.employee.team || '—';
     else {
-      const teamId = r.attendance.teamId || r.employee.teamId;
-      if (!teamId) continue;
-
-      k = teamMap[teamId]?.cluster;
-      if (!k) continue;
+      k = r.employee.cluster || 'Others';
     }
 
     if (!m.has(k)) m.set(k, { key: k, records: [], nominations: [], metric: 0 });
@@ -219,10 +268,7 @@ export function groupData(
     if (by === 'Month') k = (n.notificationDate || '').substring(0, 7) || '—';
     else if (by === 'Team') k = n.team || '—';
     else {
-      const teamId = n.teamId;
-      if (!teamId) continue; // Skip if no valid teamId
-      k = teamMap[teamId]?.cluster;
-      if (!k) continue;
+      k = e?.cluster || 'Others';
     }
 
     if (!m.has(k)) m.set(k, { key: k, records: [], nominations: [], metric: 0 });
