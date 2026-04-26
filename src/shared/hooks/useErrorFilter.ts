@@ -35,7 +35,9 @@ export function useErrorFilter<T extends Record<string, any>>(
   }, [activeError, data, module]);
 
   const highlights = useMemo(() => {
-    if (!activeError || activeError.module !== module) return new Set<string>();
+    if (!activeError || activeError.module !== module) {
+      return { rowIds: new Set<string>(), activeField: '' };
+    }
 
     const highlightedRowIds = new Set<string>();
     data.forEach((row, index) => {

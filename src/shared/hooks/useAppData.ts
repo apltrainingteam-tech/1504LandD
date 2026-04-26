@@ -154,14 +154,15 @@ export const useAppData = () => {
     setIsSeeding(false);
   };
 
-  const loadAll = async () => {
-    // This is now managed by MasterDataContext
+  useEffect(() => {
     refreshTransactional();
-  };
+  }, [refreshKey]);
 
   useEffect(() => {
-    loadAll();
-  }, [refreshKey, masterLoading]);
+    if (!masterLoading) {
+      setLoading(false);
+    }
+  }, [masterLoading]);
 
   const handlePurge = async () => {
     if (!window.confirm("This will PERMANENTLY delete all records for 'Team A' and 'Unknown' categories. Proceed?")) return;
