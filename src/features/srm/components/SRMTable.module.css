@@ -12,28 +12,69 @@
   width: 100%;
 }
 
-.thLabel   { min-width: 150px; }
-.thRight   { min-width: 80px; text-align: right; }
-.thCenter  { min-width: 100px; text-align: center; }
-.thGeneral { min-width: 100px; }
+.thLabel {
+  min-width: 150px;
+}
 
-.tdName    { font-weight: 500; }
-.tdRight   { text-align: right; font-weight: 600; }
-.tdCount   { text-align: right; color: var(--text-secondary); }
-.tdCenter  { text-align: center; }
+.thRight {
+  min-width: 80px;
+  text-align: right;
+}
+
+.thCenter {
+  min-width: 100px;
+  text-align: center;
+}
+
+.thGeneral {
+  min-width: 100px;
+}
+
+.tdName {
+  font-weight: 500;
+}
+
+.tdRight {
+  text-align: right;
+  font-weight: 600;
+}
+
+.tdCount {
+  text-align: right;
+  color: var(--text-secondary);
+}
+
+.tdCenter {
+  text-align: center;
+}
+
 .sparkline {
   height: 30px;
   width: 80px;
   display: inline-block;
 }
 
-.tdDiagnosis { 
-  font-weight: 600; 
+.tdDiagnosis {
+  font-weight: 600;
   font-size: 12px;
 }
 
-.textDanger  { color: var(--danger); }
-.textSuccess { color: var(--success); }
-.textWarning { color: var(--warning); }
-.textAccent  { color: var(--accent-primary); }
-.textMuted   { color: var(--text-secondary); }
+.textDanger {
+  color: var(--danger);
+}
+
+.textSuccess {
+  color: var(--success);
+}
+
+.textWarning {
+  color: var(--warning);
+}
+
+.textAccent {
+  color: var(--accent-primary);
+}
+
+.textMuted {
+  color: var(--text-secondary);
+}
