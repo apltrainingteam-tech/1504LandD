@@ -51,6 +51,8 @@ import { MasterSettings } from './features/settings/MasterSettings';
 import { EngineDebugPanel } from './core/debug/engine-debug/EngineDebugPanel';
 import { PerformanceCharts } from './features/dashboard/PerformanceCharts';
 import { DataQualityCenter } from './features/dashboard/DataQualityCenter';
+import { AgentDebugPanel } from './features/debug/AgentDebugPanel';
+import { ErrorBoundary } from './core/debug/ErrorBoundary';
 
 // Services & Types
 import { getCollection, deleteRecordsByQuery } from './core/engines/apiClient';
@@ -169,40 +171,105 @@ const App = () => {
     }
 
     switch (view) {
-      case 'reports': return <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} pageMode="overview" onNavigate={setView} />;
+      case 'reports': return (
+        <ErrorBoundary componentName="ReportsAnalytics" propsSnapshot={{ employees: emps.length, attendance: att.length }}>
+          <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} pageMode="overview" onNavigate={setView} />
+        </ErrorBoundary>
+      );
       case 'performance-tables':
-      case 'performance': return <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} pageMode="performance-insights" onNavigate={setView} />;
-      case 'performance-charts': return <PerformanceCharts employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} onNavigate={setView} />;
-      case 'srm': return <RecruitmentQuality employees={emps} attendance={att} scores={scs} />;
-      case 'trainings': return <TrainingsViewer employees={emps} attendance={att} scores={scs} />;
-      case 'calendar': return <TrainingCalendar employees={emps} attendance={att} />;
-      case 'attendance': return <AttendanceUploadStrict onUploadComplete={() => setRefreshKey(k => k + 1)} />;
-      case 'nominations':   return <NominationsPage  employees={emps} nominations={noms} attendance={att} />;
-      case 'notification':  return <NotificationPage employees={emps} />;
-      case 'training-data': return <TrainingDataPage  employees={emps} attendance={att} />;
-      case 'employees': return <Employees
-        employees={emps}
-        onUploadComplete={() => setRefreshKey(k => k + 1)}
-        searchQuery={empSearch}
-        onSearchChange={setEmpSearch}
-        filterDesignation={empFilterDesignation}
-        onFilterDesignationChange={setEmpFilterDesignation}
-        filterTeam={empFilterTeam}
-        onFilterTeamChange={setEmpFilterTeam}
-        filterZone={empFilterZone}
-        onFilterZoneChange={setEmpFilterZone}
-        filteredEmployees={filteredEmps}
-      />;
-      case 'demographics': return <Demographics />;
-      case 'gap-analysis': return <GapAnalysis employees={emps} attendance={att} nominations={noms} onNavigate={setView} />;
-      case 'master-settings': return <MasterSettings />;
-      case 'data-quality': return <DataQualityCenter />;
+      case 'performance': return (
+        <ErrorBoundary componentName="ReportsAnalytics[performance-insights]" propsSnapshot={{ employees: emps.length }}>
+          <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} pageMode="performance-insights" onNavigate={setView} />
+        </ErrorBoundary>
+      );
+      case 'performance-charts': return (
+        <ErrorBoundary componentName="PerformanceCharts" propsSnapshot={{ employees: emps.length, scores: scs.length }}>
+          <PerformanceCharts employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} onNavigate={setView} />
+        </ErrorBoundary>
+      );
+      case 'srm': return (
+        <ErrorBoundary componentName="RecruitmentQuality" propsSnapshot={{ employees: emps.length, attendance: att.length }}>
+          <RecruitmentQuality employees={emps} attendance={att} scores={scs} />
+        </ErrorBoundary>
+      );
+      case 'trainings': return (
+        <ErrorBoundary componentName="TrainingsViewer" propsSnapshot={{ employees: emps.length }}>
+          <TrainingsViewer employees={emps} attendance={att} scores={scs} />
+        </ErrorBoundary>
+      );
+      case 'calendar': return (
+        <ErrorBoundary componentName="TrainingCalendar" propsSnapshot={{ employees: emps.length }}>
+          <TrainingCalendar employees={emps} attendance={att} />
+        </ErrorBoundary>
+      );
+      case 'attendance': return (
+        <ErrorBoundary componentName="AttendanceUploadStrict">
+          <AttendanceUploadStrict onUploadComplete={() => setRefreshKey(k => k + 1)} />
+        </ErrorBoundary>
+      );
+      case 'nominations': return (
+        <ErrorBoundary componentName="NominationsPage" propsSnapshot={{ employees: emps.length, nominations: noms.length }}>
+          <NominationsPage employees={emps} nominations={noms} attendance={att} />
+        </ErrorBoundary>
+      );
+      case 'notification': return (
+        <ErrorBoundary componentName="NotificationPage" propsSnapshot={{ employees: emps.length }}>
+          <NotificationPage employees={emps} />
+        </ErrorBoundary>
+      );
+      case 'training-data': return (
+        <ErrorBoundary componentName="TrainingDataPage" propsSnapshot={{ employees: emps.length, attendance: att.length }}>
+          <TrainingDataPage employees={emps} attendance={att} />
+        </ErrorBoundary>
+      );
+      case 'employees': return (
+        <ErrorBoundary componentName="Employees" propsSnapshot={{ employees: emps.length, filtered: filteredEmps.length }}>
+          <Employees
+            employees={emps}
+            onUploadComplete={() => setRefreshKey(k => k + 1)}
+            searchQuery={empSearch}
+            onSearchChange={setEmpSearch}
+            filterDesignation={empFilterDesignation}
+            onFilterDesignationChange={setEmpFilterDesignation}
+            filterTeam={empFilterTeam}
+            onFilterTeamChange={setEmpFilterTeam}
+            filterZone={empFilterZone}
+            onFilterZoneChange={setEmpFilterZone}
+            filteredEmployees={filteredEmps}
+          />
+        </ErrorBoundary>
+      );
+      case 'demographics': return (
+        <ErrorBoundary componentName="Demographics">
+          <Demographics />
+        </ErrorBoundary>
+      );
+      case 'gap-analysis': return (
+        <ErrorBoundary componentName="GapAnalysis" propsSnapshot={{ employees: emps.length, nominations: noms.length }}>
+          <GapAnalysis employees={emps} attendance={att} nominations={noms} onNavigate={setView} />
+        </ErrorBoundary>
+      );
+      case 'master-settings': return (
+        <ErrorBoundary componentName="MasterSettings">
+          <MasterSettings />
+        </ErrorBoundary>
+      );
+      case 'data-quality': return (
+        <ErrorBoundary componentName="DataQualityCenter">
+          <DataQualityCenter />
+        </ErrorBoundary>
+      );
       case 'dev/engine-debug': return <EngineDebugPanel />;
-      default: return <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} />;
+      default: return (
+        <ErrorBoundary componentName="ReportsAnalytics[default]">
+          <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} />
+        </ErrorBoundary>
+      );
     }
   };
 
   return (
+    <>
     <PlanningFlowProvider>
       <FilterProvider>
         <div className={`app-container ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
@@ -336,6 +403,10 @@ const App = () => {
 
         </FilterProvider>
       </PlanningFlowProvider>
+
+      {/* Agent Debug Panel — SUPERADMIN + dev only, gated internally */}
+      <AgentDebugPanel />
+    </>
   );
 };
 

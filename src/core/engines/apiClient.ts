@@ -1,9 +1,20 @@
 /**
  * Frontend API Client
  * Communicates with backend server for all MongoDB operations
+ *
+ * Debug Layer Integration:
+ *   Every fetch call is instrumented via the Debug Registry.
+ *   Use DebugAPI.getApiDiagnostics(traceId) to inspect any call.
  */
 
 import API_BASE from '../../config/api';
+import {
+  registerApiCall,
+  registerFailure,
+  generateTraceId,
+} from '../debug/debugRegistry';
+import { classifyError } from '../debug/errorClassifier';
+import { DEBUG_MODE } from '../constants/debugConfig';
 
 // Runtime URL verification – confirms which backend is active
 console.log("[API BASE]", API_BASE);
@@ -18,7 +29,17 @@ interface ApiResponse<T> {
 /**
  * Helper to handle fetch with retries (for cold starts and network glitches)
  */
-async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 5, delay = 1000): Promise<Response> {
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit = {},
+  retries = 5,
+  delay = 1000,
+  _traceId?: string
+): Promise<Response> {
+  const traceId = _traceId ?? generateTraceId();
+  const method = (options.method ?? 'GET').toUpperCase();
+  const start = performance.now();
+
   try {
     const response = await fetch(url, options);
 
@@ -26,18 +47,104 @@ async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 
     if (!response.ok && [502, 503, 504].includes(response.status) && retries > 0) {
       console.warn(`[API] Backend busy (cold start?), retrying in ${delay}ms... (${retries} left)`);
       await new Promise(resolve => setTimeout(resolve, delay));
-      return fetchWithRetry(url, options, retries - 1, delay * 1.2);
+      return fetchWithRetry(url, options, retries - 1, delay * 1.2, traceId);
+    }
+
+    if (DEBUG_MODE) {
+      const duration = performance.now() - start;
+      const contentType = response.headers.get('content-type') ?? '';
+      const responseType = contentType.includes('application/json')
+        ? 'json'
+        : contentType.includes('text/html')
+        ? 'html'
+        : 'text';
+
+      const diagnosis = response.status >= 400
+        ? _buildApiDiagnosis(response.status, responseType as any)
+        : undefined;
+
+      registerApiCall({
+        traceId,
+        endpoint: url,
+        method,
+        status: response.status,
+        responseType: responseType as any,
+        duration,
+        error: response.status >= 400 ? `HTTP ${response.status}` : undefined,
+        diagnosis,
+      });
+
+      if (response.status >= 400) {
+        const classified = classifyError(`HTTP ${response.status}`, { layer: 'API', httpStatus: response.status });
+        registerFailure({
+          traceId,
+          layer: 'API',
+          component: url,
+          type: classified.type,
+          error: `HTTP ${response.status} from ${url}`,
+          rootCause: classified.rootCause,
+          originLayer: 'API',
+          fixHint: classified.fixHint,
+          severity: classified.severity,
+          meta: { status: response.status, method, url },
+        });
+      }
     }
 
     return response;
-  } catch (error) {
+  } catch (error: any) {
     if (retries > 0) {
       console.warn(`[API] Network error (possibly QUIC or connection reset), retrying in ${delay}ms... (${retries} left)`, error);
       await new Promise(resolve => setTimeout(resolve, delay));
-      return fetchWithRetry(url, options, retries - 1, delay * 1.5);
+      return fetchWithRetry(url, options, retries - 1, delay * 1.5, traceId);
     }
+
+    if (DEBUG_MODE) {
+      const duration = performance.now() - start;
+      const errMsg = error?.message ?? String(error);
+      const classified = classifyError(errMsg, { layer: 'Network' });
+
+      registerApiCall({
+        traceId,
+        endpoint: url,
+        method,
+        status: null,
+        responseType: 'network-error',
+        duration,
+        error: errMsg,
+        diagnosis: 'Network unreachable — backend server is down, CORS is blocking, or DNS resolution failed',
+      });
+
+      registerFailure({
+        traceId,
+        layer: 'Network',
+        component: url,
+        type: classified.type,
+        error: errMsg,
+        rootCause: classified.rootCause,
+        originLayer: 'Network',
+        fixHint: classified.fixHint,
+        severity: 'critical',
+        meta: { method, url },
+      });
+    }
+
     throw error;
   }
+}
+
+function _buildApiDiagnosis(status: number, responseType: string): string {
+  const map: Record<number, string> = {
+    404: 'Route not found — verify API_BASE URL and endpoint path match backend routing',
+    500: 'Internal server error — backend threw unhandled exception, check server logs',
+    502: 'Bad gateway — upstream server (MongoDB/proxy) is unreachable',
+    503: 'Service unavailable — backend cold-starting or deployment failed',
+    504: 'Gateway timeout — database query too slow, add indexes',
+    401: 'Unauthorized — check authentication headers',
+    403: 'Forbidden — check RBAC permissions for this endpoint',
+  };
+  if (responseType === 'html') return 'Server returned HTML instead of JSON — endpoint broken or returning error page';
+  return map[status] ?? `HTTP ${status} error — inspect response body for details`;
 }
 
 
@@ -387,7 +494,8 @@ export async function uploadAvatar(file: File): Promise<string> {
       throw new Error(result.error || `Upload failed with status ${response.status}`);
     }
 
-    // Convert relative /uploads path to absolute URL using host reference established above
+    // Convert relative /uploads path to absolute URL using host reference derived from API_BASE
+    const host = API_BASE.replace(/\/api$/, '');
     return host + result.url;
   } catch (error) {
     console.error("Upload failure:", error);

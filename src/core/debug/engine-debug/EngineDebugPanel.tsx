@@ -31,7 +31,7 @@ export const EngineDebugPanel: React.FC = () => {
 
   const isDev = process.env.NODE_ENV === "development" || process.env.NODE_ENV !== "production";
   const user = getCurrentUser();
-  const isSuperAdmin = user.role === "SUPERADMIN" || user.role === "super_admin" as any;
+  const isSuperAdmin = user.role === "super_admin";
 
   if (!isDev || !isSuperAdmin) {
     return (
