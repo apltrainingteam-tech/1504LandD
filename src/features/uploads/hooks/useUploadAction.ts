@@ -63,9 +63,6 @@ export const useUploadAction = (onUploadComplete?: () => void) => {
       if (isMountedRef.current) {
         setUploadResult(result);
         setStep('done');
-        if (result.success && onUploadComplete) {
-          onUploadComplete();
-        }
       }
     } catch (err: any) {
       if (isMountedRef.current) {
@@ -76,6 +73,8 @@ export const useUploadAction = (onUploadComplete?: () => void) => {
           totalRows: 0,
           uploadedRows: 0,
           rejectedRows: 0,
+          activeEmployees: 0,
+          inactiveEmployees: 0,
           errors: [{ rowNum: 0, message: errorMsg }],
           warnings: [],
           debugLog: errorMsg

@@ -1,12 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { Mail, Users, Lock, Check, Copy, ExternalLink, X, ChevronDown, ChevronRight } from 'lucide-react';
-import { usePlanningFlow, NominationDraft } from '../../core/context/PlanningFlowContext';
+import { usePlanningFlow } from '../../core/context/PlanningFlowContext';
 import { useMasterData } from '../../core/context/MasterDataContext';
 import { Employee } from '../../types/employee';
+import { NominationDraft } from '../../types/attendance';
 import styles from './NotificationPage.module.css';
 
 interface Props {
-  employees: Employee[];
+  allEmployees: Employee[];
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -174,7 +175,7 @@ const EmailModal: React.FC<{
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export const NotificationPage: React.FC<Props> = ({ employees }) => {
+export const NotificationPage: React.FC<Props> = ({ allEmployees }) => {
   const { getDrafts, updateDraft, commitBatch, selectionSession } = usePlanningFlow();
   const { teams: masterTeams, trainers: masterTrainers } = useMasterData();
 
@@ -187,14 +188,14 @@ export const NotificationPage: React.FC<Props> = ({ employees }) => {
 
   // Only APPROVED drafts
   const approvedDrafts = useMemo(
-    () => getDrafts({ teamIds: sessionTeamIds.length>0?sessionTeamIds:undefined }).filter(d=>d.status==='APPROVED'),
+    () => getDrafts({ teamIds: sessionTeamIds.length>0?sessionTeamIds:undefined }).filter((d: NominationDraft)=>d.status==='APPROVED'),
     [getDrafts, sessionTeamIds]
   );
 
   // Group by team
   const teamGroups = useMemo(() => {
     const map = new Map<string, NominationDraft[]>();
-    approvedDrafts.forEach(d => {
+    approvedDrafts.forEach((d: NominationDraft) => {
       if (!map.has(d.teamId)) map.set(d.teamId, []);
       map.get(d.teamId)!.push(d);
     });
@@ -210,7 +211,7 @@ export const NotificationPage: React.FC<Props> = ({ employees }) => {
   const handleEmail = (draft: NominationDraft) => {
     const tName  = resolveTeam(draft.teamId, draft.team);
     const trName = resolveTrainer(draft.trainer);
-    const cEmps  = employees.filter(e => draft.candidates.includes(String(e.employeeId)));
+    const cEmps  = allEmployees.filter((e: Employee) => draft.candidates.includes(String(e.employeeId)));
     const subject = buildSubject(draft.trainingType, tName, draft.startDate);
     const html    = buildHtml(draft, tName, trName, cEmps);
 
@@ -231,7 +232,7 @@ export const NotificationPage: React.FC<Props> = ({ employees }) => {
       <th style="${thStyle}">State</th>
     </tr>`;
 
-    const dataRows = cEmps.map((e, i) => {
+    const dataRows = cEmps.map((e: Employee, i: number) => {
       const td = tdStyle(i % 2 !== 0);
       return `<tr>
         <td style="${td};text-align:center;font-weight:600">${i + 1}</td>
@@ -274,10 +275,12 @@ export const NotificationPage: React.FC<Props> = ({ employees }) => {
     setEmailModal({ html, subject, mailto, tableHtml, draftId: draft.id });
   };
 
-  const handleSent = (draftId: string) => {
+  const handleSent = async (draftId: string) => {
     // Find the draft before status changes, then commit an immutable batch
-    const draft = approvedDrafts.find(d => d.id === draftId);
-    if (draft) commitBatch(draft);
+    const draft = approvedDrafts.find((d: NominationDraft) => d.id === draftId);
+    if (draft) {
+      await commitBatch(draft, allEmployees);
+    }
     updateDraft(draftId, { status: 'SENT', sentBy: 'Trainer', sentAt: new Date().toISOString() });
     setEmailModal(null);
   };
@@ -313,7 +316,7 @@ export const NotificationPage: React.FC<Props> = ({ employees }) => {
         {teamGroups.map(([teamId, drafts]) => {
           const tName    = resolveTeam(teamId, drafts[0]?.team);
           const isOpen   = expanded.has(teamId);
-          const allEmps  = employees.filter(e => drafts.some(d => d.candidates.includes(String(e.employeeId))));
+          const allEmps  = allEmployees.filter((e: Employee) => drafts.some((d: NominationDraft) => d.candidates.includes(String(e.employeeId))));
 
           return (
             <div key={teamId} className={styles.groupCard}>
@@ -353,9 +356,9 @@ export const NotificationPage: React.FC<Props> = ({ employees }) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {drafts.flatMap(draft => {
-                        const cEmps = employees.filter(e=>draft.candidates.includes(String(e.employeeId)));
-                        return cEmps.map((emp,i)=>(
+                      {drafts.flatMap((draft: NominationDraft) => {
+                        const cEmps = allEmployees.filter((e: Employee)=>draft.candidates.includes(String(e.employeeId)));
+                        return cEmps.map((emp: Employee, i: number)=>(
                           <tr key={`${draft.id}-${emp.employeeId}`} className={`${styles.trRow} ${i%2===0?styles.trRowEven:styles.trRowOdd}`}>
                             <td className={`${styles.td} ${styles.tdEmpId}`}>{emp.employeeId}</td>
                             <td className={`${styles.td} ${styles.tdName}`}>{emp.name}</td>

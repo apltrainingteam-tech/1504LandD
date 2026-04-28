@@ -1,0 +1,112 @@
+.page {
+  padding: 24px;
+}
+
+.header {
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.title {
+  font-size: 32px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.statsRow {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.statCard {
+  flex: 1;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.statLabel {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.statValue {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.criticalText { color: var(--danger); }
+.warningText { color: var(--warning); }
+.successText { color: var(--success); }
+
+.tableContainer {
+  margin-top: 24px;
+}
+
+.tableHeader {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tableTitle {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.badgeCritical {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.badgeWarning {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--warning);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.badgeCompliant {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.countCircle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.emptyState {
+  padding: 80px;
+  text-align: center;
+  color: var(--text-secondary);
+}

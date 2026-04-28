@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { CheckCircle, Lock, AlertTriangle, Filter, Users } from 'lucide-react';
-import { usePlanningFlow, NominationDraft } from '../../core/context/PlanningFlowContext';
+import { usePlanningFlow } from '../../core/context/PlanningFlowContext';
 import { Employee } from '../../types/employee';
-import { TrainingNomination, Attendance } from '../../types/attendance';
+import { TrainingNomination, Attendance, NominationDraft } from '../../types/attendance';
 import { parseAnyDate } from '../../core/utils/dateParser';
 import { useNominationsData } from './hooks/useNominationsData';
 import styles from './NominationsPage.module.css';
@@ -86,7 +86,7 @@ export const NominationsPage: React.FC<Props> = ({ employees, nominations, atten
 
   const teamDrafts = useMemo(() => getDrafts({ teamIds: sessionTeamIds }), [getDrafts, sessionTeamIds]);
   const draft: NominationDraft | undefined = useMemo(
-    () => teamDrafts.find(d => d.teamId === (activeTeamId || sessionTeamIds[0])),
+    () => teamDrafts.find((d: NominationDraft) => d.teamId === (activeTeamId || sessionTeamIds[0])),
     [teamDrafts, activeTeamId, sessionTeamIds]
   );
 
@@ -155,8 +155,8 @@ export const NominationsPage: React.FC<Props> = ({ employees, nominations, atten
       {/* Team tabs */}
       {sessionTeamIds.length > 1 && (
         <div className={styles.teamTabs}>
-          {sessionTeamIds.map(tid => {
-            const d = teamDrafts.find(x => x.teamId === tid);
+          {sessionTeamIds.map((tid: string) => {
+            const d = teamDrafts.find((x: NominationDraft) => x.teamId === tid);
             const tName = d?.team || tid;
             const done = d && d.status !== 'DRAFT';
             const active = (activeTeamId || sessionTeamIds[0]) === tid;

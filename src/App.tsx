@@ -23,7 +23,8 @@ import {
   UploadCloud,
   Settings,
   Pin,
-  PinOff
+  PinOff,
+  ShieldAlert
 } from 'lucide-react';
 import { useTheme } from './core/context/ThemeContext';
 import { FilterProvider } from './core/context/FilterProvider';
@@ -46,6 +47,7 @@ import { NotificationPage } from './features/notifications/NotificationPage';
 import { TrainingDataPage } from './features/notifications/TrainingDataPage';
 import { GapAnalysis } from './features/gap-analysis/GapAnalysis';
 import { RecruitmentQuality } from './features/srm/RecruitmentQuality';
+import { DefaulterTracking } from './features/srm/DefaulterTracking';
 import { TrainingCalendar } from './features/calendar/TrainingCalendar';
 import { MasterSettings } from './features/settings/MasterSettings';
 import { EngineDebugPanel } from './core/debug/engine-debug/EngineDebugPanel';
@@ -68,7 +70,7 @@ import { getTeamId, mapTeamCodeToId } from './core/utils/teamIdMapper';
 import { useAppData } from './shared/hooks/useAppData';
 import { getCurrentUser } from './core/context/userContext';
 
-type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'nominations' | 'notification' | 'training-data' | 'gap-analysis' | 'performance-tables' | 'performance-charts' | 'performance' | 'srm' | 'calendar' | 'master-settings' | 'data-quality' | 'dev/engine-debug';
+type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'nominations' | 'notification' | 'training-data' | 'gap-analysis' | 'performance-tables' | 'performance-charts' | 'performance' | 'srm' | 'defaulters' | 'calendar' | 'master-settings' | 'data-quality' | 'dev/engine-debug';
 interface SidebarItem {
   label: string;
   view: string;
@@ -112,7 +114,8 @@ const sidebarSections: SidebarSection[] = [
   {
     title: "STRATEGY",
     items: [
-      { label: "SRM Dashboard", view: "srm", icon: Target }
+      { label: "SRM Dashboard", view: "srm", icon: Target },
+      { label: "Defaulter Tracking", view: "defaulters", icon: ShieldAlert }
     ]
   },
   {
@@ -192,6 +195,11 @@ const App = () => {
           <RecruitmentQuality employees={emps} attendance={att} scores={scs} />
         </ErrorBoundary>
       );
+      case 'defaulters': return (
+        <ErrorBoundary componentName="DefaulterTracking">
+          <DefaulterTracking />
+        </ErrorBoundary>
+      );
       case 'trainings': return (
         <ErrorBoundary componentName="TrainingsViewer" propsSnapshot={{ employees: emps.length }}>
           <TrainingsViewer employees={emps} attendance={att} scores={scs} />
@@ -204,7 +212,10 @@ const App = () => {
       );
       case 'attendance': return (
         <ErrorBoundary componentName="AttendanceUploadStrict">
-          <AttendanceUploadStrict onUploadComplete={() => setRefreshKey(k => k + 1)} />
+          <AttendanceUploadStrict onUploadComplete={() => {
+            setRefreshKey(k => k + 1);
+            setView('training-data');
+          }} />
         </ErrorBoundary>
       );
       case 'nominations': return (
@@ -214,7 +225,7 @@ const App = () => {
       );
       case 'notification': return (
         <ErrorBoundary componentName="NotificationPage" propsSnapshot={{ employees: emps.length }}>
-          <NotificationPage employees={emps} />
+          <NotificationPage allEmployees={emps} />
         </ErrorBoundary>
       );
       case 'training-data': return (
@@ -226,7 +237,10 @@ const App = () => {
         <ErrorBoundary componentName="Employees" propsSnapshot={{ employees: emps.length, filtered: filteredEmps.length }}>
           <Employees
             employees={emps}
-            onUploadComplete={() => setRefreshKey(k => k + 1)}
+            onUploadComplete={() => {
+              setRefreshKey(k => k + 1);
+              setView('employees');
+            }}
             searchQuery={empSearch}
             onSearchChange={setEmpSearch}
             filterDesignation={empFilterDesignation}

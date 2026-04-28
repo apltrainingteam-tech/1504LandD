@@ -16,7 +16,10 @@ export const COMMON_COLUMNS = [
   'Name',
   'Designation',
   'HQ',
-  'State',
+  'State'
+];
+
+export const ATTENDANCE_SPECIFIC_COLUMNS = [
   'Attendance Date',
   'Attendance Status'
 ];
@@ -38,7 +41,8 @@ export const TEMPLATE_SPECIFIC_COLUMNS: Record<string, string[]> = {
   PreAP: ['AP Date', 'Notified', 'Test Score'],
   MIP: ['Science Score', 'Skill Score'],
   Capsule: ['Test Score'],
-  Refresher: ['Knowledge', 'Situation Handling', 'Presentation']
+  Refresher: ['Knowledge', 'Situation Handling', 'Presentation'],
+  NotificationHistory: ['Notification Date', 'Training Type', 'Training ID']
 };
 
 // ─── TEMPLATE DETECTION RULES (STRICT) ───────────────────────────────────────
@@ -46,6 +50,7 @@ export function detectTemplateType(excelHeaders: string[]): string {
   const headerSet = new Set(excelHeaders.map(h => h.trim()));
 
   // Detection rules in priority order (most specific first)
+  if (headerSet.has('Notification Date')) return 'NotificationHistory';
   if (headerSet.has('Trainability Score')) return 'IP';
   if (headerSet.has('BSE') || headerSet.has('Situation Handling')) {
     if (headerSet.has('Science Score')) return 'MIP'; // MIP also has some common ones
@@ -61,6 +66,7 @@ export function detectTemplateType(excelHeaders: string[]): string {
     `❌ Template type cannot be determined. Unique columns not found.\n` +
     `Available headers: ${excelHeaders.join(', ')}\n` +
     `Expected one of:\n` +
+    `  - "Notification Date" for Notification History\n` +
     `  - "Trainability Score" for IP\n` +
     `  - "BSE" or "Situation Handling" for AP/Refresher\n` +
     `  - "AP Date" for PreAP\n` +
@@ -83,6 +89,8 @@ export const COLUMN_MAPPING: Record<string, string> = {
   'State': 'state',
   'Attendance Date': 'attendanceDate',
   'Attendance Status': 'attendanceStatus',
+  'Notification Date': 'notificationDate',
+  'Training Type': 'trainingType',
 
   // IP template
   'Detailing': 'detailing',
@@ -110,6 +118,7 @@ export const COLUMN_MAPPING: Record<string, string> = {
   // PreAP template
   'AP Date': 'apDate',
   'Notified': 'notified',
+  'Training ID': 'trainingId',
   // MIP template
   'Science Score': 'scienceScore',
   'Skill Score': 'skillScore',
@@ -134,6 +143,16 @@ export function validateCommonColumns(excelHeaders: string[]): ValidationResult 
   for (const col of COMMON_COLUMNS) {
     if (!headerSet.has(col)) {
       errors.push(`❌ Missing required column: "${col}"`);
+    }
+  }
+
+  // Attendance-specific columns are required for everything EXCEPT NotificationHistory
+  const isNotificationHistory = headerSet.has('Notification Date');
+  if (!isNotificationHistory) {
+    for (const col of ATTENDANCE_SPECIFIC_COLUMNS) {
+      if (!headerSet.has(col)) {
+        errors.push(`❌ Missing required column: "${col}"`);
+      }
     }
   }
 
@@ -186,14 +205,27 @@ export function validateRow(
     errors.push(`Row ${rowNum}: Employee ID is missing or empty`);
   }
 
-  // MANDATORY: Attendance Date (must be valid date)
-  if (!rowData.attendanceDate || String(rowData.attendanceDate).trim() === '') {
-    errors.push(`Row ${rowNum}: Attendance Date is missing or empty`);
+  // MANDATORY: Training Type
+  if (!rowData.trainingType || String(rowData.trainingType).trim() === '') {
+    errors.push(`Row ${rowNum}: Training Type is missing or empty`);
+  }
+
+  // MANDATORY: Date (Notification Date for history, Attendance Date for training)
+  const isHistory = rowData._templateType === 'NotificationHistory';
+  
+  if (isHistory) {
+    // For Nominations: Ignore attendanceDate completely. Check notificationDate.
+    if (!rowData.notificationDate || String(rowData.notificationDate).trim() === '') {
+      errors.push(`Row ${rowNum}: Notification Date is missing or empty`);
+    } else if (!parseDate(String(rowData.notificationDate))) {
+      errors.push(`Row ${rowNum}: Invalid date format. Use formats like 12-Jan-2025 or 2025-01-12`);
+    }
   } else {
-    // Validate date format (YYYY-MM-DD or other common formats)
-    const dateStr = String(rowData.attendanceDate).trim();
-    if (!isValidDate(dateStr)) {
-      errors.push(`Row ${rowNum}: Attendance Date "${dateStr}" is invalid. Use YYYY-MM-DD format`);
+    // For Training Data: attendanceDate is mandatory
+    if (!rowData.attendanceDate || String(rowData.attendanceDate).trim() === '') {
+      errors.push(`Row ${rowNum}: Attendance Date is missing or empty`);
+    } else if (!parseDate(String(rowData.attendanceDate))) {
+      errors.push(`Row ${rowNum}: Invalid date format. Use formats like 12-Jan-2025 or 2025-01-12`);
     }
   }
 
@@ -214,46 +246,51 @@ export function validateRow(
 }
 
 /**
- * Validate date string
- */
-function isValidDate(dateStr: string): boolean {
-  // Try multiple date formats
-  const formats = [
-    /^\d{4}-\d{2}-\d{2}$/,  // YYYY-MM-DD
-    /^\d{2}\/\d{2}\/\d{4}$/, // MM/DD/YYYY
-    /^\d{2}-\d{2}-\d{4}$/   // DD-MM-YYYY
-  ];
-
-  for (const fmt of formats) {
-    if (fmt.test(dateStr)) {
-      const date = new Date(dateStr);
-      return date instanceof Date && !isNaN(date.getTime());
-    }
-  }
-
-  return false;
-}
-
-/**
- * Parse date string to YYYY-MM-DD
+ * Parse date string to YYYY-MM-DD with support for multiple formats:
+ * - YYYY-MM-DD
+ * - DD-MMM-YYYY (12-Jan-2025)
+ * - DD-MMM-YY (12-Jan-25)
+ * - DD/MM/YYYY
  */
 export function parseDate(dateStr: string | null): string | null {
   if (!dateStr) return null;
-
   const str = String(dateStr).trim();
 
-  // Already in YYYY-MM-DD format
-  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
-    return str;
+  // 1. Already ISO YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+
+  // 2. Handle DD-MMM-YYYY or DD-MMM-YY (e.g. 12-Jan-2025, 12-Jan-25)
+  const dMmmY = /^(\d{1,2})-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{2,4})$/i;
+  const match = str.match(dMmmY);
+  if (match) {
+    const day = parseInt(match[1]);
+    const monthNames = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+    const month = monthNames.indexOf(match[2].toLowerCase());
+    let year = parseInt(match[3]);
+    if (year < 100) year += 2000; // Assume 20xx
+    
+    const d = new Date(year, month, day);
+    if (!isNaN(d.getTime())) {
+      return d.toISOString().split('T')[0];
+    }
   }
 
-  // Try parsing with Date object
-  const date = new Date(str);
-  if (date instanceof Date && !isNaN(date.getTime())) {
-    return date.toISOString().split('T')[0];
+  // 3. Fallback to standard Date object (handles DD/MM/YYYY and others depending on environment)
+  // Note: Standard Date parser can be inconsistent with DD/MM/YYYY vs MM/DD/YYYY.
+  // We'll try to be helpful but ISO or DD-MMM-YYYY are preferred.
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    return d.toISOString().split('T')[0];
   }
 
   return null;
+}
+
+/**
+ * Validate date string (now uses parseDate internally)
+ */
+function isValidDate(dateStr: string): boolean {
+  return parseDate(dateStr) !== null;
 }
 
 /**
@@ -275,7 +312,8 @@ export function mapRowToMongoDB(
 ): { mapped: Record<string, any>; errors: string[] } {
   const errors: string[] = [];
   const mapped: Record<string, any> = {
-    trainingType: templateType  // Add system field
+    trainingType: templateType,  // Default, may be overwritten by Excel
+    _templateType: templateType  // Mandatory system field for validation
   };
 
   // Map each Excel column to MongoDB field

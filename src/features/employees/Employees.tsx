@@ -174,7 +174,7 @@ export const Employees: React.FC<EmployeesProps> = ({
           <p className={`text-muted ${styles.successTextMuted}`}>The active employee roster has been completely overwritten with your new dataset.</p>
           <p className={styles.successCount}>{employees.length} Active Personnel Synced</p>
         </div>
-        <button className="btn btn-primary" onClick={reset}>
+        <button className="btn btn-primary" onClick={onUploadComplete}>
           Return to Master View
         </button>
       </div>

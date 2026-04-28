@@ -49,6 +49,64 @@ export interface TrainingNomination {
   createdAt?: number;
 }
 
+export interface NotificationRecord {
+  id: string; // employeeId_trainingType_notificationDate
+  empId: string;
+  aadhaarNumber: string;
+  mobileNumber: string;
+  trainerId: string;
+  team: string;
+  name: string;
+  designation: string;
+  hq: string;
+  state: string;
+  trainingType: string;
+  notificationDate: string; // YYYY-MM-DD
+  attended: boolean;
+  trainingId?: string; // Links to the TrainingBatch/NominationDraft if available
+}
+
+export type BatchAttStatus = 'pending' | 'present' | 'absent';
+
+export interface CandidateRecord {
+  empId: string;
+  attendance: BatchAttStatus;
+  score: string; // '' until entered
+}
+
+export interface TrainingBatch {
+  id: string;           // batchId = draftId at commit time
+  draftId: string;
+  source: 'NOTIFICATION' | 'UPLOAD'; // how this batch was created
+  sourceDraftId?: string;            // draftId for NOTIFICATION, undefined for UPLOAD
+  trainingType: string;
+  team: string;
+  teamId: string;
+  trainer: string;      // trainer id / name
+  startDate: string;
+  endDate: string;
+  committedAt: string;  // ISO timestamp when SENT
+  candidates: CandidateRecord[];
+}
+
+export interface NominationDraft {
+  id: string; // matches trainingId
+  trainingId: string;
+  trainingType: string;
+  team: string; // display
+  teamId: string; // stable
+  trainer?: string; // trainer id
+  startDate?: string;
+  endDate?: string;
+  status: 'DRAFT' | 'APPROVED' | 'SENT' | 'COMPLETED';
+  candidates: string[]; // employeeIds
+  // Audit trail
+  approvedBy?: string;
+  approvedAt?: string;
+  sentBy?: string;
+  sentAt?: string;
+}
+
 export interface Demographics {
   id: string;
   employeeId: string;

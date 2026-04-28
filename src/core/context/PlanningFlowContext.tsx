@@ -1,4 +1,7 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
+import { Employee } from '../../types/employee';
+import { TrainingNomination, NotificationRecord, NominationDraft, TrainingBatch, CandidateRecord, BatchAttStatus } from '../../types/attendance';
+import { addBatch, findByQuery, updateByQuery, getCollection, updateDocument } from '../engines/apiClient';
 
 export interface SelectionSession {
   trainingType: string;
@@ -7,49 +10,9 @@ export interface SelectionSession {
   teamIds: string[]; // actual IDs
 }
 
-export interface NominationDraft {
-  id: string; // matches trainingId
-  trainingId: string;
-  trainingType: string;
-  team: string; // display
-  teamId: string; // stable
-  trainer?: string; // trainer id
-  startDate?: string;
-  endDate?: string;
-  status: 'DRAFT' | 'APPROVED' | 'SENT' | 'COMPLETED';
-  candidates: string[]; // employeeIds
-  // Audit trail
-  approvedBy?: string;
-  approvedAt?: string;
-  sentBy?: string;
-  sentAt?: string;
-}
-
-// ── Training Batch ────────────────────────────────────────────────────────────
-// Created when a NominationDraft transitions to SENT. Immutable header;
-// CandidateRecord rows are mutable (attendance, score updated in place).
-
-export type BatchAttStatus = 'pending' | 'present' | 'absent';
-
-export interface CandidateRecord {
-  empId: string;
-  attendance: BatchAttStatus;
-  score: string; // '' until entered
-}
-
-export interface TrainingBatch {
-  id: string;           // batchId = draftId at commit time
-  draftId: string;
-  source: 'NOTIFICATION' | 'UPLOAD'; // how this batch was created
-  sourceDraftId?: string;            // draftId for NOTIFICATION, undefined for UPLOAD
-  trainingType: string;
-  team: string;
-  teamId: string;
-  trainer: string;      // trainer id / name
-  startDate: string;
-  endDate: string;
-  committedAt: string;  // ISO timestamp when SENT
-  candidates: CandidateRecord[];
+export interface NotificationHistoryState {
+  records: NotificationRecord[];
+  isBaselineUploaded: boolean;
 }
 
 // ── Context types ─────────────────────────────────────────────────────────────
@@ -72,9 +35,13 @@ interface PlanningFlowContextType {
 
   // Batch API
   batches: TrainingBatch[];
-  commitBatch: (draft: NominationDraft) => void;
-  updateBatchCandidate: (batchId: string, empId: string, update: Partial<CandidateRecord>) => void;
+  commitBatch: (draft: NominationDraft, employees: Employee[]) => Promise<void>;
+  updateBatchCandidate: (batchId: string, empId: string, update: Partial<CandidateRecord>) => Promise<void>;
   getBatches: (filter?: { teamId?: string; trainingType?: string; month?: string }) => TrainingBatch[];
+
+  // Notification History
+  notificationRecords: NotificationRecord[];
+  loadNotificationHistory: () => Promise<void>;
 }
 
 const PlanningFlowContext = createContext<PlanningFlowContextType | undefined>(undefined);
@@ -86,6 +53,17 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
   const [consumedTrainers, setConsumedTrainers] = useState<Set<string>>(new Set());
   const [drafts, setDrafts]                     = useState<NominationDraft[]>([]);
   const [batches, setBatches]                   = useState<TrainingBatch[]>([]);
+  const [notificationRecords, setNotificationRecords] = useState<NotificationRecord[]>([]);
+
+  // ─── Notification History ──────────────────────────────────────────────────
+  const loadNotificationHistory = useCallback(async () => {
+    try {
+      const data = await getCollection('notification_history');
+      setNotificationRecords(data);
+    } catch (error) {
+      console.error("Failed to load notification history", error);
+    }
+  }, []);
 
   // ── Consumed ────────────────────────────────────────────────────────────────
   const addConsumed = (team: string, trainer: string) => {
@@ -121,38 +99,84 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
   // ── Batches ──────────────────────────────────────────────────────────────────
   /**
    * Convert a SENT NominationDraft into a TrainingBatch (append-only).
-   * Skips silently if a batch with the same draftId already exists.
+   * Also creates NotificationRecords for each candidate.
    */
-  const commitBatch = useCallback((draft: NominationDraft) => {
-    setBatches(prev => {
-      if (prev.some(b => b.draftId === draft.id)) return prev; // idempotent
-      const batch: TrainingBatch = {
-        id:            draft.id,
-        draftId:       draft.id,
-        source:        'NOTIFICATION',
-        sourceDraftId: draft.id,
-        trainingType:  draft.trainingType,
-        team:          draft.team,
-        teamId:        draft.teamId,
-        trainer:       draft.trainer || '',
-        startDate:     draft.startDate || '',
-        endDate:       draft.endDate   || '',
-        committedAt:   new Date().toISOString(),
-        candidates:    draft.candidates.map(empId => ({
-          empId,
-          attendance: 'pending' as BatchAttStatus,
-          score: '',
-        })),
+  const commitBatch = useCallback(async (draft: NominationDraft, employees: Employee[]) => {
+    // 1. Create Training Batch
+    const batchId = draft.id;
+    const batch: TrainingBatch = {
+      id:            batchId,
+      draftId:       draft.id,
+      source:        'NOTIFICATION',
+      sourceDraftId: draft.id,
+      trainingType:  draft.trainingType,
+      team:          draft.team,
+      teamId:        draft.teamId,
+      trainer:       draft.trainer || '',
+      startDate:     draft.startDate || '',
+      endDate:       draft.endDate   || '',
+      committedAt:   new Date().toISOString(),
+      candidates:    draft.candidates.map(empId => ({
+        empId,
+        attendance: 'pending' as BatchAttStatus,
+        score: '',
+      })),
+    };
+
+    // 2. Create Notification Records
+    const records: NotificationRecord[] = draft.candidates.map(empId => {
+      const emp = employees.find(e => String(e.employeeId) === String(empId));
+      return {
+        id: `${empId}_${draft.trainingType}_${draft.startDate || new Date().toISOString().split('T')[0]}`,
+        empId,
+        aadhaarNumber: emp?.aadhaarNumber || '',
+        mobileNumber: emp?.mobileNumber || '',
+        trainerId: draft.trainer || '',
+        team: draft.team,
+        name: emp?.name || '',
+        designation: emp?.designation || '',
+        hq: emp?.hq || '',
+        state: emp?.state || '',
+        trainingType: draft.trainingType,
+        notificationDate: draft.startDate || new Date().toISOString().split('T')[0],
+        attended: false,
+        trainingId: batchId
       };
-      return [batch, ...prev];
     });
+
+    try {
+      // Persist Batch
+      await addBatch('training_batches', [batch]);
+      
+      // Persist Notification Records (Idempotent)
+      await addBatch('notification_history', records);
+
+      setBatches(prev => {
+        if (prev.some(b => b.id === batch.id)) return prev;
+        return [batch, ...prev];
+      });
+
+      setNotificationRecords(prev => {
+        const next = [...prev];
+        records.forEach(r => {
+          if (!next.some(nr => nr.id === r.id)) next.push(r);
+        });
+        return next;
+      });
+
+    } catch (error) {
+      console.error("Failed to commit batch and notifications", error);
+      throw error;
+    }
   }, []);
 
   /**
    * Inline edit of attendance / score for a single candidate row.
+   * Also updates the corresponding NotificationRecord.
    */
   const updateBatchCandidate = useCallback(
-    (batchId: string, empId: string, update: Partial<CandidateRecord>) => {
+    async (batchId: string, empId: string, update: Partial<CandidateRecord>) => {
+      // Update Batch locally
       setBatches(prev =>
         prev.map(b =>
           b.id !== batchId ? b : {
@@ -163,8 +187,36 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
           }
         )
       );
+
+      // Persist update to batch
+      try {
+        const batch = batches.find(b => b.id === batchId);
+        if (batch) {
+          const updatedCandidates = batch.candidates.map(c => 
+            c.empId === empId ? { ...c, ...update } : c
+          );
+          await updateDocument('training_batches', batchId, { candidates: updatedCandidates });
+        }
+
+        // If attendance marked, update NotificationRecord
+        if (update.attendance === 'present') {
+          await updateByQuery('notification_history', 
+            { empId, trainingId: batchId }, 
+            { attended: true }
+          );
+
+          setNotificationRecords(prev => prev.map(r => 
+            (r.empId === empId && r.trainingId === batchId) ? { ...r, attended: true } : r
+          ));
+
+          // Rule: Remove from Untrained (Handled by UI/Gap Engine naturally as attendance exists)
+          // Rule: Block further nomination (Handled by Eligibility Engine)
+        }
+      } catch (error) {
+        console.error("Failed to update candidate attendance", error);
+      }
     },
-    []
+    [batches]
   );
 
   /**
@@ -189,6 +241,7 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
       consumedTeams, consumedTrainers, addConsumed, removeConsumed, resetConsumed,
       drafts, saveDraft, updateDraft, removeDraft, getDrafts,
       batches, commitBatch, updateBatchCandidate, getBatches,
+      notificationRecords, loadNotificationHistory
     }}>
       {children}
     </PlanningFlowContext.Provider>

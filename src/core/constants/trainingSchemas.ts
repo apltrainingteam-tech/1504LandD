@@ -75,6 +75,12 @@ export const TRAINING_SCHEMAS: Record<string, TrainingSchema> = {
     required: ['aadhaarNumber', 'employeeId', 'mobileNumber', 'name', 'trainerId', 'team', 'designation', 'hq', 'state', 'attendanceDate', 'attendanceStatus'],
     scoreFields: ['score'],
     scoreLabels: { score: 'Score' }
+  },
+
+  NotificationHistory: {
+    required: ['employeeId', 'trainingType', 'notificationDate'],
+    scoreFields: [],
+    scoreLabels: {}
   }
 };
 

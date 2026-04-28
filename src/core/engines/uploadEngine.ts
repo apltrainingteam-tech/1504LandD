@@ -17,8 +17,9 @@
  */
 
 import { parseExcelFileStrict, getValidRows, getErrorRows, getSummary, ParseResult } from './parsingEngine';
-import { addBatch, clearCollection } from './apiClient';
+import { addBatch, clearCollection, getCollection } from './apiClient';
 import { traceEngine } from '../debug/traceEngine';
+import { NotificationRecord } from '../../types/attendance';
 
 export interface UploadOptions {
   mode: 'append' | 'replace';  // append: add to existing; replace: clear collection first
@@ -39,9 +40,12 @@ export interface UploadResult {
   totalRows: number;
   uploadedRows: number;
   rejectedRows: number;
+  activeEmployees: number;
+  inactiveEmployees: number;
   errors: Array<{ rowNum: number; message: string }>;
   warnings: Array<{ rowNum: number; message: string }>;
   debugLog: string;
+  isBaseline?: boolean;
 }
 
 /**
@@ -97,19 +101,167 @@ export const uploadTrainingDataStrict = traceEngine("uploadTrainingDataStrict", 
       });
     }
 
-    const validRows = getValidRows(parseResult);
+    const validRowsRaw = getValidRows(parseResult);
     const errorRows = getErrorRows(parseResult);
     const summary = getSummary(parseResult);
 
     debugLog.push(`[UPLOAD] Validation summary: ${JSON.stringify(summary)}`);
 
-    if (validRows.length === 0) {
+    // ─── STAGE 2.5: EMPLOYEE MASTER VALIDATION (STRICT) ───
+    // Fix: Using 'employees' collection to match MasterDataContext and Employees module
+    const employees = await getCollection('employees');
+    
+    // Advanced normalization helper: handles scientific notation, leading zeros, and non-printable chars
+    const norm = (v: any) => {
+      if (v === undefined || v === null) return '';
+      // 1. Convert to string and trim
+      let s = String(v).trim().toLowerCase();
+      // 2. Remove non-printable/hidden characters
+      s = s.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
+      // 3. Handle scientific notation (e.g. 8.45E+4 -> 84500)
+      if (s.includes('e+')) {
+        const num = Number(s);
+        if (!isNaN(num)) s = String(num);
+      }
+      // 4. Remove leading zeros for ID matching (00123 -> 123)
+      return s.replace(/^0+/, '');
+    };
+
+    // Build lookup maps
+    const idMap = new Map();
+    const aadhaarMap = new Map();
+    const mobileMap = new Map();
+
+    employees.forEach(e => {
+      const nid = norm(e.employeeId);
+      const nad = norm(e.aadhaarNumber);
+      const nmb = norm(e.mobileNumber);
+      
+      if (nid) idMap.set(nid, e);
+      if (nad) aadhaarMap.set(nad, e);
+      if (nmb) mobileMap.set(nmb, e);
+    });
+    
+    const mapStats = `IDs=${idMap.size}, Aadhaar=${aadhaarMap.size}, Mobile=${mobileMap.size}`;
+    console.log(`[UPLOAD] Lookup maps built: ${mapStats}`);
+    debugLog.push(`[UPLOAD] Lookup maps built: ${mapStats}`);
+
+    // Valid training types (standardized)
+    const VALID_TRAINING_TYPES = ['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'PreAP', 'GTG', 'HO', 'RTM'];
+    const typeSet = new Set(VALID_TRAINING_TYPES.map(t => t.toLowerCase()));
+
+    const isNotificationHistory = parseResult.templateType === 'NotificationHistory';
+    const collectionName = isNotificationHistory ? 'notification_history' : 'training_data';
+
+    let activeEmployees = 0;
+    let inactiveEmployees = 0;
+    let mismatchCount = 0;
+    const finalValidRows: any[] = [];
+    const mismatchSamples: string[] = [];
+
+    validRowsRaw.forEach((row, idx) => {
+      // 1. Multi-identifier lookup logic
+      const rid = norm(row.employeeId);
+      const rad = norm(row.aadhaarNumber);
+      const rmb = norm(row.mobileNumber);
+
+      let emp = idMap.get(rid);
+      if (!emp && rad) emp = aadhaarMap.get(rad);
+      if (!emp && rmb) emp = mobileMap.get(rmb);
+      
+      if (!emp) {
+        // ─── SPECIAL HANDLING: NOTIFICATION HISTORY ───
+        // For historical records, we allow employees NOT in the current master roster.
+        if (isNotificationHistory) {
+          activeEmployees++; // Count as success for history
+          finalValidRows.push({
+            ...row,
+            employeeId: String(row.employeeId).trim(),
+            _masterStatus: 'unlinked', // Tag for UI identification
+            _isHistorical: true
+          });
+          return;
+        }
+
+        mismatchCount++;
+        if (mismatchSamples.length < 5) {
+          const sample = `Row ${idx+2}: [ID:${row.employeeId}, Aadhaar:${row.aadhaarNumber || 'N/A'}]`;
+          mismatchSamples.push(sample);
+          console.warn(`[UPLOAD] Mismatch: ${sample}`);
+          debugLog.push(`[UPLOAD] ❌ Mismatch: ${sample} -> Not found in Master`);
+        }
+        
+        errorRows.push({
+          rowNum: idx + 2,
+          errors: [`Employee record not found in active master roster.`],
+          warnings: []
+        });
+        return;
+      }
+
+      // Check Active status (Only for current training data, history allows inactive)
+      const status = String(emp.status || 'Active').toLowerCase();
+      if (!isNotificationHistory && status !== 'active') {
+        inactiveEmployees++;
+        if (inactiveEmployees <= 5) {
+            debugLog.push(`[UPLOAD] ⚠️ Row ${idx+2}: Employee ${emp.employeeId} is ${emp.status}`);
+        }
+        errorRows.push({
+          rowNum: idx + 2,
+          errors: [`Employee ${emp.employeeId} (${emp.name}) is marked ${emp.status || 'Inactive'}`],
+          warnings: []
+        });
+        return;
+      }
+
+      // 2. Training Type validation (for NotificationHistory)
+      if (isNotificationHistory) {
+        const tType = String(row.trainingType || '').trim().toLowerCase();
+        if (!tType || !typeSet.has(tType)) {
+          errorRows.push({
+            rowNum: idx + 2,
+            errors: [`Invalid Training Type: "${row.trainingType}"`],
+            warnings: []
+          });
+          return;
+        }
+      }
+
+      // Success: Augment row with canonical master data to ensure ID consistency
+      activeEmployees++;
+      finalValidRows.push({
+        ...row,
+        employeeId: emp.employeeId, // Use canonical ID from master
+        aadhaarNumber: emp.aadhaarNumber,
+        name: emp.name,
+        team: emp.team || row.team,
+        state: emp.state || row.state,
+        hq: emp.hq || row.hq,
+        _masterStatus: 'linked'
+      });
+    });
+
+    // ─── FAIL FAST CHECK ───
+    // For Notification History, we never fail fast because many employees might be missing from Master
+    if (!isNotificationHistory && activeEmployees === 0 && validRowsRaw.length > 0) {
+      const totalRejected = mismatchCount + inactiveEmployees;
+      const errorMsg = `❌ High Match Failure (${totalRejected}/${validRowsRaw.length} rows rejected).\n` +
+                       `Details: ${mismatchCount} Not Found, ${inactiveEmployees} Inactive.\n` +
+                       `Check if Employee IDs in Excel match the Master Roster.\n` +
+                       `Samples:\n${mismatchSamples.join('\n')}`;
+      debugLog.push(`[UPLOAD] Fatal: ${errorMsg}`);
+      throw new Error(errorMsg);
+    }
+
+    if (finalValidRows.length === 0) {
       throw new Error(
-        `❌ No valid rows to upload. All ${parseResult.rows.length} rows were rejected.\n` +
-        `Errors:\n${errorRows.slice(0, 3).map(e => `  Row ${e.rowNum}: ${e.errors.join('; ')}`).join('\n')}` +
-        (errorRows.length > 3 ? `\n  ... and ${errorRows.length - 3} more` : '')
+        `❌ No valid rows after employee validation.\n` +
+        `Matched/Allowed: ${activeEmployees}\n` +
+        `Not Found: ${mismatchCount}`
       );
     }
+
+    const validRows = finalValidRows;
 
     // ───────────────────────────────────────────────────────────────────
     // STAGE 3: UPLOAD TO MONGODB
@@ -124,7 +276,7 @@ export const uploadTrainingDataStrict = traceEngine("uploadTrainingDataStrict", 
     }
 
     let uploadedCount = 0;
-    const collectionName = 'training_data';
+    // activeEmployees and inactiveEmployees are already calculated above
 
     try {
       // IMPORTANT: Clear collection if replace mode
@@ -142,18 +294,27 @@ export const uploadTrainingDataStrict = traceEngine("uploadTrainingDataStrict", 
         const chunkNum = Math.floor(i / chunkSize) + 1;
 
         try {
-          // Create _id from templateType + employeeId + attendanceDate
+          // Create _id and prepare documents
           const docsToInsert = chunk.map(row => {
-            const _id = `${row.trainingType}_${row.employeeId}_${row.attendanceDate}`;
+            let _id = '';
+            if (isNotificationHistory) {
+              // Deduplicate on (employeeId + trainingType + notificationDate + optional trainingId)
+              const tId = row.trainingId ? `_${row.trainingId}` : '';
+              _id = `hist_${row.employeeId}_${row.trainingType}_${row.notificationDate}${tId}`;
+            } else {
+              _id = `att_${row.employeeId}_${row.trainingType}_${row.attendanceDate}`;
+            }
+
             return {
               _id,
               ...row,
+              // Notification records don't have attendance status during upload
+              attended: isNotificationHistory ? false : (row.attended || false), 
               uploadBatchId,
-              uploadedAt: new Date(),
+              uploadedAt: new Date().toISOString(),
               uploadedBy: 'system'
             };
           });
-
 
           // Upload batch via API (backend handles upsert)
           await addBatch(collectionName, docsToInsert);
@@ -205,6 +366,8 @@ export const uploadTrainingDataStrict = traceEngine("uploadTrainingDataStrict", 
       totalRows: parseResult.rows.length,
       uploadedRows: uploadedCount,
       rejectedRows: errorRows.length,
+      activeEmployees,
+      inactiveEmployees,
       errors: errorRows.map(e => ({
         rowNum: e.rowNum,
         message: e.errors.join('; ')
@@ -231,6 +394,8 @@ export const uploadTrainingDataStrict = traceEngine("uploadTrainingDataStrict", 
       totalRows: 0,
       uploadedRows: 0,
       rejectedRows: 0,
+      activeEmployees: 0,
+      inactiveEmployees: 0,
       errors: [{ rowNum: 0, message: errorMsg }],
       warnings: [],
       debugLog: debugLog.join('\n')

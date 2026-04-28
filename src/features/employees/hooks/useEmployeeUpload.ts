@@ -24,7 +24,6 @@ export const useEmployeeUpload = (onUploadComplete?: () => void) => {
          setUploadProgress(Math.round(((i + chunk.length) / total) * 100));
       }
       
-      onUploadComplete?.();
       return { success: true };
     } catch (err: any) {
       return { success: false, error: err.message };

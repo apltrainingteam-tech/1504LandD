@@ -17,7 +17,7 @@ import React, { createContext, useContext, useState, ReactNode, useEffect, useMe
  * - ENSURE all consumers use the useMasterData() hook for access.
  */
 import { getCollection, upsertDoc, updateDocument } from '../engines/apiClient';
-import { EligibilityRule } from '../../types/attendance';
+import { EligibilityRule, NotificationRecord, TrainingBatch } from '../../types/attendance';
 import { ValidationError } from '../contracts/validation.contract';
 import { DataEdit } from '../contracts/edit.contract';
 import { applyEdits } from '../engines/editEngine';
@@ -68,11 +68,15 @@ interface MasterDataContextType {
     trainingData: any[];
     nominationData: any[];
     employeeData: Employee[];
+    notificationHistory: NotificationRecord[];
+    trainingBatches: TrainingBatch[];
   };
   finalData: {
     trainingData: any[];
     nominationData: any[];
     employeeData: Employee[];
+    notificationHistory: NotificationRecord[];
+    trainingBatches: TrainingBatch[];
   };
   edits: DataEdit[];
   validationErrors: ValidationError[];
@@ -143,7 +147,9 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
   }>({
     trainingData: [],
     nominationData: [],
-    employeeData: []
+    employeeData: [],
+    notificationHistory: [],
+    trainingBatches: []
   });
 
   const [edits, setEdits] = useState<DataEdit[]>([]);
@@ -182,9 +188,11 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
 
   const loadTransactionalData = async () => {
     try {
-      const [td, emps] = await Promise.all([
+      const [td, emps, nh, tb] = await Promise.all([
         getCollection('training_data'),
-        getCollection('employees')
+        getCollection('employees'),
+        getCollection('notification_history'),
+        getCollection('training_batches')
       ]);
       
       // Separate nominations if they are marked in training_data
@@ -193,7 +201,9 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
       setBaseData({
         trainingData: td as any[],
         nominationData: nominations,
-        employeeData: emps as Employee[]
+        employeeData: emps as Employee[],
+        notificationHistory: nh as NotificationRecord[],
+        trainingBatches: tb as TrainingBatch[]
       });
     } catch (e) {
       console.error("Failed to load transactional data:", e);
@@ -205,7 +215,9 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
     return {
       trainingData: applyEdits(baseData.trainingData, edits, 'trainingData'),
       nominationData: applyEdits(baseData.nominationData, edits, 'nomination'),
-      employeeData: applyEdits(baseData.employeeData, edits, 'employee')
+      employeeData: applyEdits(baseData.employeeData, edits, 'employee'),
+      notificationHistory: baseData.notificationHistory, // Edits not yet supported for history
+      trainingBatches: baseData.trainingBatches
     };
   }, [baseData, edits]);
 
