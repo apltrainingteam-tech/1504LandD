@@ -212,7 +212,7 @@ export function validateRow(
 
   // MANDATORY: Date (Notification Date for history, Attendance Date for training)
   const isHistory = rowData._templateType === 'NotificationHistory';
-  
+
   if (isHistory) {
     // For Nominations: Ignore attendanceDate completely. Check notificationDate.
     if (!rowData.notificationDate || String(rowData.notificationDate).trim() === '') {
@@ -264,11 +264,11 @@ export function parseDate(dateStr: string | null): string | null {
   const match = str.match(dMmmY);
   if (match) {
     const day = parseInt(match[1]);
-    const monthNames = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+    const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
     const month = monthNames.indexOf(match[2].toLowerCase());
     let year = parseInt(match[3]);
     if (year < 100) year += 2000; // Assume 20xx
-    
+
     const d = new Date(year, month, day);
     if (!isNaN(d.getTime())) {
       return d.toISOString().split('T')[0];
