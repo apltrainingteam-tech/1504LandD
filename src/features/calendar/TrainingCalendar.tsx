@@ -47,15 +47,15 @@ const getStatus = (plan: TrainingPlan) => {
   return plan.checklist.every(c => c.completed) ? 'Completed' : 'Planned';
 };
 
-const TeamScopeManager = ({ 
-  trainingId, 
-  teams, 
+const TeamScopeManager = ({
+  trainingId,
+  teams,
   onScopeChange,
   refetchCalendar,
   refetchNomination
-}: { 
-  trainingId: string, 
-  teams: TeamBatchStatus[], 
+}: {
+  trainingId: string,
+  teams: TeamBatchStatus[],
   onScopeChange: (action: 'REMOVE' | 'LOCK' | 'RESET', teamIds: string[]) => void,
   refetchCalendar: () => Promise<void>,
   refetchNomination: () => Promise<void>
@@ -76,7 +76,7 @@ const TeamScopeManager = ({
         // UI Refresh: Clear local nomination/notification state
         removeBatch(trainingId, activeTeamId);
         removeNotificationRecords(trainingId, activeTeamId);
-        
+
         // Force Refetch from Database
         await refetchCalendar();
         await refetchNomination();
@@ -114,20 +114,20 @@ const TeamScopeManager = ({
                 {t.teamName}
                 {isLocked ? <Lock size={14} className="ml-1" /> : <Unlock size={14} className="ml-1" />}
               </span>
-              
+
               {!isLocked && (
                 <div className={styles.teamChipActions}>
-                  <button 
+                  <button
                     className={`${styles.chipActionBtn} ${styles.lockBtnInner}`}
-                    title="Lock Team" 
+                    title="Lock Team"
                     onClick={(e) => { e.stopPropagation(); openModal('LOCK', t.teamId); }}
                     disabled={isProcessing}
                   >
                     <CheckCircle size={14} /> <span>Lock</span>
                   </button>
-                  <button 
+                  <button
                     className={`${styles.chipActionBtn} ${styles.resetBtnInner}`}
-                    title="Reset Team" 
+                    title="Reset Team"
                     onClick={(e) => { e.stopPropagation(); openModal('RESET', t.teamId); }}
                     disabled={isProcessing}
                   >
@@ -188,9 +188,9 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
   const FY_OPTIONS = getFiscalYears(2015);
   const [selectedFY, setSelectedFY] = useState<string>(FY_OPTIONS[0]);
 
-  const { 
-    selectionSession, consumedTeams, consumedTrainers, addConsumed, 
-    removeConsumed, saveDraft, updateDraft, removeDraft, removeBatch, 
+  const {
+    selectionSession, consumedTeams, consumedTrainers, addConsumed,
+    removeConsumed, saveDraft, updateDraft, removeDraft, removeBatch,
     removeNotificationRecords, loadNotificationHistory, notificationRecords, drafts
   } = usePlanningFlow();
 
@@ -404,7 +404,7 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
     if (!formTrainer) return alert('Trainer is required.');
 
     const newId = Math.random().toString(36).substr(2, 9);
-    
+
     const newTeams: TeamBatchStatus[] = sessionTeams.map(id => {
       const t = masterTeams.find(mt => mt.id === id);
       return {
@@ -428,15 +428,15 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
 
     // No local setPlans call. Rely on drafts -> useEffect synchronization
     newTeams.forEach(t => addConsumed(t.teamId, formTrainer));
-    
+
     for (const t of newTeams) {
-      await generateNominationDraft({ 
-        teamId: t.teamId, 
-        trainingId: newId, 
-        trainingType: tab, 
-        trainer: formTrainer, 
-        startDate: modalStart, 
-        endDate: modalEnd 
+      await generateNominationDraft({
+        teamId: t.teamId,
+        trainingId: newId,
+        trainingType: tab,
+        trainer: formTrainer,
+        startDate: modalStart,
+        endDate: modalEnd
       });
     }
 
@@ -452,7 +452,7 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
       }
       plan.teams.forEach(t => removeConsumed(t.teamId, plan.trainer));
       // Removing the draft will trigger the useMemo update
-      removeDraft(plan.id); 
+      removeDraft(plan.id);
     }
     setSelectedPlanId(null);
   };
@@ -487,14 +487,14 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
         }
         return { ...p, teams: newTeams };
       }).filter((p: TrainingPlan) => p.teams.length > 0);
-      
+
       return next;
     });
   };
 
   const handleBulkAction = async (bulkMode: 'LOCK' | 'RESET') => {
     if (selectedPlanningTeamIds.length === 0) return;
-    const confirmMsg = bulkMode === 'LOCK' 
+    const confirmMsg = bulkMode === 'LOCK'
       ? `Lock ${selectedPlanningTeamIds.length} selected team(s)?`
       : `RESET ${selectedPlanningTeamIds.length} selected team(s)? (Deletes record data)`;
     if (!window.confirm(confirmMsg)) return;
@@ -522,7 +522,7 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
       // 1. Fetch source of truth first
       const fresh = await loadNotificationHistory();
       console.log("[Debug] After bulk reset, server returned:", fresh);
-      
+
       // 2. Refresh transactional data
       await refreshTransactional();
     }
@@ -590,7 +590,7 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
               {selectionSession!.teamIds.map(id => {
                 const isSelected = selectedPlanningTeamIds.includes(id);
                 const t = masterTeams.find(mt => mt.id === id);
-                
+
                 // Find if this team is already in any plan for the current training type
                 const existingPlan = plans.find(p => p.trainingType === tab && p.teams.some(bt => bt.teamId === id));
                 const teamStatus = existingPlan?.teams.find(bt => bt.teamId === id)?.status;
@@ -613,16 +613,16 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
             <button className={`btn btn-secondary btn-sm`} onClick={() => setSelectedPlanningTeamIds([])}>
               Clear Selection
             </button>
-            <button 
-              className={`btn btn-primary btn-sm`} 
+            <button
+              className={`btn btn-primary btn-sm`}
               disabled={selectedPlanningTeamIds.length === 0}
               onClick={() => handleBulkAction('LOCK')}
               title="Lock selected teams"
             >
               Lock Selected
             </button>
-            <button 
-              className={`btn btn-danger btn-sm`} 
+            <button
+              className={`btn btn-danger btn-sm`}
               disabled={selectedPlanningTeamIds.length === 0}
               onClick={() => handleBulkAction('RESET')}
               title="Reset selected teams"
@@ -762,11 +762,11 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
                   {trainerOptions.map(t => {
                     const isUsed = !overrideTrainer && consumedTrainers.has(t.id);
                     return (
-                      <option 
-                        key={t.id} 
-                        value={t.id} 
-                        disabled={isUsed} 
-                        title={isUsed ? 'Already used in this planning session' : ''} 
+                      <option
+                        key={t.id}
+                        value={t.id}
+                        disabled={isUsed}
+                        title={isUsed ? 'Already used in this planning session' : ''}
                         className={isUsed ? styles.trainerOptionUsed : ''}
                       >
                         {t.trainerName} ({t.category}) {isUsed ? '(Used)' : ''}
@@ -823,9 +823,9 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
               <div className={styles.detailField}>
                 <div className={styles.detailFieldLabel}>Teams</div>
                 <div className={styles.teamScopeContainer}>
-                  <TeamScopeManager 
-                    trainingId={selectedPlan.id} 
-                    teams={selectedPlan.teams} 
+                  <TeamScopeManager
+                    trainingId={selectedPlan.id}
+                    teams={selectedPlan.teams}
                     onScopeChange={handleScopeChange}
                     refetchCalendar={refreshTransactional}
                     refetchNomination={loadNotificationHistory}
