@@ -1,21 +1,22 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, X, AlertTriangle, Trash2, Calendar as CalIcon, Save, CheckCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, AlertTriangle, Trash2, Calendar as CalIcon, Save, CheckCircle, Lock, Unlock } from 'lucide-react';
 import TopRightControls from '../../shared/components/ui/TopRightControls';
 import { getFiscalYears, getFiscalYearFromDate, parseFiscalYear, getCurrentFiscalYear } from '../../core/utils/fiscalYear';
 import { usePlanningFlow } from '../../core/context/PlanningFlowContext';
 import { getAvailableTrainers, Trainer } from '../../core/engines/trainerEngine';
 import { Employee } from '../../types/employee';
-import { Attendance } from '../../types/attendance';
+import { Attendance, NotificationRecord, NominationDraft } from '../../types/attendance';
 import { useMasterData } from '../../core/context/MasterDataContext';
 import { getTeamName } from '../../core/utils/teamIdMapper';
+import api from '../../core/engines/apiClient';
+import { TeamBatchStatus } from './hooks/useTrainingScope';
 import styles from './TrainingCalendar.module.css';
 
 interface ChecklistItem { name: string; completed: boolean; }
 interface TrainingPlan {
   id: string;
   trainingType: string;
-  teamId: string;
-  team: string; // Keep for display / label
+  teams: TeamBatchStatus[];
   trainer: string;
   startDate: string;
   endDate: string;
@@ -46,13 +47,152 @@ const getStatus = (plan: TrainingPlan) => {
   return plan.checklist.every(c => c.completed) ? 'Completed' : 'Planned';
 };
 
+const TeamScopeManager = ({ 
+  trainingId, 
+  teams, 
+  onScopeChange,
+  refetchCalendar,
+  refetchNomination
+}: { 
+  trainingId: string, 
+  teams: TeamBatchStatus[], 
+  onScopeChange: (action: 'REMOVE' | 'LOCK' | 'RESET', teamIds: string[]) => void,
+  refetchCalendar: () => Promise<void>,
+  refetchNomination: () => Promise<void>
+}) => {
+  const [modalMode, setModalMode] = useState<'RESET' | 'LOCK' | null>(null);
+  const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
+  const { removeBatch, removeNotificationRecords, loadNotificationHistory } = usePlanningFlow();
+  const { refreshTransactional } = useMasterData();
+
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleConfirm = async () => {
+    if (!activeTeamId) return;
+    setIsProcessing(true);
+    try {
+      if (modalMode === 'RESET') {
+        await api.resetTeams(trainingId, [activeTeamId]);
+        // UI Refresh: Clear local nomination/notification state
+        removeBatch(trainingId, activeTeamId);
+        removeNotificationRecords(trainingId, activeTeamId);
+        
+        // Force Refetch from Database
+        await refetchCalendar();
+        await refetchNomination();
+      } else if (modalMode === 'LOCK') {
+        await api.lockTeams(trainingId, [activeTeamId]);
+      }
+      onScopeChange(modalMode!, [activeTeamId]);
+      setModalMode(null);
+      setActiveTeamId(null);
+    } catch (error) {
+      console.error(`Failed to ${modalMode}:`, error);
+      alert(`Failed to ${modalMode}: ` + (error as Error).message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const openModal = (mode: 'RESET' | 'LOCK', teamId: string) => {
+    setModalMode(mode);
+    setActiveTeamId(teamId);
+  };
+
+  return (
+    <div className={styles.scopeManager}>
+      <div className={styles.scopeChips}>
+        {teams.map(t => {
+          const isLocked = t.status === 'LOCKED';
+          return (
+            <div
+              key={t.teamId}
+              className={`badge ${isLocked ? 'badge-secondary opacity-70' : 'badge-outline'} ${styles.teamChipInline}`}
+              title={isLocked ? "Team is locked and cannot be modified" : "Open team"}
+            >
+              <span className={styles.teamChipLabel}>
+                {t.teamName}
+                {isLocked ? <Lock size={14} className="ml-1" /> : <Unlock size={14} className="ml-1" />}
+              </span>
+              
+              {!isLocked && (
+                <div className={styles.teamChipActions}>
+                  <button 
+                    className={`${styles.chipActionBtn} ${styles.lockBtnInner}`}
+                    title="Lock Team" 
+                    onClick={(e) => { e.stopPropagation(); openModal('LOCK', t.teamId); }}
+                    disabled={isProcessing}
+                  >
+                    <CheckCircle size={14} /> <span>Lock</span>
+                  </button>
+                  <button 
+                    className={`${styles.chipActionBtn} ${styles.resetBtnInner}`}
+                    title="Reset Team" 
+                    onClick={(e) => { e.stopPropagation(); openModal('RESET', t.teamId); }}
+                    disabled={isProcessing}
+                  >
+                    <X size={14} /> <span>Reset</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {modalMode && (
+        <div className={styles.modalBackdrop}>
+          <div className={`glass-panel ${styles.confirmModal}`}>
+            <h3 className={styles.modalTitle}>
+              {modalMode === 'RESET' ? 'Reset team?' : 'Mark team as Done?'}
+            </h3>
+            <div className={styles.modalBody}>
+              {modalMode === 'RESET' ? (
+                <>
+                  <p>This will reset ONLY this team by:</p>
+                  <ul>
+                    <li>Wiping all nominations for this team</li>
+                    <li>Deleting notification records for this team</li>
+                    <li>Setting team status back to OPEN</li>
+                  </ul>
+                  <p className="text-danger">All historical data for this team in this session will be lost.</p>
+                </>
+              ) : (
+                <>
+                  <p>After locking this team:</p>
+                  <ul>
+                    <li>No edits allowed</li>
+                    <li>No removal/reset allowed</li>
+                    <li>No nomination changes allowed</li>
+                  </ul>
+                  <p className="text-danger">This action cannot be undone.</p>
+                </>
+              )}
+            </div>
+            <div className={styles.modalFooter}>
+              <button className="btn btn-secondary" onClick={() => { setModalMode(null); setActiveTeamId(null); }} disabled={isProcessing}>Cancel</button>
+              <button className={`btn ${modalMode === 'RESET' ? 'btn-danger' : 'btn-primary'}`} onClick={handleConfirm} disabled={isProcessing}>
+                {isProcessing ? 'Processing...' : (modalMode === 'RESET' ? 'Reset Team' : 'Confirm Lock')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const TrainingCalendar = ({ employees, attendance }: { employees: Employee[], attendance: Attendance[] }) => {
-  const { trainers: masterTrainers, teams: masterTeams } = useMasterData();
+  const { trainers: masterTrainers, teams: masterTeams, refreshTransactional } = useMasterData();
   const [tab, setTab] = useState<TrainingTab>('AP');
   const FY_OPTIONS = getFiscalYears(2015);
   const [selectedFY, setSelectedFY] = useState<string>(FY_OPTIONS[0]);
 
-  const { selectionSession, consumedTeams, consumedTrainers, addConsumed, removeConsumed, saveDraft, resetConsumed, removeDraft } = usePlanningFlow();
+  const { 
+    selectionSession, consumedTeams, consumedTrainers, addConsumed, 
+    removeConsumed, saveDraft, updateDraft, removeDraft, removeBatch, 
+    removeNotificationRecords, loadNotificationHistory, notificationRecords, drafts
+  } = usePlanningFlow();
 
   useEffect(() => {
     if (selectionSession) {
@@ -60,16 +200,19 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
       if (selectionSession.fiscalYear !== selectedFY) {
         handleFYChange(selectionSession.fiscalYear);
       }
-      // Initialize planning team from session (preserve current selection if still valid)
-      if (selectionSession.teamIds?.length > 0) {
-        setSelectedPlanningTeamId(prev =>
-          selectionSession.teamIds.includes(prev) ? prev : selectionSession.teamIds[0]
-        );
+      if (selectedPlanningTeamIds.length === 0) {
+        setSelectedPlanningTeamIds(selectionSession.teamIds || []);
       }
     } else {
-      setSelectedPlanningTeamId('');
+      setSelectedPlanningTeamIds([]);
     }
   }, [selectionSession]);
+
+  const togglePlanningTeam = (teamId: string) => {
+    setSelectedPlanningTeamIds(prev =>
+      prev.includes(teamId) ? prev.filter(id => id !== teamId) : [...prev, teamId]
+    );
+  };
 
   const handleFYChange = (newFY: string) => {
     setSelectedFY(newFY);
@@ -92,8 +235,47 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
   // Calendar State
   const [currentDate, setCurrentDate] = useState(new Date());
 
-  // Data Store (In-Memory for now as per requirements logic)
+  // --- State for Calendar Plans (Synced with Source of Truth) ---
   const [plans, setPlans] = useState<TrainingPlan[]>([]);
+
+  useEffect(() => {
+    const plansMap = new Map<string, TrainingPlan>();
+
+    const processEntry = (trainingId: string, teamId: string, teamName: string, type: string, trainer: string, start: string, end: string) => {
+      if (!plansMap.has(trainingId)) {
+        plansMap.set(trainingId, {
+          id: trainingId,
+          trainingType: type,
+          trainer,
+          startDate: start,
+          endDate: end,
+          teams: [],
+          checklist: (CHECKLIST_RULES[type] || []).map(name => ({ name, completed: false }))
+        });
+      }
+      const plan = plansMap.get(trainingId)!;
+      if (!plan.teams.some(t => t.teamId === teamId)) {
+        plan.teams.push({
+          trainingId,
+          teamId,
+          teamName,
+          status: 'OPEN'
+        });
+      }
+    };
+
+    notificationRecords.forEach((r: NotificationRecord) => {
+      if (r.trainingId) {
+        processEntry(r.trainingId, r.teamId || '', r.team, r.trainingType, r.trainerId, r.notificationDate, r.notificationDate);
+      }
+    });
+
+    drafts.forEach((d: NominationDraft) => {
+      processEntry(d.trainingId, d.teamId, d.team, d.trainingType, d.trainer || '', d.startDate || '', d.endDate || '');
+    });
+
+    setPlans(Array.from(plansMap.values()));
+  }, [notificationRecords, drafts]);
 
   // Drag selection state
   const [dragStart, setDragStart] = useState<string | null>(null);
@@ -107,15 +289,12 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
 
   // PLANNING SOURCE OF TRUTH — driven by selectionSession, never by view filters or modal state
-  const [selectedPlanningTeamId, setSelectedPlanningTeamId] = useState<string>('');
+  const [selectedPlanningTeamIds, setSelectedPlanningTeamIds] = useState<string[]>([]);
 
   // Modal-only form state (no planning decisions made from these)
   const [formTrainer, setFormTrainer] = useState('');
   const [formRemarks, setFormRemarks] = useState('');
   const [overrideTrainer, setOverrideTrainer] = useState(false);
-
-  // Derived: resolved teamId for the current plan action (read-only; never mutated inside modal)
-  const resolvedPlanningTeamId = selectedPlanningTeamId || selectionSession?.teamIds?.[0] || '';
 
   const trainerOptions = useMemo(() => {
     const activeTrainers = masterTrainers.filter(t => t.status === 'Active');
@@ -178,8 +357,8 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
       setModalStart(start);
       setModalEnd(end);
 
-      // Log for debugging — resolvedPlanningTeamId is the ONLY source used
-      console.log('[Calendar] Opening modal. Session teamIds:', selectionSession!.teamIds, '→ resolved teamId:', resolvedPlanningTeamId);
+      // Log for debugging
+      console.log('[Calendar] Opening modal. Session teamIds:', selectionSession!.teamIds);
 
       setFormTrainer('');
       setFormRemarks('');
@@ -202,7 +381,7 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
     const top40 = eligible.slice(0, 40).map(e => String(e.employeeId));
 
     saveDraft({
-      id: trainingId,
+      id: `${trainingId}_${teamId}`,
       teamId,
       trainingId,
       trainingType,
@@ -217,23 +396,29 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
   };
 
   const handleCreatePlan = async () => {
-    // STRICT: team always comes from selectedPlanningTeamId — never from modal state
-    const teamId = resolvedPlanningTeamId;
-    if (!teamId) {
-      console.error('[Calendar] BLOCKED: No planning teamId resolved. Session:', selectionSession?.teamIds);
-      return alert('No planning team selected. Please choose a team from Training Requirement.');
+    const sessionTeams = selectedPlanningTeamIds;
+    if (sessionTeams.length === 0) {
+      console.error('[Calendar] BLOCKED: No planning teamIds selected.');
+      return alert('No planning teams selected. Please choose at least one team from the Planning banner.');
     }
     if (!formTrainer) return alert('Trainer is required.');
 
-    const teamObj = masterTeams.find(t => t.id === teamId);
-    const teamLabel = teamObj ? teamObj.teamName : teamId;
-
     const newId = Math.random().toString(36).substr(2, 9);
+    
+    const newTeams: TeamBatchStatus[] = sessionTeams.map(id => {
+      const t = masterTeams.find(mt => mt.id === id);
+      return {
+        trainingId: newId,
+        teamId: id,
+        teamName: t ? t.teamName : getTeamName(id, masterTeams),
+        status: 'OPEN'
+      };
+    });
+
     const newPlan: TrainingPlan = {
       id: newId,
       trainingType: tab,
-      teamId,
-      team: teamLabel,
+      teams: newTeams,
       trainer: formTrainer,
       startDate: modalStart,
       endDate: modalEnd,
@@ -241,11 +426,19 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
       checklist: (CHECKLIST_RULES[tab] || []).map(name => ({ name, completed: false }))
     };
 
-    setPlans([...plans, newPlan]);
-    addConsumed(teamLabel, formTrainer);
-
-    // Always pass teamId explicitly — never read from modal or view filter state
-    await generateNominationDraft({ teamId, trainingId: newId, trainingType: tab, trainer: formTrainer, startDate: modalStart, endDate: modalEnd });
+    // No local setPlans call. Rely on drafts -> useEffect synchronization
+    newTeams.forEach(t => addConsumed(t.teamId, formTrainer));
+    
+    for (const t of newTeams) {
+      await generateNominationDraft({ 
+        teamId: t.teamId, 
+        trainingId: newId, 
+        trainingType: tab, 
+        trainer: formTrainer, 
+        startDate: modalStart, 
+        endDate: modalEnd 
+      });
+    }
 
     setShowCreateModal(false);
   };
@@ -254,10 +447,13 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
     if (!window.confirm("Delete this training plan?")) return;
     const plan = plans.find(p => p.id === id);
     if (plan) {
-      removeConsumed(plan.team, plan.trainer);
-      removeDraft(plan.id);
+      if (plan.teams.some(t => t.status === 'LOCKED')) {
+        return alert("Cannot delete plan: Contains locked teams.");
+      }
+      plan.teams.forEach(t => removeConsumed(t.teamId, plan.trainer));
+      // Removing the draft will trigger the useMemo update
+      removeDraft(plan.id); 
     }
-    setPlans(plans.filter(p => p.id !== id));
     setSelectedPlanId(null);
   };
 
@@ -275,6 +471,64 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
     });
     setPlans(updatedPlans);
   };
+  // Scope and Bulk Handlers
+  const handleScopeChange = (action: 'REMOVE' | 'LOCK' | 'RESET', teamIds: string[]) => {
+    setPlans((prev: TrainingPlan[]) => {
+      const next = prev.map((p: TrainingPlan) => {
+        const hasAny = p.teams.some((t: TeamBatchStatus) => teamIds.includes(t.teamId));
+        if (!hasAny) return p;
+        let newTeams = [...p.teams];
+        if (action === 'REMOVE') {
+          newTeams = newTeams.filter((t: TeamBatchStatus) => !teamIds.includes(t.teamId));
+        } else if (action === 'LOCK') {
+          newTeams = newTeams.map((t: TeamBatchStatus) => teamIds.includes(t.teamId) ? { ...t, status: 'LOCKED' } : t);
+        } else if (action === 'RESET') {
+          newTeams = newTeams.map((t: TeamBatchStatus) => teamIds.includes(t.teamId) ? { ...t, status: 'OPEN' } : t);
+        }
+        return { ...p, teams: newTeams };
+      }).filter((p: TrainingPlan) => p.teams.length > 0);
+      
+      return next;
+    });
+  };
+
+  const handleBulkAction = async (bulkMode: 'LOCK' | 'RESET') => {
+    if (selectedPlanningTeamIds.length === 0) return;
+    const confirmMsg = bulkMode === 'LOCK' 
+      ? `Lock ${selectedPlanningTeamIds.length} selected team(s)?`
+      : `RESET ${selectedPlanningTeamIds.length} selected team(s)? (Deletes record data)`;
+    if (!window.confirm(confirmMsg)) return;
+
+    for (const teamId of selectedPlanningTeamIds) {
+      const plan = (plans as TrainingPlan[]).find((p: TrainingPlan) => p.teams.some((bt: TeamBatchStatus) => bt.teamId === teamId));
+      if (!plan) continue;
+      try {
+        if (bulkMode === 'LOCK') {
+          await api.lockTeams(plan.id, [teamId]);
+          handleScopeChange('LOCK', [teamId]);
+        } else {
+          await api.resetTeams(plan.id, [teamId]);
+          removeBatch(plan.id, teamId);
+          removeNotificationRecords(plan.id, teamId);
+          handleScopeChange('RESET', [teamId]);
+        }
+      } catch (err) {
+        console.error(`Bulk ${bulkMode} failed for ${teamId}:`, err);
+      }
+    }
+
+    if (bulkMode === 'RESET') {
+      // --- Refetch Order (Guard against Race Conditions) ---
+      // 1. Fetch source of truth first
+      const fresh = await loadNotificationHistory();
+      console.log("[Debug] After bulk reset, server returned:", fresh);
+      
+      // 2. Refresh transactional data
+      await refreshTransactional();
+    }
+  };
+
+
 
   // Render Helpers
   const isDateInDragRange = (dateStr: string) => {
@@ -286,7 +540,7 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
 
   const filteredPlans = plans.filter(p => {
     if (p.trainingType !== tab) return false;
-    if (filterTeam && p.teamId !== filterTeam) return false;
+    if (filterTeam && !p.teams.some(t => t.teamId === filterTeam)) return false;
     if (filterTrainer && p.trainer !== filterTrainer) return false;
     if (getFiscalYearFromDate(p.startDate) !== selectedFY) return false;
     return true;
@@ -330,31 +584,52 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
 
       {hasPlanningContext && (
         <div className={styles.planningBanner}>
-          <div className={styles.planningBannerLabel}>
-            Planning for:
-            {selectionSession!.teamIds.length > 1 ? (
-              // Multi-team: selectedPlanningTeamId is the ONLY source of truth for which team is active
-              <select
-                className={`form-input ${styles.planningTeamSelect}`}
-                value={selectedPlanningTeamId}
-                onChange={e => setSelectedPlanningTeamId(e.target.value)}
-                title="Select Planning Team"
-                aria-label="Select Planning Team"
-              >
-                {selectionSession!.teamIds.map(id => {
-                  const t = masterTeams.find(mt => mt.id === id);
-                  return <option key={id} value={id}>{t ? t.teamName : id}</option>;
-                })}
-              </select>
-            ) : (
-              <span>{masterTeams.find(mt => mt.id === selectionSession!.teamIds[0])?.teamName || selectionSession!.teams[0]}</span>
-            )}
+          <div className={styles.planningBannerContent}>
+            <span className={styles.planningBannerTitle}>Planning for:</span>
+            <div className={styles.planningBannerChips}>
+              {selectionSession!.teamIds.map(id => {
+                const isSelected = selectedPlanningTeamIds.includes(id);
+                const t = masterTeams.find(mt => mt.id === id);
+                
+                // Find if this team is already in any plan for the current training type
+                const existingPlan = plans.find(p => p.trainingType === tab && p.teams.some(bt => bt.teamId === id));
+                const teamStatus = existingPlan?.teams.find(bt => bt.teamId === id)?.status;
+                const isLocked = teamStatus === 'LOCKED';
+
+                return (
+                  <button
+                    key={id}
+                    onClick={() => togglePlanningTeam(id)}
+                    className={`badge ${isSelected ? 'badge-success' : 'badge-outline'} ${styles.planningChip}`}
+                  >
+                    {t ? t.teamName : id}
+                    {isLocked ? <Lock size={12} className="ml-1" /> : <Unlock size={12} className="ml-1" />}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <button className={`btn btn-secondary ${styles.resetBtn}`} onClick={() => {
-            if (window.confirm('Reset all blocked Teams and Trainers?')) resetConsumed();
-          }}>
-            Reset Selection
-          </button>
+          <div className="flex-center gap-2">
+            <button className={`btn btn-secondary btn-sm`} onClick={() => setSelectedPlanningTeamIds([])}>
+              Clear Selection
+            </button>
+            <button 
+              className={`btn btn-primary btn-sm`} 
+              disabled={selectedPlanningTeamIds.length === 0}
+              onClick={() => handleBulkAction('LOCK')}
+              title="Lock selected teams"
+            >
+              Lock Selected
+            </button>
+            <button 
+              className={`btn btn-danger btn-sm`} 
+              disabled={selectedPlanningTeamIds.length === 0}
+              onClick={() => handleBulkAction('RESET')}
+              title="Reset selected teams"
+            >
+              Reset Selected
+            </button>
+          </div>
         </div>
       )}
 
@@ -421,7 +696,7 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
                   {visiblePlans.map(p => {
                     const status = getStatus(p);
                     const color = status === 'Completed' ? 'var(--success)' : 'var(--text-secondary)';
-                    const displayTeam = getTeamName(p.teamId, masterTeams);
+                    const displayTeam = p.teams.map(t => t.teamName).join(', ');
                     const trainerObj = masterTrainers.find(mt => mt.id === p.trainer);
                     const displayTrainer = trainerObj ? trainerObj.trainerName : p.trainer;
 
@@ -468,10 +743,9 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
               </div>
 
               <div>
-                <label className={styles.formLabel}>Team</label>
-                {/* Read-only: value always comes from selectedPlanningTeamId, never from modal input */}
+                <label className={styles.formLabel}>Teams</label>
                 <div className={styles.teamDisplay}>
-                  {masterTeams.find(t => t.id === resolvedPlanningTeamId)?.teamName || resolvedPlanningTeamId || '—'}
+                  {selectedPlanningTeamIds.map(id => masterTeams.find(t => t.id === id)?.teamName || id).join(', ') || '—'}
                 </div>
               </div>
 
@@ -547,12 +821,22 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
                 <div className={styles.detailFieldValue}>{selectedPlan.trainingType}</div>
               </div>
               <div className={styles.detailField}>
-                <div className={styles.detailFieldLabel}>Team</div>
-                <div className={styles.detailFieldValue}>{selectedPlan.team}</div>
+                <div className={styles.detailFieldLabel}>Teams</div>
+                <div className={styles.teamScopeContainer}>
+                  <TeamScopeManager 
+                    trainingId={selectedPlan.id} 
+                    teams={selectedPlan.teams} 
+                    onScopeChange={handleScopeChange}
+                    refetchCalendar={refreshTransactional}
+                    refetchNomination={loadNotificationHistory}
+                  />
+                </div>
               </div>
               <div className={styles.detailField}>
                 <div className={styles.detailFieldLabel}>Trainer</div>
-                <div className={styles.detailFieldValue}>{selectedPlan.trainer}</div>
+                <div className={styles.detailFieldValue}>
+                  {masterTrainers.find(mt => mt.id === selectedPlan.trainer)?.trainerName || selectedPlan.trainer}
+                </div>
               </div>
               <div className={styles.detailField}>
                 <div className={styles.detailFieldLabel}>Dates</div>

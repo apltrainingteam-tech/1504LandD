@@ -433,5 +433,26 @@ export default {
   getDb,
   getDbStatus,
   initializeConnection,
-  closeConnection
+  closeConnection,
+  deleteManyByQuery
 };
+
+
+/**
+ * DELETE MANY BY COMPLEX QUERY (MongoDB)
+ */
+export async function deleteManyByQuery(
+  path: string,
+  query: Record<string, any>
+): Promise<number> {
+  console.log(`Deleting records from ${path} with query:`, query);
+  try {
+    const collection = await getCollection_internal(path);
+    const result = await collection.deleteMany(query);
+    console.log(`Successfully deleted ${result.deletedCount} records from ${path}`);
+    return result.deletedCount;
+  } catch (error) {
+    console.error(`Error deleting records from ${path}:`, error);
+    throw error;
+  }
+}

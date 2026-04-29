@@ -193,13 +193,10 @@ export const computeGapAnalysis = traceEngine("computeGapAnalysis", (
 
   // Enrich employees
   const enrichedEmployees = employees.map(emp => {
-    if (!emp.teamId) {
-      console.error("Assertion failed: teamId must be defined for employee", emp.employeeId);
-      return null; // Skip this employee completely
-    }
-    const cluster = teamMap[emp.teamId]?.cluster;
+    const resolvedTeamId = getTeamId(emp.teamId || emp.team, masterTeams);
+    const cluster = resolvedTeamId ? teamMap[resolvedTeamId]?.cluster : undefined;
     if (!cluster) {
-      console.error("Unmapped teamId:", emp.teamId);
+      console.error("Unmapped team/cluster for employee:", emp.employeeId, "teamId:", emp.teamId, "team:", emp.team);
       return null;
     }
 

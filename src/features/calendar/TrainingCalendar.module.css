@@ -42,21 +42,27 @@
   align-items: center;
 }
 
-.planningBannerLabel {
-  font-size: 14px;
-  font-weight: 600;
+.planningBannerContent {
   display: flex;
   align-items: center;
+  gap: 12px;
+}
+
+.planningBannerTitle {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.planningBannerChips {
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
-.planningTeamSelect {
-  background: white;
-  color: var(--success);
-  border: 1px solid var(--success);
-  padding: 4px 8px;
-  height: auto;
-  margin-top: -2px;
+.planningChip {
+  cursor: pointer;
+  transition: all 0.1s;
 }
 
 .resetBtn {
@@ -528,3 +534,119 @@
 .planChipPlanned { border-left-color: var(--text-secondary) !important; }
 .planDotCompleted { background: var(--success) !important; }
 .planDotPlanned { background: var(--text-secondary) !important; }
+
+/* Team Scope Manager */
+.scopeManager {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.scopeChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.teamChip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.teamChip:disabled {
+  cursor: not-allowed;
+}
+
+.bulkActionBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg);
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.bulkActionText {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.confirmModal {
+  width: 400px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+
+.teamChipLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.teamChipActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.chipActionBtn {
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  opacity: 0.6;
+  transition: opacity 0.2s, background-color 0.2s;
+}
+
+.chipActionBtn:hover:not(:disabled) {
+  opacity: 1;
+  background-color: var(--bg);
+}
+
+.chipActionBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.3;
+}
+
+.lockBtnInner {
+  color: var(--success);
+  gap: 4px;
+  padding: 4px 8px !important;
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.resetBtnInner {
+  color: var(--danger);
+  gap: 4px;
+  padding: 4px 8px !important;
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.teamChipInline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 12px;
+  font-size: 13px;
+  min-width: 180px; /* Increased to fit labels */
+}
+
+.ml-1 {
+  margin-left: 4px;
+}

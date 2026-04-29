@@ -503,6 +503,54 @@ export async function uploadAvatar(file: File): Promise<string> {
   }
 }
 
+export async function removeTeams(trainingId: string, teamIds: string[]): Promise<void> {
+  try {
+    const url = `${API_BASE}/training/remove-teams`;
+    const response = await fetchWithRetry(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trainingId, teamIds })
+    });
+    const result = await safeParseJson(response);
+    if (!response.ok) throw new Error(result.error || `API failed with status ${response.status}`);
+  } catch (error) {
+    console.error("Network/API failure:", error);
+    throw error;
+  }
+}
+
+export async function lockTeams(trainingId: string, teamIds: string[]): Promise<void> {
+  try {
+    const url = `${API_BASE}/training/lock-teams`;
+    const response = await fetchWithRetry(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trainingId, teamIds })
+    });
+    const result = await safeParseJson(response);
+    if (!response.ok) throw new Error(result.error || `API failed with status ${response.status}`);
+  } catch (error) {
+    console.error("Network/API failure:", error);
+    throw error;
+  }
+}
+
+export async function resetTeams(trainingId: string, teamIds: string[]): Promise<void> {
+  try {
+    const url = `${API_BASE}/training/reset-teams`;
+    const response = await fetchWithRetry(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trainingId, teamIds })
+    });
+    const result = await safeParseJson(response);
+    if (!response.ok) throw new Error(result.error || `API failed with status ${response.status}`);
+  } catch (error) {
+    console.error("Network/API failure:", error);
+    throw error;
+  }
+}
+
 export default {
   getCollection,
   getDocumentById,
@@ -517,7 +565,10 @@ export default {
   findByQuery,
   updateByQuery,
   queryByField,
-  uploadAvatar
+  uploadAvatar,
+  removeTeams,
+  lockTeams,
+  resetTeams
 };
 
 

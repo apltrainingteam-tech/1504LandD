@@ -64,6 +64,7 @@ export interface NotificationRecord {
   notificationDate: string; // YYYY-MM-DD
   attended: boolean;
   trainingId?: string; // Links to the TrainingBatch/NominationDraft if available
+  teamId?: string;
 }
 
 export type BatchAttStatus = 'pending' | 'present' | 'absent';

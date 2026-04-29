@@ -42,6 +42,8 @@ interface PlanningFlowContextType {
   // Notification History
   notificationRecords: NotificationRecord[];
   loadNotificationHistory: () => Promise<void>;
+  removeBatch: (trainingId: string, teamId: string) => void;
+  removeNotificationRecords: (trainingId: string, teamId: string) => void;
 }
 
 const PlanningFlowContext = createContext<PlanningFlowContextType | undefined>(undefined);
@@ -66,12 +68,12 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
   }, []);
 
   // ── Consumed ────────────────────────────────────────────────────────────────
-  const addConsumed = (team: string, trainer: string) => {
-    setConsumedTeams(prev => new Set(prev).add(team));
+  const addConsumed = (teamId: string, trainer: string) => {
+    setConsumedTeams(prev => new Set(prev).add(teamId));
     setConsumedTrainers(prev => new Set(prev).add(trainer));
   };
-  const removeConsumed = (team: string, trainer: string) => {
-    setConsumedTeams(prev => { const n = new Set(prev); n.delete(team); return n; });
+  const removeConsumed = (teamId: string, trainer: string) => {
+    setConsumedTeams(prev => { const n = new Set(prev); n.delete(teamId); return n; });
     setConsumedTrainers(prev => { const n = new Set(prev); n.delete(trainer); return n; });
   };
   const resetConsumed = () => {
@@ -140,7 +142,8 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
         trainingType: draft.trainingType,
         notificationDate: draft.startDate || new Date().toISOString().split('T')[0],
         attended: false,
-        trainingId: batchId
+        trainingId: batchId,
+        teamId: draft.teamId
       };
     });
 
@@ -241,7 +244,13 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
       consumedTeams, consumedTrainers, addConsumed, removeConsumed, resetConsumed,
       drafts, saveDraft, updateDraft, removeDraft, getDrafts,
       batches, commitBatch, updateBatchCandidate, getBatches,
-      notificationRecords, loadNotificationHistory
+      removeBatch: (trainingId: string, teamId: string) => {
+        setBatches(prev => prev.filter(b => !(b.id === `${trainingId}_${teamId}` || b.teamId === teamId)));
+      },
+      notificationRecords, loadNotificationHistory,
+      removeNotificationRecords: (trainingId: string, teamId: string) => {
+        setNotificationRecords(prev => prev.filter(r => !(r.trainingId === trainingId && r.teamId === teamId)));
+      }
     }}>
       {children}
     </PlanningFlowContext.Provider>

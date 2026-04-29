@@ -23,8 +23,10 @@ import {
   closeConnection,
   getDb,
   getDbStatus,
-  initializeConnection
-} from './mongodbService';
+  initializeConnection,
+  deleteManyByQuery
+} from './mongodbService.js';
+import trainingRoutes from './trainingRoutes.js';
 
 const app: Express = express();
 const PORT = process.env.PORT || 5000;
@@ -402,6 +404,19 @@ app.get('/api/test-db', async (req: Request, res: Response) => {
       status: getDbStatus()
     });
   }
+});
+
+// --- Training Routes Router ---
+app.use('/api/training', trainingRoutes);
+
+// --- TEMP DEBUG ROUTE (FOR VERIFICATION) ---
+app.post("/api/training/reset-teams-debug", (req, res) => {
+  console.log("[DEBUG] RESET ROUTE HIT");
+  res.json({ 
+    success: true, 
+    message: "DEBUG: Reset route is reachable",
+    timestamp: new Date().toISOString()
+  });
 });
 
 /**
