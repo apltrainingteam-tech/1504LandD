@@ -123,7 +123,12 @@ export const useAppData = () => {
     return { att: a, scs: s, noms: n, demos: finalData.nominationData as any[] };
   }, [finalData, masterTeams]);
 
-  const emps = finalData.employeeData;
+  const emps = useMemo(() => {
+    return finalData.employeeData.map(e => {
+      const teamId = mapTeamCodeToId(e.team, masterTeams) || (e.team ? `unmapped::${normalizeText(e.team)}` : undefined);
+      return { ...e, teamId };
+    });
+  }, [finalData.employeeData, masterTeams]);
 
   // Employee Master filter state
   const [empSearch, setEmpSearch] = useState('');
