@@ -13,18 +13,13 @@ import {
   insertDocument,
   upsertDoc,
   deleteDocument,
-  deleteRecordsByQuery,
-  addBatch,
-  clearCollection,
-  clearCollectionByField,
   queryByField,
   findByQuery,
   updateByQuery,
   closeConnection,
   getDb,
   getDbStatus,
-  initializeConnection,
-  deleteManyByQuery
+  initializeConnection
 } from './mongodbService.js';
 import trainingRoutes from './trainingRoutes.js';
 
@@ -295,45 +290,7 @@ app.delete('/api/:collection/:id', async (req: Request, res: Response) => {
   }
 });
 
-/**
- * DELETE /api/:collection
- * Delete multiple documents by field value or clear collection
- * Query params or body:
- *   - field: field name to filter by
- *   - values: comma-separated values or array
- *   - clear: true to clear entire collection
- *   - clearByField: true with field and value to clear by field
- */
-app.delete('/api/:collection', async (req: Request, res: Response) => {
-  try {
-    const { collection } = req.params;
-    const { field, values, clear, clearByField, value } = req.query;
 
-    console.log(`[DELETE /api/${collection}] field=${field}, values=${values}, clear=${clear}`);
-
-    let deletedCount = 0;
-
-    if (clear === 'true') {
-      // Clear entire collection
-      await clearCollection(String(collection));
-      res.json({ success: true, clearedCollection: true });
-    } else if (clearByField === 'true' && field && value) {
-      // Clear by field value
-      deletedCount = await clearCollectionByField(String(collection), String(field), value);
-      res.json({ success: true, deletedCount });
-    } else if (field && values) {
-      // Delete by field values
-      const valueArray = String(values).split(',').map(v => v.trim());
-      deletedCount = await deleteRecordsByQuery(String(collection), String(field), valueArray);
-      res.json({ success: true, deletedCount });
-    } else {
-      throw new Error('Missing required parameters for delete operation');
-    }
-  } catch (error: any) {
-    console.error('Error deleting documents:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
 
 /**
  * POST /api/:collection/query
@@ -409,15 +366,7 @@ app.get('/api/test-db', async (req: Request, res: Response) => {
 // --- Training Routes Router ---
 app.use('/api/training', trainingRoutes);
 
-// --- TEMP DEBUG ROUTE (FOR VERIFICATION) ---
-app.post("/api/training/reset-teams-debug", (req, res) => {
-  console.log("[DEBUG] RESET ROUTE HIT");
-  res.json({ 
-    success: true, 
-    message: "DEBUG: Reset route is reachable",
-    timestamp: new Date().toISOString()
-  });
-});
+
 
 /**
  * Health check endpoint

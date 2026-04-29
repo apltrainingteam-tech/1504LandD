@@ -41,9 +41,7 @@ interface PlanningFlowContextType {
 
   // Notification History
   notificationRecords: NotificationRecord[];
-  loadNotificationHistory: () => Promise<void>;
-  removeBatch: (trainingId: string, teamId: string) => void;
-  removeNotificationRecords: (trainingId: string, teamId: string) => void;
+  loadNotificationHistory: () => Promise<NotificationRecord[]>;
 }
 
 const PlanningFlowContext = createContext<PlanningFlowContextType | undefined>(undefined);
@@ -62,6 +60,7 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
     try {
       const data = await getCollection('notification_history');
       setNotificationRecords(data);
+      return data;
     } catch (error) {
       console.error("Failed to load notification history", error);
     }
@@ -108,6 +107,7 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
     const batchId = draft.id;
     const batch: TrainingBatch = {
       id:            batchId,
+      trainingId:    batchId,
       draftId:       draft.id,
       source:        'NOTIFICATION',
       sourceDraftId: draft.id,
@@ -244,13 +244,7 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
       consumedTeams, consumedTrainers, addConsumed, removeConsumed, resetConsumed,
       drafts, saveDraft, updateDraft, removeDraft, getDrafts,
       batches, commitBatch, updateBatchCandidate, getBatches,
-      removeBatch: (trainingId: string, teamId: string) => {
-        setBatches(prev => prev.filter(b => !(b.id === `${trainingId}_${teamId}` || b.teamId === teamId)));
-      },
-      notificationRecords, loadNotificationHistory,
-      removeNotificationRecords: (trainingId: string, teamId: string) => {
-        setNotificationRecords(prev => prev.filter(r => !(r.trainingId === trainingId && r.teamId === teamId)));
-      }
+      notificationRecords, loadNotificationHistory
     }}>
       {children}
     </PlanningFlowContext.Provider>

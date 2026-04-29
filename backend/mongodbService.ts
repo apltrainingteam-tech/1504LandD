@@ -222,46 +222,7 @@ export async function addBatch(path: string, items: any[]): Promise<void> {
   }
 }
 
-/**
- * CLEAR ENTIRE COLLECTION (MongoDB)
- */
-export async function clearCollection(path: string): Promise<void> {
-  console.log(`Clearing collection: ${path}`);
-  try {
-    const collection = await getCollection_internal(path);
-    const result = await collection.deleteMany({});
-    console.log(`Successfully cleared ${result.deletedCount} documents from ${path}`);
-  } catch (error) {
-    console.error(`Error clearing collection ${path}:`, error);
-    throw error;
-  }
-}
 
-/**
- * CLEAR COLLECTION BY FIELD VALUE (MongoDB)
- */
-export async function clearCollectionByField(
-  path: string,
-  field: string,
-  value: any
-): Promise<number> {
-  console.log(`Clearing documents in ${path} where ${field} == ${value}`);
-  try {
-    const collection = await getCollection_internal(path);
-    const result = await collection.deleteMany({ [field]: value });
-    
-    if (result.deletedCount === 0) {
-      console.log(`No matching documents found in ${path} for ${field} == ${value}`);
-      return 0;
-    }
-    
-    console.log(`Successfully cleared ${result.deletedCount} documents from ${path} where ${field} == ${value}`);
-    return result.deletedCount;
-  } catch (error) {
-    console.error(`Error clearing documents in ${path} where ${field} == ${value}:`, error);
-    throw error;
-  }
-}
 
 /**
  * UPSERT (CORE FUNCTION) (MongoDB)
@@ -308,26 +269,7 @@ export async function deleteDocument(path: string, id: string): Promise<void> {
   }
 }
 
-/**
- * DELETE RECORDS (BY FIELD VALUES) (MongoDB)
- */
-export async function deleteRecordsByQuery(
-  path: string,
-  field: string,
-  values: string[]
-): Promise<number> {
-  console.log(`Deleting records from ${path} where ${field} in [${values.join(', ')}]`);
-  try {
-    const collection = await getCollection_internal(path);
-    const result = await collection.deleteMany({ [field]: { $in: values } });
-    
-    console.log(`Successfully deleted ${result.deletedCount} records from ${path}`);
-    return result.deletedCount;
-  } catch (error) {
-    console.error(`Error deleting records from ${path}:`, error);
-    throw error;
-  }
-}
+
 
 /**
  * GET SINGLE DOCUMENT BY ID
@@ -421,38 +363,10 @@ export default {
   getCollection,
   queryByField,
   addBatch,
-  clearCollection,
-  clearCollectionByField,
-  upsertDoc,
-  deleteDocument,
-  deleteRecordsByQuery,
-  getDocumentById,
-  insertDocument,
-  findByQuery,
-  updateByQuery,
   getDb,
   getDbStatus,
   initializeConnection,
-  closeConnection,
-  deleteManyByQuery
+  closeConnection
 };
 
 
-/**
- * DELETE MANY BY COMPLEX QUERY (MongoDB)
- */
-export async function deleteManyByQuery(
-  path: string,
-  query: Record<string, any>
-): Promise<number> {
-  console.log(`Deleting records from ${path} with query:`, query);
-  try {
-    const collection = await getCollection_internal(path);
-    const result = await collection.deleteMany(query);
-    console.log(`Successfully deleted ${result.deletedCount} records from ${path}`);
-    return result.deletedCount;
-  } catch (error) {
-    console.error(`Error deleting records from ${path}:`, error);
-    throw error;
-  }
-}

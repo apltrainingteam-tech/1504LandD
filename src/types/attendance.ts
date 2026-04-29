@@ -77,6 +77,7 @@ export interface CandidateRecord {
 
 export interface TrainingBatch {
   id: string;           // batchId = draftId at commit time
+  trainingId: string;
   draftId: string;
   source: 'NOTIFICATION' | 'UPLOAD'; // how this batch was created
   sourceDraftId?: string;            // draftId for NOTIFICATION, undefined for UPLOAD

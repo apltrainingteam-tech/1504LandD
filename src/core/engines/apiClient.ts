@@ -339,79 +339,7 @@ export async function deleteDocument(collectionName: string, id: string): Promis
   }
 }
 
-/**
- * DELETE /api/:collection
- * Delete multiple documents by field values
- */
-export async function deleteRecordsByQuery(collectionName: string, field: string, values: string[]): Promise<number> {
-  try {
-    const url = `${API_BASE}/${collectionName}?field=${field}&values=${values.join(',')}`;
-    const response = await fetchWithRetry(url, {
-      method: 'DELETE'
-    });
-    const result = await safeParseJson(response);
 
-    if (!response.ok) {
-      console.error("API Error:", result);
-      throw new Error(result.error || `API failed with status ${response.status}`);
-    }
-
-    console.log(`[API] ✅ DELETE ${collectionName} - ${result.deletedCount || 0} records`);
-    return result.deletedCount || 0;
-  } catch (error) {
-    console.error("Network/API failure:", error);
-    throw error;
-  }
-}
-
-/**
- * DELETE /api/:collection?clearByField=true
- * Clear collection by field value
- */
-export async function clearCollectionByField(collectionName: string, field: string, value: string): Promise<number> {
-  try {
-    const url = `${API_BASE}/${collectionName}?clearByField=true&field=${field}&value=${value}`;
-    const response = await fetchWithRetry(url, {
-      method: 'DELETE'
-    });
-    const result = await safeParseJson(response);
-
-    if (!response.ok) {
-      console.error("API Error:", result);
-      throw new Error(result.error || `API failed with status ${response.status}`);
-    }
-
-    console.log(`[API] ✅ DELETE ${collectionName} (clearByField) - ${result.deletedCount || 0} records`);
-    return result.deletedCount || 0;
-  } catch (error) {
-    console.error("Network/API failure:", error);
-    throw error;
-  }
-}
-
-/**
- * DELETE /api/:collection?clear=true
- * Clear entire collection
- */
-export async function clearCollection(collectionName: string): Promise<void> {
-  try {
-    const url = `${API_BASE}/${collectionName}?clear=true`;
-    const response = await fetchWithRetry(url, {
-      method: 'DELETE'
-    });
-    const result = await safeParseJson(response);
-
-    if (!response.ok) {
-      console.error("API Error:", result);
-      throw new Error(result.error || `API failed with status ${response.status}`);
-    }
-
-    console.log(`[API] ✅ DELETE ${collectionName} (clear all)`);
-  } catch (error) {
-    console.error("Network/API failure:", error);
-    throw error;
-  }
-}
 
 /**
  * POST /api/:collection/query
@@ -503,53 +431,6 @@ export async function uploadAvatar(file: File): Promise<string> {
   }
 }
 
-export async function removeTeams(trainingId: string, teamIds: string[]): Promise<void> {
-  try {
-    const url = `${API_BASE}/training/remove-teams`;
-    const response = await fetchWithRetry(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ trainingId, teamIds })
-    });
-    const result = await safeParseJson(response);
-    if (!response.ok) throw new Error(result.error || `API failed with status ${response.status}`);
-  } catch (error) {
-    console.error("Network/API failure:", error);
-    throw error;
-  }
-}
-
-export async function lockTeams(trainingId: string, teamIds: string[]): Promise<void> {
-  try {
-    const url = `${API_BASE}/training/lock-teams`;
-    const response = await fetchWithRetry(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ trainingId, teamIds })
-    });
-    const result = await safeParseJson(response);
-    if (!response.ok) throw new Error(result.error || `API failed with status ${response.status}`);
-  } catch (error) {
-    console.error("Network/API failure:", error);
-    throw error;
-  }
-}
-
-export async function resetTeams(trainingId: string, teamIds: string[]): Promise<void> {
-  try {
-    const url = `${API_BASE}/training/reset-teams`;
-    const response = await fetchWithRetry(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ trainingId, teamIds })
-    });
-    const result = await safeParseJson(response);
-    if (!response.ok) throw new Error(result.error || `API failed with status ${response.status}`);
-  } catch (error) {
-    console.error("Network/API failure:", error);
-    throw error;
-  }
-}
 
 export default {
   getCollection,
@@ -559,16 +440,10 @@ export default {
   upsertDoc,
   updateDocument,
   deleteDocument,
-  deleteRecordsByQuery,
-  clearCollectionByField,
-  clearCollection,
   findByQuery,
   updateByQuery,
   queryByField,
-  uploadAvatar,
-  removeTeams,
-  lockTeams,
-  resetTeams
+  uploadAvatar
 };
 
 

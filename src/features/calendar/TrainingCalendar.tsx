@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, X, AlertTriangle, Trash2, Calendar as CalIcon, Save, CheckCircle, Lock, Unlock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, AlertTriangle, Trash2, Calendar as CalIcon, Save, CheckCircle } from 'lucide-react';
 import TopRightControls from '../../shared/components/ui/TopRightControls';
 import { getFiscalYears, getFiscalYearFromDate, parseFiscalYear, getCurrentFiscalYear } from '../../core/utils/fiscalYear';
 import { usePlanningFlow } from '../../core/context/PlanningFlowContext';
@@ -8,9 +8,14 @@ import { Employee } from '../../types/employee';
 import { Attendance, NotificationRecord, NominationDraft } from '../../types/attendance';
 import { useMasterData } from '../../core/context/MasterDataContext';
 import { getTeamName } from '../../core/utils/teamIdMapper';
-import api from '../../core/engines/apiClient';
-import { TeamBatchStatus } from './hooks/useTrainingScope';
 import styles from './TrainingCalendar.module.css';
+
+export interface TeamBatchStatus {
+  trainingId: string;
+  teamId: string;
+  teamName: string;
+  status: 'OPEN';
+}
 
 interface ChecklistItem { name: string; completed: boolean; }
 interface TrainingPlan {
@@ -47,140 +52,6 @@ const getStatus = (plan: TrainingPlan) => {
   return plan.checklist.every(c => c.completed) ? 'Completed' : 'Planned';
 };
 
-const TeamScopeManager = ({
-  trainingId,
-  teams,
-  onScopeChange,
-  refetchCalendar,
-  refetchNomination
-}: {
-  trainingId: string,
-  teams: TeamBatchStatus[],
-  onScopeChange: (action: 'REMOVE' | 'LOCK' | 'RESET', teamIds: string[]) => void,
-  refetchCalendar: () => Promise<void>,
-  refetchNomination: () => Promise<void>
-}) => {
-  const [modalMode, setModalMode] = useState<'RESET' | 'LOCK' | null>(null);
-  const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
-  const { removeBatch, removeNotificationRecords, loadNotificationHistory } = usePlanningFlow();
-  const { refreshTransactional } = useMasterData();
-
-  const [isProcessing, setIsProcessing] = useState(false);
-
-  const handleConfirm = async () => {
-    if (!activeTeamId) return;
-    setIsProcessing(true);
-    try {
-      if (modalMode === 'RESET') {
-        await api.resetTeams(trainingId, [activeTeamId]);
-        // UI Refresh: Clear local nomination/notification state
-        removeBatch(trainingId, activeTeamId);
-        removeNotificationRecords(trainingId, activeTeamId);
-
-        // Force Refetch from Database
-        await refetchCalendar();
-        await refetchNomination();
-      } else if (modalMode === 'LOCK') {
-        await api.lockTeams(trainingId, [activeTeamId]);
-      }
-      onScopeChange(modalMode!, [activeTeamId]);
-      setModalMode(null);
-      setActiveTeamId(null);
-    } catch (error) {
-      console.error(`Failed to ${modalMode}:`, error);
-      alert(`Failed to ${modalMode}: ` + (error as Error).message);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const openModal = (mode: 'RESET' | 'LOCK', teamId: string) => {
-    setModalMode(mode);
-    setActiveTeamId(teamId);
-  };
-
-  return (
-    <div className={styles.scopeManager}>
-      <div className={styles.scopeChips}>
-        {teams.map(t => {
-          const isLocked = t.status === 'LOCKED';
-          return (
-            <div
-              key={t.teamId}
-              className={`badge ${isLocked ? 'badge-secondary opacity-70' : 'badge-outline'} ${styles.teamChipInline}`}
-              title={isLocked ? "Team is locked and cannot be modified" : "Open team"}
-            >
-              <span className={styles.teamChipLabel}>
-                {t.teamName}
-                {isLocked ? <Lock size={14} className="ml-1" /> : <Unlock size={14} className="ml-1" />}
-              </span>
-
-              {!isLocked && (
-                <div className={styles.teamChipActions}>
-                  <button
-                    className={`${styles.chipActionBtn} ${styles.lockBtnInner}`}
-                    title="Lock Team"
-                    onClick={(e) => { e.stopPropagation(); openModal('LOCK', t.teamId); }}
-                    disabled={isProcessing}
-                  >
-                    <CheckCircle size={14} /> <span>Lock</span>
-                  </button>
-                  <button
-                    className={`${styles.chipActionBtn} ${styles.resetBtnInner}`}
-                    title="Reset Team"
-                    onClick={(e) => { e.stopPropagation(); openModal('RESET', t.teamId); }}
-                    disabled={isProcessing}
-                  >
-                    <X size={14} /> <span>Reset</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {modalMode && (
-        <div className={styles.modalBackdrop}>
-          <div className={`glass-panel ${styles.confirmModal}`}>
-            <h3 className={styles.modalTitle}>
-              {modalMode === 'RESET' ? 'Reset team?' : 'Mark team as Done?'}
-            </h3>
-            <div className={styles.modalBody}>
-              {modalMode === 'RESET' ? (
-                <>
-                  <p>This will reset ONLY this team by:</p>
-                  <ul>
-                    <li>Wiping all nominations for this team</li>
-                    <li>Deleting notification records for this team</li>
-                    <li>Setting team status back to OPEN</li>
-                  </ul>
-                  <p className="text-danger">All historical data for this team in this session will be lost.</p>
-                </>
-              ) : (
-                <>
-                  <p>After locking this team:</p>
-                  <ul>
-                    <li>No edits allowed</li>
-                    <li>No removal/reset allowed</li>
-                    <li>No nomination changes allowed</li>
-                  </ul>
-                  <p className="text-danger">This action cannot be undone.</p>
-                </>
-              )}
-            </div>
-            <div className={styles.modalFooter}>
-              <button className="btn btn-secondary" onClick={() => { setModalMode(null); setActiveTeamId(null); }} disabled={isProcessing}>Cancel</button>
-              <button className={`btn ${modalMode === 'RESET' ? 'btn-danger' : 'btn-primary'}`} onClick={handleConfirm} disabled={isProcessing}>
-                {isProcessing ? 'Processing...' : (modalMode === 'RESET' ? 'Reset Team' : 'Confirm Lock')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
 
 export const TrainingCalendar = ({ employees, attendance }: { employees: Employee[], attendance: Attendance[] }) => {
   const { trainers: masterTrainers, teams: masterTeams, refreshTransactional } = useMasterData();
@@ -190,8 +61,8 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
 
   const {
     selectionSession, consumedTeams, consumedTrainers, addConsumed,
-    removeConsumed, saveDraft, updateDraft, removeDraft, removeBatch,
-    removeNotificationRecords, loadNotificationHistory, notificationRecords, drafts
+    removeConsumed, saveDraft, updateDraft, removeDraft,
+    loadNotificationHistory, notificationRecords, drafts
   } = usePlanningFlow();
 
   useEffect(() => {
@@ -447,9 +318,6 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
     if (!window.confirm("Delete this training plan?")) return;
     const plan = plans.find(p => p.id === id);
     if (plan) {
-      if (plan.teams.some(t => t.status === 'LOCKED')) {
-        return alert("Cannot delete plan: Contains locked teams.");
-      }
       plan.teams.forEach(t => removeConsumed(t.teamId, plan.trainer));
       // Removing the draft will trigger the useMemo update
       removeDraft(plan.id);
@@ -470,62 +338,6 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
       return p;
     });
     setPlans(updatedPlans);
-  };
-  // Scope and Bulk Handlers
-  const handleScopeChange = (action: 'REMOVE' | 'LOCK' | 'RESET', teamIds: string[]) => {
-    setPlans((prev: TrainingPlan[]) => {
-      const next = prev.map((p: TrainingPlan) => {
-        const hasAny = p.teams.some((t: TeamBatchStatus) => teamIds.includes(t.teamId));
-        if (!hasAny) return p;
-        let newTeams = [...p.teams];
-        if (action === 'REMOVE') {
-          newTeams = newTeams.filter((t: TeamBatchStatus) => !teamIds.includes(t.teamId));
-        } else if (action === 'LOCK') {
-          newTeams = newTeams.map((t: TeamBatchStatus) => teamIds.includes(t.teamId) ? { ...t, status: 'LOCKED' } : t);
-        } else if (action === 'RESET') {
-          newTeams = newTeams.map((t: TeamBatchStatus) => teamIds.includes(t.teamId) ? { ...t, status: 'OPEN' } : t);
-        }
-        return { ...p, teams: newTeams };
-      }).filter((p: TrainingPlan) => p.teams.length > 0);
-
-      return next;
-    });
-  };
-
-  const handleBulkAction = async (bulkMode: 'LOCK' | 'RESET') => {
-    if (selectedPlanningTeamIds.length === 0) return;
-    const confirmMsg = bulkMode === 'LOCK'
-      ? `Lock ${selectedPlanningTeamIds.length} selected team(s)?`
-      : `RESET ${selectedPlanningTeamIds.length} selected team(s)? (Deletes record data)`;
-    if (!window.confirm(confirmMsg)) return;
-
-    for (const teamId of selectedPlanningTeamIds) {
-      const plan = (plans as TrainingPlan[]).find((p: TrainingPlan) => p.teams.some((bt: TeamBatchStatus) => bt.teamId === teamId));
-      if (!plan) continue;
-      try {
-        if (bulkMode === 'LOCK') {
-          await api.lockTeams(plan.id, [teamId]);
-          handleScopeChange('LOCK', [teamId]);
-        } else {
-          await api.resetTeams(plan.id, [teamId]);
-          removeBatch(plan.id, teamId);
-          removeNotificationRecords(plan.id, teamId);
-          handleScopeChange('RESET', [teamId]);
-        }
-      } catch (err) {
-        console.error(`Bulk ${bulkMode} failed for ${teamId}:`, err);
-      }
-    }
-
-    if (bulkMode === 'RESET') {
-      // --- Refetch Order (Guard against Race Conditions) ---
-      // 1. Fetch source of truth first
-      const fresh = await loadNotificationHistory();
-      console.log("[Debug] After bulk reset, server returned:", fresh);
-
-      // 2. Refresh transactional data
-      await refreshTransactional();
-    }
   };
 
 
@@ -591,11 +403,6 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
                 const isSelected = selectedPlanningTeamIds.includes(id);
                 const t = masterTeams.find(mt => mt.id === id);
 
-                // Find if this team is already in any plan for the current training type
-                const existingPlan = plans.find(p => p.trainingType === tab && p.teams.some(bt => bt.teamId === id));
-                const teamStatus = existingPlan?.teams.find(bt => bt.teamId === id)?.status;
-                const isLocked = teamStatus === 'LOCKED';
-
                 return (
                   <button
                     key={id}
@@ -603,7 +410,6 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
                     className={`badge ${isSelected ? 'badge-success' : 'badge-outline'} ${styles.planningChip}`}
                   >
                     {t ? t.teamName : id}
-                    {isLocked ? <Lock size={12} className="ml-1" /> : <Unlock size={12} className="ml-1" />}
                   </button>
                 );
               })}
@@ -612,22 +418,6 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
           <div className="flex-center gap-2">
             <button className={`btn btn-secondary btn-sm`} onClick={() => setSelectedPlanningTeamIds([])}>
               Clear Selection
-            </button>
-            <button
-              className={`btn btn-primary btn-sm`}
-              disabled={selectedPlanningTeamIds.length === 0}
-              onClick={() => handleBulkAction('LOCK')}
-              title="Lock selected teams"
-            >
-              Lock Selected
-            </button>
-            <button
-              className={`btn btn-danger btn-sm`}
-              disabled={selectedPlanningTeamIds.length === 0}
-              onClick={() => handleBulkAction('RESET')}
-              title="Reset selected teams"
-            >
-              Reset Selected
             </button>
           </div>
         </div>

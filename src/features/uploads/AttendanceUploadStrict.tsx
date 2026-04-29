@@ -1,8 +1,10 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { UploadCloud, CheckCircle, X, AlertTriangle, XCircle, Download } from 'lucide-react';
+import { UploadCloud, CheckCircle, X, AlertTriangle, XCircle, Download, RotateCcw } from 'lucide-react';
 import { useUploadAction } from './hooks/useUploadAction';
 import { UploadProgress, UploadResult as UploadResultEnriched } from '../../core/engines/uploadEngine';
 import { getTemplateForDownload, getAllTemplateTypes } from '../../core/constants/uploadTemplates';
+import { useMasterData } from '../../core/context/MasterDataContext';
+import api from '../../core/engines/apiClient';
 import * as XLSX from 'xlsx';
 import styles from './AttendanceUploadStrict.module.css';
 
@@ -16,6 +18,9 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
     step, setStep, uploadProgress, uploadResult, uploadMode, setUploadMode, 
     previewResult, startValidation, confirmUpload, testInsert, setUploadResult, setUploadProgress 
   } = useUploadAction(onUploadComplete);
+
+  const { finalData, refreshTransactional } = useMasterData();
+  const notificationRecords = finalData.notificationHistory || [];
 
   const [dragOver, setDragOver] = useState(false);
   const [selectedTemplateType, setSelectedTemplateType] = useState('IP');
@@ -103,6 +108,17 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
       alert(`❌ TEST FAILED: ${res.error}`);
     }
   }, [testInsert]);
+
+  const handleResetHistory = async () => {
+    if (!window.confirm("ARE YOU SURE?\n\nThis will permanently delete ALL records in the Notification History. This action cannot be undone.")) return;
+    try {
+      await api.clearCollection('notification_history');
+      await refreshTransactional();
+      alert('✅ Notification History has been cleared.');
+    } catch (err: any) {
+      alert('❌ Failed to clear history: ' + err.message);
+    }
+  };
 
   // ─── RENDER: UPLOADING STAGE ──────────────────────────────────────────────
   if (step === 'uploading') {
@@ -415,7 +431,7 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
         </ul>
       </div>
 
-      {/* ACTION BUTTON */}
+      {/* ACTION BUTTONS */}
       <div className={styles.finalActions}>
         <button
           className={`btn btn-primary ${styles.startBtn} ${fileName ? styles.startBtnEnabled : styles.startBtnDisabled}`}
@@ -424,6 +440,17 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
         >
           {!fileName ? '⬆️ Select File First' : '🚀 Start Upload'}
         </button>
+
+        {/* RESET NOTIFICATION HISTORY (if exists) */}
+        {notificationRecords.length > 0 && (
+          <button
+            className={`btn btn-danger ${styles.testBtn}`}
+            onClick={handleResetHistory}
+            title="Wipe all notification history records"
+          >
+            <RotateCcw size={16} /> Reset History ({notificationRecords.length})
+          </button>
+        )}
 
         {/* TEST BUTTON - DEBUG */}
         <button
