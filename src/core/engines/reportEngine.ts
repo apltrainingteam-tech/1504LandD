@@ -2,38 +2,35 @@
  * Report Engine
  * ⚠️ DO NOT IMPORT IN COMPONENTS — USE HOOKS ONLY
  */
+import { normalizeTrainingType } from './normalizationEngine';
 import { normalizeText } from '../utils/textNormalizer';
 import { normalizeScore } from '../utils/scoreNormalizer';
 import { traceEngine } from '../debug/traceEngine';
 import { Employee } from '../../types/employee';
-
-
-/**
- * Robust Training Type Normalizer (STRICT)
- * Handles "Pre-AP", "Pre AP", "preap", "IP ", etc.
- */
-export function normalizeTrainingType(type: string): string {
-  if (!type) return '';
-  const t = String(type).toLowerCase().replace(/[\s\-_]/g, '');
-
-  if (t === 'mip') return 'MIP';
-  if (t === 'ip') return 'IP';
-  if (t === 'ap') return 'AP';
-  if (t.includes('pre')) return 'Pre_AP';
-  if (t.includes('mip')) return 'MIP';
-  if (t.includes('ip')) return 'IP';
-  if (t.includes('ap')) return 'AP';
-  if (t.includes('ref')) return 'Refresher';
-  if (t.includes('cap')) return 'Capsule';
-
-  return type.toUpperCase().trim();
-}
 import { Attendance, TrainingScore, TrainingNomination } from '../../types/attendance';
 import { UnifiedRecord, GroupedData, ViewByOption, TimeSeriesRow, TrainerStat, DrilldownNode, ReportFilter, SCORE_SCHEMAS } from '../../types/reports';
 import { EligibilityResult } from './eligibilityEngine';
 import { Team } from '../context/MasterDataContext';
 import { getTeamId, mapTeamCodeToId } from '../utils/teamIdMapper';
 import { groupByKey, groupByTwoLevels, groupByField } from '../utils/mapGrouping';
+import { getSchema } from '../constants/trainingSchemas';
+
+const extractScores = (scores: Record<string, number | null> | undefined, trainingType: string): number[] => {
+  const schema = getSchema(trainingType);
+  if (!scores) return [];
+
+  return schema.scoreFields
+    .map(f => normalizeScore(scores[f]))
+    .filter((v): v is number => v !== null && !isNaN(v));
+};
+
+export const getWeightedScore = (record: UnifiedRecord, trainingType: string): number | null => {
+  const values = extractScores(record.score?.scores, trainingType);
+  if (!values.length) return null;
+
+  const total = values.reduce((a, b) => a + b, 0);
+  return total / values.length;
+};
 
 const safe = (v: any): number => (typeof v === 'number' && !isNaN(v)) ? v : 0;
 
@@ -289,21 +286,8 @@ export function calcIP(recs: UnifiedRecord[]) {
 
   let h = 0, med = 0, l = 0;
   p.forEach(r => {
-    // Extraction list for IP scores: strictly follow schema + common variations
-    const s = normalizeScore(
-      r.score?.scores?.['percent'] ?? 
-      r.score?.scores?.['Percent'] ??
-      r.score?.scores?.['tScore'] ?? 
-      r.score?.scores?.['T Score'] ??
-      r.score?.scores?.['detailing'] ??
-      r.score?.scores?.['Detailing'] ??
-      r.score?.scores?.['score'] ?? 
-      r.score?.scores?.['Score'] ??
-      r.score?.scores?.['testScore'] ??
-      r.score?.scores?.['test'] ??
-      r.score?.scores?.['knowledgeScore'] ??
-      r.score?.scores?.['scienceScore']
-    );
+    const scoreValues = extractScores(r.score?.scores, 'IP');
+    const s = scoreValues.length > 0 ? scoreValues.reduce((a, b) => a + b, 0) / scoreValues.length : null;
 
     if (s !== null) {
       if (s >= 75) h++;
@@ -643,11 +627,25 @@ export function exportToCSV(rows: Record<string, any>[], filename: string = 'rep
 
 // ─── HELPERS ───────────────────────────────────────────────────────────────
 export function getPrimaryMetricRaw(recs: UnifiedRecord[], tab: string): number {
+  if (recs.length === 0) return 0;
+  
   if (tab === 'IP') return calcIP(recs).weighted;
-  if (tab === 'AP') return calcAP(recs, []).composite;
-  if (tab === 'MIP') { const m = calcMIP(recs); return (m.avgSci + m.avgSkl) / 2; }
-  if (tab === 'Refresher') return calcRefresher(recs).overallAvg;
-  return calcCapsule(recs).avgScore;
+  
+  const present = recs.filter(r => {
+    const s = String(r.attendance.attendanceStatus || '').trim().toLowerCase();
+    return (s === '' || s === 'present') && !r.attendance.isVoided;
+  });
+  
+  if (present.length === 0) return 0;
+  
+  const validScores = present
+    .map(r => getWeightedScore(r, tab))
+    .filter((s): s is number => s !== null);
+
+  if (validScores.length === 0) return 0;
+  
+  const sum = validScores.reduce((acc, s) => acc + s, 0);
+  return sum / validScores.length;
 }
 
 export function getPrimaryMetric(recs: UnifiedRecord[], tab: string, noms: TrainingNomination[]): number {

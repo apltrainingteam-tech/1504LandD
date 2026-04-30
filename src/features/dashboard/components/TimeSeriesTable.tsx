@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { TimeSeriesRow } from '../../../types/reports';
-import { flagScore, flagClass } from '../../../core/utils/scoreNormalizer';
+import { flagScore, flagClass, displayScore } from '../../../core/utils/scoreNormalizer';
 
 interface TimeSeriesTableProps {
   rows: TimeSeriesRow[];
@@ -63,7 +63,7 @@ export const TimeSeriesTable: React.FC<TimeSeriesTableProps> = memo(({ rows, mon
                     <td key={mo} style={{ padding: '8px 12px', textAlign: 'center', background: flag === 'green' ? 'rgba(16,185,129,0.08)' : flag === 'amber' ? 'rgba(245,158,11,0.08)' : flag === 'red' ? 'rgba(239,68,68,0.08)' : 'transparent' }}>
                       {val != null ? (
                         <span style={{ fontWeight: 600, color: flag === 'green' ? 'var(--success)' : flag === 'amber' ? 'var(--warning)' : flag === 'red' ? 'var(--danger)' : 'var(--text-primary)' }}>
-                          {mode === 'score' ? val.toFixed(1) : val}
+                          {mode === 'score' ? displayScore(val) : val}
                           {mode === 'score' && flag && <span style={{ fontSize: '10px', marginLeft: '4px' }}>{flag === 'green' ? '●' : flag === 'amber' ? '●' : '●'}</span>}
                         </span>
                       ) : <span className="text-muted">—</span>}

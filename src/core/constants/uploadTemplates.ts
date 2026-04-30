@@ -1,3 +1,4 @@
+import { getSchema } from './trainingSchemas';
 /**
  * STRICT TEMPLATE SYSTEM - Zero Ambiguity, No Fallback Logic
  * 
@@ -119,10 +120,12 @@ export const COLUMN_MAPPING: Record<string, string> = {
   'AP Date': 'apDate',
   'Notified': 'notified',
   'Training ID': 'trainingId',
-  // MIP template
+  // MIP / Refresher scores
   'Science Score': 'scienceScore',
   'Skill Score': 'skillScore',
 
+  // Capsule / GTG / HO / RTM scores
+  'Score': 'score',
 };
 
 // ─── VALIDATION ──────────────────────────────────────────────────────────────
@@ -316,6 +319,8 @@ export function mapRowToMongoDB(
     _templateType: templateType  // Mandatory system field for validation
   };
 
+  const scores: Record<string, number | null> = {};
+
   // Map each Excel column to MongoDB field
   excelHeaders.forEach(excelHeader => {
     const dbField = COLUMN_MAPPING[excelHeader];
@@ -332,20 +337,33 @@ export function mapRowToMongoDB(
         value = normalizeStatus(value);
       }
 
-      // Parse numeric scores
-      if (dbField.includes('Score') || dbField === 'notified') {
-        if (value && value !== '') {
+      // Specialized Numeric Interpretation for Scores
+      // We check against the schema for the detected templateType
+      const schema = getSchema(templateType);
+      if (schema.scoreFields.includes(dbField)) {
+        if (value !== undefined && value !== null && value !== '') {
           const num = Number(value);
-          value = isNaN(num) ? null : num;
+          scores[dbField] = isNaN(num) ? null : num;
         } else {
-          value = null;
+          scores[dbField] = null;
         }
+        // Also keep in root for legacy flat support if needed, but primary is nested scores
+        mapped[dbField] = scores[dbField];
+      } else if (dbField === 'notified') {
+        const num = Number(value);
+        mapped[dbField] = isNaN(num) ? null : num;
+      } else {
+        mapped[dbField] = value;
       }
 
-      mapped[dbField] = value;
+      // Validation: If it's a numeric field but NOT in schema, warn (debugging only)
+      if (dbField.toLowerCase().includes('score') && !schema.scoreFields.includes(dbField)) {
+        console.warn(`[UPLOAD] Unmapped score field detected: ${dbField} for template ${templateType}`);
+      }
     }
   });
 
+  mapped.scores = scores;
   return { mapped, errors };
 }
 

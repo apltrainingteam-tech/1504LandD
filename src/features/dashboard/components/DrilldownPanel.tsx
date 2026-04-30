@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { DrilldownNode } from '../../../types/reports';
-import { flagScore, flagClass } from '../../../core/utils/scoreNormalizer';
+import { flagScore, flagClass, displayScore } from '../../../core/utils/scoreNormalizer';
 import { ChevronRight, ChevronDown, MapPin, Users, User } from 'lucide-react';
 
 interface DrilldownPanelProps {
@@ -46,7 +46,7 @@ export const DrilldownPanel: React.FC<DrilldownPanelProps> = ({ nodes, tab }) =>
               <span className="text-muted" style={{ fontSize: '12px' }}>{cluster.count} trained</span>
               {cluster.metric > 0 && (
                 <span className={`badge ${flagClass(clusterFlag)}`} style={{ fontWeight: 700 }}>
-                  {cluster.metric.toFixed(1)}
+                  {displayScore(cluster.metric)}
                 </span>
               )}
             </div>
@@ -67,7 +67,7 @@ export const DrilldownPanel: React.FC<DrilldownPanelProps> = ({ nodes, tab }) =>
                     <span className="text-muted" style={{ fontSize: '12px' }}>{team.count} trained</span>
                     {team.metric > 0 && (
                       <span className={`badge ${flagClass(teamFlag)}`}>
-                        {team.metric.toFixed(1)}
+                        {displayScore(team.metric)}
                       </span>
                     )}
                   </div>
@@ -85,7 +85,7 @@ export const DrilldownPanel: React.FC<DrilldownPanelProps> = ({ nodes, tab }) =>
                         {r.score?.scores && (
                           <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent-primary)' }}>
                             {tab === 'IP' ? 'T Score / %: ' : 'Score: '}
-                            {(Object.values(r.score.scores).filter(v => v != null)[0] as number | undefined)?.toFixed(1) ?? '—'}
+                            {displayScore(Object.values(r.score.scores).filter(v => v != null)[0])}
                           </span>
                         )}
                       </div>

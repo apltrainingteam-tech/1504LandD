@@ -298,16 +298,18 @@ export const uploadTrainingDataStrict = traceEngine("uploadTrainingDataStrict", 
               _id = `att_${row.employeeId}_${row.trainingType}_${row.attendanceDate}`;
             }
 
-            return {
+            const doc: any = {
               _id,
               ...row,
               // Notification records don't have attendance status during upload
-              attended: isNotificationHistory ? false : (row.attended || false), 
+              attended: isNotificationHistory ? false : (row.attendanceStatus === 'Present'), 
               isVoided: false,
               uploadBatchId,
               uploadedAt: new Date().toISOString(),
               uploadedBy: 'system'
             };
+
+            return doc;
 
           });
 

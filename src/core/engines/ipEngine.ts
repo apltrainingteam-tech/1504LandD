@@ -50,22 +50,13 @@ export function normalizeToIPRecords(ds: UnifiedRecord[]): IPRecord[] {
     // ACCEPT: "present", empty status (implied present), or anything except explicit non-attendance
     if (rawStatus !== '' && rawStatus !== 'present' && rawStatus !== 'attended') return;
     
-    // Prefer schema camelCase keys, fallback to legacy Title Case if needed.
-    const s = normalizeScore(
-      r.score?.scores?.['percent'] ?? 
-      r.score?.scores?.['Percent'] ?? 
-      r.score?.scores?.['tScore'] ?? 
-      r.score?.scores?.['T Score'] ?? 
-      r.score?.scores?.['detailing'] ??
-      r.score?.scores?.['Detailing'] ??
-      r.score?.scores?.['score'] ?? 
-      r.score?.scores?.['Score'] ??
-      r.score?.scores?.['testScore'] ??
-      r.score?.scores?.['test'] ??
-      r.score?.scores?.['knowledgeScore'] ??
-      r.score?.scores?.['scienceScore'] ??
-      r.score?.scores?.['avgScore']
-    );
+    // Universal extraction via schema field definitions
+    const scoreValues = (r.score?.scores) ? Object.keys(r.score.scores)
+      .filter(k => ['percent', 'Percent', 'tScore', 'T Score', 'detailing', 'Detailing', 'score', 'Score', 'testScore', 'test', 'knowledgeScore', 'scienceScore', 'avgScore', 'IP Score', 'IP'].includes(k))
+      .map(k => normalizeScore(r.score?.scores?.[k]))
+      .filter((s): s is number => s !== null) : [];
+      
+    const s = scoreValues.length > 0 ? scoreValues.reduce((a, b) => a + b, 0) / scoreValues.length : null;
 
     if (s == null) {
       throw debugError("Missing score", {
@@ -321,23 +312,13 @@ export function buildIPMonthlyTeamRanks(ds: UnifiedRecord[], fyMonths?: string[]
 
     const cluster = r.employee.cluster || 'Others';
 
-    // Score: prefer schema camelCase keys → fallback to legacy Title Case
-    const rawScore = normalizeScore(
-      r.score?.scores?.['percent'] ??
-      r.score?.scores?.['Percent'] ??
-      r.score?.scores?.['tScore'] ??
-      r.score?.scores?.['T Score'] ??
-      r.score?.scores?.['detailing'] ??
-      r.score?.scores?.['Detailing'] ??
-      r.score?.scores?.['score'] ??
-      r.score?.scores?.['Score'] ??
-      r.score?.scores?.['testScore'] ??
-      r.score?.scores?.['test'] ??
-      r.score?.scores?.['knowledgeScore'] ??
-      r.score?.scores?.['scienceScore'] ??
-      r.score?.scores?.['avgScore'] ??
-      0
-    ) || 0;
+    // Universal extraction logic
+    const scoreValues = (r.score?.scores) ? Object.keys(r.score.scores)
+      .filter(k => ['percent', 'Percent', 'tScore', 'T Score', 'detailing', 'Detailing', 'score', 'Score', 'testScore', 'test', 'knowledgeScore', 'scienceScore', 'avgScore', 'IP Score', 'IP'].includes(k))
+      .map(k => normalizeScore(r.score?.scores?.[k]))
+      .filter((s): s is number => s !== null) : [];
+      
+    const rawScore = scoreValues.length > 0 ? scoreValues.reduce((a, b) => a + b, 0) / scoreValues.length : 0;
 
     const key = `${month}__${team}`;
     if (!monthTeamMap[key]) {

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { buildUnifiedDataset, getPrimaryMetricRaw, normalizeTrainingType } from '../../../core/engines/reportEngine';
+import { buildUnifiedDataset, getPrimaryMetricRaw } from '../../../core/engines/reportEngine';
+import { normalizeTrainingType } from '../../../core/engines/normalizationEngine';
 import { getFiscalYearFromDate } from '../../../core/utils/fiscalYear';
 import { STATE_ZONE } from '../../../seed/masterData';
 import { Employee } from '../../../types/employee';

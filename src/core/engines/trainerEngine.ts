@@ -2,7 +2,7 @@
  * Trainer Engine
  * ⚠️ DO NOT IMPORT IN COMPONENTS — USE HOOKS ONLY
  */
-import { normalizeTrainingType } from './reportEngine';
+import { normalizeTrainingType } from './normalizationEngine';
 import { traceEngine } from '../debug/traceEngine';
 
 export interface Trainer {
