@@ -132,7 +132,12 @@ export const getEligibleEmployees = traceEngine("getEligibleEmployees", (
 
       // Pre-AP Logic
       if (isEligible && rule.specialConditions.preAPOnlyIfInvited) {
-        const isNominated = nominations.some(n => normalizeId(n.employeeId) === normalizeId(emp.employeeId) && n.trainingType === 'AP');
+        const isNominated = nominations.some(n => 
+          normalizeId(n.employeeId) === normalizeId(emp.employeeId) && 
+          n.trainingType === 'AP' &&
+          !(n as any).isVoided &&
+          (n as any).finalStatus !== 'VOID'
+        );
         if (!isNominated) {
           isEligible = false;
           reason = 'Only invited candidates (nominated for AP) are eligible';
@@ -235,6 +240,8 @@ export const isEligibleHardcoded = (
     const hasAPNomination = nominations.some(n => 
       normalizeId(n.employeeId) === normalizeId(employee.employeeId) && 
       n.trainingType === 'AP' && 
+      !(n as any).isVoided &&
+      (n as any).finalStatus !== 'VOID' &&
       new Date(n.notificationDate) >= now && 
       new Date(n.notificationDate) <= ninetyDaysFromNow
     );
@@ -245,7 +252,9 @@ export const isEligibleHardcoded = (
   if (!ignoreTrainingStatus && rule.preAPOnlyIfNominated) {
     const isNominatedForAP = nominations.some(n => 
       normalizeId(n.employeeId) === normalizeId(employee.employeeId) && 
-      n.trainingType === 'AP'
+      n.trainingType === 'AP' &&
+      !(n as any).isVoided &&
+      (n as any).finalStatus !== 'VOID'
     );
     if (!isNominatedForAP) return false;
   }

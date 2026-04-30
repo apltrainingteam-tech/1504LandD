@@ -147,6 +147,9 @@ app.use('/api', async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
+// --- Training Routes Router (Register BEFORE generic routes to prevent shadowing) ---
+app.use('/api/training', trainingRoutes);
+
 /**
  * GET /api/:collection
  * Fetch entire collection or query by field
@@ -363,11 +366,7 @@ app.get('/api/test-db', async (req: Request, res: Response) => {
   }
 });
 
-// --- Training Routes Router ---
-app.use('/api/training', trainingRoutes);
-
-
-
+// --- End of API Routes ---
 /**
  * Health check endpoint
  */

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, ReactNode, useCallback, use
 import { Employee } from '../../types/employee';
 import { TrainingNomination, NotificationRecord, NominationDraft, TrainingBatch, CandidateRecord, BatchAttStatus } from '../../types/attendance';
 import { addBatch, updateByQuery, getCollection, updateDocument, upsertDoc } from '../engines/apiClient';
+import API_BASE from '../../config/api';
 
 export interface SelectionSession {
   trainingType: string;
@@ -141,33 +142,48 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
     if (draft.isCancelled) return { success: true };
 
     const trainingId = draft.trainingId || draft.id;
-    const [notificationAttendance, batchAttendance, trainingDataEntries] = await Promise.all([
-      findByQuery('notification_history', { trainingId, attended: true }),
-      findByQuery('training_batches', { trainingId }),
-      findByQuery('training_data', { trainingId })
-    ]);
+    
+    try {
+      const response = await fetch(`${API_BASE}/training/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trainingId })
+      });
 
-    const hasBatchAttendance = (batchAttendance || []).some((batch: any) =>
-      Array.isArray(batch.candidates) &&
-      batch.candidates.some((candidate: any) => candidate.attendance && candidate.attendance !== 'pending')
-    );
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = 'Cancel failed.';
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.error || errorMessage;
+        } catch (e) {
+          errorMessage = `Server error: ${response.status}`;
+        }
+        return { success: false, reason: errorMessage };
+      }
 
-    if ((notificationAttendance && notificationAttendance.length > 0) || hasBatchAttendance || (trainingDataEntries && trainingDataEntries.length > 0)) {
-      return { success: false, reason: 'Cannot cancel. Attendance already marked.' };
+      const result = await response.json();
+      
+      if (result.success) {
+        // Update local state
+        setDrafts(prev => prev.map(d => 
+          (d.id === draftId || d.trainingId === trainingId) 
+            ? { ...d, isCancelled: true, status: 'Cancelled' as any, cancelledAt: new Date().toISOString() } 
+            : d
+        ));
+        
+        setNotificationRecords(prev => prev.map(r => 
+          r.trainingId === trainingId ? { ...r, finalStatus: 'VOID', isVoided: true } : r
+        ));
+
+        return { success: true };
+      } else {
+        return { success: false, reason: result.error || 'Cancel failed.' };
+      }
+    } catch (error: any) {
+      console.error('Cancel API error:', error);
+      return { success: false, reason: error.message };
     }
-
-    await updateByQuery(
-      'notification_history',
-      { trainingId },
-      { finalStatus: 'VOID', isVoided: true }
-    );
-
-    updateDraft(draft.id, {
-      isCancelled: true,
-      cancelledAt: draft.cancelledAt || new Date().toISOString()
-    });
-
-    return { success: true };
   }, [drafts]);
 
   // ── Batches ──────────────────────────────────────────────────────────────────

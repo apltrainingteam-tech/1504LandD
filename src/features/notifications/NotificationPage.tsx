@@ -408,29 +408,37 @@ export const NotificationPage: React.FC<Props> = ({ allEmployees }) => {
                   {/* Send per team = send for all plans in this team */}
                   {drafts.map(draft=>(
                     <React.Fragment key={draft.id}>
-                      <button
-                        onClick={()=>handleEmail(draft)}
-                        className={styles.sendBtn}
-                        disabled={draft.status === 'COMPLETED' || !!draft.isCancelled || actionInFlight.has(`send:${draft.id}`)}
-                      >
-                        <Mail size={12}/>{draft.trainingType} — {draft.status === 'NOTIFIED' ? 'Resend Email' : 'Send Email'}
-                      </button>
+                      {draft.isCancelled ? (
+                        <span className={styles.cancelledLabel}>Cancelled</span>
+                      ) : (
+                        <button
+                          onClick={()=>handleEmail(draft)}
+                          className={styles.sendBtn}
+                          disabled={draft.status === 'COMPLETED' || actionInFlight.has(`send:${draft.id}`)}
+                        >
+                          <Mail size={12}/>{draft.trainingType} — {draft.status === 'NOTIFIED' ? 'Resend Email' : 'Send Email'}
+                        </button>
+                      )}
                       {draft.status !== 'COMPLETED' && (
                         <>
-                          <button
-                            onClick={() => handleComplete(draft)}
-                            className={styles.sendBtn}
-                            disabled={actionInFlight.has(`complete:${draft.id}`) || draft.status !== 'NOTIFIED' || !!draft.isCancelled}
-                          >
-                            Complete
-                          </button>
-                          <button
-                            onClick={() => handleCancel(draft)}
-                            className={styles.sendBtn}
-                            disabled={actionInFlight.has(`cancel:${draft.id}`) || !!draft.isCancelled}
-                          >
-                            Cancel
-                          </button>
+                          {!draft.isCancelled && (
+                            <button
+                              onClick={() => handleComplete(draft)}
+                              className={styles.sendBtn}
+                              disabled={actionInFlight.has(`complete:${draft.id}`) || draft.status !== 'NOTIFIED'}
+                            >
+                              Complete
+                            </button>
+                          )}
+                          {!draft.isCancelled && (
+                            <button
+                              onClick={() => handleCancel(draft)}
+                              className={styles.sendBtn}
+                              disabled={actionInFlight.has(`cancel:${draft.id}`)}
+                            >
+                              Cancel
+                            </button>
+                          )}
                         </>
                       )}
                     </React.Fragment>

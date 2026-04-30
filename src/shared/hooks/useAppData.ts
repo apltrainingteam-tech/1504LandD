@@ -26,10 +26,19 @@ export const useAppData = () => {
     const s: TrainingScore[] = [];
     const n: TrainingNomination[] = [];
 
+    const cancelledIds = new Set(
+      (finalData.notificationHistory || [])
+        .filter(r => r.finalStatus === 'VOID' || (r as any).isVoided)
+        .map(r => r.trainingId)
+    );
+
     finalData.trainingData.forEach((row, index) => {
       if (!row) return;
-
+      
       const r = row.mapped || row.data || row;
+      const trainingId = r.trainingId || row.trainingId;
+      if (trainingId && cancelledIds.has(trainingId)) return;
+
       let attendanceDate = r.attendanceDate || row.attendanceDate;
       if (attendanceDate) attendanceDate = parseAnyDate(attendanceDate) || attendanceDate;
 

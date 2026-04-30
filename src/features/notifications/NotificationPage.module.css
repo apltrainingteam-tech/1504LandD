@@ -312,3 +312,16 @@
 .trRowOdd { background: rgba(0,0,0,.01); }
 
 .textSecondary { color: var(--text-secondary); }
+.cancelledLabel {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}

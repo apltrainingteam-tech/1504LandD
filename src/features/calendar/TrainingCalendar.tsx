@@ -151,7 +151,8 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
 
     notificationRecords.forEach((r: NotificationRecord) => {
       if (r.trainingId) {
-        processEntry(r.trainingId, r.teamId || '', r.team, r.trainingType, r.trainerId, r.notificationDate, r.notificationDate, 'Notified');
+        const status = (r.finalStatus === 'VOID' || (r as any).isVoided) ? 'Cancelled' : 'Notified';
+        processEntry(r.trainingId, r.teamId || '', r.team, r.trainingType, r.trainerId, r.notificationDate, r.notificationDate, status);
       }
     });
 
