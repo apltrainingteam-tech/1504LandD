@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Save, X, Settings, Users, Layers, Upload, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useMasterData, Trainer, Team, Cluster } from '../../core/context/MasterDataContext';
-import { uploadAvatar } from '../../core/engines/apiClient';
+import { useAvatarUpload } from '../uploads/hooks/useAvatarUpload';
+import { AvatarUpload } from '../uploads/components/AvatarUpload';
 import API_BASE from '../../config/api';
 import styles from './MasterSettings.module.css';
 
@@ -13,6 +14,7 @@ export const MasterSettings: React.FC = () => {
     addTeam, updateTeam, deleteTeam,
     addCluster
   } = useMasterData();
+  const { handleUpload } = useAvatarUpload();
 
   const [showModal, setShowModal] = useState<any>(null);
 
@@ -69,7 +71,7 @@ export const MasterSettings: React.FC = () => {
             // If there's a new avatar file, upload it first
             if (avatarFile) {
               try {
-                const uploadedUrl = await uploadAvatar(avatarFile);
+                const uploadedUrl = await handleUpload(avatarFile);
                 finalData.avatarUrl = uploadedUrl;
               } catch (error) {
                 alert("Failed to upload avatar: " + error);
@@ -197,62 +199,6 @@ const TeamsList = ({ teams, clusters, onAdd, onEdit, onDelete, onAddCluster }: a
   </div>
 );
 
-const AvatarUpload = ({ value, onChange, trainerCode }: { value?: string, onChange: (file: File | null) => void, trainerCode?: string }) => {
-  const [preview, setPreview] = useState(value);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 2 * 1024 * 1024) return alert("File too large (max 2MB)");
-      if (!file.type.startsWith("image/")) return alert("Only images allowed");
-      
-      const reader = new FileReader();
-      reader.onloadend = () => setPreview(reader.result as string);
-      reader.readAsDataURL(file);
-      onChange(file);
-    }
-  };
-
-  return (
-    <div className={styles.avatarUploadContainer}>
-      <div 
-        className={styles.avatarPreview} 
-        style={{ backgroundImage: preview ? `url(${preview})` : 'none' }}
-        onClick={() => fileInputRef.current?.click()}
-      >
-        {!preview && (
-          <div className={styles.avatarFallback}>
-            {trainerCode || <Users size={24} color="var(--text-muted)" />}
-          </div>
-        )}
-      </div>
-      <div className={styles.avatarControls}>
-        <button 
-          type="button" 
-          className={`btn ${preview !== value ? 'btn-success' : 'btn-secondary'} btn-sm`} 
-          onClick={() => fileInputRef.current?.click()}
-        >
-          {preview !== value ? (
-            <><CheckCircle2 size={14} className="mr-2" /> Selected</>
-          ) : (
-            <><Upload size={14} className="mr-2" /> Upload Avatar</>
-          )}
-        </button>
-        <p className={styles.uploadHint}>Max 2MB. JPG/PNG.</p>
-      </div>
-      <input 
-        type="file" 
-        ref={fileInputRef} 
-        className={styles.hiddenInput} 
-        accept="image/*"
-        title="Upload avatar file"
-        aria-label="Upload avatar file"
-        onChange={handleFileChange} 
-      />
-    </div>
-  );
-};
 const MasterModal = ({ config, onClose, onSubmit, clusters, existingTrainers, existingTeams }: any) => {
   const [formData, setFormData] = useState(config.data || {
     name: '', code: '', category: 'HO', status: 'Active', avatarUrl: '',

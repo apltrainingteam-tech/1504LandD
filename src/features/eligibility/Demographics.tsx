@@ -22,6 +22,8 @@ import {
 } from '../../types/attendance';
 import { DataTable } from '../../shared/components/ui/DataTable';
 import { useDemographicsData } from './hooks/useDemographicsData';
+import { useAvatarUpload } from '../uploads/hooks/useAvatarUpload';
+import { AvatarUpload } from '../uploads/components/AvatarUpload';
 import styles from './Demographics.module.css';
 
 const TRAINING_TYPES: TrainingType[] = ['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'Pre_AP', 'GTG'];
@@ -31,6 +33,7 @@ export const Demographics = () => {
   const [tab, setTab] = useState<'mapping' | 'trainers' | 'rules'>('mapping');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
+  const { handleUpload } = useAvatarUpload();
   
   const {
     loading,
@@ -89,8 +92,7 @@ export const Demographics = () => {
     try {
       let avatarUrl = null;
       if (selectedFile) {
-        const { uploadAvatar } = await import('../../../core/engines/apiClient');
-        avatarUrl = await uploadAvatar(selectedFile);
+        avatarUrl = await handleUpload(selectedFile);
       }
 
       await apiAddTrainer(newTrainer.name, newTrainer.types, avatarUrl);
@@ -230,25 +232,15 @@ export const Demographics = () => {
             </div>
             <div className="form-group">
               <label>Avatar (Optional)</label>
-              <div className="mt-2 flex-center gap-4">
-                {uploadPreview ? (
-                  <img src={uploadPreview} alt="Preview" className={styles.uploadPreview} />
-                ) : (
-                  <div className={styles.uploadPlaceholder}>
-                    <User size={24} />
-                  </div>
-                )}
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      setSelectedFile(file);
-                      setUploadPreview(URL.createObjectURL(file));
-                    }
-                  }} 
-                  className={styles.fileInput} 
+              <div className="mt-2">
+                <AvatarUpload 
+                  value={uploadPreview || undefined}
+                  onChange={(file) => {
+                    setSelectedFile(file);
+                    if (file) setUploadPreview(URL.createObjectURL(file));
+                    else setUploadPreview(null);
+                  }}
+                  trainerCode={newTrainer.name.slice(0, 2).toUpperCase()}
                 />
               </div>
             </div>
