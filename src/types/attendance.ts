@@ -1,4 +1,6 @@
 export type TrainingType = 'IP' | 'AP' | 'MIP' | 'Refresher' | 'Capsule' | 'Pre_AP' | 'GTG' | 'HO' | 'RTM';
+export type TrainingPlanStatus = 'Planned' | 'Notified' | 'Completed' | 'Cancelled';
+export type NotificationFinalStatus = 'Pending' | 'Completed' | 'VOID';
 
 export interface Attendance {
   id: string;
@@ -63,6 +65,7 @@ export interface NotificationRecord {
   trainingType: string;
   notificationDate: string; // YYYY-MM-DD
   attended: boolean;
+  finalStatus?: NotificationFinalStatus;
   trainingId?: string; // Links to the TrainingBatch/NominationDraft if available
   teamId?: string;
 }
@@ -100,13 +103,16 @@ export interface NominationDraft {
   trainer?: string; // trainer id
   startDate?: string;
   endDate?: string;
-  status: 'DRAFT' | 'APPROVED' | 'SENT' | 'COMPLETED';
+  status: 'DRAFT' | 'APPROVED' | 'NOTIFIED' | 'SENT' | 'COMPLETED' | 'CANCELLED';
   candidates: string[]; // employeeIds
+  isVoided?: boolean;
   // Audit trail
   approvedBy?: string;
   approvedAt?: string;
   sentBy?: string;
   sentAt?: string;
+  completedAt?: string;
+  cancelledAt?: string;
 }
 
 export interface Demographics {

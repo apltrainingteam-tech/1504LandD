@@ -285,7 +285,9 @@ export const NominationsPage: React.FC<Props> = ({ employees, nominations, atten
               <Lock size={13} />
               {draft.status === 'APPROVED' && `Approved by ${draft.approvedBy || 'Sales Head'}${draft.approvedAt ? ' on ' + fmtDate(draft.approvedAt) : ''}`}
               {draft.status === 'SENT' && 'Sent'}
+              {draft.status === 'NOTIFIED' && 'Notified'}
               {draft.status === 'COMPLETED' && 'Completed'}
+              {draft.status === 'CANCELLED' && 'Cancelled'}
             </div>
           ) : (
             <>

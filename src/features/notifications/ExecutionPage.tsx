@@ -24,7 +24,7 @@ export const ExecutionPage: React.FC<Props> = ({ employees, attendance }) => {
 
   const executionDrafts = useMemo(
     () => getDrafts({ teamIds: sessionTeamIds.length > 0 ? sessionTeamIds : undefined })
-            .filter(d => d.status === 'SENT' || d.status === 'COMPLETED'),
+            .filter(d => d.status === 'NOTIFIED' || d.status === 'SENT' || d.status === 'COMPLETED'),
     [getDrafts, sessionTeamIds]
   );
 
@@ -60,7 +60,7 @@ export const ExecutionPage: React.FC<Props> = ({ employees, attendance }) => {
       <div className={styles.emptyState}>
         <TrendingDown size={36} className={styles.emptyIcon} />
         <div className={styles.emptyTitle}>No plans in execution phase</div>
-        <div className={styles.emptyText}>Plans move here after the Notification email is sent (status → SENT).</div>
+        <div className={styles.emptyText}>Plans move here after the Notification email is sent (status → NOTIFIED).</div>
       </div>
     );
   }

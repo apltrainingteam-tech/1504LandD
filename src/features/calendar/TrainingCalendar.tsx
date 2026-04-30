@@ -5,7 +5,7 @@ import { getFiscalYears, getFiscalYearFromDate, parseFiscalYear, getCurrentFisca
 import { usePlanningFlow } from '../../core/context/PlanningFlowContext';
 import { getAvailableTrainers, Trainer } from '../../core/engines/trainerEngine';
 import { Employee } from '../../types/employee';
-import { Attendance, NotificationRecord, NominationDraft } from '../../types/attendance';
+import { Attendance, NotificationRecord, NominationDraft, TrainingPlanStatus } from '../../types/attendance';
 import { useMasterData } from '../../core/context/MasterDataContext';
 import { getTeamName } from '../../core/utils/teamIdMapper';
 import styles from './TrainingCalendar.module.css';
@@ -21,6 +21,7 @@ interface ChecklistItem { name: string; completed: boolean; }
 interface TrainingPlan {
   id: string;
   trainingType: string;
+  status: TrainingPlanStatus;
   teams: TeamBatchStatus[];
   trainer: string;
   startDate: string;
@@ -48,6 +49,9 @@ const formatDateStr = (date: Date) => {
 };
 
 const getStatus = (plan: TrainingPlan) => {
+  if (plan.status === 'Cancelled') return 'Cancelled';
+  if (plan.status === 'Completed') return 'Completed';
+  if (plan.status === 'Notified') return 'Notified';
   if (plan.checklist.length === 0) return 'Planned';
   return plan.checklist.every(c => c.completed) ? 'Completed' : 'Planned';
 };
@@ -112,11 +116,21 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
   useEffect(() => {
     const plansMap = new Map<string, TrainingPlan>();
 
-    const processEntry = (trainingId: string, teamId: string, teamName: string, type: string, trainer: string, start: string, end: string) => {
+    const processEntry = (
+      trainingId: string,
+      teamId: string,
+      teamName: string,
+      type: string,
+      trainer: string,
+      start: string,
+      end: string,
+      status: TrainingPlanStatus = 'Planned'
+    ) => {
       if (!plansMap.has(trainingId)) {
         plansMap.set(trainingId, {
           id: trainingId,
           trainingType: type,
+          status,
           trainer,
           startDate: start,
           endDate: end,
@@ -137,12 +151,27 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
 
     notificationRecords.forEach((r: NotificationRecord) => {
       if (r.trainingId) {
-        processEntry(r.trainingId, r.teamId || '', r.team, r.trainingType, r.trainerId, r.notificationDate, r.notificationDate);
+        processEntry(r.trainingId, r.teamId || '', r.team, r.trainingType, r.trainerId, r.notificationDate, r.notificationDate, 'Notified');
       }
     });
 
     drafts.forEach((d: NominationDraft) => {
-      processEntry(d.trainingId, d.teamId, d.team, d.trainingType, d.trainer || '', d.startDate || '', d.endDate || '');
+      processEntry(
+        d.trainingId,
+        d.teamId,
+        d.team,
+        d.trainingType,
+        d.trainer || '',
+        d.startDate || '',
+        d.endDate || '',
+        d.status === 'NOTIFIED'
+          ? 'Notified'
+          : d.status === 'COMPLETED'
+          ? 'Completed'
+          : d.status === 'CANCELLED'
+          ? 'Cancelled'
+          : 'Planned'
+      );
     });
 
     setPlans(Array.from(plansMap.values()));
@@ -289,6 +318,7 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
     const newPlan: TrainingPlan = {
       id: newId,
       trainingType: tab,
+      status: 'Planned',
       teams: newTeams,
       trainer: formTrainer,
       startDate: modalStart,
@@ -485,7 +515,6 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
                 <div className={styles.planList}>
                   {visiblePlans.map(p => {
                     const status = getStatus(p);
-                    const color = status === 'Completed' ? 'var(--success)' : 'var(--text-secondary)';
                     const displayTeam = p.teams.map(t => t.teamName).join(', ');
                     const trainerObj = masterTrainers.find(mt => mt.id === p.trainer);
                     const displayTrainer = trainerObj ? trainerObj.trainerName : p.trainer;
@@ -494,14 +523,14 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
                       <div
                         key={p.id}
                         onClick={(e) => { e.stopPropagation(); setSelectedPlanId(p.id); }}
-                        className={`${styles.planChip} ${status === 'Completed' ? styles.planChipCompleted : styles.planChipPlanned}`}
+                        className={`${styles.planChip} ${status === 'Completed' ? styles.planChipCompleted : status === 'Notified' ? styles.planChipNotified : status === 'Cancelled' ? styles.planChipCancelled : styles.planChipPlanned}`}
                       >
-                        <div className={styles.planChipText}>
+                        <div className={`${styles.planChipText} ${status === 'Cancelled' ? styles.planChipTextCancelled : ''}`}>
                           <span className={styles.planType}>{p.trainingType}</span>
                           <span className={styles.planTeam}>{displayTeam}</span>
                           <span className={styles.planTrainer}>{displayTrainer}</span>
                         </div>
-                        <div className={`${styles.planDot} ${status === 'Completed' ? styles.planDotCompleted : styles.planDotPlanned}`}></div>
+                        <div className={`${styles.planDot} ${status === 'Completed' ? styles.planDotCompleted : status === 'Notified' ? styles.planDotNotified : status === 'Cancelled' ? styles.planDotCancelled : styles.planDotPlanned}`}></div>
                       </div>
                     );
                   })}

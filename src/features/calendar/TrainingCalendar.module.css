@@ -524,9 +524,17 @@
 }
 
 .planChipCompleted { border-left-color: var(--success) !important; }
+.planChipNotified { border-left-color: var(--accent-primary) !important; }
 .planChipPlanned { border-left-color: var(--text-secondary) !important; }
+.planChipCancelled { border-left-color: #9ca3af !important; background: #f3f4f6 !important; }
 .planDotCompleted { background: var(--success) !important; }
+.planDotNotified { background: var(--accent-primary) !important; }
 .planDotPlanned { background: var(--text-secondary) !important; }
+.planDotCancelled { background: #9ca3af !important; }
+.planChipTextCancelled {
+  color: #6b7280 !important;
+  text-decoration: line-through;
+}
 
 /* Team Scope Manager */
 .scopeManager {

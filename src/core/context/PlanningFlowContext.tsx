@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
 import { Employee } from '../../types/employee';
 import { TrainingNomination, NotificationRecord, NominationDraft, TrainingBatch, CandidateRecord, BatchAttStatus } from '../../types/attendance';
-import { addBatch, findByQuery, updateByQuery, getCollection, updateDocument } from '../engines/apiClient';
+import { addBatch, updateByQuery, getCollection, updateDocument, upsertDoc } from '../engines/apiClient';
 
 export interface SelectionSession {
   trainingType: string;
@@ -31,7 +31,7 @@ interface PlanningFlowContextType {
   saveDraft: (draft: NominationDraft) => void;
   updateDraft: (id: string, updates: Partial<NominationDraft>) => void;
   removeDraft: (id: string) => void;
-  getDrafts: (filter: { teamIds?: string[] }) => NominationDraft[];
+  getDrafts: (filter: { teamIds?: string[]; includeCancelled?: boolean }) => NominationDraft[];
 
   // Batch API
   batches: TrainingBatch[];
@@ -55,12 +55,30 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
   const [batches, setBatches]                   = useState<TrainingBatch[]>([]);
   const [notificationRecords, setNotificationRecords] = useState<NotificationRecord[]>([]);
 
+  useEffect(() => {
+    const hydrateDrafts = async () => {
+      try {
+        const storedDrafts = await getCollection('nomination_drafts');
+        if (Array.isArray(storedDrafts) && storedDrafts.length > 0) {
+          setDrafts(storedDrafts as NominationDraft[]);
+        }
+      } catch (error) {
+        console.error('Failed to load nomination drafts', error);
+      }
+    };
+    hydrateDrafts();
+  }, []);
+
   // ─── Notification History ──────────────────────────────────────────────────
   const loadNotificationHistory = useCallback(async () => {
     try {
       const data = await getCollection('notification_history');
-      setNotificationRecords(data);
-      return data;
+      const normalized = (data || []).map((record: NotificationRecord) => ({
+        ...record,
+        finalStatus: record.finalStatus || 'Pending'
+      }));
+      setNotificationRecords(normalized);
+      return normalized;
     } catch (error) {
       console.error("Failed to load notification history", error);
     }
@@ -84,15 +102,29 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
   // ── Drafts ───────────────────────────────────────────────────────────────────
   const saveDraft = (draft: NominationDraft) => {
     setDrafts(prev => [...prev, draft]);
+    upsertDoc('nomination_drafts', draft.id, draft).catch(err => {
+      console.error('Failed to persist nomination draft', err);
+    });
   };
   const updateDraft = (id: string, updates: Partial<NominationDraft>) => {
-    setDrafts(prev => prev.map(d => d.id === id ? { ...d, ...updates } : d));
+    setDrafts(prev => {
+      const next = prev.map(d => d.id === id ? { ...d, ...updates } : d);
+      const updated = next.find(d => d.id === id);
+      if (updated) {
+        upsertDoc('nomination_drafts', id, updated).catch(err => {
+          console.error('Failed to persist draft update', err);
+        });
+      }
+      return next;
+    });
   };
   const removeDraft = (id: string) => {
     setDrafts(prev => prev.filter(d => d.id !== id));
   };
-  const getDrafts = (filter: { teamIds?: string[] }) => {
-    const valid = drafts.filter(d => Boolean(d.teamId));
+  const getDrafts = (filter: { teamIds?: string[]; includeCancelled?: boolean }) => {
+    const valid = drafts.filter(d =>
+      Boolean(d.teamId) && (filter.includeCancelled ? true : d.status !== 'CANCELLED')
+    );
     if (!filter.teamIds || filter.teamIds.length === 0) return valid;
     return valid.filter(d => filter.teamIds!.includes(d.teamId));
   };
@@ -142,6 +174,7 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
         trainingType: draft.trainingType,
         notificationDate: draft.startDate || new Date().toISOString().split('T')[0],
         attended: false,
+        finalStatus: 'Pending',
         trainingId: batchId,
         teamId: draft.teamId
       };
@@ -227,15 +260,20 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
    */
   const getBatches = useCallback(
     (filter?: { teamId?: string; trainingType?: string; month?: string }) => {
-      if (!filter) return batches;
-      return batches.filter(b => {
+      const activeBatches = batches.filter(b => {
+        if (b.source !== 'NOTIFICATION') return true;
+        const draft = drafts.find(d => d.id === b.draftId || d.trainingId === b.trainingId);
+        return draft ? draft.status !== 'CANCELLED' : true;
+      });
+      if (!filter) return activeBatches;
+      return activeBatches.filter(b => {
         if (filter.teamId       && b.teamId       !== filter.teamId)       return false;
         if (filter.trainingType && b.trainingType !== filter.trainingType) return false;
         if (filter.month        && b.startDate.substring(0, 7) !== filter.month) return false;
         return true;
       });
     },
-    [batches]
+    [batches, drafts]
   );
 
   return (

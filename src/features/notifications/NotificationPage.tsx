@@ -4,6 +4,7 @@ import { usePlanningFlow } from '../../core/context/PlanningFlowContext';
 import { useMasterData } from '../../core/context/MasterDataContext';
 import { Employee } from '../../types/employee';
 import { NominationDraft } from '../../types/attendance';
+import { findByQuery, updateByQuery } from '../../core/engines/apiClient';
 import styles from './NotificationPage.module.css';
 
 interface Props {
@@ -182,13 +183,14 @@ export const NotificationPage: React.FC<Props> = ({ allEmployees }) => {
   const sessionTeamIds = selectionSession?.teamIds ?? [];
   const [emailModal, setEmailModal] = useState<{ html:string; subject:string; mailto:string; tableHtml:string; draftId:string }|null>(null);
   const [expanded, setExpanded]     = useState<Set<string>>(new Set());
+  const [actionInFlight, setActionInFlight] = useState<Set<string>>(new Set());
 
   const resolveTeam    = (id?:string, fb?:string) => masterTeams.find(t=>t.id===id)?.teamName||(fb||id||'—');
   const resolveTrainer = (id?:string) => masterTrainers.find(t=>t.id===id)?.trainerName||(id||'—');
 
-  // Only APPROVED drafts
+  // Keep ready-to-send and post-send drafts visible in Notification
   const approvedDrafts = useMemo(
-    () => getDrafts({ teamIds: sessionTeamIds.length>0?sessionTeamIds:undefined }).filter((d: NominationDraft)=>d.status==='APPROVED'),
+    () => getDrafts({ teamIds: sessionTeamIds.length>0?sessionTeamIds:undefined }).filter((d: NominationDraft)=>d.status==='APPROVED' || d.status === 'NOTIFIED' || d.status === 'COMPLETED' || d.status === 'CANCELLED'),
     [getDrafts, sessionTeamIds]
   );
 
@@ -276,13 +278,103 @@ export const NotificationPage: React.FC<Props> = ({ allEmployees }) => {
   };
 
   const handleSent = async (draftId: string) => {
+    if (actionInFlight.has(`send:${draftId}`)) return;
+    setActionInFlight(prev => new Set(prev).add(`send:${draftId}`));
     // Find the draft before status changes, then commit an immutable batch
     const draft = approvedDrafts.find((d: NominationDraft) => d.id === draftId);
-    if (draft) {
-      await commitBatch(draft, allEmployees);
+    if (!draft || draft.status === 'COMPLETED' || draft.status === 'CANCELLED') {
+      setActionInFlight(prev => {
+        const next = new Set(prev);
+        next.delete(`send:${draftId}`);
+        return next;
+      });
+      return;
     }
-    updateDraft(draftId, { status: 'SENT', sentBy: 'Trainer', sentAt: new Date().toISOString() });
-    setEmailModal(null);
+    try {
+      // First send only: commit notification batch once.
+      if (draft.status === 'APPROVED') {
+        await commitBatch(draft, allEmployees);
+        updateDraft(draftId, { status: 'NOTIFIED', sentBy: 'Trainer', sentAt: new Date().toISOString() });
+      } else {
+        console.log('[Notification] Resent email without creating new batch', { draftId, status: draft.status });
+      }
+      setEmailModal(null);
+    } finally {
+      setActionInFlight(prev => {
+        const next = new Set(prev);
+        next.delete(`send:${draftId}`);
+        return next;
+      });
+    }
+  };
+
+  const handleComplete = async (draft: NominationDraft) => {
+    if (actionInFlight.has(`complete:${draft.id}`)) return;
+    if (draft.status !== 'NOTIFIED') return;
+    setActionInFlight(prev => new Set(prev).add(`complete:${draft.id}`));
+    try {
+      console.log('[Notification] Complete clicked', { draftId: draft.id, status: draft.status });
+      await updateByQuery(
+        'notification_history',
+        { trainingId: draft.trainingId || draft.id },
+        { finalStatus: 'Completed' }
+      );
+      if (draft.status === 'NOTIFIED') {
+        updateDraft(draft.id, { status: 'COMPLETED', completedAt: draft.completedAt || new Date().toISOString() });
+      }
+    } catch (error) {
+      console.error('Failed to complete notification batch', error);
+    } finally {
+      setActionInFlight(prev => {
+        const next = new Set(prev);
+        next.delete(`complete:${draft.id}`);
+        return next;
+      });
+    }
+  };
+
+  const handleCancel = async (draft: NominationDraft) => {
+    if (actionInFlight.has(`cancel:${draft.id}`)) return;
+    if (draft.status !== 'NOTIFIED') return;
+    setActionInFlight(prev => new Set(prev).add(`cancel:${draft.id}`));
+    try {
+      const trainingId = draft.trainingId || draft.id;
+
+      const notificationAttendance = await findByQuery('notification_history', {
+        trainingId,
+        attended: true
+      });
+      const batchAttendance = await findByQuery('training_batches', { trainingId });
+      const hasBatchAttendance = (batchAttendance || []).some((batch: any) =>
+        Array.isArray(batch.candidates) &&
+        batch.candidates.some((candidate: any) => candidate.attendance && candidate.attendance !== 'pending')
+      );
+      const trainingDataEntries = await findByQuery('training_data', { trainingId });
+
+      if ((notificationAttendance && notificationAttendance.length > 0) || hasBatchAttendance || (trainingDataEntries && trainingDataEntries.length > 0)) {
+        alert('Cannot cancel. Attendance already marked.');
+        return;
+      }
+
+      await updateByQuery(
+        'notification_history',
+        { trainingId },
+        { finalStatus: 'VOID', isVoided: true }
+      );
+
+      if (draft.status === 'NOTIFIED') {
+        updateDraft(draft.id, { status: 'CANCELLED', isVoided: true, cancelledAt: draft.cancelledAt || new Date().toISOString() });
+      }
+      console.log('[Notification] Cancelled batch', { draftId: draft.id, trainingId });
+    } catch (error) {
+      console.error('Failed to cancel notification batch', error);
+    } finally {
+      setActionInFlight(prev => {
+        const next = new Set(prev);
+        next.delete(`cancel:${draft.id}`);
+        return next;
+      });
+    }
   };
 
   if (approvedDrafts.length === 0) {
@@ -337,9 +429,33 @@ export const NotificationPage: React.FC<Props> = ({ allEmployees }) => {
                 <div className={styles.groupActions} onClick={e=>e.stopPropagation()}>
                   {/* Send per team = send for all plans in this team */}
                   {drafts.map(draft=>(
-                    <button key={draft.id} onClick={()=>handleEmail(draft)} className={styles.sendBtn}>
-                      <Mail size={12}/>{draft.trainingType} — Send Email
-                    </button>
+                    <React.Fragment key={draft.id}>
+                      <button
+                        onClick={()=>handleEmail(draft)}
+                        className={styles.sendBtn}
+                        disabled={draft.status === 'COMPLETED' || draft.status === 'CANCELLED' || actionInFlight.has(`send:${draft.id}`)}
+                      >
+                        <Mail size={12}/>{draft.trainingType} — {draft.status === 'NOTIFIED' ? 'Resend Email' : 'Send Email'}
+                      </button>
+                      {draft.status === 'NOTIFIED' && (
+                        <>
+                          <button
+                            onClick={() => handleComplete(draft)}
+                            className={styles.sendBtn}
+                            disabled={actionInFlight.has(`complete:${draft.id}`)}
+                          >
+                            Complete
+                          </button>
+                          <button
+                            onClick={() => handleCancel(draft)}
+                            className={styles.sendBtn}
+                            disabled={actionInFlight.has(`cancel:${draft.id}`)}
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      )}
+                    </React.Fragment>
                   ))}
                 </div>
               </div>

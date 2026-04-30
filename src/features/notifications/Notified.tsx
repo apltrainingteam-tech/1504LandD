@@ -36,7 +36,7 @@ export const Notified: React.FC<NotifiedProps> = ({ employees, attendance, nomin
     return {
       nominations:  allDrafts.filter(d => d.status === 'DRAFT').length,
       notification: allDrafts.filter(d => d.status === 'APPROVED').length,
-      execution:    allDrafts.filter(d => d.status === 'SENT' || d.status === 'COMPLETED').length,
+      execution:    allDrafts.filter(d => d.status === 'NOTIFIED' || d.status === 'SENT' || d.status === 'COMPLETED').length,
     };
   }, [getDrafts, sessionTeamIds]);
 
