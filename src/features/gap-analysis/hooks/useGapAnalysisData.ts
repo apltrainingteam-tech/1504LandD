@@ -83,7 +83,9 @@ export const useGapAnalysisData = (
     }
 
     const filteredAttendance = attendance.filter(a => {
+      if (a.isVoided) return false;
       if (pageFilters.trainer && a.trainerId !== pageFilters.trainer) return false;
+
       if (pageFilters.month) {
         const m = a.month || (a.attendanceDate || '').substring(0,7);
         if (m !== pageFilters.month) return false;

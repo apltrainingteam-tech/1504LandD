@@ -76,8 +76,10 @@ export function filterSRMRecords(records: any[]): SRMRecord[] {
       const att = r.attendance || r;
       const trainingType = att.trainingType || r.trainingType;
       const attendanceStatus = att.attendanceStatus || r.attendanceStatus;
+      const isVoided = att.isVoided || r.isVoided;
       
-      return trainingType === 'IP' && attendanceStatus === 'Present';
+      return trainingType === 'IP' && attendanceStatus === 'Present' && !isVoided;
+
     })
     .map(r => {
       const att = r.attendance || r;

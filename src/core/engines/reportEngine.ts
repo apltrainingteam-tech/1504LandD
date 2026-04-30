@@ -119,7 +119,8 @@ export const buildUnifiedDataset = traceEngine("buildUnifiedDataset", (
   let totalRecords = 0;
   const clusterDist: Record<string, number> = {};
 
-  const result = att.map((a, idx) => {
+  const result = att.filter(a => !a.isVoided).map((a, idx) => {
+
     const tid = String(a.employeeId).trim();
     const type = normalizeTrainingType(a.trainingType);
     
@@ -282,9 +283,10 @@ export function groupData(
 export function calcIP(recs: UnifiedRecord[]) {
   const isPresent = (r: UnifiedRecord) => {
     const s = String(r.attendance.attendanceStatus || '').trim().toLowerCase();
-    return s === '' || s === 'present';
+    return (s === '' || s === 'present') && !r.attendance.isVoided;
   };
   const p = recs.filter(isPresent);
+
   let h = 0, med = 0, l = 0;
   p.forEach(r => {
     // Extraction list for IP scores: strictly follow schema + common variations
@@ -325,9 +327,10 @@ export function calcIP(recs: UnifiedRecord[]) {
 export function calcAP(recs: UnifiedRecord[], noms: TrainingNomination[]) {
   const isPresent = (r: UnifiedRecord) => {
     const s = String(r.attendance.attendanceStatus || '').trim().toLowerCase();
-    return s === '' || s === 'present';
+    return (s === '' || s === 'present') && !r.attendance.isVoided;
   };
   const present = recs.filter(isPresent);
+
   const attendedIds = new Set(present.map(r => r.attendance.employeeId));
   const notifiedIds = new Set((noms || []).map(n => n.employeeId));
   let scoreSum = 0, scoredCount = 0;
@@ -355,9 +358,10 @@ export function calcAP(recs: UnifiedRecord[], noms: TrainingNomination[]) {
 export function calcMIP(recs: UnifiedRecord[]) {
   const isPresent = (r: UnifiedRecord) => {
     const s = String(r.attendance.attendanceStatus || '').trim().toLowerCase();
-    return s === '' || s === 'present';
+    return (s === '' || s === 'present') && !r.attendance.isVoided;
   };
   const p = recs.filter(isPresent);
+
   let sS = 0, cS = 0, sK = 0, cK = 0;
   p.forEach(r => {
     if (r.score?.scores) {
@@ -374,9 +378,10 @@ export function calcMIP(recs: UnifiedRecord[]) {
 export function calcRefresher(recs: UnifiedRecord[]) {
   const isPresent = (r: UnifiedRecord) => {
     const s = String(r.attendance.attendanceStatus || '').trim().toLowerCase();
-    return s === '' || s === 'present';
+    return (s === '' || s === 'present') && !r.attendance.isVoided;
   };
   const p = recs.filter(isPresent);
+
   const schemaFields = ['knowledge', 'situationHandling', 'presentation'];
   const totals: Record<string, { sum: number; count: number }> = {};
   schemaFields.forEach(k => { totals[k] = { sum: 0, count: 0 }; });
@@ -396,9 +401,10 @@ export function calcRefresher(recs: UnifiedRecord[]) {
 export function calcCapsule(recs: UnifiedRecord[]) {
   const isPresent = (r: UnifiedRecord) => {
     const s = String(r.attendance.attendanceStatus || '').trim().toLowerCase();
-    return s === '' || s === 'present';
+    return (s === '' || s === 'present') && !r.attendance.isVoided;
   };
   const p = recs.filter(isPresent);
+
   let scoreSum = 0, scoredCount = 0;
   p.forEach(r => {
     const v = r.score?.scores?.['score'];
@@ -430,9 +436,10 @@ export function calcPreAP(recs: UnifiedRecord[], noms: TrainingNomination[]) {
 export function calcGeneric(recs: UnifiedRecord[]) {
   const isPresent = (r: UnifiedRecord) => {
     const s = String(r.attendance.attendanceStatus || '').trim().toLowerCase();
-    return s === '' || s === 'present';
+    return (s === '' || s === 'present') && !r.attendance.isVoided;
   };
   const p = recs.filter(isPresent);
+
   let scoreSum = 0, scoredCount = 0;
   p.forEach(r => {
     const v = r.score?.scores?.['Score'];
@@ -594,9 +601,10 @@ export function getGapData(
 ) {
   const trainedIds = new Set(
     attendance
-      .filter(a => a.trainingType === type && a.attendanceStatus === 'Present')
+      .filter(a => a.trainingType === type && a.attendanceStatus === 'Present' && !a.isVoided)
       .map(a => a.employeeId)
   );
+
   const eligibleButNotTrained = eligibilityResults.filter(
     er => er.eligibilityStatus && !trainedIds.has(er.employeeId)
   );

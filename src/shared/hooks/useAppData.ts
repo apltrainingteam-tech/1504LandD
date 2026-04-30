@@ -33,11 +33,12 @@ export const useAppData = () => {
     );
 
     finalData.trainingData.forEach((row, index) => {
-      if (!row) return;
+      if (!row || row.isVoided) return;
       
       const r = row.mapped || row.data || row;
       const trainingId = r.trainingId || row.trainingId;
       if (trainingId && cancelledIds.has(trainingId)) return;
+
 
       let attendanceDate = r.attendanceDate || row.attendanceDate;
       if (attendanceDate) attendanceDate = parseAnyDate(attendanceDate) || attendanceDate;

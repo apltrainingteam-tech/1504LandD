@@ -14,7 +14,10 @@ import { DataEdit } from '../contracts/edit.contract';
 export interface EditChange {
   attendance?: BatchAttStatus;
   score?: string;
+  isVoided?: boolean;
+  voidedAt?: string;
 }
+
 
 export type EditBuffer = Record<string, EditChange>;
 
@@ -23,11 +26,13 @@ export type EditBuffer = Record<string, EditChange>;
  * Returns a new buffer object with the changes applied.
  */
 export function applyBulkEdit(
-  selectedIds: Set<string>,
-  field: 'attendance' | 'score',
+  selectedIds: Set<string> | string[],
+
+  field: 'attendance' | 'score' | 'isVoided' | 'voidedAt',
   value: any,
   currentBuffer: EditBuffer
 ): EditBuffer {
+
   const nextBuffer = { ...currentBuffer };
 
   selectedIds.forEach(id => {
@@ -65,15 +70,17 @@ export function buildChangeSet(
   const changeSet: EditBuffer = {};
 
   // Flatten original candidates for easy lookup
-  const originalMap: Record<string, { attendance: string; score: string }> = {};
+  const originalMap: Record<string, { attendance: string; score: string; isVoided: boolean }> = {};
   allBatches.forEach(batch => {
     batch.candidates.forEach((c: any) => {
       originalMap[`${batch.id}::${c.empId}`] = {
         attendance: c.attendance,
-        score: c.score
+        score: c.score,
+        isVoided: c.isVoided ?? false
       };
     });
   });
+
 
   Object.entries(buffer).forEach(([key, change]) => {
     const original = originalMap[key];
@@ -92,6 +99,12 @@ export function buildChangeSet(
       hasActualChange = true;
     }
 
+    if (change.isVoided !== undefined && change.isVoided !== original.isVoided) {
+      actualChange.isVoided = change.isVoided;
+      hasActualChange = true;
+    }
+
+
     if (hasActualChange) {
       changeSet[key] = actualChange;
     }
@@ -104,17 +117,48 @@ export function buildChangeSet(
  * Prepares the payload for the bulk-overwrite API.
  * Converts internal buffer keys and field names to the expected API format.
  */
-export function prepareBulkSavePayload(buffer: EditBuffer): any[] {
+export function prepareBulkSavePayload(buffer: EditBuffer, allBatches: any[]): any[] {
   const updates: any[] = [];
   
+  // Create a lookup for original data to get old values
+  const originalMap: Record<string, any> = {};
+  allBatches.forEach(batch => {
+    batch.candidates.forEach((c: any) => {
+      originalMap[`${batch.id}::${c.empId}`] = c;
+    });
+  });
+
   Object.entries(buffer).forEach(([key, changes]) => {
     const [trainingId, employeeId] = key.split('::');
+    const original = originalMap[key] || {};
     
-    Object.entries(changes).forEach(([field, newValue]) => {
+    // Handle isVoided specially to include meta and oldValue
+    if (changes.isVoided !== undefined) {
       updates.push({
         trainingId,
         employeeId,
-        field: field === 'attendance' ? 'attendanceStatus' : field, // Map to DB field name
+        field: 'isVoided',
+        oldValue: original.isVoided ?? false,
+        newValue: changes.isVoided,
+        meta: {
+          voidedAt: changes.voidedAt || new Date().toISOString(),
+          voidReason: (changes as any).voidReason || ''
+        }
+      });
+    }
+
+    // Handle other fields
+    Object.entries(changes).forEach(([field, newValue]) => {
+      if (field === 'isVoided' || field === 'voidedAt' || field === 'voidReason') return;
+
+      const dbField = field === 'attendance' ? 'attendanceStatus' : field;
+      const originalValue = field === 'attendance' ? original.attendance : original[field];
+
+      updates.push({
+        trainingId,
+        employeeId,
+        field: dbField,
+        oldValue: originalValue ?? '',
         newValue
       });
     });
@@ -122,6 +166,8 @@ export function prepareBulkSavePayload(buffer: EditBuffer): any[] {
   
   return updates;
 }
+
+
 
 /**
  * Applies a list of DataEdits to a dataset.

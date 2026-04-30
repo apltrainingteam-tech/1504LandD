@@ -168,8 +168,12 @@ export async function getCollection(path: string): Promise<any[]> {
     // Convert MongoDB _id to id for compatibility
     const result = documents.map(doc => ({
       id: doc._id?.toString?.() || doc.id || '',
+      isVoided: doc.isVoided ?? false,
+      isCancelled: doc.isCancelled ?? false,
       ...doc
     }));
+
+
     
     console.log(`Converted ${path} to array with length ${result.length}`);
     if (result[0]) console.log(`Sample ${path}[0] keys:`, Object.keys(result[0]));

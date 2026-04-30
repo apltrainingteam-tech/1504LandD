@@ -70,10 +70,12 @@ export function useEditTrainingData({ filteredCandidateKeys }: UseEditTrainingDa
     }));
   };
 
-  const applyBulkEdit = (field: 'attendance' | 'score', value: any) => {
-    if (selectedIds.size === 0) return;
-    setEditBuffer(prev => applyBulkEditEngine(selectedIds, field, value, prev));
+  const applyBulkEdit = (field: 'attendance' | 'score' | 'isVoided' | 'voidedAt', value: any, specificIds?: string[]) => {
+    const targets = specificIds || Array.from(selectedIds);
+    if (targets.length === 0) return;
+    setEditBuffer(prev => applyBulkEditEngine(targets, field, value, prev));
   };
+
 
   const saveChanges = async (allBatches: any[]) => {
     if (Object.keys(editBuffer).length === 0) {
@@ -81,7 +83,8 @@ export function useEditTrainingData({ filteredCandidateKeys }: UseEditTrainingDa
     }
 
     const changeSet = buildChangeSet(editBuffer, allBatches);
-    const updates = prepareBulkSavePayload(changeSet);
+    const updates = prepareBulkSavePayload(changeSet, allBatches);
+
 
     if (updates.length === 0) {
       setEditBuffer({}); // Clear if no actual changes compared to original

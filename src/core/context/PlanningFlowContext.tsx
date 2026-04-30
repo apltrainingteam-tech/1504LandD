@@ -39,7 +39,8 @@ interface PlanningFlowContextType {
   batches: TrainingBatch[];
   commitBatch: (draft: NominationDraft, employees: Employee[]) => Promise<void>;
   updateBatchCandidate: (batchId: string, empId: string, update: Partial<CandidateRecord>) => Promise<void>;
-  getBatches: (filter?: { teamId?: string; trainingType?: string; month?: string }) => TrainingBatch[];
+  getBatches: (filter?: { teamId?: string; trainingType?: string; month?: string; includeVoided?: boolean }) => TrainingBatch[];
+
 
   // Notification History
   notificationRecords: NotificationRecord[];
@@ -62,8 +63,14 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
       try {
         const storedDrafts = await getCollection('nomination_drafts');
         if (Array.isArray(storedDrafts) && storedDrafts.length > 0) {
-          setDrafts(storedDrafts as NominationDraft[]);
+          const draftsWithDefaults = storedDrafts.map(d => ({
+            ...d,
+            isCancelled: d.isCancelled ?? false,
+            isVoided: d.isVoided ?? false
+          })) as NominationDraft[];
+          setDrafts(draftsWithDefaults);
         }
+
       } catch (error) {
         console.error('Failed to load nomination drafts', error);
       }
@@ -75,15 +82,19 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
   const loadNotificationHistory = useCallback(async () => {
     try {
       const data = await getCollection('notification_history');
-      const normalized = (data || []).map((record: NotificationRecord) => ({
+      const normalized = (data || []).filter((r: any) => !r.isVoided).map((record: NotificationRecord) => ({
         ...record,
-        finalStatus: record.finalStatus || 'Pending'
+        finalStatus: record.finalStatus || 'Pending',
+        isVoided: record.isVoided ?? false
       }));
+
       setNotificationRecords(normalized);
       return normalized;
     } catch (error) {
       console.error("Failed to load notification history", error);
+      return [];
     }
+
   }, []);
 
   // ── Consumed ────────────────────────────────────────────────────────────────
@@ -105,9 +116,11 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
   const saveDraft = (draft: NominationDraft) => {
     const draftWithDefaults: NominationDraft = {
       ...draft,
-      isCancelled: draft.isCancelled ?? false
+      isCancelled: draft.isCancelled ?? false,
+      isVoided: draft.isVoided ?? false
     };
     setDrafts(prev => [...prev, draftWithDefaults]);
+
     upsertDoc('nomination_drafts', draft.id, draftWithDefaults).catch(err => {
       console.error('Failed to persist nomination draft', err);
     });
@@ -168,9 +181,10 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
         // Update local state
         setDrafts(prev => prev.map(d => 
           (d.id === draftId || d.trainingId === trainingId) 
-            ? { ...d, isCancelled: true, status: 'Cancelled' as any, cancelledAt: new Date().toISOString() } 
+            ? { ...d, isCancelled: true, isVoided: true, status: 'Cancelled' as any, cancelledAt: new Date().toISOString() } 
             : d
         ));
+
         
         setNotificationRecords(prev => prev.map(r => 
           r.trainingId === trainingId ? { ...r, finalStatus: 'VOID', isVoided: true } : r
@@ -211,8 +225,11 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
         empId,
         attendance: 'pending' as BatchAttStatus,
         score: '',
+        isVoided: false,
       })),
+      isVoided: false,
     };
+
 
     // 2. Create Notification Records
     const records: NotificationRecord[] = draft.candidates.map(empId => {
@@ -233,9 +250,11 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
         attended: false,
         finalStatus: 'Pending',
         trainingId: batchId,
-        teamId: draft.teamId
+        teamId: draft.teamId,
+        isVoided: false,
       };
     });
+
 
     try {
       // Persist Batch
@@ -316,12 +335,15 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
    * Filtered read-only view of batches (latest first already guaranteed by commitBatch).
    */
   const getBatches = useCallback(
-    (filter?: { teamId?: string; trainingType?: string; month?: string }) => {
+    (filter?: { teamId?: string; trainingType?: string; month?: string; includeVoided?: boolean }) => {
       const activeBatches = batches.filter(b => {
+        if (!filter?.includeVoided && b.isVoided) return false;
         if (b.source !== 'NOTIFICATION') return true;
+
         const draft = drafts.find(d => d.id === b.draftId || d.trainingId === b.trainingId);
-        return draft ? !draft.isCancelled : true;
+        return draft ? (!draft.isCancelled && !draft.isVoided) : true;
       });
+
       if (!filter) return activeBatches;
       return activeBatches.filter(b => {
         if (filter.teamId       && b.teamId       !== filter.teamId)       return false;

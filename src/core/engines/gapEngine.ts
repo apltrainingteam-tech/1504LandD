@@ -75,10 +75,12 @@ export const isEligible = (employee: Employee, trainingType: TrainingType, rules
 export const getLatestAttendance = (employeeId: string, trainingType: TrainingType, attendance: Attendance[]): Attendance | null => {
   const empAttendance = attendance
     .filter(a =>
+      !a.isVoided &&
       normalizeId(a.employeeId) === normalizeId(employeeId) &&
       normalize(a.trainingType) === normalize(trainingType) &&
       normalize(a.attendanceStatus) === 'present'
     )
+
     .sort((a, b) => new Date(b.attendanceDate).getTime() - new Date(a.attendanceDate).getTime());
   return empAttendance[0] || null;
 };
@@ -182,10 +184,12 @@ export const computeGapAnalysis = traceEngine("computeGapAnalysis", (
   const attendedSet = new Set(
     attendance
       .filter(a =>
+        !a.isVoided &&
         a.employeeId &&
         normalize(a.attendanceStatus) === 'present' &&
         normalize(a.trainingType) === normalize(normalizedTrainingType)
       )
+
       .map(a => normalizeId(a.employeeId))
   );
 

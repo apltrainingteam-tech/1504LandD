@@ -44,7 +44,8 @@ export function calculateWeightedScore(e: number, h: number, m: number, l: numbe
 // Convert core UnifiedRecords to IPRecords
 export function normalizeToIPRecords(ds: UnifiedRecord[]): IPRecord[] {
   const records: IPRecord[] = [];
-  ds.forEach(r => {
+  ds.filter(r => !r.attendance.isVoided).forEach(r => {
+
     const rawStatus = String(r.attendance.attendanceStatus || '').trim().toLowerCase();
     // ACCEPT: "present", empty status (implied present), or anything except explicit non-attendance
     if (rawStatus !== '' && rawStatus !== 'present' && rawStatus !== 'attended') return;
@@ -294,7 +295,8 @@ export function buildIPMonthlyTeamRanks(ds: UnifiedRecord[], fyMonths?: string[]
 
 
   const dedupMap = new Map<string, UnifiedRecord>();
-  ds.forEach(r => {
+  ds.filter(r => !r.attendance.isVoided).forEach(r => {
+
     const rawStatus = String(r.attendance.attendanceStatus || '').trim().toLowerCase();
     if (rawStatus !== '' && rawStatus !== 'present' && rawStatus !== 'attended') return;
 

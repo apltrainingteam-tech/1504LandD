@@ -78,8 +78,12 @@ const deriveUploadBatches = (attendance: Attendance[]): TrainingBatch[] => {
         empId: r.employeeId,
         attendance: r.attendanceStatus?.toLowerCase().includes('present') ? 'present' : 'absent' as BatchAttStatus,
         score: '',
+        isVoided: r.isVoided ?? false,
       })),
+      isVoided: rows.length > 0 && rows.every(r => r.isVoided),
+
     });
+
 
   });
 
@@ -122,12 +126,14 @@ const AttToggle: React.FC<{
 // ─── Per-batch Metrics ─────────────────────────────────────────────────────────
 
 const batchMetrics = (candidates: CandidateRecord[]) => {
-  const total = candidates.length;
-  const present = candidates.filter((c: CandidateRecord) => c.attendance === 'present').length;
-  const absent = candidates.filter((c: CandidateRecord) => c.attendance === 'absent').length;
-  const scores = candidates.map((c: CandidateRecord) => parseFloat(c.score)).filter(n => !isNaN(n));
+  const active = candidates.filter(c => !c.isVoided);
+  const total = active.length;
+  const present = active.filter((c: CandidateRecord) => c.attendance === 'present').length;
+  const absent = active.filter((c: CandidateRecord) => c.attendance === 'absent').length;
+  const scores = active.map((c: CandidateRecord) => parseFloat(c.score)).filter(n => !isNaN(n));
   const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
   const attPct = present + absent > 0 ? Math.round((present / (present + absent)) * 100) : null;
+
   return { total, present, absent, pending: total - present - absent, avgScore, attPct };
 };
 
@@ -159,12 +165,19 @@ const CandidateRow = React.memo<CandidateRowProps>(({
 
   const curAtt = buffered?.attendance || candidate.attendance;
   const curScore = buffered?.score !== undefined ? buffered.score : candidate.score;
+  const curIsVoided = buffered?.isVoided !== undefined ? buffered.isVoided : candidate.isVoided;
+  
   const isAttEdited = buffered?.attendance !== undefined && buffered.attendance !== candidate.attendance;
   const isScoreEdited = buffered?.score !== undefined && buffered.score !== candidate.score;
+  const isVoidEdited = buffered?.isVoided !== undefined && buffered.isVoided !== candidate.isVoided;
+  
   const rs = STATUS_META[curAtt];
 
+
   return (
-    <tr className={`${styles.tr} ${index % 2 !== 0 ? styles.trOdd : ''} ${isSelected ? styles.trSelected : ''}`}>
+    <tr className={`${styles.tr} ${index % 2 !== 0 ? styles.trOdd : ''} ${isSelected ? styles.trSelected : ''} ${curIsVoided ? styles.trVoided : ''} ${isVoidEdited ? styles.editedRow : ''}`}>
+
+
       <td className={styles.tdCheckbox}>
         <input
           type="checkbox"
@@ -177,10 +190,12 @@ const CandidateRow = React.memo<CandidateRowProps>(({
 
       </td>
       <td className={`${styles.td} ${styles.tdEmpId}`}>{candidate.empId}</td>
-      <td className={`${styles.td} ${styles.tdName}`}>{employee?.name || '—'}</td>
-      <td className={`${styles.td} ${styles.tdSecondary}`}>{employee?.designation || '—'}</td>
-      <td className={`${styles.td} ${styles.tdSecondary}`}>{employee?.hq || '—'}</td>
-      <td className={`${styles.td} ${styles.tdSecondary}`}>{employee?.state || '—'}</td>
+      <td className={`${styles.td} ${styles.tdName} ${curIsVoided ? styles.strike : ''}`}>{employee?.name || '—'}</td>
+      <td className={`${styles.td} ${styles.tdSecondary} ${curIsVoided ? styles.strike : ''}`}>{employee?.designation || '—'}</td>
+      <td className={`${styles.td} ${styles.tdSecondary} ${curIsVoided ? styles.strike : ''}`}>{employee?.hq || '—'}</td>
+      <td className={`${styles.td} ${styles.tdSecondary} ${curIsVoided ? styles.strike : ''}`}>{employee?.state || '—'}</td>
+
+
       <td className={`${styles.td} ${isAttEdited ? styles.editedCell : ''}`} title={isAttEdited ? `${STATUS_META[candidate.attendance].label} → ${STATUS_META[curAtt].label}` : undefined}>
         <AttToggle value={curAtt} readOnly={isUpload} onChange={v => onUpdate(candidate.empId, { attendance: v })} />
       </td>
@@ -197,6 +212,12 @@ const CandidateRow = React.memo<CandidateRowProps>(({
         <span className={`${styles.statusBadge} ${rs.className}`}>
           <rs.Icon size={10} />{rs.label}
         </span>
+        {curIsVoided && (
+          <span className={styles.voidBadge} title="This record is excluded from analysis and KPIs">Voided</span>
+        )}
+
+
+
         {curAtt === 'absent' && (
           <div className={styles.reNominate}>
             <RotateCcw size={9} />Re-nominate
@@ -238,8 +259,9 @@ const BatchCard: React.FC<{
       {/* ── LEVEL 1: Header ── */}
       <div
         onClick={() => setOpen(o => !o)}
-        className={`${styles.batchHeader} ${open ? styles.batchHeaderOpen : ''} ${isEditMode ? styles.editMode : styles.viewMode}`}
+        className={`${styles.batchHeader} ${open ? styles.batchHeaderOpen : ''} ${isEditMode ? styles.editMode : styles.viewMode} ${batch.isVoided ? styles.batchVoided : ''}`}
       >
+
 
         <div className={styles.batchPrimary}>
           <input
@@ -260,6 +282,11 @@ const BatchCard: React.FC<{
         <span className={`${styles.sourceBadge} ${sm.className}`}>
           <sm.Icon size={10} />{sm.label}
         </span>
+
+        {batch.isVoided && (
+          <span className={styles.voidBadge}>Voided</span>
+        )}
+
 
         {/* Training type */}
         <span className={styles.typeBadge}>
@@ -354,10 +381,14 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
   const isSuperAdmin = user.role === 'super_admin' || (user.role as string) === 'SUPERADMIN';
 
   // ── Derive UPLOAD batches from attendance prop ─────────────────────────────
+  const [showVoided, setShowVoided] = useState(false);
   const uploadBatches = useMemo(() => deriveUploadBatches(attendance), [attendance]);
 
+
+
   // --- Merge: NOTIFICATION (context) + UPLOAD (derived) -----------------------
-  const notificationBatches = useMemo(() => getBatches(), [getBatches]);
+  const notificationBatches = useMemo(() => getBatches({ includeVoided: true }), [getBatches]);
+
 
   const allBatches: TrainingBatch[] = useMemo(() => {
     const seen = new Set<string>();
@@ -384,12 +415,20 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
 
   const filtered = useMemo(() =>
     allBatches.filter(b => {
+      if (!showVoided && b.isVoided) return false;
       if (filterTeam && b.teamId !== filterTeam) return false;
       if (filterType && b.trainingType !== filterType) return false;
       if (filterMonth && b.startDate?.substring(0, 7) !== filterMonth) return false;
       if (filterSource && b.source !== filterSource) return false;
       return true;
-    }),
+    }).map(b => {
+      if (showVoided) return b;
+      return {
+        ...b,
+        candidates: b.candidates.filter(c => !c.isVoided)
+      };
+    }).filter(b => b.candidates.length > 0 || (showVoided && b.isVoided)),
+
     [allBatches, filterTeam, filterType, filterMonth, filterSource]
   );
 
@@ -426,21 +465,26 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
     
     let attChanges = 0;
     let scoreChanges = 0;
-    (Object.values(cs) as Partial<CandidateRecord>[]).forEach(c => {
+    let voidChanges = 0;
+    (Object.values(cs) as any[]).forEach(c => {
       if (c.attendance !== undefined) attChanges++;
       if (c.score !== undefined) scoreChanges++;
+      if (c.isVoided !== undefined) voidChanges++;
     });
+
 
     return {
       changeSet: cs,
       summary: {
         rows: keys.length,
         trainings: tImpacted,
-        fields: attChanges + scoreChanges,
+        fields: attChanges + scoreChanges + voidChanges,
         attendance: attChanges,
-        score: scoreChanges
+        score: scoreChanges,
+        voided: voidChanges
       }
     };
+
   }, [editBuffer, allBatches]);
 
   const handleSave = async () => {
@@ -491,8 +535,9 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
   const resolveTeam = (id?: string, fb?: string) =>
     masterTeams.find(t => t.id === id)?.teamName || (fb || id || '—');
 
-  // ── Global metrics (across filtered) ─────────────────────────────────────
-  const allC = filtered.flatMap(b => b.candidates);
+  // ── Global metrics (across filtered, excluding voided) ───────────────────
+  const allC = filtered.flatMap(b => b.candidates).filter(c => !c.isVoided);
+
   const gTotal = allC.length;
   const gPresent = allC.filter((c: CandidateRecord) => c.attendance === 'present').length;
   const gAbsent = allC.filter((c: CandidateRecord) => c.attendance === 'absent').length;
@@ -568,7 +613,8 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
             <div className={`${styles.summaryIcon} ${styles.iconBlue}`}><ClipboardCheck size={18} /></div>
             <div>
               <div className={styles.summaryValue}>{summary.fields}</div>
-              <div className={styles.summaryLabel}>Fields Changed ({summary.attendance} att, {summary.score} score)</div>
+              <div className={styles.summaryLabel}>Fields Changed ({summary.attendance} att, {summary.score} score, {summary.voided} void)</div>
+
             </div>
           </div>
           <div className={styles.summaryItem}>
@@ -680,6 +726,16 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
             Clear
           </button>
         )}
+
+        <label className={styles.voidToggle}>
+          <input
+            type="checkbox"
+            checked={showVoided}
+            onChange={e => setShowVoided(e.target.checked)}
+          />
+          <span>Include Voided</span>
+        </label>
+
       </div>
 
       {/* Selection Toolbar */}
@@ -718,7 +774,66 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
             }}>
               <TrendingUp size={14} /> Update Score
             </button>
+            <button className={`${styles.bulkBtn} ${styles.btnVoid}`} onClick={() => {
+              // 1. Filter selection to only non-voided rows
+              const toVoid = Array.from(selectedIds).filter(key => {
+                const [bid, eid] = key.split('::');
+                const batch = allBatches.find(b => b.id === bid);
+                const candidate = batch?.candidates.find((c: any) => c.empId === eid);
+                const buffered = editBuffer[key];
+                const curIsVoided = buffered?.isVoided !== undefined ? buffered.isVoided : candidate?.isVoided;
+                return !curIsVoided;
+              });
+
+              if (toVoid.length === 0) {
+                alert('No active rows selected to void.');
+                return;
+              }
+
+              // 2. Large selection warning
+              if (toVoid.length > 100) {
+                if (!window.confirm(`⚠️ LARGE VOID WARNING: You are about to void ${toVoid.length} records. Continue?`)) return;
+              } else if (!window.confirm(`Are you sure you want to void ${toVoid.length} selected records?`)) {
+                return;
+              }
+
+              // Apply only to the filtered set (need to update applyBulkEdit or just use it)
+              // Since applyBulkEdit uses selectedIds, I'll temporarily set selectedIds or just call a new function
+              // For simplicity, I'll update applyBulkEdit to accept an optional specific set
+              applyBulkEdit('isVoided', true, toVoid);
+              applyBulkEdit('voidedAt', new Date().toISOString(), toVoid);
+            }}>
+              <Trash2 size={14} /> Mark as Void
+            </button>
+
+            <button className={`${styles.bulkBtn} ${styles.btnRestore}`} onClick={() => {
+              // 1. Filter selection to only voided rows
+              const toRestore = Array.from(selectedIds).filter(key => {
+                const [bid, eid] = key.split('::');
+                const batch = allBatches.find(b => b.id === bid);
+                const candidate = batch?.candidates.find((c: any) => c.empId === eid);
+                const buffered = editBuffer[key];
+                const curIsVoided = buffered?.isVoided !== undefined ? buffered.isVoided : candidate?.isVoided;
+                return curIsVoided;
+              });
+
+              if (toRestore.length === 0) {
+                alert('No voided rows selected to restore.');
+                return;
+              }
+
+              if (toRestore.length > 100) {
+                if (!window.confirm(`⚠️ LARGE RESTORE WARNING: You are about to restore ${toRestore.length} records. Continue?`)) return;
+              }
+
+              applyBulkEdit('isVoided', false, toRestore);
+            }}>
+              <RotateCcw size={14} /> Restore
+            </button>
           </div>
+
+
+
         )}
 
         {selectedIds.size > 0 && (

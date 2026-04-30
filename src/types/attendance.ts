@@ -21,7 +21,12 @@ export interface Attendance {
   cluster?: string;
   hq?: string;
   state?: string;
+  isVoided: boolean;
+  voidReason?: string;
+  voidedAt?: string;
+  voidedBy?: string;
 }
+
 
 export interface TrainingScore {
   id: string;
@@ -68,7 +73,12 @@ export interface NotificationRecord {
   finalStatus?: NotificationFinalStatus;
   trainingId?: string; // Links to the TrainingBatch/NominationDraft if available
   teamId?: string;
+  isVoided: boolean;
+  voidReason?: string;
+  voidedAt?: string;
+  voidedBy?: string;
 }
+
 
 export type BatchAttStatus = 'pending' | 'present' | 'absent';
 
@@ -76,7 +86,12 @@ export interface CandidateRecord {
   empId: string;
   attendance: BatchAttStatus;
   score: string; // '' until entered
+  isVoided: boolean;
+  voidReason?: string;
+  voidedAt?: string;
+  voidedBy?: string;
 }
+
 
 export interface TrainingBatch {
   id: string;           // batchId = draftId at commit time
@@ -92,7 +107,12 @@ export interface TrainingBatch {
   endDate: string;
   committedAt: string;  // ISO timestamp when SENT
   candidates: CandidateRecord[];
+  isVoided: boolean;
+  voidReason?: string;
+  voidedAt?: string;
+  voidedBy?: string;
 }
+
 
 export interface NominationDraft {
   id: string; // matches trainingId
@@ -105,7 +125,11 @@ export interface NominationDraft {
   endDate?: string;
   status: 'DRAFT' | 'APPROVED' | 'NOTIFIED' | 'SENT' | 'COMPLETED';
   candidates: string[]; // employeeIds
-  isVoided?: boolean;
+  isCancelled: boolean;
+  isVoided: boolean;
+  voidReason?: string;
+  voidedAt?: string;
+  voidedBy?: string;
   // Audit trail
   approvedBy?: string;
   approvedAt?: string;
@@ -114,6 +138,7 @@ export interface NominationDraft {
   completedAt?: string;
   cancelledAt?: string;
 }
+
 
 export interface Demographics {
   id: string;

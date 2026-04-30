@@ -303,10 +303,12 @@ export const uploadTrainingDataStrict = traceEngine("uploadTrainingDataStrict", 
               ...row,
               // Notification records don't have attendance status during upload
               attended: isNotificationHistory ? false : (row.attended || false), 
+              isVoided: false,
               uploadBatchId,
               uploadedAt: new Date().toISOString(),
               uploadedBy: 'system'
             };
+
           });
 
           // Upload batch via API (backend handles upsert)

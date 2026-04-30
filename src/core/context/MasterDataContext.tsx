@@ -144,7 +144,10 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
     trainingData: any[];
     nominationData: any[];
     employeeData: Employee[];
+    notificationHistory: NotificationRecord[];
+    trainingBatches: TrainingBatch[];
   }>({
+
     trainingData: [],
     nominationData: [],
     employeeData: [],
@@ -200,11 +203,13 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
 
       setBaseData({
         trainingData: td as any[],
-        nominationData: nominations,
+        nominationData: (td as any[]).filter(x => x.notified || x.data?.notified),
         employeeData: emps as Employee[],
         notificationHistory: nh as NotificationRecord[],
         trainingBatches: tb as TrainingBatch[]
       });
+
+
     } catch (e) {
       console.error("Failed to load transactional data:", e);
     }

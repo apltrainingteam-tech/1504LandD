@@ -83,9 +83,10 @@ export const getEligibleEmployees = traceEngine("getEligibleEmployees", (
     if (isEligible && rule.previousTraining?.mode === 'INCLUDE') {
       const completedTrainings = new Set(
         attendance
-          .filter(a => normalizeId(a.employeeId) === normalizeId(emp.employeeId) && normalize(a.attendanceStatus) === 'present')
+          .filter(a => !a.isVoided && normalizeId(a.employeeId) === normalizeId(emp.employeeId) && normalize(a.attendanceStatus) === 'present')
           .map(a => normalize(a.trainingType))
       );
+
       
       const missing = (rule.previousTraining.values || []).filter((req: any) => {
         // If specific designations are configured for this prerequisite
@@ -120,10 +121,13 @@ export const getEligibleEmployees = traceEngine("getEligibleEmployees", (
       // Capsule Logic
       if (rule.specialConditions.noAPInNext90Days) {
         const hasFutureAP = attendance.some(a => {
-          if (normalizeId(a.employeeId) !== normalizeId(emp.employeeId) || a.trainingType !== 'AP') return false;
-          const aDate = new Date(a.attendanceDate);
-          return aDate >= now && aDate <= ninetyDaysFromNow;
+          if (!a.isVoided && normalizeId(a.employeeId) === normalizeId(emp.employeeId) && a.trainingType === 'AP') {
+            const aDate = new Date(a.attendanceDate);
+            return aDate >= now && aDate <= ninetyDaysFromNow;
+          }
+          return false;
         });
+
         if (hasFutureAP) {
           isEligible = false;
           reason = 'AP training planned within next 90 days';
@@ -203,9 +207,10 @@ export const isEligibleHardcoded = (
   if (!ignoreTrainingStatus && rule.preTraining.length > 0) {
     const completedTrainings = new Set(
       attendance
-        .filter(a => normalizeId(a.employeeId) === normalizeId(employee.employeeId) && normalize(a.attendanceStatus) === 'present')
+        .filter(a => !a.isVoided && normalizeId(a.employeeId) === normalizeId(employee.employeeId) && normalize(a.attendanceStatus) === 'present')
         .map(a => normalize(a.trainingType))
     );
+
 
     // Check if pre-training applies to this employee's designation
     let appliesToEmployee = false;
@@ -228,10 +233,12 @@ export const isEligibleHardcoded = (
   // 4. Exclude if already trained (skip for gap analysis)
   if (!ignoreTrainingStatus && rule.excludeIfAlreadyTrained) {
     const hasAttended = attendance.some(a => 
+      !a.isVoided &&
       normalizeId(a.employeeId) === normalizeId(employee.employeeId) && 
       normalize(a.trainingType) === normalize(trainingType) && 
       normalize(a.attendanceStatus) === 'present'
     );
+
     if (hasAttended) return false;
   }
 
