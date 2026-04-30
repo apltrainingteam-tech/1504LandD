@@ -13,7 +13,7 @@ export const useUploadAction = (onUploadComplete?: () => void) => {
   });
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const [previewResult, setPreviewResult] = useState<ParseResult | null>(null);
-  const [uploadMode, setUploadMode] = useState<'append' | 'replace'>('append');
+  const uploadMode: 'append' = 'append';
   
   const isMountedRef = useRef(true);
 
@@ -52,7 +52,7 @@ export const useUploadAction = (onUploadComplete?: () => void) => {
 
     try {
       const result = await uploadTrainingDataStrict(file, {
-        mode: uploadMode,
+        mode: 'append',
         onProgress: (progress) => {
           if (isMountedRef.current) {
             setUploadProgress(progress);
@@ -110,7 +110,6 @@ export const useUploadAction = (onUploadComplete?: () => void) => {
     uploadProgress,
     uploadResult,
     uploadMode,
-    setUploadMode,
     previewResult,
     startValidation,
     confirmUpload,

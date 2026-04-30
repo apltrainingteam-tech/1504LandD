@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { parseEmployeeMasterExcel, ParsedRow } from '../../../core/engines/parsingEngine';
-import { clearCollection, addBatch } from '../../../core/engines/apiClient';
+import { addBatch } from '../../../core/engines/apiClient';
 
 export const useEmployeeUpload = (onUploadComplete?: () => void) => {
   const [uploading, setUploading] = useState(false);
@@ -12,9 +12,6 @@ export const useEmployeeUpload = (onUploadComplete?: () => void) => {
     try {
       const uploadable = rows.filter(r => r.status !== 'error').map(r => r.data);
       const total = uploadable.length;
-      
-      // Full replace
-      await clearCollection('employees');
       
       // Batch upload progressively
       const chunkSize = 50; 

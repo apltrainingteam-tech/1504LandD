@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from 'react';
-import { getCollection, deleteRecordsByQuery } from '../../core/engines/apiClient';
 import { seedMasterData } from '../../seed';
 import { parseAnyDate } from '../../core/utils/dateParser';
 import { normalizeScore } from '../../core/utils/scoreNormalizer';
@@ -14,7 +13,6 @@ export const useAppData = () => {
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isSeeding, setIsSeeding] = useState(false);
-  const [isCleaning, setIsCleaning] = useState(false);
   const {
     teams: masterTeams,
     loading: masterLoading,
@@ -169,32 +167,11 @@ export const useAppData = () => {
     }
   }, [masterLoading]);
 
-  const handlePurge = async () => {
-    if (!window.confirm("This will PERMANENTLY delete all records for 'Team A' and 'Unknown' categories. Proceed?")) return;
-    setIsCleaning(true);
-    try {
-      const dummyValues = ['Team A', 'Unknown', '—', 'Unknown Team', 'Unmapped'];
-      const counts = await Promise.all([
-        deleteRecordsByQuery('attendance', 'team', dummyValues),
-        deleteRecordsByQuery('training_scores', 'team', dummyValues),
-        deleteRecordsByQuery('employees', 'team', dummyValues)
-      ]);
-      const totalDeleted = counts.reduce((a, b) => a + b, 0);
-      alert(`Cleanup Complete! ${totalDeleted} dummy records purged from live database.`);
-      setRefreshKey(k => k + 1);
-    } catch (e) {
-      alert('Cleanup failed: ' + (e as any).message);
-    } finally {
-      setIsCleaning(false);
-    }
-  };
-
   return {
     loading,
     refreshKey,
     setRefreshKey,
     isSeeding,
-    isCleaning,
     emps,
     att,
     scs,
@@ -210,7 +187,6 @@ export const useAppData = () => {
     setEmpFilterTeam,
     empFilterZone,
     setEmpFilterZone,
-    handleSeed,
-    handlePurge
+    handleSeed
   };
 };

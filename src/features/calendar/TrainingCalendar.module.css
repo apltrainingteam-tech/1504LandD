@@ -65,13 +65,6 @@
   transition: all 0.1s;
 }
 
-.resetBtn {
-  font-size: 12px;
-  padding: 6px 12px;
-  background: white;
-  color: var(--success);
-}
-
 .filterBar {
   display: flex;
   gap: 16px;
@@ -619,22 +612,6 @@
 .chipActionBtn:disabled {
   cursor: not-allowed;
   opacity: 0.3;
-}
-
-.lockBtnInner {
-  color: var(--success);
-  gap: 4px;
-  padding: 4px 8px !important;
-  font-weight: 600;
-  font-size: 11px;
-}
-
-.resetBtnInner {
-  color: var(--danger);
-  gap: 4px;
-  padding: 4px 8px !important;
-  font-weight: 600;
-  font-size: 11px;
 }
 
 .teamChipInline {

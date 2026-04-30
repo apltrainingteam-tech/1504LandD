@@ -17,12 +17,12 @@
  */
 
 import { parseExcelFileStrict, getValidRows, getErrorRows, getSummary, ParseResult } from './parsingEngine';
-import { addBatch, clearCollection, getCollection } from './apiClient';
+import { addBatch, getCollection } from './apiClient';
 import { traceEngine } from '../debug/traceEngine';
 import { NotificationRecord } from '../../types/attendance';
 
 export interface UploadOptions {
-  mode: 'append' | 'replace';  // append: add to existing; replace: clear collection first
+  mode: 'append';
   chunkSize?: number;           // batch size for MongoDB operations
   onProgress?: (progress: UploadProgress) => void;
 }
@@ -279,13 +279,6 @@ export const uploadTrainingDataStrict = traceEngine("uploadTrainingDataStrict", 
     // activeEmployees and inactiveEmployees are already calculated above
 
     try {
-      // IMPORTANT: Clear collection if replace mode
-      if (options.mode === 'replace') {
-        console.log(`[UPLOAD] Clearing collection "${collectionName}" (replace mode)`);
-        debugLog.push(`[UPLOAD] Clearing collection "${collectionName}" (replace mode)`);
-        await clearCollection(collectionName);
-      }
-
       const uploadBatchId = `batch-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
       
       // Upload in chunks

@@ -57,15 +57,8 @@ import { AgentDebugPanel } from './features/debug/AgentDebugPanel';
 import { ErrorBoundary } from './core/debug/ErrorBoundary';
 
 // Services & Types
-import { getCollection, deleteRecordsByQuery } from './core/engines/apiClient';
-import { seedMasterData } from './seed';
 import { Employee } from './types/employee';
 import { Attendance, TrainingScore, TrainingNomination, Demographics as DemoType } from './types/attendance';
-import { parseAnyDate } from './core/utils/dateParser';
-import { normalizeScore } from './core/utils/scoreNormalizer';
-import { getSchema, mapHeader } from './core/constants/trainingSchemas';
-import { normalizeText } from './core/utils/textNormalizer';
-import { getTeamId, mapTeamCodeToId } from './core/utils/teamIdMapper';
 
 import { useAppData } from './shared/hooks/useAppData';
 import { getCurrentUser } from './core/context/userContext';
