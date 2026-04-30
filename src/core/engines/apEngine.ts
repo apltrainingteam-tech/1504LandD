@@ -6,7 +6,7 @@ import { Attendance, TrainingNomination, TrainingScore } from '../../types/atten
 import { normalizeText } from '../utils/textNormalizer';
 import { Team } from '../context/MasterDataContext';
 import { getTeamId } from '../utils/teamIdMapper';
-import { normalizeTrainingType } from './reportEngine';
+import { normalizeTrainingType } from './normalizationEngine';
 import { traceEngine } from '../debug/traceEngine';
 
 // ─── TYPES & INTERFACES ──────────────────────────────────────────────────────
