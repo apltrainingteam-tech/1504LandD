@@ -44,8 +44,8 @@ export function useRankedGroups(groups: GroupedData[], tab: string) {
  * Hook: Compute trainer statistics
  * Heavy operation - memoize separately
  */
-export function useTrainerStats(unified: UnifiedRecord[]) {
-  return useMemo(() => calcTrainerStats(unified), [unified]);
+export function useTrainerStats(unified: UnifiedRecord[], masterTrainers: Trainer[]) {
+  return useMemo(() => calcTrainerStats(unified, masterTrainers), [unified, masterTrainers]);
 }
 
 /**
@@ -109,7 +109,7 @@ export function useFilterOptions(
   selectedClusters: string[] = []
 ) {
   const allClusters = useMemo(() => {
-    const clusters = [...new Set(unified.map(r => r?.employee?.cluster).filter(Boolean))].sort();
+    const clusters = [...new Set(unified.map(r => r?.employee?.cluster).filter((c): c is string => Boolean(c)))].sort();
     console.log("[FilterHook] Derived Clusters:", clusters);
     return clusters;
   }, [unified]);

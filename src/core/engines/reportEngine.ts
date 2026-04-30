@@ -503,8 +503,9 @@ export function buildTimeSeries(
  * Optimized trainer stats: Single pass with Set-based tracking.
  * Avoids repeated filtering and lookups.
  */
-export function calcTrainerStats(ds: UnifiedRecord[]): TrainerStat[] {
+export function calcTrainerStats(ds: UnifiedRecord[], masterTrainers: any[] = []): TrainerStat[] {
   const m = new Map<string, { sessions: Set<string>; trainees: Set<string>; total: number; totalAtt: number; scoreSum: number; scoreCount: number }>();
+  const trainerMap = Object.fromEntries(masterTrainers.map(t => [t.id, t]));
   
   // Single pass through all records
   for (const r of ds) {
@@ -538,7 +539,8 @@ export function calcTrainerStats(ds: UnifiedRecord[]): TrainerStat[] {
       trainingsConducted: e.sessions.size,
       totalTrainees: e.trainees.size,
       avgScore: e.scoreCount > 0 ? e.scoreSum / e.scoreCount : 0,
-      attendancePct: e.total > 0 ? (e.totalAtt / e.total) * 100 : 0
+      attendancePct: e.total > 0 ? (e.totalAtt / e.total) * 100 : 0,
+      avatarUrl: trainerMap[tid]?.avatarUrl || null
     }))
     .sort((a, b) => b.avgScore - a.avgScore);
 }

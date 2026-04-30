@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, X, AlertTriangle, Trash2, Calendar as CalIcon, Save, CheckCircle } from 'lucide-react';
+import TrainerAvatar from '../../shared/components/ui/TrainerAvatar';
 import TopRightControls from '../../shared/components/ui/TopRightControls';
 import { getFiscalYears, getFiscalYearFromDate, parseFiscalYear, getCurrentFiscalYear } from '../../core/utils/fiscalYear';
 import { usePlanningFlow } from '../../core/context/PlanningFlowContext';
@@ -708,20 +709,11 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
               <div className={styles.detailField}>
                 <div className={styles.detailFieldLabel}>Trainer</div>
                 <div className={styles.detailFieldValue}>
-                  <div className="flex-center gap-2">
-                    {resolveTrainerAvatar(selectedPlan.trainer) ? (
-                      <img 
-                        src={resolveTrainerAvatar(selectedPlan.trainer)!} 
-                        alt="Trainer" 
-                        className={styles.detailAvatar} 
-                      />
-                    ) : (
-                      <div className={styles.detailAvatarPlaceholder}>
-                        <Users size={14} />
-                      </div>
-                    )}
-                    {masterTrainers.find(mt => mt.id === selectedPlan.trainer)?.name || selectedPlan.trainer}
-                  </div>
+                  <TrainerAvatar 
+                    trainer={masterTrainers.find(mt => mt.id === selectedPlan.trainer) || { id: selectedPlan.trainer, name: selectedPlan.trainer }} 
+                    size={32} 
+                    showName={true} 
+                  />
                 </div>
               </div>
               <div className={styles.detailField}>

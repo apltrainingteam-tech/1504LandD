@@ -172,7 +172,14 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
         getCollection('eligibility_rules')
       ]);
 
-      setTrainers(tBD.length > 0 ? tBD as Trainer[] : INITIAL_TRAINERS);
+      const sanitizedTrainers = (tBD as Trainer[]).map(t => {
+        if (t.avatarUrl && (t.avatarUrl.includes(':\\') || t.avatarUrl.includes(':/') || t.avatarUrl.includes('Users/'))) {
+          return { ...t, avatarUrl: null };
+        }
+        return t;
+      });
+
+      setTrainers(sanitizedTrainers.length > 0 ? sanitizedTrainers : INITIAL_TRAINERS);
       setTeams(tmBD.length > 0 ? tmBD as Team[] : INITIAL_TEAMS);
       setClusters(cBD.length > 0 ? cBD as Cluster[] : INITIAL_CLUSTERS);
       setEligibilityRules(rulesBD as EligibilityRule[]);

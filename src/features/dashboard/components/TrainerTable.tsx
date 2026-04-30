@@ -1,7 +1,9 @@
 import React, { useState, memo, useCallback } from 'react';
 import { TrainerStat } from '../../../types/reports';
 import { flagScore, flagClass, flagLabel } from '../../../core/utils/scoreNormalizer';
-import { ChevronUp, ChevronDown } from 'lucide-react';
+import { ChevronUp, ChevronDown, User } from 'lucide-react';
+import TrainerAvatar from '../../../shared/components/ui/TrainerAvatar';
+import API_BASE from '../../../config/api';
 import styles from './TrainerTable.module.css';
 
 interface TrainerTableProps {
@@ -67,7 +69,17 @@ export const TrainerTable: React.FC<TrainerTableProps> = memo(({ stats, tab }) =
             const flag = flagScore(s.avgScore);
             return (
               <tr key={i} className={styles.tbodyTr}>
-                <td className={styles.tdBold}>{s.trainerId || '—'}</td>
+                <td className={styles.tdBold}>
+                  <TrainerAvatar 
+                    trainer={{
+                      id: s.trainerId,
+                      name: s.trainerId,
+                      avatarUrl: s.avatarUrl
+                    }}
+                    size={28}
+                    showName={true}
+                  />
+                </td>
                 <td className={styles.td}>{s.trainingsConducted}</td>
                 <td className={styles.td}>{s.totalTrainees}</td>
                 <td className={`${styles.tdScore} ${flag === 'green' ? styles.success : flag === 'amber' ? styles.warning : styles.danger}`}>

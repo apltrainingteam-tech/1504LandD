@@ -34,6 +34,7 @@ export interface TrainerStat {
   totalTrainees: number;
   avgScore: number;
   attendancePct: number;
+  avatarUrl?: string | null;
 }
 
 // Drill-down node (Cluster -> Team -> Employee)

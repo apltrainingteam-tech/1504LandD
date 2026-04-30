@@ -64,7 +64,7 @@ export interface UsePerformanceDataProps {
  * - USE useMemo for all heavy derived state.
  */
 export const usePerformanceData = ({
-  employees, attendance, scores, nominations, rules, masterTeams,
+  employees, attendance, scores, nominations, rules, masterTeams, masterTrainers,
   tab, selectedFY, filter, viewBy = 'Team', tsMode = 'score', pageMode
 }: UsePerformanceDataProps): PerformanceDataset & { resolutionLevel: 'Global' | 'Cluster' | 'Team' } => {
   const isEngineDebugActive = useDebugStore(state => state.enabled);
@@ -74,13 +74,13 @@ export const usePerformanceData = ({
     (n as any).finalStatus !== 'VOID';
 
   const resolutionLevel = useMemo(() => {
-    const hasTeam = filter.teams.length > 0 || filter.team;
-    const hasCluster = filter.clusters.length > 0 || (filter.cluster && filter.cluster !== 'All');
+    const hasTeam = filter.teams.length > 0;
+    const hasCluster = filter.clusters.length > 0;
     
     if (hasTeam) return 'Team';
     if (hasCluster) return 'Cluster'; // Viewing teams within a cluster
     return 'Global'; // Viewing clusters
-  }, [filter.teams, filter.team, filter.clusters, filter.cluster]);
+  }, [filter.teams, filter.clusters]);
 
   const effectiveViewBy = useMemo(() => {
     if (resolutionLevel === 'Global') return 'Cluster' as ViewByOption;
@@ -120,7 +120,8 @@ export const usePerformanceData = ({
       refresherKPI: null,
       capsuleKPI: null,
       preApKPI: null,
-      isDebugMode: true
+      isDebugMode: true,
+      resolutionLevel: 'Global'
     };
   }
 
@@ -240,7 +241,7 @@ export const usePerformanceData = ({
   // Analytics Computation
   const groups = useGroupedData(unified, effectiveViewBy, tabNoms, employees, masterTeams);
   const ranked = useRankedGroups(groups, tab);
-  const trainerStats = useTrainerStats(unified);
+  const trainerStats = useTrainerStats(unified, masterTrainers || []);
   const drilldownNodes = useDrilldownNodes(unified, tab);
   
   const months = useMonthsFromData(unified);

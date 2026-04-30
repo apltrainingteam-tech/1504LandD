@@ -124,3 +124,15 @@
   from { transform: translateX(100%); }
   to { transform: translateX(0); }
 }
+
+.customSelect {
+  position: relative;
+}
+
+.selectedTrainerPreview {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}

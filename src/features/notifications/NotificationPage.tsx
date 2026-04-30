@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Mail, Users, Lock, Check, Copy, ExternalLink, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { usePlanningFlow } from '../../core/context/PlanningFlowContext';
 import { useMasterData } from '../../core/context/MasterDataContext';
+import TrainerAvatar from '../../shared/components/ui/TrainerAvatar';
 import { Employee } from '../../types/employee';
 import { NominationDraft } from '../../types/attendance';
 import { updateByQuery } from '../../core/engines/apiClient';
@@ -408,39 +409,46 @@ export const NotificationPage: React.FC<Props> = ({ allEmployees }) => {
                   {/* Send per team = send for all plans in this team */}
                   {drafts.map(draft=>(
                     <React.Fragment key={draft.id}>
-                      {draft.isCancelled ? (
-                        <span className={styles.cancelledLabel}>Cancelled</span>
-                      ) : (
-                        <button
-                          onClick={()=>handleEmail(draft)}
-                          className={styles.sendBtn}
-                          disabled={draft.status === 'COMPLETED' || actionInFlight.has(`send:${draft.id}`)}
-                        >
-                          <Mail size={12}/>{draft.trainingType} — {draft.status === 'NOTIFIED' ? 'Resend Email' : 'Send Email'}
-                        </button>
-                      )}
-                      {draft.status !== 'COMPLETED' && (
-                        <>
-                          {!draft.isCancelled && (
-                            <button
-                              onClick={() => handleComplete(draft)}
-                              className={styles.sendBtn}
-                              disabled={actionInFlight.has(`complete:${draft.id}`) || draft.status !== 'NOTIFIED'}
-                            >
-                              Complete
-                            </button>
-                          )}
-                          {!draft.isCancelled && (
-                            <button
-                              onClick={() => handleCancel(draft)}
-                              className={styles.sendBtn}
-                              disabled={actionInFlight.has(`cancel:${draft.id}`)}
-                            >
-                              Cancel
-                            </button>
-                          )}
-                        </>
-                      )}
+                      <div className="flex items-center gap-12 mr-12">
+                        <TrainerAvatar 
+                          trainer={masterTrainers.find(t => t.id === draft.trainer) || { id: draft.trainer, name: draft.trainer }} 
+                          size={24} 
+                          showName={false} 
+                        />
+                        {draft.isCancelled ? (
+                          <span className={styles.cancelledLabel}>Cancelled</span>
+                        ) : (
+                          <button
+                            onClick={()=>handleEmail(draft)}
+                            className={styles.sendBtn}
+                            disabled={draft.status === 'COMPLETED' || actionInFlight.has(`send:${draft.id}`)}
+                          >
+                            <Mail size={12}/>{draft.trainingType} — {draft.status === 'NOTIFIED' ? 'Resend Email' : 'Send Email'}
+                          </button>
+                        )}
+                        {draft.status !== 'COMPLETED' && (
+                          <div className="flex items-center gap-4">
+                            {!draft.isCancelled && (
+                              <button
+                                onClick={() => handleComplete(draft)}
+                                className={styles.sendBtn}
+                                disabled={actionInFlight.has(`complete:${draft.id}`) || draft.status !== 'NOTIFIED'}
+                              >
+                                Complete
+                              </button>
+                            )}
+                            {!draft.isCancelled && (
+                              <button
+                                onClick={() => handleCancel(draft)}
+                                className={styles.sendBtn}
+                                disabled={actionInFlight.has(`cancel:${draft.id}`)}
+                              >
+                                Cancel
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </React.Fragment>
                   ))}
                 </div>

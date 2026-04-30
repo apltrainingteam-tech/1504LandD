@@ -4,6 +4,7 @@ import {
   RotateCcw, TrendingUp, Users, AlertCircle, Filter,
   Upload, BellRing, Eye, Edit2, Save, Trash2, ClipboardCheck, Database, Calendar
 } from 'lucide-react';
+import TrainerAvatar from '../../shared/components/ui/TrainerAvatar';
 import { usePlanningFlow } from '../../core/context/PlanningFlowContext';
 import { TrainingBatch, CandidateRecord, BatchAttStatus, Attendance } from '../../types/attendance';
 import { useMasterData } from '../../core/context/MasterDataContext';
@@ -243,7 +244,7 @@ const BatchCard: React.FC<{
   onToggleBatch: (batchId: string, empIds: string[]) => void;
   isEditMode: boolean;
 }> = React.memo(({ batch, employees, resolveTrainer, resolveTrainerAvatar, resolveTeam, onUpdate, selectedIds, editBuffer, onToggleRow, onToggleBatch, isEditMode }) => {
-
+  const { trainers: masterTrainers } = useMasterData();
   const [open, setOpen] = useState(false);
   const m = useMemo(() => batchMetrics(batch.candidates), [batch.candidates]);
   const sm = SOURCE_META[batch.source as keyof typeof SOURCE_META];
@@ -307,14 +308,12 @@ const BatchCard: React.FC<{
 
         {/* Trainer */}
         {batch.trainer && (
-          <span className={styles.trainerName}>
-            {resolveTrainerAvatar(batch.trainer) ? (
-              <img src={resolveTrainerAvatar(batch.trainer)!} alt="" className={styles.trainerAvatar} />
-            ) : (
-              <span className={styles.trainerIcon}>👤</span>
-            )}
-            {resolveTrainer(batch.trainer)}
-          </span>
+          <TrainerAvatar 
+            trainer={masterTrainers.find((t: any) => t.id === batch.trainer) || { id: batch.trainer, name: batch.trainer }} 
+            size={24} 
+            showName={true} 
+            className="ml-12"
+          />
         )}
 
         <div className={styles.spacer} />

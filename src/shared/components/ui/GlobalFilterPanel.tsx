@@ -1,6 +1,7 @@
 import React, { useState, useCallback, memo } from 'react';
 import { X } from 'lucide-react';
 import { GlobalFilters } from '../../../core/context/filterContext';
+import TrainerAvatar from './TrainerAvatar';
 import styles from './GlobalFilterPanel.module.css';
 
 interface GlobalFilterPanelProps {
@@ -10,7 +11,7 @@ interface GlobalFilterPanelProps {
   initialFilters: GlobalFilters;
   clusterOptions: string[];
   teamOptions: { id: string, label: string }[];
-  trainerOptions: { id: string, label: string }[];
+  trainerOptions: { id: string, label: string, avatarUrl?: string | null }[];
   monthOptions: string[];
   onClearAll: () => void;
 }
@@ -38,7 +39,10 @@ export const GlobalFilterPanel: React.FC<GlobalFilterPanelProps> = memo(({
   }, [tempFilters, onApply, onClose]);
 
   const handleClearAll = useCallback(() => {
-    const cleared = { cluster: '', team: '', trainer: '', month: '' };
+    const cleared: GlobalFilters = { 
+      cluster: '', team: '', trainer: '', month: '',
+      clusters: [], teams: [], trainers: [], trainerTypes: []
+    };
     setTempFilters(cleared);
     onClearAll();
     onClose();
@@ -122,25 +126,42 @@ export const GlobalFilterPanel: React.FC<GlobalFilterPanelProps> = memo(({
 
           {/* Trainer Filter */}
           <div>
-            <label htmlFor="global-filter-trainer" className={styles.label}>
+            <label className={styles.label}>
               Trainer
             </label>
-            <select
-              id="global-filter-trainer"
-              name="trainer"
-              value={tempFilters.trainer}
-              onChange={(e) => handleInputChange('trainer', e.target.value)}
-              title="Select Trainer"
-              aria-label="Select Trainer"
-              className={`form-select ${styles.select}`}
-            >
-              <option value="" className={styles.option}>All Trainers</option>
-              {trainerOptions.map((trainer) => (
-                <option key={trainer.id} value={trainer.id} className={styles.option}>
-                  {trainer.label}
-                </option>
-              ))}
-            </select>
+            <div className={styles.customSelect}>
+              <select
+                id="global-filter-trainer"
+                name="trainer"
+                value={tempFilters.trainer}
+                onChange={(e) => handleInputChange('trainer', e.target.value)}
+                title="Select Trainer"
+                aria-label="Select Trainer"
+                className={`form-select ${styles.select}`}
+              >
+                <option value="" className={styles.option}>All Trainers</option>
+                {trainerOptions.map((trainer) => (
+                  <option key={trainer.id} value={trainer.id} className={styles.option}>
+                    {trainer.label}
+                  </option>
+                ))}
+              </select>
+              
+              {/* Selected Trainer Preview (Avatar + Name) */}
+              {tempFilters.trainer && (
+                <div className={styles.selectedTrainerPreview}>
+                  <TrainerAvatar 
+                    trainer={{
+                      id: tempFilters.trainer,
+                      name: trainerOptions.find(t => t.id === tempFilters.trainer)?.label.split(' (')[0] || tempFilters.trainer,
+                      avatarUrl: trainerOptions.find(t => t.id === tempFilters.trainer)?.avatarUrl
+                    }}
+                    size={24}
+                    showName={true}
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Month Filter */}

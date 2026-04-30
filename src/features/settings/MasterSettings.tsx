@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Save, X, Settings, Users, Layers, Upload, Loader2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Settings, Users, Layers, Upload, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useMasterData, Trainer, Team, Cluster } from '../../core/context/MasterDataContext';
 import { uploadAvatar } from '../../core/engines/apiClient';
+import API_BASE from '../../config/api';
 import styles from './MasterSettings.module.css';
 
 export const MasterSettings: React.FC = () => {
@@ -119,7 +120,7 @@ const TrainersList = ({ trainers, onAdd, onEdit, onDelete }: any) => (
                 <div className="flex items-center gap-12">
                   {t.avatarUrl ? (
                     <img 
-                      src={t.avatarUrl.startsWith('/') ? `http://localhost:5000${t.avatarUrl}` : t.avatarUrl} 
+                      src={t.avatarUrl.startsWith('/') ? `${API_BASE.replace('/api', '')}${t.avatarUrl}` : t.avatarUrl} 
                       alt={t.name} 
                       className={styles.avatar} 
                     />
@@ -229,10 +230,14 @@ const AvatarUpload = ({ value, onChange, trainerCode }: { value?: string, onChan
       <div className={styles.avatarControls}>
         <button 
           type="button" 
-          className="btn btn-secondary btn-sm" 
+          className={`btn ${preview !== value ? 'btn-success' : 'btn-secondary'} btn-sm`} 
           onClick={() => fileInputRef.current?.click()}
         >
-          <Upload size={14} className="mr-2" /> Upload Avatar
+          {preview !== value ? (
+            <><CheckCircle2 size={14} className="mr-2" /> Selected</>
+          ) : (
+            <><Upload size={14} className="mr-2" /> Upload Avatar</>
+          )}
         </button>
         <p className={styles.uploadHint}>Max 2MB. JPG/PNG.</p>
       </div>
@@ -255,7 +260,7 @@ const MasterModal = ({ config, onClose, onSubmit, clusters, existingTrainers, ex
   });
 
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<{ type: 'idle' | 'loading' | 'success' | 'error', message?: string }>({ type: 'idle' });
 
   const isTrainer = config.type === 'trainer';
   const originalCode = config.data?.code || '';
@@ -272,11 +277,12 @@ const MasterModal = ({ config, onClose, onSubmit, clusters, existingTrainers, ex
       if (!confirm(`Are you sure you want to change the code from "${originalCode}" to "${code}"?`)) return;
     }
     
-    setIsUploading(true);
+    setUploadStatus({ type: 'loading', message: avatarFile ? 'Uploading avatar...' : 'Saving trainer...' });
     try {
       await onSubmit(formData, avatarFile);
-    } finally {
-      setIsUploading(false);
+      setUploadStatus({ type: 'success', message: 'Saved successfully!' });
+    } catch (error: any) {
+      setUploadStatus({ type: 'error', message: error.message || 'Failed to save' });
     }
   };
 
@@ -306,14 +312,20 @@ const MasterModal = ({ config, onClose, onSubmit, clusters, existingTrainers, ex
                   <option value="RTM">RTM (Limited Access)</option>
                 </select>
               </div>
-              <div>
-                <label className={styles.fieldLabel}>Profile Avatar</label>
-                <AvatarUpload 
-                  value={formData.avatarUrl ? (formData.avatarUrl.startsWith('/') ? `http://localhost:5000${formData.avatarUrl}` : formData.avatarUrl) : undefined} 
-                  trainerCode={formData.code}
-                  onChange={(file) => setAvatarFile(file)} 
-                />
-              </div>
+                <div>
+                  <label className={styles.fieldLabel}>Profile Avatar</label>
+                  <AvatarUpload 
+                    value={formData.avatarUrl ? (formData.avatarUrl.startsWith('/') ? `${API_BASE.replace('/api', '')}${formData.avatarUrl}` : formData.avatarUrl) : undefined} 
+                    trainerCode={formData.code}
+                    onChange={(file) => {
+                      setAvatarFile(file);
+                      setUploadStatus({ type: 'idle' });
+                    }} 
+                  />
+                  {uploadStatus.type === 'error' && (
+                    <p className={styles.errorMessage}><AlertCircle size={12} className="mr-1" /> {uploadStatus.message}</p>
+                  )}
+                </div>
 
             </>
           ) : (
@@ -349,12 +361,14 @@ const MasterModal = ({ config, onClose, onSubmit, clusters, existingTrainers, ex
         <div className={styles.modalFooter}>
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
           <button 
-            className="btn btn-primary" 
+            className={`btn ${uploadStatus.type === 'success' ? 'btn-success' : 'btn-primary'}`} 
             onClick={handleSave}
-            disabled={isUploading}
+            disabled={uploadStatus.type === 'loading' || uploadStatus.type === 'success'}
           >
-            {isUploading ? (
-              <><Loader2 size={16} className="animate-spin mr-2" /> Saving...</>
+            {uploadStatus.type === 'loading' ? (
+              <><Loader2 size={16} className="animate-spin mr-2" /> {uploadStatus.message}</>
+            ) : uploadStatus.type === 'success' ? (
+              <><CheckCircle2 size={16} className="mr-2" /> Done</>
             ) : (
               <><Save size={16} className="mr-2" /> {config.mode === 'add' ? 'Create' : 'Save Changes'}</>
             )}

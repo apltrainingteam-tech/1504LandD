@@ -19,6 +19,7 @@ import { TrainerTable } from '../../features/dashboard/components/TrainerTable';
 import { DrilldownPanel } from '../../features/dashboard/components/DrilldownPanel';
 import { InsightStrip } from '../../features/dashboard/components/InsightStrip';
 import { GlobalFilterPanel } from '../../shared/components/ui/GlobalFilterPanel';
+import TrainerAvatar from '../../shared/components/ui/TrainerAvatar';
 import { ErrorPanel } from '../../shared/components/ui/ErrorPanel';
 import { GlobalFilters, getActiveFilterCount } from '../../core/context/filterContext';
 
@@ -233,7 +234,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
   }, []);
 
   const {
-    MONTHS,
+    months: MONTHS,
     unified,
     rawUnified,
     apAttData: apData,
@@ -845,7 +846,17 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
           <DataTable headers={['Trainer', 'Sessions', 'Avg Score', 'Index']}>
             {trainerStats.map((t: any) => (
               <tr key={t.trainerId}>
-                <td className="font-bold">{t.trainerId}</td>
+                <td className="font-bold">
+                  <TrainerAvatar 
+                    trainer={{
+                      id: t.trainerId,
+                      name: t.trainerId,
+                      avatarUrl: t.avatarUrl
+                    }}
+                    size={28}
+                    showName={true}
+                  />
+                </td>
                 <td className="font-mono">{t.trainingsConducted}</td>
                 <td className="font-bold">{t.avgScore.toFixed(1)}</td>
                 <td>
