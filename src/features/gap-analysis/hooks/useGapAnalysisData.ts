@@ -17,6 +17,10 @@ export const useGapAnalysisData = (
   zoneFilter: string
 ) => {
   const [dbRules, setDbRules] = useState<Record<string, any>>({});
+  const isActiveNomination = (n: TrainingNomination) =>
+    (n as any).isCancelled !== true &&
+    (n as any).isVoided !== true &&
+    (n as any).finalStatus !== 'VOID';
 
   useEffect(() => {
     getCollection('eligibility_rules')
@@ -88,6 +92,7 @@ export const useGapAnalysisData = (
     });
 
     const filteredNominations = nominations.filter(n => {
+      if (!isActiveNomination(n)) return false;
       if (pageFilters.month) {
         const m = n.notificationDate ? n.notificationDate.substring(0,7) : '';
         if (m !== pageFilters.month) return false;

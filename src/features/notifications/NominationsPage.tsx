@@ -74,7 +74,7 @@ const buildNoticeHistory = (nominations: TrainingNomination[], trainingType?: st
 };
 
 export const NominationsPage: React.FC<Props> = ({ employees, nominations, attendance }) => {
-  const { getDrafts, updateDraft, selectionSession } = usePlanningFlow();
+  const { getDrafts, updateDraft, selectionSession, cancelDraft } = usePlanningFlow();
 
   const sessionTeamIds = selectionSession?.teamIds ?? [];
   const sessionType    = selectionSession?.trainingType;
@@ -122,14 +122,22 @@ export const NominationsPage: React.FC<Props> = ({ employees, nominations, atten
     updateDraft(draft.id, { status: 'APPROVED', approvedBy: 'Sales Head', approvedAt: new Date().toISOString() });
   };
 
+  const handleCancelDraft = async () => {
+    if (!draft || draft.status === 'COMPLETED' || draft.isCancelled) return;
+    if (!window.confirm('This will cancel training and return employees to untrained pool')) return;
+    const result = await cancelDraft(draft.id);
+    if (!result.success) {
+      alert(result.reason || 'Cancel failed.');
+    }
+  };
+
   const included = draft?.candidates.length ?? 0;
   const repeatCount = filteredEmps.filter(e => (noticeMap.get(String(e.employeeId))?.length ?? 0) >= 2).length;
   const statusClassMap: Record<string, string> = {
     DRAFT: styles.statusPlanned,
     APPROVED: styles.statusNotified,
     NOTIFIED: styles.statusNotified,
-    COMPLETED: styles.statusCompleted,
-    CANCELLED: styles.statusCancelled
+    COMPLETED: styles.statusCompleted
   };
 
   if (sessionTeamIds.length === 0) {
@@ -202,7 +210,7 @@ export const NominationsPage: React.FC<Props> = ({ employees, nominations, atten
           {draft && (
             <span
               className={`${styles.statusPill} ${statusClassMap[draft.status] || styles.statusPlanned}`}
-              title={draft.status === 'CANCELLED' ? 'This training was cancelled and excluded from analysis' : undefined}
+              title={draft.isCancelled ? 'This training was cancelled and excluded from analysis' : undefined}
             >
               {draft.status === 'DRAFT' ? <AlertTriangle size={11} /> : <CheckCircle size={11} />}
               {draft.status}
@@ -291,17 +299,27 @@ export const NominationsPage: React.FC<Props> = ({ employees, nominations, atten
       {draft && (
         <div className={styles.actionBar}>
           {isLocked ? (
-            <div className={styles.lockedInfo}>
-              <Lock size={13} />
-              {draft.status === 'APPROVED' && `Approved by ${draft.approvedBy || 'Sales Head'}${draft.approvedAt ? ' on ' + fmtDate(draft.approvedAt) : ''}`}
-              {draft.status === 'SENT' && 'Sent'}
-              {draft.status === 'NOTIFIED' && 'Notified'}
-              {draft.status === 'COMPLETED' && 'Completed'}
-              {draft.status === 'CANCELLED' && 'Cancelled'}
-            </div>
+            <>
+              <div className={styles.lockedInfo}>
+                <Lock size={13} />
+                {draft.status === 'APPROVED' && `Approved by ${draft.approvedBy || 'Sales Head'}${draft.approvedAt ? ' on ' + fmtDate(draft.approvedAt) : ''}`}
+                {draft.status === 'SENT' && 'Sent'}
+                {draft.status === 'NOTIFIED' && 'Notified'}
+                {draft.status === 'COMPLETED' && 'Completed'}
+                {draft.isCancelled && 'Cancelled'}
+              </div>
+              {draft.status !== 'COMPLETED' && !draft.isCancelled && (
+                <button className="btn btn-secondary" onClick={handleCancelDraft}>
+                  Cancel
+                </button>
+              )}
+            </>
           ) : (
             <>
               <button className="btn btn-secondary">Save Draft</button>
+              <button className="btn btn-secondary" onClick={handleCancelDraft}>
+                Cancel
+              </button>
               <button
                 onClick={handleApprove}
                 disabled={included === 0}

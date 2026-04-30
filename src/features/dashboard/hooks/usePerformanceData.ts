@@ -68,6 +68,10 @@ export const usePerformanceData = ({
   tab, selectedFY, filter, viewBy = 'Team', tsMode = 'score', pageMode
 }: UsePerformanceDataProps): PerformanceDataset & { resolutionLevel: 'Global' | 'Cluster' | 'Team' } => {
   const isEngineDebugActive = useDebugStore(state => state.enabled);
+  const isActiveNomination = (n: TrainingNomination) =>
+    (n as any).isCancelled !== true &&
+    (n as any).isVoided !== true &&
+    (n as any).finalStatus !== 'VOID';
 
   const resolutionLevel = useMemo(() => {
     const hasTeam = filter.teams.length > 0 || filter.team;
@@ -151,6 +155,7 @@ export const usePerformanceData = ({
         const att = normalizedAttendance.filter(a => normalizeTrainingType(a.trainingType) === activeNT);
         const scs = scores.filter(s => normalizeTrainingType(s.trainingType) === activeNT);
         const noms = nominations
+          .filter(isActiveNomination)
           .map(n => {
             let m = n.month || n.notificationDate || '';
             if (m && !/^\d{4}-\d{2}$/.test(m)) m = m.substring(0, 7);
@@ -185,12 +190,16 @@ export const usePerformanceData = ({
 
 
   // Domain Orchestration
-  const tabNoms = useMemo(() => nominations.filter(n => normalizeTrainingType(n.trainingType) === activeNT), [nominations, activeNT]);
+  const tabNoms = useMemo(
+    () => nominations.filter(n => isActiveNomination(n) && normalizeTrainingType(n.trainingType) === activeNT),
+    [nominations, activeNT]
+  );
 
   // -- Universal Event Timelines --
   const rawTimelines = useMemo(() => {
     if (['AP', 'MIP', 'Refresher', 'Capsule', 'Pre_AP'].includes(activeNT)) {
       const normalizedNoms = nominations
+        .filter(isActiveNomination)
         .map(n => {
           let m = n.month || n.notificationDate || '';
           if (m && !/^\d{4}-\d{2}$/.test(m)) m = m.substring(0, 7);

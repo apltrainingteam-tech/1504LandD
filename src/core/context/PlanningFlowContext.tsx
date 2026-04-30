@@ -32,6 +32,7 @@ interface PlanningFlowContextType {
   updateDraft: (id: string, updates: Partial<NominationDraft>) => void;
   removeDraft: (id: string) => void;
   getDrafts: (filter: { teamIds?: string[]; includeCancelled?: boolean }) => NominationDraft[];
+  cancelDraft: (draftId: string) => Promise<{ success: boolean; reason?: string }>;
 
   // Batch API
   batches: TrainingBatch[];
@@ -101,8 +102,12 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
 
   // ── Drafts ───────────────────────────────────────────────────────────────────
   const saveDraft = (draft: NominationDraft) => {
-    setDrafts(prev => [...prev, draft]);
-    upsertDoc('nomination_drafts', draft.id, draft).catch(err => {
+    const draftWithDefaults: NominationDraft = {
+      ...draft,
+      isCancelled: draft.isCancelled ?? false
+    };
+    setDrafts(prev => [...prev, draftWithDefaults]);
+    upsertDoc('nomination_drafts', draft.id, draftWithDefaults).catch(err => {
       console.error('Failed to persist nomination draft', err);
     });
   };
@@ -123,11 +128,47 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
   };
   const getDrafts = (filter: { teamIds?: string[]; includeCancelled?: boolean }) => {
     const valid = drafts.filter(d =>
-      Boolean(d.teamId) && (filter.includeCancelled ? true : d.status !== 'CANCELLED')
+      Boolean(d.teamId) && (filter.includeCancelled ? true : !d.isCancelled)
     );
     if (!filter.teamIds || filter.teamIds.length === 0) return valid;
     return valid.filter(d => filter.teamIds!.includes(d.teamId));
   };
+
+  const cancelDraft = useCallback(async (draftId: string) => {
+    const draft = drafts.find(d => d.id === draftId);
+    if (!draft) return { success: false, reason: 'Draft not found.' };
+    if (draft.status === 'COMPLETED') return { success: false, reason: 'Cannot cancel completed training.' };
+    if (draft.isCancelled) return { success: true };
+
+    const trainingId = draft.trainingId || draft.id;
+    const [notificationAttendance, batchAttendance, trainingDataEntries] = await Promise.all([
+      findByQuery('notification_history', { trainingId, attended: true }),
+      findByQuery('training_batches', { trainingId }),
+      findByQuery('training_data', { trainingId })
+    ]);
+
+    const hasBatchAttendance = (batchAttendance || []).some((batch: any) =>
+      Array.isArray(batch.candidates) &&
+      batch.candidates.some((candidate: any) => candidate.attendance && candidate.attendance !== 'pending')
+    );
+
+    if ((notificationAttendance && notificationAttendance.length > 0) || hasBatchAttendance || (trainingDataEntries && trainingDataEntries.length > 0)) {
+      return { success: false, reason: 'Cannot cancel. Attendance already marked.' };
+    }
+
+    await updateByQuery(
+      'notification_history',
+      { trainingId },
+      { finalStatus: 'VOID', isVoided: true }
+    );
+
+    updateDraft(draft.id, {
+      isCancelled: true,
+      cancelledAt: draft.cancelledAt || new Date().toISOString()
+    });
+
+    return { success: true };
+  }, [drafts]);
 
   // ── Batches ──────────────────────────────────────────────────────────────────
   /**
@@ -263,7 +304,7 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
       const activeBatches = batches.filter(b => {
         if (b.source !== 'NOTIFICATION') return true;
         const draft = drafts.find(d => d.id === b.draftId || d.trainingId === b.trainingId);
-        return draft ? draft.status !== 'CANCELLED' : true;
+        return draft ? !draft.isCancelled : true;
       });
       if (!filter) return activeBatches;
       return activeBatches.filter(b => {
@@ -280,7 +321,7 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
     <PlanningFlowContext.Provider value={{
       selectionSession, setSelectionSession,
       consumedTeams, consumedTrainers, addConsumed, removeConsumed, resetConsumed,
-      drafts, saveDraft, updateDraft, removeDraft, getDrafts,
+      drafts, saveDraft, updateDraft, removeDraft, getDrafts, cancelDraft,
       batches, commitBatch, updateBatchCandidate, getBatches,
       notificationRecords, loadNotificationHistory
     }}>

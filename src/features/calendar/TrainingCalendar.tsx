@@ -66,7 +66,7 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
   const {
     selectionSession, consumedTeams, consumedTrainers, addConsumed,
     removeConsumed, saveDraft, updateDraft, removeDraft,
-    loadNotificationHistory, notificationRecords, drafts
+    loadNotificationHistory, notificationRecords, drafts, cancelDraft
   } = usePlanningFlow();
 
   useEffect(() => {
@@ -164,12 +164,12 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
         d.trainer || '',
         d.startDate || '',
         d.endDate || '',
-        d.status === 'NOTIFIED'
+        d.isCancelled
+          ? 'Cancelled'
+          : d.status === 'NOTIFIED'
           ? 'Notified'
           : d.status === 'COMPLETED'
           ? 'Completed'
-          : d.status === 'CANCELLED'
-          ? 'Cancelled'
           : 'Planned'
       );
     });
@@ -353,6 +353,21 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
       removeDraft(plan.id);
     }
     setSelectedPlanId(null);
+  };
+
+  const handleCancelPlan = async (trainingId: string) => {
+    const relatedDrafts = drafts.filter(d => d.trainingId === trainingId);
+    if (relatedDrafts.length === 0) return;
+    if (!window.confirm('This will cancel training and return employees to untrained pool')) return;
+
+    for (const draft of relatedDrafts) {
+      if (draft.status === 'COMPLETED' || draft.isCancelled) continue;
+      const result = await cancelDraft(draft.id);
+      if (!result.success) {
+        alert(result.reason || 'Cancel failed.');
+        return;
+      }
+    }
   };
 
   const selectedPlan = plans.find(p => p.id === selectedPlanId) || null;
@@ -713,6 +728,14 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
           </div>
 
           <div className={styles.detailFooter}>
+            {selectedPlan.status !== 'Completed' && selectedPlan.status !== 'Cancelled' && (
+              <button
+                className={`btn btn-secondary ${styles.cancelBtn}`}
+                onClick={() => handleCancelPlan(selectedPlan.id)}
+              >
+                Cancel Training
+              </button>
+            )}
             <button
               className={`btn ${styles.deleteBtn}`}
               onClick={() => handleDeletePlan(selectedPlan.id)}

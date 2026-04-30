@@ -103,7 +103,7 @@ export interface NominationDraft {
   trainer?: string; // trainer id
   startDate?: string;
   endDate?: string;
-  status: 'DRAFT' | 'APPROVED' | 'NOTIFIED' | 'SENT' | 'COMPLETED' | 'CANCELLED';
+  status: 'DRAFT' | 'APPROVED' | 'NOTIFIED' | 'SENT' | 'COMPLETED';
   candidates: string[]; // employeeIds
   isVoided?: boolean;
   // Audit trail
