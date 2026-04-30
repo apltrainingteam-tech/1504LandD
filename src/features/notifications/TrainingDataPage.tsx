@@ -308,10 +308,10 @@ const BatchCard: React.FC<{
 
         {/* Trainer */}
         {batch.trainer && (
-          <TrainerAvatar 
-            trainer={masterTrainers.find((t: any) => t.id === batch.trainer) || { id: batch.trainer, name: batch.trainer }} 
-            size={24} 
-            showName={true} 
+          <TrainerAvatar
+            trainer={masterTrainers.find((t: any) => t.id === batch.trainer) || { id: batch.trainer, name: batch.trainer }}
+            size={24}
+            showName={true}
             className="ml-12"
           />
         )}
