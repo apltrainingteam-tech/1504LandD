@@ -106,14 +106,25 @@
   gap: 4px;
 }
 
-.statusDraft {
-  background: rgba(245, 158, 11, 0.12);
-  color: #d97706;
+.statusPlanned {
+  background: rgba(107, 114, 128, 0.12);
+  color: #6b7280;
 }
 
-.statusApproved {
+.statusNotified {
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+}
+
+.statusCompleted {
   background: rgba(16, 185, 129, 0.12);
   color: #059669;
+}
+
+.statusCancelled {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+  text-decoration: line-through;
 }
 
 .countText {

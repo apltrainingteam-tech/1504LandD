@@ -311,6 +311,7 @@ export const NotificationPage: React.FC<Props> = ({ allEmployees }) => {
   const handleComplete = async (draft: NominationDraft) => {
     if (actionInFlight.has(`complete:${draft.id}`)) return;
     if (draft.status !== 'NOTIFIED') return;
+    if (!window.confirm('Confirm training completed?')) return;
     setActionInFlight(prev => new Set(prev).add(`complete:${draft.id}`));
     try {
       console.log('[Notification] Complete clicked', { draftId: draft.id, status: draft.status });
@@ -336,6 +337,7 @@ export const NotificationPage: React.FC<Props> = ({ allEmployees }) => {
   const handleCancel = async (draft: NominationDraft) => {
     if (actionInFlight.has(`cancel:${draft.id}`)) return;
     if (draft.status !== 'NOTIFIED') return;
+    if (!window.confirm('This will cancel training and return employees to untrained pool')) return;
     setActionInFlight(prev => new Set(prev).add(`cancel:${draft.id}`));
     try {
       const trainingId = draft.trainingId || draft.id;

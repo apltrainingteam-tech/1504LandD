@@ -390,8 +390,30 @@
 .badgePlanned {
   font-size: 11px;
   padding: 2px 6px;
-  background: rgba(0, 0, 0, 0.05);
-  color: var(--text-secondary);
+  background: rgba(107, 114, 128, 0.12);
+  color: #6b7280;
+}
+
+.badgeNotified {
+  font-size: 11px;
+  padding: 2px 6px;
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+}
+
+.badgeCompleted {
+  font-size: 11px;
+  padding: 2px 6px;
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+}
+
+.badgeCancelled {
+  font-size: 11px;
+  padding: 2px 6px;
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+  text-decoration: line-through;
 }
 
 .detailCloseBtn {
@@ -511,11 +533,6 @@
   color: var(--danger);
   background: rgba(239, 68, 68, 0.1);
   border: none;
-}
-
-.completedBadge {
-  font-size: 11px;
-  padding: 2px 6px;
 }
 
 .trainerOptionUsed {

@@ -124,6 +124,13 @@ export const NominationsPage: React.FC<Props> = ({ employees, nominations, atten
 
   const included = draft?.candidates.length ?? 0;
   const repeatCount = filteredEmps.filter(e => (noticeMap.get(String(e.employeeId))?.length ?? 0) >= 2).length;
+  const statusClassMap: Record<string, string> = {
+    DRAFT: styles.statusPlanned,
+    APPROVED: styles.statusNotified,
+    NOTIFIED: styles.statusNotified,
+    COMPLETED: styles.statusCompleted,
+    CANCELLED: styles.statusCancelled
+  };
 
   if (sessionTeamIds.length === 0) {
     return (
@@ -193,7 +200,10 @@ export const NominationsPage: React.FC<Props> = ({ employees, nominations, atten
 
         <div className={styles.toolbarRight}>
           {draft && (
-            <span className={`${styles.statusPill} ${draft.status === 'DRAFT' ? styles.statusDraft : styles.statusApproved}`}>
+            <span
+              className={`${styles.statusPill} ${statusClassMap[draft.status] || styles.statusPlanned}`}
+              title={draft.status === 'CANCELLED' ? 'This training was cancelled and excluded from analysis' : undefined}
+            >
               {draft.status === 'DRAFT' ? <AlertTriangle size={11} /> : <CheckCircle size={11} />}
               {draft.status}
             </span>

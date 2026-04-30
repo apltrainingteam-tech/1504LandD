@@ -524,6 +524,7 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
                         key={p.id}
                         onClick={(e) => { e.stopPropagation(); setSelectedPlanId(p.id); }}
                         className={`${styles.planChip} ${status === 'Completed' ? styles.planChipCompleted : status === 'Notified' ? styles.planChipNotified : status === 'Cancelled' ? styles.planChipCancelled : styles.planChipPlanned}`}
+                        title={status === 'Cancelled' ? 'This training was cancelled and excluded from analysis' : undefined}
                       >
                         <div className={`${styles.planChipText} ${status === 'Cancelled' ? styles.planChipTextCancelled : ''}`}>
                           <span className={styles.planType}>{p.trainingType}</span>
@@ -625,8 +626,10 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
           <div className={styles.detailPanelHeader}>
             <h2 className={styles.detailTitle}>
               Training Details
-              {getStatus(selectedPlan) === 'Completed' && <span className={`badge badge-success ${styles.completedBadge}`}>Completed</span>}
+              {getStatus(selectedPlan) === 'Completed' && <span className={`badge ${styles.badgeCompleted}`}>Completed</span>}
+              {getStatus(selectedPlan) === 'Notified' && <span className={`badge ${styles.badgeNotified}`}>Notified</span>}
               {getStatus(selectedPlan) === 'Planned' && <span className={`badge ${styles.badgePlanned}`}>Planned</span>}
+              {getStatus(selectedPlan) === 'Cancelled' && <span className={`badge ${styles.badgeCancelled}`} title="This training was cancelled and excluded from analysis">Cancelled</span>}
             </h2>
             <button className={`btn ${styles.detailCloseBtn}`} onClick={() => setSelectedPlanId(null)} title="Close Details" aria-label="Close Details"><X size={20} /></button>
           </div>
