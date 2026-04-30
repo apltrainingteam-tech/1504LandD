@@ -375,3 +375,320 @@
 .textDanger { color: var(--danger); }
 .textWarning { color: #d97706; }
 .textAccent { color: var(--accent-primary); }
+
+.editedCell {
+  background: rgba(245, 158, 11, 0.08) !important;
+  position: relative;
+}
+
+.editedCell::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  border-style: solid;
+  border-width: 0 8px 8px 0;
+  border-color: transparent #d97706 transparent transparent;
+}
+
+/* Selection System */
+.selectionBar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+.checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--accent-primary);
+}
+
+.thCheckbox, .tdCheckbox {
+  width: 44px;
+  min-width: 44px;
+  text-align: center !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+.trSelected {
+  background: rgba(99,102,241,0.06) !important;
+}
+
+.selectionCount {
+  color: var(--text-primary);
+}
+
+.bulkActions {
+  display: flex;
+  gap: 8px;
+  margin-left: 12px;
+  padding-left: 12px;
+  border-left: 1px solid var(--border-color);
+}
+
+.bulkBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.bulkBtn:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  background: rgba(99,102,241,0.04);
+}
+
+.clearSelectionBtn {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: var(--accent-primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.clearSelectionBtn:hover {
+  background: rgba(99,102,241,0.08);
+}
+
+.saveActions {
+  display: flex;
+  gap: 12px;
+  margin-left: auto;
+  padding-left: 16px;
+  border-left: 1px solid var(--border-color);
+}
+
+.btnSave {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 20px;
+  background: var(--accent-primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btnSave:hover:not(:disabled) {
+  background: #4f46e5;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(99,102,241,0.2);
+}
+
+.btnSave:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.btnSaving {
+  background: #6366f1;
+}
+
+.btnDiscard {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btnDiscard:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.05);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.saveSummary {
+  display: flex;
+  gap: 32px;
+  padding: 16px 24px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  margin-bottom: 24px;
+  align-items: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.summaryItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.summaryIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.iconPurple { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
+.iconBlue { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+.iconGreen { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+
+.summaryValue {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.summaryLabel {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.summaryActions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btnSaveLarge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  background: var(--accent-primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btnSaveLarge:hover:not(:disabled) {
+  background: #4f46e5;
+  transform: scale(1.02);
+  box-shadow: 0 4px 15px rgba(99,102,241,0.3);
+}
+
+.btnDiscardSmall {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 6px;
+}
+
+.btnDiscardSmall:hover {
+  background: rgba(239, 68, 68, 0.05);
+  color: #ef4444;
+}
+
+.btnUndo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: transparent;
+  color: #d97706;
+  border: 1px solid rgba(217, 119, 6, 0.2);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-left: auto;
+  transition: all 0.2s;
+}
+
+.btnUndo:hover {
+  background: rgba(217, 119, 6, 0.05);
+  border-color: #d97706;
+}
+
+.batchPrimary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Edit Mode Toggle */
+.modeToggle {
+  display: flex;
+  background: rgba(0,0,0,0.03);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.modeBtn {
+  padding: 7px 15px;
+  border-radius: 8px;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.modeBtnActive {
+  background: #fff;
+  color: var(--accent-primary);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+:global(.dark) .modeBtnActive {
+  background: var(--bg-card);
+  color: var(--accent-primary);
+}

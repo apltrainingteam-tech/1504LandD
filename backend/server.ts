@@ -147,8 +147,9 @@ app.use('/api', async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
-// --- Training Routes Router (Register BEFORE generic routes to prevent shadowing) ---
-app.use('/api/training', trainingRoutes);
+// --- Training & Training Data Routes ---
+// Mounted at /api to support both /training/cancel and /training-data/bulk-overwrite
+app.use('/api', trainingRoutes);
 
 /**
  * GET /api/:collection

@@ -2,12 +2,16 @@ import React, { useState, useMemo } from 'react';
 import {
   ChevronDown, ChevronRight, CheckCircle, XCircle, Clock,
   RotateCcw, TrendingUp, Users, AlertCircle, Filter,
-  Upload, BellRing
+  Upload, BellRing, Eye, Edit2, Save, Trash2, ClipboardCheck, Database, Calendar
 } from 'lucide-react';
-import { usePlanningFlow, TrainingBatch, CandidateRecord, BatchAttStatus } from '../../core/context/PlanningFlowContext';
+import { usePlanningFlow } from '../../core/context/PlanningFlowContext';
+import { TrainingBatch, CandidateRecord, BatchAttStatus, Attendance } from '../../types/attendance';
 import { useMasterData } from '../../core/context/MasterDataContext';
+import { getCurrentUser } from '../../core/context/userContext';
+import { useEditTrainingData } from './useEditTrainingData';
 import { Employee } from '../../types/employee';
-import { Attendance } from '../../types/attendance';
+import { buildChangeSet } from '../../core/engines/editEngine';
+import API_BASE from '../../config/api';
 import styles from './TrainingDataPage.module.css';
 
 interface Props {
@@ -117,15 +121,86 @@ const AttToggle: React.FC<{
 
 const batchMetrics = (candidates: CandidateRecord[]) => {
   const total = candidates.length;
-  const present = candidates.filter(c => c.attendance === 'present').length;
-  const absent = candidates.filter(c => c.attendance === 'absent').length;
-  const scores = candidates.map(c => parseFloat(c.score)).filter(n => !isNaN(n));
+  const present = candidates.filter((c: CandidateRecord) => c.attendance === 'present').length;
+  const absent = candidates.filter((c: CandidateRecord) => c.attendance === 'absent').length;
+  const scores = candidates.map((c: CandidateRecord) => parseFloat(c.score)).filter(n => !isNaN(n));
   const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
   const attPct = present + absent > 0 ? Math.round((present / (present + absent)) * 100) : null;
   return { total, present, absent, pending: total - present - absent, avgScore, attPct };
 };
 
-// ─── Batch Card ────────────────────────────────────────────────────────────────
+const Pill: React.FC<{ label: string; value: number | string; className: string }> = ({ label, value, className }) => (
+  <div className={styles.pill}>
+    <div className={`${styles.pillValue} ${className}`}>{value}</div>
+    <div className={styles.pillLabel}>{label}</div>
+  </div>
+);
+
+// ── Candidate Row (Memoized) ───────────────────────────────────────────────────
+
+interface CandidateRowProps {
+  candidate: CandidateRecord;
+  employee?: Employee;
+  isSelected: boolean;
+  buffered?: Partial<CandidateRecord>;
+  isUpload: boolean;
+  onUpdate: (empId: string, update: Partial<CandidateRecord>) => void;
+  onToggleRow: (empId: string) => void;
+  index: number;
+}
+
+const CandidateRow = React.memo<CandidateRowProps>(({
+  candidate, employee, isSelected, buffered, isUpload, onUpdate, onToggleRow, index
+}) => {
+  const curAtt = buffered?.attendance || candidate.attendance;
+  const curScore = buffered?.score !== undefined ? buffered.score : candidate.score;
+  const isAttEdited = buffered?.attendance !== undefined && buffered.attendance !== candidate.attendance;
+  const isScoreEdited = buffered?.score !== undefined && buffered.score !== candidate.score;
+  const rs = STATUS_META[curAtt];
+
+  return (
+    <tr className={`${styles.tr} ${index % 2 !== 0 ? styles.trOdd : ''} ${isSelected ? styles.trSelected : ''}`}>
+      <td className={styles.tdCheckbox}>
+        <input
+          type="checkbox"
+          className={styles.checkbox}
+          checked={isSelected}
+          onChange={() => onToggleRow(candidate.empId)}
+          onClick={e => e.stopPropagation()}
+        />
+      </td>
+      <td className={`${styles.td} ${styles.tdEmpId}`}>{candidate.empId}</td>
+      <td className={`${styles.td} ${styles.tdName}`}>{employee?.name || '—'}</td>
+      <td className={`${styles.td} ${styles.tdSecondary}`}>{employee?.designation || '—'}</td>
+      <td className={`${styles.td} ${styles.tdSecondary}`}>{employee?.hq || '—'}</td>
+      <td className={`${styles.td} ${styles.tdSecondary}`}>{employee?.state || '—'}</td>
+      <td className={`${styles.td} ${isAttEdited ? styles.editedCell : ''}`} title={isAttEdited ? `${STATUS_META[candidate.attendance].label} → ${STATUS_META[curAtt].label}` : undefined}>
+        <AttToggle value={curAtt} readOnly={isUpload} onChange={v => onUpdate(candidate.empId, { attendance: v })} />
+      </td>
+      <td className={`${styles.td} ${isScoreEdited ? styles.editedCell : ''}`} title={isScoreEdited ? `${candidate.score || '—'} → ${curScore}` : undefined}>
+        <input
+          type="number" min={0} max={100} placeholder="—"
+          value={curScore}
+          onChange={e => onUpdate(candidate.empId, { score: e.target.value })}
+          className={styles.scoreInput}
+          title="Score"
+        />
+      </td>
+      <td className={styles.td}>
+        <span className={`${styles.statusBadge} ${rs.className}`}>
+          <rs.Icon size={10} />{rs.label}
+        </span>
+        {curAtt === 'absent' && (
+          <div className={styles.reNominate}>
+            <RotateCcw size={9} />Re-nominate
+          </div>
+        )}
+      </td>
+    </tr>
+  );
+});
+
+// ── Batch Card (Memoized) ──────────────────────────────────────────────────────
 
 const BatchCard: React.FC<{
   batch: TrainingBatch;
@@ -133,11 +208,20 @@ const BatchCard: React.FC<{
   resolveTrainer: (id?: string) => string;
   resolveTeam: (id?: string, fb?: string) => string;
   onUpdate: (empId: string, update: Partial<CandidateRecord>) => void;
-}> = ({ batch, employees, resolveTrainer, resolveTeam, onUpdate }) => {
+  selectedIds: Set<string>;
+  editBuffer: Record<string, Partial<CandidateRecord>>;
+  onToggleRow: (batchId: string, empId: string) => void;
+  onToggleBatch: (batchId: string, empIds: string[]) => void;
+}> = React.memo(({ batch, employees, resolveTrainer, resolveTeam, onUpdate, selectedIds, editBuffer, onToggleRow, onToggleBatch }) => {
   const [open, setOpen] = useState(false);
-  const m = batchMetrics(batch.candidates);
-  const sm = SOURCE_META[batch.source];
+  const m = useMemo(() => batchMetrics(batch.candidates), [batch.candidates]);
+  const sm = SOURCE_META[batch.source as keyof typeof SOURCE_META];
   const isUpload = batch.source === 'UPLOAD';
+
+  const isBatchSelected = useMemo(() => 
+    batch.candidates.every((c: CandidateRecord) => selectedIds.has(`${batch.id}::${c.empId}`)),
+    [batch.id, batch.candidates, selectedIds]
+  );
 
   return (
     <div className={styles.batchCard}>
@@ -147,8 +231,18 @@ const BatchCard: React.FC<{
         onClick={() => setOpen(o => !o)}
         className={`${styles.batchHeader} ${open ? styles.batchHeaderOpen : ''}`}
       >
-        {open ? <ChevronDown size={15} className={styles.chevron} />
-          : <ChevronRight size={15} className={styles.chevron} />}
+        <div className={styles.batchPrimary}>
+          <input
+            type="checkbox"
+            className={styles.checkbox}
+            style={{ marginRight: '10px' }}
+            checked={isBatchSelected}
+            onChange={(e) => { e.stopPropagation(); onToggleBatch(batch.id, batch.candidates.map((c: CandidateRecord) => c.empId)); }}
+            onClick={e => e.stopPropagation()}
+          />
+          {open ? <ChevronDown size={15} className={styles.chevron} />
+            : <ChevronRight size={15} className={styles.chevron} />}
+        </div>
 
         {/* Source badge */}
         <span className={`${styles.sourceBadge} ${sm.className}`}>
@@ -196,47 +290,35 @@ const BatchCard: React.FC<{
           <table className={styles.table}>
             <thead>
               <tr>
+                <th className={styles.thCheckbox}>
+                  <input
+                    type="checkbox"
+                    className={styles.checkbox}
+                    checked={isBatchSelected}
+                    onChange={() => onToggleBatch(batch.id, batch.candidates.map((c: CandidateRecord) => c.empId))}
+                    title="Select all in batch"
+                  />
+                </th>
                 {['Emp ID', 'Name', 'Designation', 'HQ', 'State', 'Attendance', 'Score', 'Status'].map(h => (
                   <th key={h} className={styles.th}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {batch.candidates.map((c, i) => {
-                const emp = employees.find(e => String(e.employeeId) === c.empId);
-                const rs = STATUS_META[c.attendance];
+              {batch.candidates.map((c: CandidateRecord, i: number) => {
+                const key = `${batch.id}::${c.empId}`;
                 return (
-                  <tr key={c.empId} className={`${styles.tr} ${i % 2 !== 0 ? styles.trOdd : ''}`}>
-                    <td className={`${styles.td} ${styles.tdEmpId}`}>{c.empId}</td>
-                    <td className={`${styles.td} ${styles.tdName}`}>{emp?.name || '—'}</td>
-                    <td className={`${styles.td} ${styles.tdSecondary}`}>{emp?.designation || '—'}</td>
-                    <td className={`${styles.td} ${styles.tdSecondary}`}>{emp?.hq || '—'}</td>
-                    <td className={`${styles.td} ${styles.tdSecondary}`}>{emp?.state || '—'}</td>
-                    <td className={styles.td}>
-                      {/* UPLOAD batches: attendance is read-only (from source file). NOTIFICATION: editable. */}
-                      <AttToggle value={c.attendance} readOnly={isUpload} onChange={v => onUpdate(c.empId, { attendance: v })} />
-                    </td>
-                    <td className={styles.td}>
-                      <input
-                        type="number" min={0} max={100} placeholder="—"
-                        value={c.score}
-                        onChange={e => onUpdate(c.empId, { score: e.target.value })}
-                        className={styles.scoreInput}
-                        title="Score"
-                        aria-label="Score"
-                      />
-                    </td>
-                    <td className={styles.td}>
-                      <span className={`${styles.statusBadge} ${rs.className}`}>
-                        <rs.Icon size={10} />{rs.label}
-                      </span>
-                      {c.attendance === 'absent' && (
-                        <div className={styles.reNominate}>
-                          <RotateCcw size={9} />Re-nominate
-                        </div>
-                      )}
-                    </td>
-                  </tr>
+                  <CandidateRow
+                    key={c.empId}
+                    index={i}
+                    candidate={c}
+                    employee={employees.find(e => String(e.employeeId) === c.empId)}
+                    isSelected={selectedIds.has(key)}
+                    buffered={editBuffer[key]}
+                    isUpload={isUpload}
+                    onUpdate={(eid, upd) => onUpdate(eid, upd)}
+                    onToggleRow={(eid) => onToggleRow(batch.id, eid)}
+                  />
                 );
               })}
             </tbody>
@@ -245,31 +327,20 @@ const BatchCard: React.FC<{
       )}
     </div>
   );
-};
-
-const Pill: React.FC<{ label: string; value: number | string; className: string }> = ({ label, value, className }) => (
-  <div className={styles.pill}>
-    <div className={`${styles.pillValue} ${className}`}>{value}</div>
-    <div className={styles.pillLabel}>{label}</div>
-  </div>
-);
+});
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => {
   const { getBatches, updateBatchCandidate } = usePlanningFlow();
   const { teams: masterTeams, trainers: masterTrainers } = useMasterData();
-
-  const resolveTrainer = (id?: string) =>
-    masterTrainers.find(t => t.id === id)?.trainerName || (id || '—');
-  const resolveTeam = (id?: string, fb?: string) =>
-    masterTeams.find(t => t.id === id)?.teamName || (fb || id || '—');
+  const user = getCurrentUser();
+  const isSuperAdmin = user.role === 'super_admin' || (user.role as string) === 'SUPERADMIN';
 
   // ── Derive UPLOAD batches from attendance prop ─────────────────────────────
   const uploadBatches = useMemo(() => deriveUploadBatches(attendance), [attendance]);
 
   // ── Merge: NOTIFICATION (context) + UPLOAD (derived) ───────────────────────
-  // De-dupe by id, then sort by startDate descending (latest first)
   const notificationBatches = getBatches();
   const allBatches: TrainingBatch[] = useMemo(() => {
     const seen = new Set<string>();
@@ -305,14 +376,112 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
     [allBatches, filterTeam, filterType, filterMonth, filterSource]
   );
 
+  // ── Selection & Edit Hook ────────────────────────────────────────────────
+  const allFilteredCandidateKeys = useMemo(() => 
+    filtered.flatMap(b => b.candidates.map((c: CandidateRecord) => `${b.id}::${c.empId}`)),
+    [filtered]
+  );
+
+  const {
+    isEditMode,
+    selectedIds,
+    editBuffer,
+    isAllSelected,
+    isSomeSelected,
+    toggleEditMode,
+    selectRow,
+    selectBatch,
+    selectAll,
+    clearSelection,
+    updateCell,
+    applyBulkEdit,
+    saveChanges,
+    resetBuffer
+  } = useEditTrainingData({ filteredCandidateKeys: allFilteredCandidateKeys });
+
+  const [saving, setSaving] = useState(false);
+
+  // ── Change Summary Metrics ─────────────────────────────────────────────────
+  const { changeSet, summary } = useMemo(() => {
+    const cs = buildChangeSet(editBuffer, allBatches);
+    const keys = Object.keys(cs);
+    const tImpacted = new Set(keys.map(k => k.split('::')[0])).size;
+    
+    let attChanges = 0;
+    let scoreChanges = 0;
+    (Object.values(cs) as Partial<CandidateRecord>[]).forEach(c => {
+      if (c.attendance !== undefined) attChanges++;
+      if (c.score !== undefined) scoreChanges++;
+    });
+
+    return {
+      changeSet: cs,
+      summary: {
+        rows: keys.length,
+        trainings: tImpacted,
+        fields: attChanges + scoreChanges,
+        attendance: attChanges,
+        score: scoreChanges
+      }
+    };
+  }, [editBuffer, allBatches]);
+
+  const handleSave = async () => {
+    if (Object.keys(editBuffer).length === 0) return;
+    
+    // Safeguard: High-volume update warning
+    if (summary.rows > 100) {
+      if (!window.confirm(`⚠️ LARGE UPDATE WARNING: You are about to update ${summary.rows} records at once. Do you wish to proceed?`)) {
+        return;
+      }
+    }
+
+    setSaving(true);
+    const result = await saveChanges(allBatches);
+    setSaving(false);
+
+    if (result.success) {
+      // In a real app, we'd trigger a data refresh here
+      alert('Changes saved successfully!');
+      window.location.reload(); // Simple refresh to show updated data
+    } else {
+      alert(`Save failed: ${result.error}`);
+    }
+  };
+
+  const handleUndo = async () => {
+    if (!window.confirm('Are you sure you want to revert the last save? This cannot be undone.')) return;
+    
+    try {
+      const response = await fetch(`${API_BASE}/training-data/rollback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const result = await response.json();
+      if (result.success) {
+        alert('Last save reverted successfully!');
+        window.location.reload();
+      } else {
+        alert(`Undo failed: ${result.error}`);
+      }
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+    }
+  };
+
+  const resolveTrainer = (id?: string) =>
+    masterTrainers.find(t => t.id === id)?.trainerName || (id || '—');
+  const resolveTeam = (id?: string, fb?: string) =>
+    masterTeams.find(t => t.id === id)?.teamName || (fb || id || '—');
+
   // ── Global metrics (across filtered) ─────────────────────────────────────
   const allC = filtered.flatMap(b => b.candidates);
   const gTotal = allC.length;
-  const gPresent = allC.filter(c => c.attendance === 'present').length;
-  const gAbsent = allC.filter(c => c.attendance === 'absent').length;
-  const gPending = allC.filter(c => c.attendance === 'pending').length;
+  const gPresent = allC.filter((c: CandidateRecord) => c.attendance === 'present').length;
+  const gAbsent = allC.filter((c: CandidateRecord) => c.attendance === 'absent').length;
+  const gPending = allC.filter((c: CandidateRecord) => c.attendance === 'pending').length;
   const gAttPct = gPresent + gAbsent > 0 ? Math.round((gPresent / (gPresent + gAbsent)) * 100) : 0;
-  const gScores = allC.map(c => parseFloat(c.score)).filter(n => !isNaN(n));
+  const gScores = allC.map((c: CandidateRecord) => parseFloat(c.score)).filter(n => !isNaN(n));
   const gAvg = gScores.length > 0 ? Math.round(gScores.reduce((a, b) => a + b, 0) / gScores.length) : null;
 
   const hasFilters = !!(filterTeam || filterType || filterMonth || filterSource);
@@ -350,6 +519,69 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
             ({notificationBatches.length} planned · {uploadBatches.length} uploaded)
           </p>
         </div>
+
+        {isSuperAdmin && (
+          <div className={styles.modeToggle}>
+            <button
+              className={`${styles.modeBtn} ${!isEditMode ? styles.modeBtnActive : ''}`}
+              onClick={toggleEditMode}
+            >
+              <Eye size={14} /> View Mode
+            </button>
+            <button
+              className={`${styles.modeBtn} ${isEditMode ? styles.modeBtnActive : ''}`}
+              onClick={toggleEditMode}
+            >
+              <Edit2 size={14} /> Edit Mode
+            </button>
+          </div>
+        )}
+      </div>
+
+      {isEditMode && summary.rows > 0 && (
+        <div className={styles.saveSummary}>
+          <div className={styles.summaryItem}>
+            <div className={`${styles.summaryIcon} ${styles.iconPurple}`}><Users size={18} /></div>
+            <div>
+              <div className={styles.summaryValue}>{summary.rows}</div>
+              <div className={styles.summaryLabel}>Rows Affected</div>
+            </div>
+          </div>
+          <div className={styles.summaryItem}>
+            <div className={`${styles.summaryIcon} ${styles.iconBlue}`}><ClipboardCheck size={18} /></div>
+            <div>
+              <div className={styles.summaryValue}>{summary.fields}</div>
+              <div className={styles.summaryLabel}>Fields Changed ({summary.attendance} att, {summary.score} score)</div>
+            </div>
+          </div>
+          <div className={styles.summaryItem}>
+            <div className={`${styles.summaryIcon} ${styles.iconGreen}`}><Database size={18} /></div>
+            <div>
+              <div className={styles.summaryValue}>{summary.trainings}</div>
+              <div className={styles.summaryLabel}>Trainings Impacted</div>
+            </div>
+          </div>
+          <div className={styles.summaryActions}>
+            <button 
+              className={`${styles.btnSaveLarge} ${saving ? styles.btnSaving : ''}`} 
+              onClick={handleSave}
+              disabled={saving}
+            >
+              <Save size={16} /> {saving ? 'Saving...' : 'Save All Changes'}
+            </button>
+            <button className={styles.btnDiscardSmall} onClick={resetBuffer} disabled={saving}>
+              Discard All
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className={styles.toolbarRow}>
+        {isSuperAdmin && !isEditMode && (
+          <button className={styles.btnUndo} onClick={handleUndo} title="Revert the most recent bulk update">
+            <RotateCcw size={14} /> Undo Last Save
+          </button>
+        )}
       </div>
 
       {/* Global metrics */}
@@ -431,10 +663,51 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
             Clear
           </button>
         )}
+      </div>
 
-        <span className={styles.showingText}>
-          Showing <strong>{filtered.length}</strong> of {allBatches.length} batches
+      {/* Selection Toolbar */}
+      <div className={styles.selectionBar}>
+        <input
+          type="checkbox"
+          className={styles.checkbox}
+          checked={isAllSelected}
+          ref={el => {
+            if (el) el.indeterminate = isSomeSelected;
+          }}
+          onChange={selectAll}
+          title="Select all filtered rows"
+        />
+        <span className={styles.selectionCount}>
+          {selectedIds.size > 0 
+            ? <strong>{selectedIds.size} rows selected</strong>
+            : <span>Select all filtered (<strong>{allFilteredCandidateKeys.length}</strong>)</span>
+          }
         </span>
+        
+        {selectedIds.size > 0 && (
+          <div className={styles.bulkActions}>
+            <button className={styles.bulkBtn} onClick={() => applyBulkEdit('attendance', 'present')}>
+              <CheckCircle size={14} /> Mark Present
+            </button>
+            <button className={styles.bulkBtn} onClick={() => applyBulkEdit('attendance', 'absent')}>
+              <XCircle size={14} /> Mark Absent
+            </button>
+            <button className={styles.bulkBtn} onClick={() => {
+              const score = prompt('Enter score for selected rows (0-100):');
+              if (score !== null && score !== '') {
+                applyBulkEdit('score', score);
+              }
+            }}>
+              <TrendingUp size={14} /> Update Score
+            </button>
+          </div>
+        )}
+
+        {selectedIds.size > 0 && (
+          <button className={styles.clearSelectionBtn} onClick={clearSelection}>
+            Clear Selection
+          </button>
+        )}
       </div>
 
       {/* Batch list */}
@@ -451,10 +724,12 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
             resolveTrainer={resolveTrainer}
             resolveTeam={resolveTeam}
             onUpdate={(empId, update) =>
-              batch.source === 'NOTIFICATION'
-                ? updateBatchCandidate(batch.id, empId, update)
-                : undefined // UPLOAD attendance is read-only (from source file)
+              updateCell(batch.id, empId, update)
             }
+            selectedIds={selectedIds}
+            editBuffer={editBuffer}
+            onToggleRow={selectRow}
+            onToggleBatch={selectBatch}
           />
         ))
       )}
