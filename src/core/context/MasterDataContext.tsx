@@ -23,6 +23,7 @@ import { DataEdit } from '../contracts/edit.contract';
 import { applyEdits } from '../engines/editEngine';
 import { validateTrainingData, validateNominationData, validateEmployeeData } from '../engines/validationEngine';
 import { Employee } from '../../types/employee';
+import { normalizeDataset, normalizeEmployeeRecord } from '../engines/normalizationEngine';
 
 export interface Cluster {
   id: string;
@@ -208,12 +209,14 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
       ]);
       
       // Separate nominations if they are marked in training_data
-      const nominations = (td as any[]).filter(x => x.notified || x.data?.notified);
+      const rawTraining = td as any[];
+      const normalizedTraining = normalizeDataset(rawTraining);
+      const normalizedEmployees = (emps as any[]).map(normalizeEmployeeRecord);
 
       setBaseData({
-        trainingData: td as any[],
-        nominationData: (td as any[]).filter(x => x.notified || x.data?.notified),
-        employeeData: emps as Employee[],
+        trainingData: normalizedTraining,
+        nominationData: normalizedTraining.filter(x => x.notified || x.data?.notified),
+        employeeData: normalizedEmployees as Employee[],
         notificationHistory: nh as NotificationRecord[],
         trainingBatches: tb as TrainingBatch[]
       });

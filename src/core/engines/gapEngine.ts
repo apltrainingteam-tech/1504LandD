@@ -10,6 +10,7 @@ import { getTeamId } from '../utils/teamIdMapper';
 import { Team } from '../context/MasterDataContext';
 import { STATE_ZONE } from '../../seed/masterData';
 import { traceEngine } from '../debug/traceEngine';
+import { safeSort } from './normalizationEngine';
 
 
 // Zone lookup from state
@@ -379,7 +380,7 @@ export const computeGapAnalysis = traceEngine("computeGapAnalysis", (
 
   // Sort teams within clusters
   data.sort((a, b) => {
-    if (a.cluster !== b.cluster) return a.cluster.localeCompare(b.cluster);
+    if (a.cluster !== b.cluster) return safeSort(a.cluster, b.cluster);
     if (a.team === '' && b.team !== '') return -1; // Cluster first
     if (a.team !== '' && b.team === '') return 1;
     if (a.team !== b.team) return b.untrained - a.untrained || b.over90Days - a.over90Days;

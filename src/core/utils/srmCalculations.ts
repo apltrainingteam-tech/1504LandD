@@ -7,6 +7,7 @@
  * - TS vs IP Matrix
  * - Monthly Trends
  */
+import { match, safeSort } from '../engines/normalizationEngine';
 
 export interface SRMRecord {
   employeeId: string;
@@ -78,8 +79,7 @@ export function filterSRMRecords(records: any[]): SRMRecord[] {
       const attendanceStatus = att.attendanceStatus || r.attendanceStatus;
       const isVoided = att.isVoided || r.isVoided;
       
-      return trainingType === 'IP' && attendanceStatus === 'Present' && !isVoided;
-
+      return match(trainingType, 'IP') && match(attendanceStatus, 'Present') && !isVoided;
     })
     .map(r => {
       const att = r.attendance || r;
@@ -251,7 +251,7 @@ export function calculateMonthlyTrend(records: SRMRecord[]): MonthlyTrendPoint[]
     });
   }
 
-  return trends.sort((a, b) => a.month.localeCompare(b.month));
+  return trends.sort((a, b) => safeSort(a.month, b.month));
 }
 
 /**
