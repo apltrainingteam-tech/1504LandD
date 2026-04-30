@@ -494,14 +494,14 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
         <span className={styles.filterLabel}>View:</span>
         <select value={filterTeam} onChange={e => setFilterTeam(e.target.value)} className={`form-input ${styles.filterSelect}`} title="Filter by Team" aria-label="Filter by Team">
           <option value="">All Teams</option>
-          {masterTeams.filter(t => t.status === 'Active').sort((a, b) => a.teamName.localeCompare(b.teamName)).map(t => (
+          {masterTeams.filter(t => t.status === 'Active').sort((a, b) => (a.teamName || '').localeCompare(b.teamName || '')).map(t => (
             <option key={t.id} value={t.id}>{t.teamName}</option>
           ))}
         </select>
 
         <select value={filterTrainer} onChange={e => setFilterTrainer(e.target.value)} className={`form-input ${styles.filterSelect}`} title="Filter by Trainer" aria-label="Filter by Trainer">
           <option value="">All Trainers</option>
-          {masterTrainers.filter(t => t.status === 'Active').sort((a, b) => a.name.localeCompare(b.name)).map(t => (
+          {masterTrainers.filter(t => t.status === 'Active').sort((a, b) => (a.name || '').localeCompare(b.name || '')).map(t => (
             <option key={t.id} value={t.id}>{t.name} ({t.category})</option>
           ))}
 
