@@ -61,11 +61,12 @@ export const useDemographicsData = (tab: 'mapping' | 'trainers' | 'rules') => {
     }
   };
 
-  const addTrainer = async (name: string, types: TrainingType[]) => {
+  const addTrainer = async (name: string, types: TrainingType[], avatarUrl: string | null = null) => {
     setSaving(true);
     try {
       const id = name.replace(/\s+/g, '_');
-      await upsertDoc('trainers', id, { id, trainerName: name, trainingTypes: types });
+      await upsertDoc('trainers', id, { id, name, avatarUrl, trainingTypes: types });
+
       await loadData();
       return true;
     } catch (err) {

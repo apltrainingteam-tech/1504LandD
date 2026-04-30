@@ -55,16 +55,16 @@ export const DESIGNATIONS = [
 ];
 
 export const TRAINERS = [
-  { id: "SUNIL", trainerName: "Sunil", trainingTypes: ["HO"] },
-  { id: "RUTUJA", trainerName: "Rutuja", trainingTypes: ["HO"] },
-  { id: "VIVEKANAND", trainerName: "Vivekanand", trainingTypes: ["HO"] },
-  { id: "SULEENA", trainerName: "Suleena", trainingTypes: ["HO"] },
-  { id: "ROMY", trainerName: "Romy", trainingTypes: ["HO"] },
-  { id: "MEIRAJ", trainerName: "Meiraj", trainingTypes: ["HO"] },
-  { id: "TEJAS", trainerName: "Tejas", trainingTypes: ["HO"] },
+  { id: "SUNIL", name: "Sunil", trainingTypes: ["HO"], avatarUrl: null },
+  { id: "RUTUJA", name: "Rutuja", trainingTypes: ["HO"], avatarUrl: null },
+  { id: "VIVEKANAND", name: "Vivekanand", trainingTypes: ["HO"], avatarUrl: null },
+  { id: "SULEENA", name: "Suleena", trainingTypes: ["HO"], avatarUrl: null },
+  { id: "ROMY", name: "Romy", trainingTypes: ["HO"], avatarUrl: null },
+  { id: "MEIRAJ", name: "Meiraj", trainingTypes: ["HO"], avatarUrl: null },
+  { id: "TEJAS", name: "Tejas", trainingTypes: ["HO"], avatarUrl: null },
 
-  { id: "PRAMOD", trainerName: "Pramod", trainingTypes: ["RTM"] },
-  { id: "KAUSHIK", trainerName: "Kaushik", trainingTypes: ["RTM"] },
-  { id: "PRAYAS", trainerName: "Prayas", trainingTypes: ["RTM"] },
-  { id: "SREENATH", trainerName: "Sreenath", trainingTypes: ["RTM"] }
+  { id: "PRAMOD", name: "Pramod", trainingTypes: ["RTM"], avatarUrl: null },
+  { id: "KAUSHIK", name: "Kaushik", trainingTypes: ["RTM"], avatarUrl: null },
+  { id: "PRAYAS", name: "Prayas", trainingTypes: ["RTM"], avatarUrl: null },
+  { id: "SREENATH", name: "Sreenath", trainingTypes: ["RTM"], avatarUrl: null }
 ];

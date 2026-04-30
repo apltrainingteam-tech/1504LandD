@@ -18,6 +18,7 @@ import { useFilterOptions, useMonthsFromData } from '../../shared/hooks/computat
 import { useDebugStore } from '../../core/debug/debugStore';
 import { usePerformanceData } from './hooks/usePerformanceData';
 import { useChartData } from './hooks/useChartData';
+import API_BASE from '../../config/api';
 
 import styles from './PerformanceCharts.module.css';
 
@@ -246,7 +247,7 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
               >
                 All Clusters
               </motion.button>
-              {allClusters.map(c => (
+              {allClusters.map((c: string) => (
                 <motion.button 
                   key={c}
                   whileHover={{ scale: 1.05, y: -2 }}
@@ -326,6 +327,7 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
                       .map((t: any) => {
                         const initials = t.label.split(' ')[0].substring(0, 2).toUpperCase();
                         const isActive = pageFilters.trainers.includes(t.id);
+                        const avatarSrc = t.avatarUrl ? (t.avatarUrl.startsWith('http') ? t.avatarUrl : `${API_BASE.replace('/api', '')}${t.avatarUrl}`) : null;
                         return (
                           <motion.button
                             key={t.id}
@@ -339,9 +341,9 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
                               setPageFilters({ ...pageFilters, trainers: newTrainers });
                             }}
                             className={`${styles.avatarChip} ${isActive ? styles.active : ''}`}
-                            style={t.imageUrl ? { backgroundImage: `url(${t.imageUrl})`, backgroundSize: 'cover', color: 'transparent' } : {}}
+                            style={avatarSrc ? { backgroundImage: `url(${avatarSrc})`, backgroundSize: 'cover', color: 'transparent' } : {}}
                           >
-                            {!t.imageUrl && initials}
+                            {!avatarSrc && initials}
                           </motion.button>
                         );
                       })}

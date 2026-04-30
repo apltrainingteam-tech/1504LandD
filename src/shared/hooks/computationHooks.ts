@@ -139,8 +139,8 @@ export function useFilterOptions(
     if (trainingType) {
       return getAvailableTrainers(trainingType, masterTrainers).map(t => ({
         id: t.id,
-        label: `${t.trainerName} (${t.category})`,
-        imageUrl: t.imageUrl
+        label: `${t.name} (${t.category})`,
+        avatarUrl: t.avatarUrl
       }));
     }
     if (masterTrainers && masterTrainers.length > 0) {
@@ -148,10 +148,11 @@ export function useFilterOptions(
         .filter(t => t.status === 'Active')
         .map(t => ({ 
           id: t.id, 
-          label: `${t.trainerName} (${t.category})`,
-          imageUrl: t.imageUrl 
+          label: `${t.name} (${t.category})`,
+          avatarUrl: t.avatarUrl 
         }));
     }
+
     const uniqueIds = [...new Set(attendance.map(a => a.trainerId).filter((tr): tr is string => Boolean(tr)))].sort();
     return uniqueIds.map(id => ({ id, label: id }));
   }, [attendance, trainingType, masterTrainers]);

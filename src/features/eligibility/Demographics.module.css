@@ -103,8 +103,55 @@
   color: var(--text-secondary);
 }
 
-.dropdownTriggerTextActive {
+.cellBold {
+  font-weight: 600;
   color: var(--text-primary);
+}
+
+.trainerAvatarTable {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border-color);
+  background: var(--bg-hover);
+}
+
+.trainerAvatarPlaceholder {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--bg-hover);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+}
+
+.uploadPreview {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--primary-color);
+}
+
+.uploadPlaceholder {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--bg-hover);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  border: 1px dashed var(--border-color);
+}
+
+.fileInput {
+  font-size: 11px;
+  color: var(--text-secondary);
 }
 
 .chevronIcon {

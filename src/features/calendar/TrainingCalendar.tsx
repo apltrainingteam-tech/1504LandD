@@ -8,6 +8,7 @@ import { Employee } from '../../types/employee';
 import { Attendance, NotificationRecord, NominationDraft, TrainingPlanStatus } from '../../types/attendance';
 import { useMasterData } from '../../core/context/MasterDataContext';
 import { getTeamName } from '../../core/utils/teamIdMapper';
+import API_BASE from '../../config/api';
 import styles from './TrainingCalendar.module.css';
 
 export interface TeamBatchStatus {
@@ -59,6 +60,15 @@ const getStatus = (plan: TrainingPlan) => {
 
 export const TrainingCalendar = ({ employees, attendance }: { employees: Employee[], attendance: Attendance[] }) => {
   const { trainers: masterTrainers, teams: masterTeams, refreshTransactional } = useMasterData();
+
+  const resolveTrainerAvatar = (trainerId: string) => {
+    const trainer = masterTrainers.find(t => t.id === trainerId);
+    if (!trainer || !trainer.avatarUrl) return null;
+    if (trainer.avatarUrl.startsWith('http')) return trainer.avatarUrl;
+    // Resolve relative path using API_BASE
+    const base = API_BASE.replace('/api', '');
+    return `${base}${trainer.avatarUrl}`;
+  };
   const [tab, setTab] = useState<TrainingTab>('AP');
   const FY_OPTIONS = getFiscalYears(2015);
   const [selectedFY, setSelectedFY] = useState<string>(FY_OPTIONS[0]);
@@ -291,8 +301,11 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
       startDate,
       endDate,
       candidates: top40,
-      status: 'DRAFT'
+      status: 'DRAFT',
+      isCancelled: false,
+      isVoided: false
     });
+
     console.log('[Draft] Saved. teamId:', teamId, 'candidates:', top40.length);
   };
 
@@ -369,6 +382,12 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
         return;
       }
     }
+  };
+
+  const handleScopeChange = async (batchId: string, teamIds: string[], action: 'ADD' | 'REMOVE') => {
+    // This function will be called by TeamScopeManager
+    // For now, we rely on the refetch props to keep UI in sync
+    console.log(`[ScopeChange] batch: ${batchId}, teams: ${teamIds}, action: ${action}`);
   };
 
   const selectedPlan = plans.find(p => p.id === selectedPlanId) || null;
@@ -481,9 +500,10 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
 
         <select value={filterTrainer} onChange={e => setFilterTrainer(e.target.value)} className={`form-input ${styles.filterSelect}`} title="Filter by Trainer" aria-label="Filter by Trainer">
           <option value="">All Trainers</option>
-          {masterTrainers.filter(t => t.status === 'Active').sort((a, b) => a.trainerName.localeCompare(b.trainerName)).map(t => (
-            <option key={t.id} value={t.id}>{t.trainerName} ({t.category})</option>
+          {masterTrainers.filter(t => t.status === 'Active').sort((a, b) => a.name.localeCompare(b.name)).map(t => (
+            <option key={t.id} value={t.id}>{t.name} ({t.category})</option>
           ))}
+
         </select>
 
         <div className={styles.filterSpacer}></div>
@@ -533,7 +553,8 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
                     const status = getStatus(p);
                     const displayTeam = p.teams.map(t => t.teamName).join(', ');
                     const trainerObj = masterTrainers.find(mt => mt.id === p.trainer);
-                    const displayTrainer = trainerObj ? trainerObj.trainerName : p.trainer;
+                    const displayTrainer = trainerObj ? trainerObj.name : p.trainer;
+
 
                     return (
                       <div
@@ -542,10 +563,23 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
                         className={`${styles.planChip} ${status === 'Completed' ? styles.planChipCompleted : status === 'Notified' ? styles.planChipNotified : status === 'Cancelled' ? styles.planChipCancelled : styles.planChipPlanned}`}
                         title={status === 'Cancelled' ? 'This training was cancelled and excluded from analysis' : undefined}
                       >
-                        <div className={`${styles.planChipText} ${status === 'Cancelled' ? styles.planChipTextCancelled : ''}`}>
-                          <span className={styles.planType}>{p.trainingType}</span>
-                          <span className={styles.planTeam}>{displayTeam}</span>
-                          <span className={styles.planTrainer}>{displayTrainer}</span>
+                        <div className={styles.planChipContent}>
+                          {resolveTrainerAvatar(p.trainer) ? (
+                            <img 
+                              src={resolveTrainerAvatar(p.trainer)!} 
+                              alt="Trainer" 
+                              className={styles.planAvatar} 
+                            />
+                          ) : (
+                            <div className={styles.planAvatarPlaceholder}>
+                              {p.trainer.slice(0, 1)}
+                            </div>
+                          )}
+                          <div className={`${styles.planChipText} ${status === 'Cancelled' ? styles.planChipTextCancelled : ''}`}>
+                            <span className={styles.planType}>{p.trainingType}</span>
+                            <span className={styles.planTeam}>{displayTeam}</span>
+                            <span className={styles.planTrainer}>{displayTrainer}</span>
+                          </div>
                         </div>
                         <div className={`${styles.planDot} ${status === 'Completed' ? styles.planDotCompleted : status === 'Notified' ? styles.planDotNotified : status === 'Cancelled' ? styles.planDotCancelled : styles.planDotPlanned}`}></div>
                       </div>
@@ -605,7 +639,8 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
                         title={isUsed ? 'Already used in this planning session' : ''}
                         className={isUsed ? styles.trainerOptionUsed : ''}
                       >
-                        {t.trainerName} ({t.category}) {isUsed ? '(Used)' : ''}
+                        {t.name} ({t.category}) {isUsed ? '(Used)' : ''}
+
                       </option>
                     );
                   })}
@@ -673,7 +708,20 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
               <div className={styles.detailField}>
                 <div className={styles.detailFieldLabel}>Trainer</div>
                 <div className={styles.detailFieldValue}>
-                  {masterTrainers.find(mt => mt.id === selectedPlan.trainer)?.trainerName || selectedPlan.trainer}
+                  <div className="flex-center gap-2">
+                    {resolveTrainerAvatar(selectedPlan.trainer) ? (
+                      <img 
+                        src={resolveTrainerAvatar(selectedPlan.trainer)!} 
+                        alt="Trainer" 
+                        className={styles.detailAvatar} 
+                      />
+                    ) : (
+                      <div className={styles.detailAvatarPlaceholder}>
+                        <Users size={14} />
+                      </div>
+                    )}
+                    {masterTrainers.find(mt => mt.id === selectedPlan.trainer)?.name || selectedPlan.trainer}
+                  </div>
                 </div>
               </div>
               <div className={styles.detailField}>
@@ -747,6 +795,38 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
         </div>
       )}
 
+    </div>
+  );
+};
+
+
+
+// --- Helper Component: TeamScopeManager ---
+// Note: destructive features (Reset/Lock) were removed in rollback be2a522.
+// This version focuses on listing teams currently in scope.
+const TeamScopeManager = ({ 
+  trainingId, 
+  teams, 
+  onScopeChange, 
+  refetchCalendar, 
+  refetchNomination 
+}: { 
+  trainingId: string; 
+  teams: TeamBatchStatus[]; 
+  onScopeChange: (bid: string, tids: string[], action: 'ADD' | 'REMOVE') => void;
+  refetchCalendar: () => void;
+  refetchNomination: () => void;
+}) => {
+  return (
+    <div className={styles.scopeManager}>
+      <div className={styles.scopeChips}>
+        {teams.map(t => (
+          <div key={t.teamId} className={`badge badge-outline ${styles.teamChipInline}`}>
+            {t.teamName}
+          </div>
+        ))}
+      </div>
+      {teams.length === 0 && <p className="text-muted text-xs">No teams assigned.</p>}
     </div>
   );
 };

@@ -408,7 +408,7 @@ export async function queryByField(collectionName: string, field: string, value:
  */
 export async function uploadAvatar(file: File): Promise<string> {
   try {
-    const url = `${API_BASE}/media/upload-avatar`;
+    const url = `${API_BASE}/upload-avatar`;
     const formData = new FormData();
     formData.append('avatar', file);
 
@@ -422,14 +422,14 @@ export async function uploadAvatar(file: File): Promise<string> {
       throw new Error(result.error || `Upload failed with status ${response.status}`);
     }
 
-    // Convert relative /uploads path to absolute URL using host reference derived from API_BASE
-    const host = API_BASE.replace(/\/api$/, '');
-    return host + result.url;
+    // Return relative URL as per architectural rules
+    return result.avatarUrl;
   } catch (error) {
     console.error("Upload failure:", error);
     throw error;
   }
 }
+
 
 
 export default {

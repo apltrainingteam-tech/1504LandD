@@ -31,12 +31,13 @@ export interface Cluster {
 
 export interface Trainer {
   id: string;
-  trainerName: string;
+  name: string;
   code: string;
   category: 'HO' | 'RTM';
   status: 'Active' | 'Inactive';
-  imageUrl?: string;
+  avatarUrl: string | null;
 }
+
 
 export interface Team {
   id: string;
@@ -102,17 +103,18 @@ const MasterDataContext = createContext<MasterDataContextType | undefined>(undef
 
 // Initial bootstrap data (Fallback if DB empty)
 const INITIAL_TRAINERS: Trainer[] = [
-  { id: "SUNIL", trainerName: "Sunil", code: "SUN", category: "HO", status: "Active" },
-  { id: "RUTUJA", trainerName: "Rutuja", code: "RUT", category: "HO", status: "Active" },
-  { id: "VIVEKANAND", trainerName: "Vivekanand", code: "VIV", category: "HO", status: "Active" },
-  { id: "SULEENA", trainerName: "Suleena", code: "SUL", category: "HO", status: "Active" },
-  { id: "ROMY", trainerName: "Romy", code: "ROM", category: "HO", status: "Active" },
-  { id: "MEIRAJ", trainerName: "Meiraj", code: "MEI", category: "HO", status: "Active" },
-  { id: "TEJAS", trainerName: "Tejas", code: "TEJ", category: "HO", status: "Active" },
-  { id: "PRAMOD", trainerName: "Pramod", code: "PRA", category: "RTM", status: "Active" },
-  { id: "KAUSHIK", trainerName: "Kaushik", code: "KAU", category: "RTM", status: "Active" },
-  { id: "PRAYAS", trainerName: "Prayas", code: "PRY", category: "RTM", status: "Active" },
-  { id: "SREENATH", trainerName: "Sreenath", code: "SRE", category: "RTM", status: "Active" }
+  { id: "SUNIL", name: "Sunil", code: "SUN", category: "HO", status: "Active", avatarUrl: null },
+  { id: "RUTUJA", name: "Rutuja", code: "RUT", category: "HO", status: "Active", avatarUrl: null },
+  { id: "VIVEKANAND", name: "Vivekanand", code: "VIV", category: "HO", status: "Active", avatarUrl: null },
+  { id: "SULEENA", name: "Suleena", code: "SUL", category: "HO", status: "Active", avatarUrl: null },
+  { id: "ROMY", name: "Romy", code: "ROM", category: "HO", status: "Active", avatarUrl: null },
+  { id: "MEIRAJ", name: "Meiraj", code: "MEI", category: "HO", status: "Active", avatarUrl: null },
+  { id: "TEJAS", name: "Tejas", code: "TEJ", category: "HO", status: "Active", avatarUrl: null },
+  { id: "PRAMOD", name: "Pramod", code: "PRA", category: "RTM", status: "Active", avatarUrl: null },
+  { id: "KAUSHIK", name: "Kaushik", code: "KAU", category: "RTM", status: "Active", avatarUrl: null },
+  { id: "PRAYAS", name: "Prayas", code: "PRY", category: "RTM", status: "Active", avatarUrl: null },
+  { id: "SREENATH", name: "Sreenath", code: "SRE", category: "RTM", status: "Active", avatarUrl: null }
+
 ];
 
 const INITIAL_CLUSTERS: Cluster[] = [

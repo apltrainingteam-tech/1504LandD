@@ -234,6 +234,7 @@ const BatchCard: React.FC<{
   batch: TrainingBatch;
   employees: Employee[];
   resolveTrainer: (id?: string) => string;
+  resolveTrainerAvatar: (id: string) => string | null;
   resolveTeam: (id?: string, fb?: string) => string;
   onUpdate: (empId: string, update: Partial<CandidateRecord>) => void;
   selectedIds: Set<string>;
@@ -241,7 +242,7 @@ const BatchCard: React.FC<{
   onToggleRow: (batchId: string, empId: string) => void;
   onToggleBatch: (batchId: string, empIds: string[]) => void;
   isEditMode: boolean;
-}> = React.memo(({ batch, employees, resolveTrainer, resolveTeam, onUpdate, selectedIds, editBuffer, onToggleRow, onToggleBatch, isEditMode }) => {
+}> = React.memo(({ batch, employees, resolveTrainer, resolveTrainerAvatar, resolveTeam, onUpdate, selectedIds, editBuffer, onToggleRow, onToggleBatch, isEditMode }) => {
 
   const [open, setOpen] = useState(false);
   const m = useMemo(() => batchMetrics(batch.candidates), [batch.candidates]);
@@ -307,7 +308,12 @@ const BatchCard: React.FC<{
         {/* Trainer */}
         {batch.trainer && (
           <span className={styles.trainerName}>
-            👤 {resolveTrainer(batch.trainer)}
+            {resolveTrainerAvatar(batch.trainer) ? (
+              <img src={resolveTrainerAvatar(batch.trainer)!} alt="" className={styles.trainerAvatar} />
+            ) : (
+              <span className={styles.trainerIcon}>👤</span>
+            )}
+            {resolveTrainer(batch.trainer)}
           </span>
         )}
 
@@ -531,7 +537,16 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
   };
 
   const resolveTrainer = (id?: string) =>
-    masterTrainers.find(t => t.id === id)?.trainerName || (id || '—');
+    masterTrainers.find(t => t.id === id)?.name || (id || '—');
+
+  const resolveTrainerAvatar = (trainerId: string) => {
+    const trainer = masterTrainers.find(t => t.id === trainerId);
+    if (!trainer || !trainer.avatarUrl) return null;
+    if (trainer.avatarUrl.startsWith('http')) return trainer.avatarUrl;
+    const base = API_BASE.replace('/api', '');
+    return `${base}${trainer.avatarUrl}`;
+  };
+
   const resolveTeam = (id?: string, fb?: string) =>
     masterTeams.find(t => t.id === id)?.teamName || (fb || id || '—');
 
@@ -856,6 +871,7 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
             batch={batch}
             employees={employees}
             resolveTrainer={resolveTrainer}
+            resolveTrainerAvatar={resolveTrainerAvatar}
             resolveTeam={resolveTeam}
             onUpdate={(empId, update) =>
               updateCell(batch.id, empId, update)
@@ -872,7 +888,5 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
     </div>
   );
 };
-
-
 
 

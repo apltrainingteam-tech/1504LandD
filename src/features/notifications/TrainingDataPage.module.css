@@ -629,6 +629,30 @@
   box-shadow: 0 4px 15px rgba(99,102,241,0.3);
 }
 
+.trainerName {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  background: var(--bg-hover);
+  padding: 3px 8px;
+  border-radius: 12px;
+}
+
+.trainerAvatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border-color);
+}
+
+.trainerIcon {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
 .btnDiscardSmall {
   background: transparent;
   border: none;

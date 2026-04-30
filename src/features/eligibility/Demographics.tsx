@@ -9,8 +9,10 @@ import {
   AlertCircle, 
   ChevronRight,
   UserPlus,
-  ChevronDown
+  ChevronDown,
+  User
 } from 'lucide-react';
+import API_BASE from '../../config/api';
 import { DESIGNATIONS } from '../../seed/masterData';
 import { 
   TeamClusterMapping, 
@@ -27,6 +29,8 @@ const TRAINER_TYPES: TrainingType[] = ['HO', 'RTM'];
 
 export const Demographics = () => {
   const [tab, setTab] = useState<'mapping' | 'trainers' | 'rules'>('mapping');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   
   const {
     loading,
@@ -83,9 +87,17 @@ export const Demographics = () => {
       return;
     }
     try {
-      await apiAddTrainer(newTrainer.name, newTrainer.types);
+      let avatarUrl = null;
+      if (selectedFile) {
+        const { uploadAvatar } = await import('../../../core/engines/apiClient');
+        avatarUrl = await uploadAvatar(selectedFile);
+      }
+
+      await apiAddTrainer(newTrainer.name, newTrainer.types, avatarUrl);
       alert('Trainer registered successfully!');
       setNewTrainer({ name: '', types: [] });
+      setSelectedFile(null);
+      setUploadPreview(null);
     } catch (err: any) {
       alert('Error saving trainer: ' + err.message);
     }
@@ -213,7 +225,32 @@ export const Demographics = () => {
             <h3 className="mb-4">Register Trainer</h3>
             <div className="form-group">
               <label htmlFor="new-trainer-name">Trainer Name</label>
-              <input id="new-trainer-name" name="trainerName" value={newTrainer.name} onChange={e => setNewTrainer({ ...newTrainer, name: e.target.value })} className="form-input" aria-label="Trainer Name" />
+                <input id="new-trainer-name" name="trainerName" value={newTrainer.name} onChange={e => setNewTrainer({ ...newTrainer, name: e.target.value })} className="form-input" aria-label="Trainer Name" />
+
+            </div>
+            <div className="form-group">
+              <label>Avatar (Optional)</label>
+              <div className="mt-2 flex-center gap-4">
+                {uploadPreview ? (
+                  <img src={uploadPreview} alt="Preview" className={styles.uploadPreview} />
+                ) : (
+                  <div className={styles.uploadPlaceholder}>
+                    <User size={24} />
+                  </div>
+                )}
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setSelectedFile(file);
+                      setUploadPreview(URL.createObjectURL(file));
+                    }
+                  }} 
+                  className={styles.fileInput} 
+                />
+              </div>
             </div>
             <div className="form-group">
               <label>Authorized Types</label>
@@ -241,7 +278,23 @@ export const Demographics = () => {
             <DataTable headers={['Trainer', 'Training Capabilities', 'Action']}>
               {trainers.map(tr => (
                 <tr key={tr.id}>
-                  <td className={styles.cellBold}>{tr.trainerName}</td>
+                  <td className={styles.cellBold}>
+                    <div className="flex-center gap-3">
+                      {tr.avatarUrl ? (
+                        <img 
+                          src={tr.avatarUrl.startsWith('http') ? tr.avatarUrl : `${API_BASE.replace('/api', '')}${tr.avatarUrl}`} 
+                          alt="" 
+                          className={styles.trainerAvatarTable} 
+                        />
+                      ) : (
+                        <div className={styles.trainerAvatarPlaceholder}>
+                          <User size={14} />
+                        </div>
+                      )}
+                      {tr.name}
+                    </div>
+                  </td>
+
                   <td>
                     <div className="flex flex-wrap gap-2">
                       {tr.trainingTypes.map(t => <span key={t} className="badge badge-info">{t}</span>)}
@@ -250,7 +303,8 @@ export const Demographics = () => {
                   <td>
                     <button 
                       className="btn btn-secondary p-2" 
-                      onClick={() => handleDelete('trainers', tr.id, tr.trainerName)}
+                      onClick={() => handleDelete('trainers', tr.id, tr.name)}
+
                       disabled={saving}
                       title="Delete Trainer"
                       aria-label="Delete Trainer"

@@ -186,7 +186,7 @@ export const NotificationPage: React.FC<Props> = ({ allEmployees }) => {
   const [actionInFlight, setActionInFlight] = useState<Set<string>>(new Set());
 
   const resolveTeam    = (id?:string, fb?:string) => masterTeams.find(t=>t.id===id)?.teamName||(fb||id||'—');
-  const resolveTrainer = (id?:string) => masterTrainers.find(t=>t.id===id)?.trainerName||(id||'—');
+  const resolveTrainer = (id?:string) => masterTrainers.find(t=>t.id===id)?.name||(id||'—');
 
   // Keep ready-to-send and post-send drafts visible in Notification
   const approvedDrafts = useMemo(

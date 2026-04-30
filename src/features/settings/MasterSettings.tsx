@@ -69,12 +69,13 @@ export const MasterSettings: React.FC = () => {
             if (avatarFile) {
               try {
                 const uploadedUrl = await uploadAvatar(avatarFile);
-                finalData.imageUrl = uploadedUrl;
+                finalData.avatarUrl = uploadedUrl;
               } catch (error) {
                 alert("Failed to upload avatar: " + error);
                 return;
               }
             }
+
 
             if (showModal.type === 'trainer') {
               if (showModal.mode === 'add') addTrainer(finalData);
@@ -116,15 +117,20 @@ const TrainersList = ({ trainers, onAdd, onEdit, onDelete }: any) => (
             <tr key={t.id} className={`${styles.tr} ${t.status === 'Inactive' ? styles.trInactive : ''}`}>
               <td className={styles.tdBold}>
                 <div className="flex items-center gap-12">
-                  {t.imageUrl ? (
-                    <img src={t.imageUrl} alt={t.trainerName} className={styles.avatar} />
+                  {t.avatarUrl ? (
+                    <img 
+                      src={t.avatarUrl.startsWith('/') ? `http://localhost:5000${t.avatarUrl}` : t.avatarUrl} 
+                      alt={t.name} 
+                      className={styles.avatar} 
+                    />
                   ) : (
                     <div className={styles.avatarPlaceholder}>
                       {t.code.slice(0, 2)}
                     </div>
                   )}
-                  {t.trainerName}
+                  {t.name}
                 </div>
+
               </td>
               <td className={styles.td}><code className={styles.codeTag}>{t.code}</code></td>
               <td className={styles.td}>
@@ -244,9 +250,10 @@ const AvatarUpload = ({ value, onChange, trainerCode }: { value?: string, onChan
 };
 const MasterModal = ({ config, onClose, onSubmit, clusters, existingTrainers, existingTeams }: any) => {
   const [formData, setFormData] = useState(config.data || {
-    trainerName: '', code: '', category: 'HO', status: 'Active', imageUrl: '',
+    name: '', code: '', category: 'HO', status: 'Active', avatarUrl: '',
     teamName: '', cluster: clusters[0]?.id || ''
   });
+
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -285,8 +292,9 @@ const MasterModal = ({ config, onClose, onSubmit, clusters, existingTrainers, ex
             <>
               <div>
                 <label className={styles.fieldLabel}>Trainer Name</label>
-                <input className="form-input" value={formData.trainerName} onChange={e => setFormData({ ...formData, trainerName: e.target.value })} placeholder="e.g. Sunil" />
+                <input className="form-input" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. Sunil" />
               </div>
+
               <div>
                 <label className={styles.fieldLabel}>Code (Short Form)</label>
                 <input className="form-input" value={formData.code} onChange={e => setFormData({ ...formData, code: e.target.value.toUpperCase() })} placeholder="e.g. SUN" />
@@ -301,11 +309,12 @@ const MasterModal = ({ config, onClose, onSubmit, clusters, existingTrainers, ex
               <div>
                 <label className={styles.fieldLabel}>Profile Avatar</label>
                 <AvatarUpload 
-                  value={formData.imageUrl} 
+                  value={formData.avatarUrl ? (formData.avatarUrl.startsWith('/') ? `http://localhost:5000${formData.avatarUrl}` : formData.avatarUrl) : undefined} 
                   trainerCode={formData.code}
                   onChange={(file) => setAvatarFile(file)} 
                 />
               </div>
+
             </>
           ) : (
             <>

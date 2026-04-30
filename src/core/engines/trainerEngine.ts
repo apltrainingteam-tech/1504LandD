@@ -7,24 +7,25 @@ import { traceEngine } from '../debug/traceEngine';
 
 export interface Trainer {
   id: string;
-  trainerName: string;
+  name: string;
   category: 'HO' | 'RTM';
-  imageUrl?: string;
+  avatarUrl: string | null;
 }
 
-export const TRAINERS: Trainer[] = [
-  { id: "SUNIL", trainerName: "Sunil", category: "HO" },
-  { id: "RUTUJA", trainerName: "Rutuja", category: "HO" },
-  { id: "VIVEKANAND", trainerName: "Vivekanand", category: "HO" },
-  { id: "SULEENA", trainerName: "Suleena", category: "HO" },
-  { id: "ROMY", trainerName: "Romy", category: "HO" },
-  { id: "MEIRAJ", trainerName: "Meiraj", category: "HO" },
-  { id: "TEJAS", trainerName: "Tejas", category: "HO" },
 
-  { id: "PRAMOD", trainerName: "Pramod", category: "RTM" },
-  { id: "KAUSHIK", trainerName: "Kaushik", category: "RTM" },
-  { id: "PRAYAS", trainerName: "Prayas", category: "RTM" },
-  { id: "SREENATH", trainerName: "Sreenath", category: "RTM" }
+export const TRAINERS: Trainer[] = [
+  { id: "SUNIL", name: "Sunil", category: "HO", avatarUrl: null },
+  { id: "RUTUJA", name: "Rutuja", category: "HO", avatarUrl: null },
+  { id: "VIVEKANAND", name: "Vivekanand", category: "HO", avatarUrl: null },
+  { id: "SULEENA", name: "Suleena", category: "HO", avatarUrl: null },
+  { id: "ROMY", name: "Romy", category: "HO", avatarUrl: null },
+  { id: "MEIRAJ", name: "Meiraj", category: "HO", avatarUrl: null },
+  { id: "TEJAS", name: "Tejas", category: "HO", avatarUrl: null },
+
+  { id: "PRAMOD", name: "Pramod", category: "RTM", avatarUrl: null },
+  { id: "KAUSHIK", name: "Kaushik", category: "RTM", avatarUrl: null },
+  { id: "PRAYAS", name: "Prayas", category: "RTM", avatarUrl: null },
+  { id: "SREENATH", name: "Sreenath", category: "RTM", avatarUrl: null }
 ];
 
 const RTM_ALLOWED_TYPES = ["IP", "Pre_AP", "Capsule", "Refresher"];

@@ -156,9 +156,11 @@ export interface TeamClusterMapping {
 
 export interface Trainer {
   id: string;
-  trainerName: string;
+  name: string;
+  avatarUrl?: string | null;
   trainingTypes: TrainingType[];
 }
+
 
 export interface EligibilityRule {
   id: string; // usually the trainingType
