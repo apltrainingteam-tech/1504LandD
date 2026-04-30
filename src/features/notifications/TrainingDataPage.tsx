@@ -166,11 +166,11 @@ const CandidateRow = React.memo<CandidateRowProps>(({
   const curAtt = buffered?.attendance || candidate.attendance;
   const curScore = buffered?.score !== undefined ? buffered.score : candidate.score;
   const curIsVoided = buffered?.isVoided !== undefined ? buffered.isVoided : candidate.isVoided;
-  
+
   const isAttEdited = buffered?.attendance !== undefined && buffered.attendance !== candidate.attendance;
   const isScoreEdited = buffered?.score !== undefined && buffered.score !== candidate.score;
   const isVoidEdited = buffered?.isVoided !== undefined && buffered.isVoided !== candidate.isVoided;
-  
+
   const rs = STATUS_META[curAtt];
 
 
@@ -249,7 +249,7 @@ const BatchCard: React.FC<{
   const sm = SOURCE_META[batch.source as keyof typeof SOURCE_META];
   const isUpload = batch.source === 'UPLOAD';
 
-  const isBatchSelected = useMemo(() => 
+  const isBatchSelected = useMemo(() =>
     batch.candidates.every((c: CandidateRecord) => selectedIds.has(`${batch.id}::${c.empId}`)),
     [batch.id, batch.candidates, selectedIds]
   );
@@ -439,7 +439,7 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
   );
 
   // ── Selection & Edit Hook ────────────────────────────────────────────────
-  const allFilteredCandidateKeys = useMemo(() => 
+  const allFilteredCandidateKeys = useMemo(() =>
     filtered.flatMap(b => b.candidates.map((c: CandidateRecord) => `${b.id}::${c.empId}`)),
     [filtered]
   );
@@ -468,7 +468,7 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
     const cs = buildChangeSet(editBuffer, allBatches);
     const keys = Object.keys(cs);
     const tImpacted = new Set(keys.map(k => k.split('::')[0])).size;
-    
+
     let attChanges = 0;
     let scoreChanges = 0;
     let voidChanges = 0;
@@ -495,7 +495,7 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
 
   const handleSave = async () => {
     if (Object.keys(editBuffer).length === 0) return;
-    
+
     // Safeguard: High-volume update warning
     if (summary.rows > 100) {
       if (!window.confirm(`⚠️ LARGE UPDATE WARNING: You are about to update ${summary.rows} records at once. Do you wish to proceed?`)) {
@@ -518,7 +518,7 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
 
   const handleUndo = async () => {
     if (!window.confirm('Are you sure you want to revert the last save? This cannot be undone.')) return;
-    
+
     try {
       const response = await fetch(`${API_BASE}/training-data/rollback`, {
         method: 'POST',
@@ -640,8 +640,8 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
             </div>
           </div>
           <div className={styles.summaryActions}>
-            <button 
-              className={`${styles.btnSaveLarge} ${saving ? styles.btnSaving : ''}`} 
+            <button
+              className={`${styles.btnSaveLarge} ${saving ? styles.btnSaving : ''}`}
               onClick={handleSave}
               disabled={saving}
             >
@@ -767,12 +767,12 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
           title="Select all filtered rows"
         />
         <span className={styles.selectionCount}>
-          {selectedIds.size > 0 
+          {selectedIds.size > 0
             ? <strong>{selectedIds.size} rows selected</strong>
             : <span>Select all filtered (<strong>{allFilteredCandidateKeys.length}</strong>)</span>
           }
         </span>
-        
+
         {selectedIds.size > 0 && (
           <div className={styles.bulkActions}>
             <button className={styles.bulkBtn} onClick={() => applyBulkEdit('attendance', 'present')}>
