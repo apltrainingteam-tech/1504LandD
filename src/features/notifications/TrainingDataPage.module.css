@@ -161,6 +161,15 @@
   background: rgba(99,102,241,.03);
 }
 
+.editMode .batchHeader {
+  cursor: pointer;
+}
+
+.viewMode .batchHeader {
+  cursor: default;
+}
+
+
 .chevron {
   flex-shrink: 0;
   color: var(--text-secondary);
@@ -410,7 +419,14 @@
   height: 16px;
   cursor: pointer;
   accent-color: var(--accent-primary);
+  transition: all 0.2s;
 }
+
+.checkbox:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
 
 .thCheckbox, .tdCheckbox {
   width: 44px;
@@ -692,3 +708,34 @@
   background: var(--bg-card);
   color: var(--accent-primary);
 }
+
+/* Edit Mode Visual States */
+.editMode {
+  opacity: 1;
+}
+
+.viewMode {
+  opacity: 0.7;
+}
+
+.viewMode .checkbox,
+.viewMode .attToggleBtn,
+.viewMode .scoreInput,
+.viewMode .bulkBtn {
+  pointer-events: none !important;
+  cursor: default !important;
+}
+
+.editMode .checkbox,
+.editMode .attToggleBtn,
+.editMode .scoreInput,
+.editMode .bulkBtn {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+.viewMode .scoreInput {
+  background: rgba(0,0,0,0.02);
+  border-color: transparent;
+}
+

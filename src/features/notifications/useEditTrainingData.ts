@@ -108,10 +108,12 @@ export function useEditTrainingData({ filteredCandidateKeys }: UseEditTrainingDa
 
   const resetBuffer = () => setEditBuffer({});
 
-  // Reset selection on filter changes (when filteredCandidateKeys changes)
+  // Reset selection on filter changes
+  const keysHash = filteredCandidateKeys.join(',');
   useEffect(() => {
     clearSelection();
-  }, [filteredCandidateKeys]);
+  }, [keysHash]);
+
 
   return {
     // State

@@ -6,7 +6,10 @@
  * - Returns updated buffer objects
  */
 
-import { CandidateRecord, BatchAttStatus } from '../context/PlanningFlowContext';
+import { CandidateRecord, BatchAttStatus } from '../../types/attendance';
+import { DataEdit } from '../contracts/edit.contract';
+
+
 
 export interface EditChange {
   attendance?: BatchAttStatus;
@@ -118,4 +121,57 @@ export function prepareBulkSavePayload(buffer: EditBuffer): any[] {
   });
   
   return updates;
+}
+
+/**
+ * Applies a list of DataEdits to a dataset.
+ * Used by MasterDataContext to derive "finalData" from "baseData".
+ */
+export function applyEdits(data: any[], edits: DataEdit[], module: string): any[] {
+  const moduleEdits = edits.filter(e => e.module === module);
+  if (moduleEdits.length === 0) return data;
+
+  // Group edits by recordId for efficiency
+  const editsByRecord = moduleEdits.reduce((acc, edit) => {
+    if (!acc[edit.recordId]) acc[edit.recordId] = [];
+    acc[edit.recordId].push(edit);
+    return acc;
+  }, {} as Record<string, DataEdit[]>);
+
+  return data.map(item => {
+    // Try to find the unique identifier for the item
+    // In this system, it's usually 'id' or 'employeeId' (for employees)
+    const recordId = item.id || item._id || (module === 'employee' ? item.employeeId : null);
+    
+    if (!recordId || !editsByRecord[recordId]) return item;
+
+    // Apply all edits for this record, sorted by timestamp
+    const recordEdits = editsByRecord[recordId].sort((a, b) => a.timestamp - b.timestamp);
+    
+    let newItem = { ...item };
+    recordEdits.forEach(edit => {
+      newItem[edit.field] = edit.newValue;
+    });
+    
+    return newItem;
+  });
+}
+/**
+ * Helper to create a new DataEdit object for an update.
+ */
+export function createUpdateEdit(
+  module: "trainingData" | "nomination" | "employee",
+  recordId: string,
+  changes: Record<string, any>
+): DataEdit {
+  const field = Object.keys(changes)[0];
+  return {
+    id: `edit-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+    module,
+    recordId,
+    field,
+    newValue: changes[field],
+    timestamp: Date.now(),
+    status: 'applied'
+  };
 }

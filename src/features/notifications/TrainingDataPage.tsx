@@ -64,6 +64,7 @@ const deriveUploadBatches = (attendance: Attendance[]): TrainingBatch[] => {
 
     batches.push({
       id: `upload::${key}`,
+      trainingId: `upload::${key}`,
       draftId: `upload::${key}`,
       source: 'UPLOAD',
       trainingType: String(first.trainingType),
@@ -79,6 +80,7 @@ const deriveUploadBatches = (attendance: Attendance[]): TrainingBatch[] => {
         score: '',
       })),
     });
+
   });
 
   // Latest startDate first
@@ -147,11 +149,14 @@ interface CandidateRowProps {
   onUpdate: (empId: string, update: Partial<CandidateRecord>) => void;
   onToggleRow: (empId: string) => void;
   index: number;
+  isEditMode: boolean;
 }
 
+
 const CandidateRow = React.memo<CandidateRowProps>(({
-  candidate, employee, isSelected, buffered, isUpload, onUpdate, onToggleRow, index
+  candidate, employee, isSelected, buffered, isUpload, onUpdate, onToggleRow, index, isEditMode
 }) => {
+
   const curAtt = buffered?.attendance || candidate.attendance;
   const curScore = buffered?.score !== undefined ? buffered.score : candidate.score;
   const isAttEdited = buffered?.attendance !== undefined && buffered.attendance !== candidate.attendance;
@@ -166,8 +171,10 @@ const CandidateRow = React.memo<CandidateRowProps>(({
           className={styles.checkbox}
           checked={isSelected}
           onChange={() => onToggleRow(candidate.empId)}
+          disabled={!isEditMode}
           onClick={e => e.stopPropagation()}
         />
+
       </td>
       <td className={`${styles.td} ${styles.tdEmpId}`}>{candidate.empId}</td>
       <td className={`${styles.td} ${styles.tdName}`}>{employee?.name || '—'}</td>
@@ -212,7 +219,9 @@ const BatchCard: React.FC<{
   editBuffer: Record<string, Partial<CandidateRecord>>;
   onToggleRow: (batchId: string, empId: string) => void;
   onToggleBatch: (batchId: string, empIds: string[]) => void;
-}> = React.memo(({ batch, employees, resolveTrainer, resolveTeam, onUpdate, selectedIds, editBuffer, onToggleRow, onToggleBatch }) => {
+  isEditMode: boolean;
+}> = React.memo(({ batch, employees, resolveTrainer, resolveTeam, onUpdate, selectedIds, editBuffer, onToggleRow, onToggleBatch, isEditMode }) => {
+
   const [open, setOpen] = useState(false);
   const m = useMemo(() => batchMetrics(batch.candidates), [batch.candidates]);
   const sm = SOURCE_META[batch.source as keyof typeof SOURCE_META];
@@ -229,8 +238,9 @@ const BatchCard: React.FC<{
       {/* ── LEVEL 1: Header ── */}
       <div
         onClick={() => setOpen(o => !o)}
-        className={`${styles.batchHeader} ${open ? styles.batchHeaderOpen : ''}`}
+        className={`${styles.batchHeader} ${open ? styles.batchHeaderOpen : ''} ${isEditMode ? styles.editMode : styles.viewMode}`}
       >
+
         <div className={styles.batchPrimary}>
           <input
             type="checkbox"
@@ -238,8 +248,10 @@ const BatchCard: React.FC<{
             style={{ marginRight: '10px' }}
             checked={isBatchSelected}
             onChange={(e) => { e.stopPropagation(); onToggleBatch(batch.id, batch.candidates.map((c: CandidateRecord) => c.empId)); }}
+            disabled={!isEditMode}
             onClick={e => e.stopPropagation()}
           />
+
           {open ? <ChevronDown size={15} className={styles.chevron} />
             : <ChevronRight size={15} className={styles.chevron} />}
         </div>
@@ -296,9 +308,11 @@ const BatchCard: React.FC<{
                     className={styles.checkbox}
                     checked={isBatchSelected}
                     onChange={() => onToggleBatch(batch.id, batch.candidates.map((c: CandidateRecord) => c.empId))}
+                    disabled={!isEditMode}
                     title="Select all in batch"
                   />
                 </th>
+
                 {['Emp ID', 'Name', 'Designation', 'HQ', 'State', 'Attendance', 'Score', 'Status'].map(h => (
                   <th key={h} className={styles.th}>{h}</th>
                 ))}
@@ -318,7 +332,9 @@ const BatchCard: React.FC<{
                     isUpload={isUpload}
                     onUpdate={(eid, upd) => onUpdate(eid, upd)}
                     onToggleRow={(eid) => onToggleRow(batch.id, eid)}
+                    isEditMode={isEditMode}
                   />
+
                 );
               })}
             </tbody>
@@ -340,8 +356,9 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
   // ── Derive UPLOAD batches from attendance prop ─────────────────────────────
   const uploadBatches = useMemo(() => deriveUploadBatches(attendance), [attendance]);
 
-  // ── Merge: NOTIFICATION (context) + UPLOAD (derived) ───────────────────────
-  const notificationBatches = getBatches();
+  // --- Merge: NOTIFICATION (context) + UPLOAD (derived) -----------------------
+  const notificationBatches = useMemo(() => getBatches(), [getBatches]);
+
   const allBatches: TrainingBatch[] = useMemo(() => {
     const seen = new Set<string>();
     const merged = [...notificationBatches, ...uploadBatches].filter(b => {
@@ -666,7 +683,7 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
       </div>
 
       {/* Selection Toolbar */}
-      <div className={styles.selectionBar}>
+      <div className={`${styles.selectionBar} ${isEditMode ? styles.editMode : styles.viewMode}`}>
         <input
           type="checkbox"
           className={styles.checkbox}
@@ -675,6 +692,7 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
             if (el) el.indeterminate = isSomeSelected;
           }}
           onChange={selectAll}
+          disabled={!isEditMode}
           title="Select all filtered rows"
         />
         <span className={styles.selectionCount}>
@@ -710,6 +728,7 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
         )}
       </div>
 
+
       {/* Batch list */}
       {filtered.length === 0 ? (
         <div className={styles.noResults}>
@@ -730,7 +749,9 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
             editBuffer={editBuffer}
             onToggleRow={selectRow}
             onToggleBatch={selectBatch}
+            isEditMode={isEditMode}
           />
+
         ))
       )}
     </div>
