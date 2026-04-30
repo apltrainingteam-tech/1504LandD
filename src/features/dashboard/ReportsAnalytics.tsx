@@ -261,7 +261,6 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
     capsuleKPI,
     preApKPI
   } = usePerformanceData({
-    employees, attendance, scores, nominations, rules, masterTeams,
     tab, selectedFY, filter, viewBy, tsMode, pageMode
   });
 

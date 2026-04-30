@@ -33,11 +33,33 @@ const SOURCE_META = {
   UPLOAD: { label: 'Uploaded Attendance', className: styles.sourceUpload, Icon: Upload },
 } as const;
 
-const fmtDate = (s?: string) =>
-  !s ? '—' : new Date(s).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+const isExcelSerial = (val: any) => typeof val === 'number' && val > 1000;
+const excelSerialToDate = (serial: number) => {
+  const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+  return new Date(excelEpoch.getTime() + serial * 86400000);
+};
 
-const monthLabel = (s?: string) =>
-  !s ? '' : new Date(s + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+const fmtDate = (s?: string | number) => {
+  if (!s) return '—';
+  let d: Date;
+  if (isExcelSerial(s)) {
+    d = excelSerialToDate(s as number);
+  } else {
+    d = new Date(s);
+  }
+  return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+const monthLabel = (s?: string | number) => {
+  if (!s) return '';
+  let d: Date;
+  if (isExcelSerial(s)) {
+    d = excelSerialToDate(s as number);
+  } else {
+    d = new Date(s + '-01');
+  }
+  return isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+};
 
 // ─── Derive UPLOAD batches from raw Attendance records ─────────────────────────
 // Groups attendance records by [trainingType + teamId + month].

@@ -141,7 +141,6 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
     timeSeries,
     resolutionLevel
   } = usePerformanceData({
-    employees, attendance, scores, nominations, rules, masterTeams, masterTrainers,
     tab, selectedFY, filter: {
       monthFrom: pageFilters.month ? normalizeMonthStr(pageFilters.month) : '', 
       monthTo: pageFilters.month ? normalizeMonthStr(pageFilters.month) : '',

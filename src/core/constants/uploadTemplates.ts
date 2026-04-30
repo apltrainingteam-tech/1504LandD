@@ -41,7 +41,7 @@ export const TEMPLATE_SPECIFIC_COLUMNS: Record<string, string[]> = {
   ],
   PreAP: ['AP Date', 'Notified', 'Test Score'],
   MIP: ['Science Score', 'Skill Score'],
-  Capsule: ['Test Score'],
+  Capsule: ['Score'],
   Refresher: ['Knowledge', 'Situation Handling', 'Presentation'],
   NotificationHistory: ['Notification Date', 'Training Type', 'Training ID']
 };
@@ -93,12 +93,10 @@ export const COLUMN_MAPPING: Record<string, string> = {
   'Notification Date': 'notificationDate',
   'Training Type': 'trainingType',
 
-  // IP template
+  // Training Scores (IP, AP, MIP, Refresher, Capsule)
   'Detailing': 'detailing',
   'Test Score': 'percent',
   'Trainability Score': 'tScore',
-
-  // AP template
   'Knowledge': 'knowledge',
   'BSE': 'bse',
   'Grasping': 'grasping',
@@ -115,17 +113,13 @@ export const COLUMN_MAPPING: Record<string, string> = {
   'Involvement': 'involvement',
   'Effort': 'effort',
   'Confidence': 'confidence',
-
-  // PreAP template
-  'AP Date': 'apDate',
-  'Notified': 'notified',
-  'Training ID': 'trainingId',
-  // MIP / Refresher scores
   'Science Score': 'scienceScore',
   'Skill Score': 'skillScore',
-
-  // Capsule / GTG / HO / RTM scores
   'Score': 'score',
+
+  // PreAP specific
+  'AP Date': 'apDate',
+  'Notified': 'notified'
 };
 
 // ─── VALIDATION ──────────────────────────────────────────────────────────────
@@ -180,10 +174,11 @@ export function validateTemplateColumns(excelHeaders: string[], templateType: st
     return { valid: false, errors, warnings };
   }
 
-  // Check for at least one template-specific column (graceful degradation)
-  const foundCols = templateCols.filter(col => headerSet.has(col));
-  if (foundCols.length === 0) {
-    warnings.push(`⚠️ No ${templateType} template columns found. Expected at least one of: ${templateCols.join(', ')}`);
+  // Check for ALL template-specific columns (strict mode)
+  for (const col of templateCols) {
+    if (!headerSet.has(col)) {
+      errors.push(`❌ Missing required score column: "${col}"`);
+    }
   }
 
   return {
@@ -249,41 +244,65 @@ export function validateRow(
 }
 
 /**
- * Parse date string to YYYY-MM-DD with support for multiple formats:
+ * Detect if a value is an Excel serial date (numeric > 1000)
+ */
+export const isExcelSerial = (val: any): boolean => 
+  typeof val === 'number' && val > 1000;
+
+/**
+ * Convert Excel Serial Date to JS Date
+ */
+export const excelSerialToDate = (serial: number): Date => {
+  const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+  const result = new Date(excelEpoch.getTime() + serial * 86400000);
+  return result;
+};
+
+/**
+ * Parse date string or serial to YYYY-MM-DD with support for multiple formats:
+ * - Excel Serial Numbers (numeric)
  * - YYYY-MM-DD
  * - DD-MMM-YYYY (12-Jan-2025)
  * - DD-MMM-YY (12-Jan-25)
  * - DD/MM/YYYY
  */
-export function parseDate(dateStr: string | null): string | null {
-  if (!dateStr) return null;
-  const str = String(dateStr).trim();
+export function parseDate(dateVal: any): string | null {
+  if (dateVal === undefined || dateVal === null || dateVal === '') return null;
+  
+  let d: Date;
 
-  // 1. Already ISO YYYY-MM-DD
-  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+  // 1. Handle Excel Serial Dates
+  if (isExcelSerial(dateVal)) {
+    d = excelSerialToDate(dateVal);
+  } else {
+    const str = String(dateVal).trim();
 
-  // 2. Handle DD-MMM-YYYY or DD-MMM-YY (e.g. 12-Jan-2025, 12-Jan-25)
-  const dMmmY = /^(\d{1,2})-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{2,4})$/i;
-  const match = str.match(dMmmY);
-  if (match) {
-    const day = parseInt(match[1]);
-    const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-    const month = monthNames.indexOf(match[2].toLowerCase());
-    let year = parseInt(match[3]);
-    if (year < 100) year += 2000; // Assume 20xx
+    // 2. Already ISO YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
 
-    const d = new Date(year, month, day);
-    if (!isNaN(d.getTime())) {
-      return d.toISOString().split('T')[0];
+    // 3. Handle DD-MMM-YYYY or DD-MMM-YY (e.g. 12-Jan-2025, 12-Jan-25)
+    const dMmmY = /^(\d{1,2})-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{2,4})$/i;
+    const match = str.match(dMmmY);
+    if (match) {
+      const day = parseInt(match[1]);
+      const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+      const month = monthNames.indexOf(match[2].toLowerCase());
+      let year = parseInt(match[3]);
+      if (year < 100) year += 2000; 
+
+      d = new Date(year, month, day);
+    } else {
+      // 4. Fallback to standard Date object
+      d = new Date(str);
     }
   }
 
-  // 3. Fallback to standard Date object (handles DD/MM/YYYY and others depending on environment)
-  // Note: Standard Date parser can be inconsistent with DD/MM/YYYY vs MM/DD/YYYY.
-  // We'll try to be helpful but ISO or DD-MMM-YYYY are preferred.
-  const d = new Date(str);
   if (!isNaN(d.getTime())) {
-    return d.toISOString().split('T')[0];
+    // Return formatted YYYY-MM-DD
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   }
 
   return null;

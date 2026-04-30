@@ -23,6 +23,7 @@ import { globalComputationCaches } from '../../../core/utils/computationCache';
 import { logStep } from '../../../core/debug/pipelineTracer';
 import { saveSnapshot } from '../../../core/debug/snapshotStore';
 import { saveSession } from '../../../core/debug/debugSession';
+import { useMasterData } from '../../../core/context/MasterDataContext';
 
 
 // Domain Hooks
@@ -33,13 +34,6 @@ import { useRefresherData } from './useRefresherData';
 import { useCapsuleData } from './useCapsuleData';
 
 export interface UsePerformanceDataProps {
-  employees: Employee[];
-  attendance: Attendance[];
-  scores: TrainingScore[];
-  nominations: TrainingNomination[];
-  rules: EligibilityRule[];
-  masterTeams: any[];
-  masterTrainers?: any[];
   tab: string;
   selectedFY: string;
   filter: ReportFilter;
@@ -65,9 +59,38 @@ export interface UsePerformanceDataProps {
  * - USE useMemo for all heavy derived state.
  */
 export const usePerformanceData = ({
-  employees, attendance, scores, nominations, rules, masterTeams, masterTrainers,
   tab, selectedFY, filter, viewBy = 'Team', tsMode = 'score', pageMode
 }: UsePerformanceDataProps): PerformanceDataset & { resolutionLevel: 'Global' | 'Cluster' | 'Team' } => {
+  const { 
+    finalData, 
+    teams: masterTeams, 
+    trainers: masterTrainers, 
+    eligibilityRules: rules 
+  } = useMasterData();
+
+  const {
+    employeeData: employees,
+    trainingData: attendance,
+    nominationData: nominations,
+    // Scores are part of trainingData in the new schema-driven architecture,
+    // but building engines still expect 'scores' array or use 'attendance' as source.
+    // In this codebase, 'scores' was often derived or separate.
+    // If the new architecture nests scores inside attendance, we extract them if needed,
+    // but the engines currently use 'attendance' and 'scores' props.
+  } = finalData;
+
+  // For backward compatibility with existing engine logic that expects 'scores' separately:
+  const scores = attendance; 
+
+  console.log("=== PERFORMANCE PIPELINE START ===");
+  console.log("DATA SOURCE OBJECT:", attendance);
+  console.log("RAW trainingData COUNT:", attendance?.length);
+  console.log("SAMPLE RAW RECORD:", attendance?.[0]);
+
+  if (!attendance || attendance.length === 0) {
+    console.error("❌ NO DATA REACHING PERFORMANCE LAYER");
+  }
+
   const isEngineDebugActive = useDebugStore(state => state.enabled);
   const isActiveNomination = (n: TrainingNomination) =>
     (n as any).isCancelled !== true &&
@@ -131,17 +154,44 @@ export const usePerformanceData = ({
   }, [employees, attendance, scores, nominations, rules, masterTeams, tab, selectedFY, filter]);
 
 
-  const MONTHS = useMemo(() => getFiscalMonths(selectedFY), [selectedFY]);
-  const activeNT = useMemo(() => normalizeTrainingType(tab), [tab]);
+  const MONTHS = useMemo(() => {
+    const months = getFiscalMonths(selectedFY);
+    console.log(`[PIPELINE] FISCAL RANGE (${selectedFY}):`, months);
+    return months;
+  }, [selectedFY]);
+  
+  const activeNT = useMemo(() => {
+    const nt = normalizeTrainingType(tab);
+    console.log(`[PIPELINE] ACTIVE TRAINING TYPE: "${tab}" -> normalized: "${nt}"`);
+    return nt;
+  }, [tab]);
 
   // Data Normalization (Heavy - Cached internally)
   const normalizedAttendance = useMemo(() => {
     return logStep("Attendance Normalization", () => {
       const result = attendance.map(a => {
-        let m = a.month || a.attendanceDate || '';
-        if (m && !/^\d{4}-\d{2}$/.test(m)) m = m.substring(0, 7);
-        return { ...a, month: m };
+        // Generate a robust monthKey (YYYY-MM)
+        // If a.month already exists (legacy), use it. 
+        // Otherwise, extract from attendanceDate or notificationDate.
+        const rawDate = a.attendanceDate || a.notificationDate || a.date || '';
+        let monthKey = a.month || '';
+
+        if (!monthKey && rawDate) {
+          // If rawDate is YYYY-MM-DD, take first 7 chars
+          if (/^\d{4}-\d{2}-\d{2}/.test(rawDate)) {
+            monthKey = rawDate.substring(0, 7);
+          } else {
+            // Try parsing if it's some other format (should already be normalized by upload)
+            const d = new Date(rawDate);
+            if (!isNaN(d.getTime())) {
+              monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            }
+          }
+        }
+        
+        return { ...a, month: monthKey };
       });
+      console.log("NORMALIZED COUNT:", result?.length);
       saveSnapshot("normalizedAttendance", result);
       return result;
     });
@@ -155,6 +205,8 @@ export const usePerformanceData = ({
       
       const result = globalComputationCaches.grouping.compute([inputHash, activeNT], () => {
         const att = normalizedAttendance.filter(a => normalizeTrainingType(a.trainingType) === activeNT);
+        console.log(`AFTER TYPE FILTER (${activeNT}):`, att?.length);
+
         const scs = scores.filter(s => normalizeTrainingType(s.trainingType) === activeNT);
         const noms = nominations
           .filter(isActiveNomination)
@@ -170,6 +222,7 @@ export const usePerformanceData = ({
         
         return buildUnifiedDataset(employees, att, scs, noms, eligResults, masterTeams);
       });
+      console.log("RAW UNIFIED COUNT:", result?.length);
       saveSnapshot("rawUnified", result);
       return result;
     });
@@ -179,16 +232,34 @@ export const usePerformanceData = ({
   const unified = useMemo(() => {
     return logStep("Filter Application", () => {
       let ds = applyFilters(rawUnified, filter, masterTeams);
-      if (['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'PRE_AP'].includes(tab)) {
+      console.log("AFTER CORE FILTERS:", ds?.length);
+
+      const coreTabs = ['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'PRE_AP'];
+      const normalizedCoreTabs = coreTabs.map(t => normalizeTrainingType(t));
+
+      if (normalizedCoreTabs.includes(activeNT)) {
         ds = ds.filter(r => {
           const m = r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7);
-          return MONTHS.includes(m);
+          const isMatch = MONTHS.includes(m);
+          if (!isMatch && ds.length < 100) {
+            console.warn(`[DATE MISMATCH] Record month "${m}" not in fiscal range for ${selectedFY}`);
+          }
+          return isMatch;
         });
+        console.log("AFTER DATE FILTER:", ds?.length);
       }
+      
+      console.log("FINAL INPUT TO AGG:", ds?.length);
+      if (ds?.length > 0) {
+        console.log("SAMPLE FINAL RECORD:", ds[0]);
+      } else {
+        console.warn("⚠️ AGGREGATION INPUT IS EMPTY - Check if data exists for FY", selectedFY);
+      }
+
       saveSnapshot("filteredUnified", ds);
       return ds;
     });
-  }, [rawUnified, filter, tab, MONTHS, masterTeams]);
+  }, [rawUnified, filter, tab, activeNT, MONTHS, masterTeams, selectedFY]);
 
 
   // Domain Orchestration
