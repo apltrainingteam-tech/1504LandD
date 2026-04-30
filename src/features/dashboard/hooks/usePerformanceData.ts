@@ -1,6 +1,7 @@
 import { useMemo, useEffect } from 'react';
 import { useDebugStore } from '../../../core/debug/debugStore';
-import { buildUnifiedDataset, applyFilters, normalizeTrainingType } from '../../../core/engines/reportEngine';
+import { buildUnifiedDataset, applyFilters } from '../../../core/engines/reportEngine';
+import { normalizeTrainingType } from '../../../core/engines/normalizationEngine';
 import { getEligibleEmployees } from '../../../core/engines/eligibilityEngine';
 import { getFiscalMonths } from '../../../core/utils/fiscalYear';
 import { buildEmployeeTimelines, filterTimelines } from '../../../core/engines/apEngine';
