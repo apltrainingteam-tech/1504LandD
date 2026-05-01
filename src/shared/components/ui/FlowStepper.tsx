@@ -5,7 +5,7 @@ interface FlowStepperProps {
   currentStep: number;
 }
 
-const STEPS = ['Plan', 'Nominate', 'Train', 'Score', 'Certify'];
+const STEPS = ['Plan', 'Nominate', 'Train', 'Score'];
 
 export const FlowStepper: React.FC<FlowStepperProps> = ({ currentStep }) => {
   return (

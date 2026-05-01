@@ -164,7 +164,7 @@ const CandidateRow = React.memo<CandidateRowProps>(({
           onClick={e => e.stopPropagation()}
         />
       </td>
-      <td className={`${styles.td} ${styles.tdEmpId}`}>{candidate.empId}</td>
+      <td className={`${styles.td} ${styles.tdEmpId} ${curIsVoided ? styles.strike : ''}`}>{candidate.empId}</td>
       <td className={`${styles.td} ${styles.tdName} ${curIsVoided ? styles.strike : ''}`}>{toProperCase(employee?.name) || '—'}</td>
       <td className={`${styles.td} ${styles.tdSecondary} ${curIsVoided ? styles.strike : ''}`}>{toProperCase(employee?.designation) || '—'}</td>
       <td className={`${styles.td} ${styles.tdSecondary} ${curIsVoided ? styles.strike : ''}`}>{toProperCase(employee?.hq) || '—'}</td>
@@ -194,7 +194,7 @@ const CandidateRow = React.memo<CandidateRowProps>(({
                 {isNumeric && !isDateField && !isNotifiedField && <span className={styles.pctUnit}>%</span>}
               </div>
             ) : (
-              <div className={styles.scoreDisplay}>
+              <div className={`${styles.scoreDisplay} ${curIsVoided ? styles.strike : ''}`}>
                 {val === null || val === undefined || val === '' ? '—' 
                   : (isNumeric && !isDateField && !isNotifiedField) ? `${Math.round(val)}%` 
                   : val}
@@ -209,13 +209,16 @@ const CandidateRow = React.memo<CandidateRowProps>(({
       </td>
 
       <td className={styles.td}>
-        <span className={`${styles.statusBadge} ${rs.className}`}>
-          <rs.Icon size={10} />{rs.label}
-        </span>
-        {curIsVoided && (
-          <span className={styles.voidBadge} title="This record is excluded from analysis and KPIs">Voided</span>
+        {curIsVoided ? (
+          <span className={`${styles.statusBadge} ${styles.statusVoided}`}>
+            <XCircle size={10} />Voided
+          </span>
+        ) : (
+          <span className={`${styles.statusBadge} ${rs.className}`}>
+            <rs.Icon size={10} />{rs.label}
+          </span>
         )}
-        {curAtt === 'absent' && (
+        {!curIsVoided && curAtt === 'absent' && (
           <div className={styles.reNominate}>
             <RotateCcw size={9} />Re-nominate
           </div>
@@ -253,7 +256,14 @@ const BatchCard: React.FC<{
   );
 
   return (
-    <div className={styles.batchCard}>
+    <div className={`${styles.batchCard} ${
+      batch.trainingType.includes('IP') && !batch.trainingType.includes('Pre') ? styles.borderIP :
+      batch.trainingType.includes('AP') && !batch.trainingType.includes('Pre') ? styles.borderAP :
+      batch.trainingType.includes('MIP') ? styles.borderMIP :
+      batch.trainingType.includes('Capsule') ? styles.borderCapsule :
+      batch.trainingType.includes('Refresher') ? styles.borderRefresher :
+      batch.trainingType.includes('Pre-AP') ? styles.borderPreAP : ''
+    }`}>
       <div
         onClick={() => setOpen(o => !o)}
         className={`${styles.batchHeader} ${open ? styles.batchHeaderOpen : ''} ${isEditMode ? styles.editMode : styles.viewMode} ${batch.isVoided ? styles.batchVoided : ''}`}
@@ -277,7 +287,14 @@ const BatchCard: React.FC<{
         {batch.isVoided && (
           <span className={styles.voidBadge}>Voided</span>
         )}
-        <span className={styles.typeBadge}>
+        <span className={`${styles.typeBadge} ${
+          batch.trainingType.includes('IP') && !batch.trainingType.includes('Pre') ? styles.typeIP :
+          batch.trainingType.includes('AP') && !batch.trainingType.includes('Pre') ? styles.typeAP :
+          batch.trainingType.includes('MIP') ? styles.typeMIP :
+          batch.trainingType.includes('Capsule') ? styles.typeCapsule :
+          batch.trainingType.includes('Refresher') ? styles.typeRefresher :
+          batch.trainingType.includes('Pre-AP') ? styles.typePreAP : ''
+        }`}>
           {batch.trainingType}
         </span>
         <div className={styles.batchDivider}>|</div>
@@ -592,47 +609,35 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance, score
         )}
       </div>
 
-      <div className={styles.metricsGrid}>
-        {[
-          { label: 'Total', value: gTotal, className: styles.textAccent, Icon: Users },
-          { label: 'Att %', value: `${gAttPct}%`, className: styles.textSuccess, Icon: TrendingUp },
-          { label: 'Present', value: gPresent, className: styles.textSuccess, Icon: CheckCircle },
-          { label: 'Drop-off', value: gAbsent, className: styles.textDanger, Icon: XCircle },
-          { label: 'Pending', value: gPending, className: styles.textWarning, Icon: AlertCircle },
-          { label: 'Avg Score', value: gAvg !== null ? gAvg : '—', className: styles.textPrimary, Icon: TrendingUp },
-        ].map(k => {
-          const numericValue =
-            typeof k.value === 'string' && k.value.endsWith('%')
-              ? Number(k.value.replace('%', ''))
-              : typeof k.value === 'number'
-              ? k.value
-              : null;
-          const barPercent =
-            k.label === 'Att %'
-              ? numericValue
-              : k.label === 'Present' && gTotal > 0
-              ? Math.round((gPresent / gTotal) * 100)
-              : k.label === 'Drop-off' && gTotal > 0
-              ? Math.round((gAbsent / gTotal) * 100)
-              : k.label === 'Pending' && gTotal > 0
-              ? Math.round((gPending / gTotal) * 100)
-              : null;
-
-          return (
-          <div key={k.label} className={styles.metricCard}>
-            <div className={`${styles.metricValue} ${k.className}`}>{k.value}</div>
-            <div className={styles.metricLabel}>{k.label}</div>
-            {barPercent !== null && (
-              <div className="perf-bar" aria-hidden="true">
-                <div
-                  className="perf-bar-fill"
-                  style={{ width: `${Math.max(0, Math.min(100, barPercent))}%`, background: 'var(--accent-primary)' }}
-                />
-              </div>
-            )}
+      <div className={styles.batchSummaryBar}>
+        <div className={styles.summaryItem}>
+          <div className={styles.summaryLabel}>Total</div>
+          <div className={`${styles.summaryValue} ${styles.valueTotal}`}>{gTotal}</div>
+        </div>
+        <div className={styles.summaryDivider}></div>
+        <div className={styles.summaryItem}>
+          <div className={styles.summaryLabel}>Present</div>
+          <div className={`${styles.summaryValue} ${styles.valuePresent}`}>
+            {gPresent} <span className={styles.attPercent} style={{ marginLeft: '6px', verticalAlign: 'baseline' }}>{gAttPct}%</span>
           </div>
-          );
-        })}
+        </div>
+        <div className={styles.summaryDivider}></div>
+        <div className={styles.summaryItem}>
+          <div className={styles.summaryLabel}>Drop-off</div>
+          <div className={`${styles.summaryValue} ${gAbsent > 0 ? styles.valueDropOff : styles.valueMuted}`}>{gAbsent}</div>
+        </div>
+        <div className={styles.summaryDivider}></div>
+        <div className={styles.summaryItem}>
+          <div className={styles.summaryLabel}>Pending</div>
+          <div className={`${styles.summaryValue} ${gPending > 0 ? styles.valuePending : styles.valueMuted}`}>{gPending}</div>
+        </div>
+        <div className={styles.summaryDivider}></div>
+        <div className={styles.summaryItem}>
+          <div className={styles.summaryLabel}>Avg Score</div>
+          <div className={`${styles.summaryValue} ${gAvg !== null ? styles.valueTotal : styles.valueMuted}`}>
+            {gAvg !== null ? gAvg : '—'}
+          </div>
+        </div>
       </div>
 
       <div className={styles.filterBar}>
@@ -663,14 +668,14 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance, score
         </label>
       </div>
 
-      <div className={`${styles.selectionBar} ${isEditMode ? styles.editMode : styles.viewMode}`}>
+      <div className={styles.selectionBar}>
         <input
           type="checkbox" className={styles.checkbox} checked={isAllSelected}
           ref={el => { if (el) el.indeterminate = isSomeSelected; }}
           onChange={selectAll} disabled={!isEditMode}
         />
         <span className={styles.selectionCount}>
-          {selectedIds.size > 0 ? <strong>{selectedIds.size} rows selected</strong> : <span>Select all filtered (<strong>{allFilteredCandidateKeys.length}</strong>)</span>}
+          {selectedIds.size > 0 ? <strong>{selectedIds.size} rows selected</strong> : <span>Select all filtered (<strong className={styles.countAccent}>{allFilteredCandidateKeys.length}</strong>)</span>}
         </span>
         {selectedIds.size > 0 && (
           <div className={styles.bulkActions}>
@@ -684,6 +689,30 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance, score
         )}
         {selectedIds.size > 0 && <button className={styles.clearSelectionBtn} onClick={clearSelection}>Clear Selection</button>}
       </div>
+
+      {filtered.length > 0 && (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'flex-end',
+          gap: '12px',
+          padding: '0 24px 6px',
+          background: 'transparent',
+          position: 'sticky',
+          top: 0,
+          zIndex: 10,
+          fontSize: '10px',
+          fontWeight: 700,
+          textTransform: 'uppercase',
+          letterSpacing: '0.08em',
+          color: '#8A9BC0'
+        }}>
+          <span style={{ minWidth: '36px', textAlign: 'center' }}>Total</span>
+          <span style={{ minWidth: '36px', textAlign: 'center' }}>Present</span>
+          <span style={{ minWidth: '36px', textAlign: 'center' }}>Drop-off</span>
+          <span style={{ minWidth: '36px', textAlign: 'center' }}>Att%</span>
+          <span style={{ minWidth: '36px', textAlign: 'center' }}>Score</span>
+        </div>
+      )}
 
       {filtered.length === 0 ? (
         <div className={styles.noResults}>No data available for selected filters</div>
