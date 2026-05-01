@@ -790,7 +790,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                 <td className="font-mono">{t.trainingsConducted}</td>
                 <td className="font-bold">{t.avgScore.toFixed(1)}</td>
                 <td>
-                  <ProgressBar width={(t.avgScore / 100) * 100} colorClass="bg-primary" />
+                  <ProgressBar width={t.avgScore} colorClass="bg-primary" />
                 </td>
               </tr>
             ))}
@@ -867,7 +867,15 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
         <div className="glass-panel p-20">
           <div className="card-header mb-20"><h3 className="text-lg m-0">{tab} Performance Analytics</h3></div>
           <div className="grid-3 mb-24">
-            <KPIBox title="Avg Assessment" value={(tab === 'AP' ? apPerfData?.globalKPIs.avgScore : tab === 'MIP' ? mipPerfData?.globalKPIs.avgScore : 0)?.toFixed(1)} icon={Zap} />
+            <KPIBox 
+              title="Avg Assessment" 
+              value={(tab === 'AP' 
+                ? (apPerfData ? (apPerfData.globalKPIs.avgKnowledge + apPerfData.globalKPIs.avgBSE) / 2 : 0)
+                : tab === 'MIP'
+                ? (mipPerfData ? (mipPerfData.globalKPIs.avgScience + mipPerfData.globalKPIs.avgSkill) / 2 : 0)
+                : 0)?.toFixed(1)} 
+              icon={Zap} 
+            />
             <KPIBox title="High Performers" value={`${(tab === 'AP' ? apPerfData?.globalKPIs.highPerformersPct : tab === 'MIP' ? mipPerfData?.globalKPIs.highPerformersPct : 0)?.toFixed(1)}%`} color="var(--success)" icon={Trophy} />
             <KPIBox title="Total Assessed" value={tab === 'AP' ? apPerfData?.globalKPIs.totalAttended : tab === 'MIP' ? mipPerfData?.globalKPIs.totalAttended : 0} color="var(--accent-primary)" />
           </div>

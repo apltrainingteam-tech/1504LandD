@@ -3,6 +3,7 @@
  * ⚠️ DO NOT IMPORT IN COMPONENTS — USE HOOKS ONLY
  */
 import { EmployeeEventTimeline } from './apEngine';
+import { normalizeScore } from '../utils/scoreNormalizer';
 import { traceEngine } from '../debug/traceEngine';
 
 // ─── TYPES & INTERFACES ──────────────────────────────────────────────────────
@@ -153,7 +154,7 @@ export const getCapsulePerformanceAggregates = traceEngine("getCapsulePerformanc
       if (!clusterMap[cluster].teams[team].months[month]) clusterMap[cluster].teams[team].months[month] = { avgScore: 0, count: 0 };
 
       totalAttended++;
-      const score = typeof att.scores['score'] === 'number' ? att.scores['score'] : null;
+      const score = normalizeScore(att.scores['score']);
 
       const cMonth: any = clusterMap[cluster].months[month];
       const tMonth: any = clusterMap[cluster].teams[team].months[month];
@@ -180,7 +181,7 @@ export const getCapsulePerformanceAggregates = traceEngine("getCapsulePerformanc
       if (att.status !== 'Present') continue;
       if (!fyMonths.includes(att.month)) continue;
       
-      const score = typeof att.scores['score'] === 'number' ? att.scores['score'] : null;
+      const score = normalizeScore(att.scores['score']);
       if (score !== null) {
         candidateAvgSum += score;
         candidateAvgCount++;
@@ -227,7 +228,7 @@ export function getCapsulePerformanceDrilldown(
         cluster: timeline.cluster,
         trainer: att.trainerId || 'Unknown',
         attendanceDate: att.date,
-        score: typeof att.scores['score'] === 'number' ? att.scores['score'] : null
+        score: normalizeScore(att.scores['score'])
       });
     }
   }

@@ -3,6 +3,7 @@
  * ⚠️ DO NOT IMPORT IN COMPONENTS — USE HOOKS ONLY
  */
 import { EmployeeEventTimeline } from './apEngine';
+import { normalizeScore } from '../utils/scoreNormalizer';
 import { traceEngine } from '../debug/traceEngine';
 
 // ─── TYPES & INTERFACES ──────────────────────────────────────────────────────
@@ -146,8 +147,9 @@ export const getRefresherPerformanceAggregates = traceEngine("getRefresherPerfor
       const tMonth: any = clusterMap[cluster].teams[team].months[month];
 
       ['s', 'k', 'kn', 'sh', 'pr'].forEach(key => {
-        const v = (vals as any)[key];
-        if (typeof v === 'number') {
+        const vRaw = (vals as any)[key];
+        const v = normalizeScore(vRaw);
+        if (v !== null) {
           (sums as any)[key] += v; (counts as any)[key]++;
           if (!cMonth[`_${key}Sum`]) { cMonth[`_${key}Sum`] = 0; cMonth[`_${key}Count`] = 0; }
           if (!tMonth[`_${key}Sum`]) { tMonth[`_${key}Sum`] = 0; tMonth[`_${key}Count`] = 0; }
@@ -169,7 +171,9 @@ export const getRefresherPerformanceAggregates = traceEngine("getRefresherPerfor
       if (att.status !== 'Present') continue;
       if (!fyMonths.includes(att.month)) continue;
       
-      const scores = Object.values(att.scores).filter(v => typeof v === 'number') as number[];
+      const scores = Object.values(att.scores)
+        .map(v => normalizeScore(v))
+        .filter((v): v is number => v !== null) as number[];
       if (scores.length > 0) {
         candidateAvgSum += (scores.reduce((s, v) => s + v, 0) / scores.length);
         candidateAvgCount++;
@@ -225,11 +229,11 @@ export function getRefresherDrilldownList(
         cluster: timeline.cluster,
         trainer: att.trainerId || 'Unknown',
         attendanceDate: att.date,
-        science: typeof s['scienceScore'] === 'number' ? s['scienceScore'] : null,
-        skill: typeof s['skillScore'] === 'number' ? s['skillScore'] : null,
-        knowledge: typeof s['knowledge'] === 'number' ? s['knowledge'] : null,
-        situationHandling: typeof s['situationHandling'] === 'number' ? s['situationHandling'] : null,
-        presentation: typeof s['presentation'] === 'number' ? s['presentation'] : null
+        science: normalizeScore(s['scienceScore']),
+        skill: normalizeScore(s['skillScore']),
+        knowledge: normalizeScore(s['knowledge']),
+        situationHandling: normalizeScore(s['situationHandling']),
+        presentation: normalizeScore(s['presentation'])
       });
     }
   }

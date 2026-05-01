@@ -7,6 +7,7 @@ import { normalizeText } from '../utils/textNormalizer';
 import { Team } from '../context/MasterDataContext';
 import { getTeamId } from '../utils/teamIdMapper';
 import { normalizeTrainingType } from './normalizationEngine';
+import { normalizeScore } from '../utils/scoreNormalizer';
 import { traceEngine } from '../debug/traceEngine';
 
 // ─── TYPES & INTERFACES ──────────────────────────────────────────────────────
@@ -210,7 +211,9 @@ export const buildAPMonthlyMatrix = traceEngine("buildAPMonthlyMatrix", (
     timeline.attendances.forEach(a => {
       if (a.status === 'Present') {
         presentCount++;
-        const vals = Object.values(a.scores).filter(v => v !== null) as number[];
+        const vals = Object.values(a.scores)
+          .map(v => normalizeScore(v))
+          .filter((v): v is number => v !== null) as number[];
         if (vals.length > 0) {
           totalScoreSum += (vals.reduce((s, v) => s + v, 0) / vals.length);
           scoredSessions++;
@@ -321,8 +324,9 @@ export const getAPPerformanceAggregates = traceEngine("getAPPerformanceAggregate
       totalAttended++;
       uniqueCandidateIds.add(timeline.employeeId);
 
-      let kVal = att.scores['knowledge'] ?? att.scores['knowledgeScore'] ?? att.scores['percent'] ?? att.scores['testScore'] ?? att.scores['Score'] ?? att.scores['test'];
-      let hasKnowledge = typeof kVal === 'number';
+      let kValRaw = att.scores['knowledge'] ?? att.scores['knowledgeScore'] ?? att.scores['percent'] ?? att.scores['testScore'] ?? att.scores['Score'] ?? att.scores['test'];
+      let kVal = normalizeScore(kValRaw);
+      let hasKnowledge = kVal !== null;
       if (hasKnowledge) { globalKnowledgeSum += kVal as number; globalKnowledgeCount++; }
 
       let bseVal = typeof att.scores['bse'] === 'number' ? att.scores['bse'] : null;
@@ -331,8 +335,13 @@ export const getAPPerformanceAggregates = traceEngine("getAPPerformanceAggregate
         const bseKeys = ['grasping', 'participation', 'detailing', 'rolePlay', 'punctuality', 'grooming', 'behaviour'];
         let bseSum = 0; let bseCount = 0;
         for (const k of bseKeys) {
-          const val = att.scores[k];
-          if (typeof val === 'number') { bseSum += val; bseCount++; if (bseParamTotals[k]) { bseParamTotals[k].sum += val; bseParamTotals[k].count++; } }
+          const valRaw = att.scores[k];
+          const val = normalizeScore(valRaw);
+          if (val !== null) { 
+            bseSum += val; 
+            bseCount++; 
+            if (bseParamTotals[k]) { bseParamTotals[k].sum += val; bseParamTotals[k].count++; } 
+          }
         }
         if (bseCount > 0) bseVal = bseSum / bseCount;
       }
@@ -357,7 +366,9 @@ export const getAPPerformanceAggregates = traceEngine("getAPPerformanceAggregate
       const month = att.month;
       if (!fyMonths.includes(month)) continue;
       
-      const scores = Object.values(att.scores).filter(v => typeof v === 'number') as number[];
+      const scores = Object.values(att.scores)
+        .map(v => normalizeScore(v))
+        .filter((v): v is number => v !== null) as number[];
       if (scores.length > 0) {
         candidateAvgSum += (scores.reduce((s, v) => s + v, 0) / scores.length);
         candidateAvgCount++;
@@ -401,10 +412,15 @@ export function getAPDrilldownList(
     for (const att of timeline.attendances) {
       if (att.status !== 'Present' || att.month !== filters.month) continue;
       const scores = att.scores;
-      const kVal = typeof scores['knowledge'] === 'number' ? scores['knowledge'] : null;
+      const kValRaw = typeof scores['knowledge'] === 'number' ? scores['knowledge'] : null;
+      const kVal = normalizeScore(kValRaw);
       const bseKeys = ['grasping', 'detailing', 'situationHandling', 'english', 'localLanguage', 'involvement', 'effort', 'confidence'];
       let bSum = 0; let bCount = 0;
-      for (const key of bseKeys) { const val = scores[key]; if (typeof val === 'number') { bSum += val; bCount++; } }
+      for (const key of bseKeys) { 
+        const valRaw = scores[key]; 
+        const val = normalizeScore(valRaw);
+        if (val !== null) { bSum += val; bCount++; } 
+      }
       const bseVal = bCount > 0 ? bSum / bCount : null;
 
       results.push({
@@ -416,14 +432,14 @@ export function getAPDrilldownList(
         attendanceDate: att.date,
         knowledge: kVal,
         bse: bseVal,
-        grasping: typeof scores['grasping'] === 'number' ? scores['grasping'] : null,
-        detailing: typeof scores['detailing'] === 'number' ? scores['detailing'] : null,
-        situationHandling: typeof scores['situationHandling'] === 'number' ? scores['situationHandling'] : null,
-        english: typeof scores['english'] === 'number' ? scores['english'] : null,
-        localLanguage: typeof scores['localLanguage'] === 'number' ? scores['localLanguage'] : null,
-        involvement: typeof scores['involvement'] === 'number' ? scores['involvement'] : null,
-        effort: typeof scores['effort'] === 'number' ? scores['effort'] : null,
-        confidence: typeof scores['confidence'] === 'number' ? scores['confidence'] : null,
+        grasping: normalizeScore(scores['grasping']),
+        detailing: normalizeScore(scores['detailing']),
+        situationHandling: normalizeScore(scores['situationHandling']),
+        english: normalizeScore(scores['english']),
+        localLanguage: normalizeScore(scores['localLanguage']),
+        involvement: normalizeScore(scores['involvement']),
+        effort: normalizeScore(scores['effort']),
+        confidence: normalizeScore(scores['confidence']),
       });
     }
   }

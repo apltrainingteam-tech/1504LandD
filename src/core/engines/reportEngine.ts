@@ -36,7 +36,9 @@ const safe = (v: any): number => (typeof v === 'number' && !isNaN(v)) ? v : 0;
 
 const avgScores = (scores: Record<string, number | null> | undefined): number => {
   if (!scores) return 0;
-  const vals = Object.values(scores).filter((v): v is number => v !== null && !isNaN(v as number));
+  const vals = Object.values(scores)
+    .map(v => normalizeScore(v))
+    .filter((v): v is number => v !== null && !isNaN(v));
   return vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
 };
 

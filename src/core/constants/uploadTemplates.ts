@@ -329,6 +329,28 @@ export function normalizeStatus(statusStr: string | null): string {
 }
 
 /**
+ * Normalize Score: Fraction → Percentage
+ *
+ * Rule:
+ *   - If value is 0 < v <= 1.0 → multiply by 100 (fractional format from Excel)
+ *   - If value is > 1  → already a percentage, keep as-is
+ *   - If value is 0    → keep as 0 (attended but scored 0)
+ *   - null / NaN       → null
+ *
+ * Applied ONLY in the data normalization layer (upload pipeline).
+ * Never applied in UI or engines.
+ */
+export function normalizeScore(raw: number | null | undefined): number | null {
+  if (raw === null || raw === undefined || isNaN(raw as number)) return null;
+  const n = Number(raw);
+  if (isNaN(n)) return null;
+  // Fraction detection: values between 0 (exclusive) and 1 (inclusive)
+  if (n > 0 && n <= 1) return Math.round(n * 100);
+  // Already a percentage (0 or >1)
+  return Math.round(n * 100) / 100; // keep two-decimal precision for percentage values
+}
+
+/**
  * Map row data from Excel headers to MongoDB fields
  */
 export function mapRowToMongoDB(
@@ -366,7 +388,8 @@ export function mapRowToMongoDB(
       if (schema.scoreFields.includes(dbField)) {
         if (value !== undefined && value !== null && value !== '') {
           const num = Number(value);
-          scores[dbField] = isNaN(num) ? null : num;
+          // ✅ Normalize fraction → percentage at the source (data layer only)
+          scores[dbField] = isNaN(num) ? null : normalizeScore(num);
         } else {
           scores[dbField] = null;
         }

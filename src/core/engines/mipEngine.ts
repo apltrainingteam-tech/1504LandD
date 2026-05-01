@@ -3,6 +3,7 @@
  * ⚠️ DO NOT IMPORT IN COMPONENTS — USE HOOKS ONLY
  */
 import { EmployeeEventTimeline } from './apEngine';
+import { normalizeScore } from '../utils/scoreNormalizer';
 import { traceEngine } from '../debug/traceEngine';
 
 // ─── TYPES & INTERFACES ──────────────────────────────────────────────────────
@@ -130,8 +131,8 @@ export const getMIPPerformanceAggregates = traceEngine("getMIPPerformanceAggrega
 
       totalAttended++;
 
-      const sVal = typeof att.scores['scienceScore'] === 'number' ? att.scores['scienceScore'] : null;
-      const kVal = typeof att.scores['skillScore'] === 'number' ? att.scores['skillScore'] : null;
+      const sVal = normalizeScore(att.scores['scienceScore']);
+      const kVal = normalizeScore(att.scores['skillScore']);
 
       const cMonth: any = clusterMap[cluster].months[month];
       const tMonth: any = clusterMap[cluster].teams[team].months[month];
@@ -166,8 +167,8 @@ export const getMIPPerformanceAggregates = traceEngine("getMIPPerformanceAggrega
       const month = att.month;
       if (!fyMonths.includes(month)) continue;
       
-      const sVal = typeof att.scores['scienceScore'] === 'number' ? att.scores['scienceScore'] : null;
-      const kVal = typeof att.scores['skillScore'] === 'number' ? att.scores['skillScore'] : null;
+      const sVal = normalizeScore(att.scores['scienceScore']);
+      const kVal = normalizeScore(att.scores['skillScore']);
       
       let sessionSum = 0; let sessionCount = 0;
       if (sVal !== null) { sessionSum += sVal; sessionCount++; }
@@ -226,8 +227,8 @@ export function getMIPDrilldownList(
         cluster: timeline.cluster,
         trainer: att.trainerId || 'Unknown',
         attendanceDate: att.date,
-        science: typeof scores['scienceScore'] === 'number' ? scores['scienceScore'] : null,
-        skill: typeof scores['skillScore'] === 'number' ? scores['skillScore'] : null
+        science: normalizeScore(scores['scienceScore']),
+        skill: normalizeScore(scores['skillScore'])
       });
     }
   }

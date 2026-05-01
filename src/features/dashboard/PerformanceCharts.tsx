@@ -440,7 +440,7 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
             <div className={styles.chartGrid}>
               <div className="col-span-12 grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                 <KPICard title="TOTAL TRAINED" value={kpis.total} icon={<Users size={20} />} colorType="primary" />
-                <KPICard title="AVG SCORE" value={kpis.score > 0 ? kpis.score.toFixed(1) : '—'} icon={<Zap size={20} />} colorType="success" />
+                <KPICard title="AVG SCORE" value={kpis.score > 0 ? Math.round(kpis.score) : '—'} icon={<Zap size={20} />} colorType="success" />
                 <KPICard title="TOP TEAM" value={kpis.best} icon={<Trophy size={20} />} colorType="warning" />
                 <KPICard title="LOW TEAM" value={kpis.worst} icon={<AlertTriangle size={20} />} colorType="danger" />
               </div>
