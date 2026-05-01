@@ -59,12 +59,8 @@ export function normalizeToIPRecords(ds: UnifiedRecord[]): IPRecord[] {
     const s = scoreValues.length > 0 ? scoreValues.reduce((a, b) => a + b, 0) / scoreValues.length : null;
 
     if (s == null) {
-      throw debugError("Missing score", {
-        employeeId: r.employee.employeeId,
-        engine: "ipEngine",
-        source: "TrainingData",
-        month: r.attendance.month
-      });
+      console.warn(`[ipEngine] Missing score for employee ${r.employee.employeeId} in month ${r.attendance.month}. Skipping record.`);
+      return;
     }
     
     // Normalize team name to match map keys reliably

@@ -521,7 +521,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
               </Fragment>
             ) : (
               <Fragment>
-                {tab === 'IP' && (
+                {tab === 'IP' && ipKPI && (
                   <Fragment>
                     <KPIBox title="Total Candidates" value={ipKPI.total} icon={Zap} />
                     <KPIBox title="High %" value={`${ipKPI.highPct.toFixed(1)}%`} color="var(--success)" />
@@ -592,7 +592,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                     <KPIBox title="High Performers" value={`${(capsulePerfData.globalKPIs.highPerformersPct || 0).toFixed(1)}%`} color="var(--accent-primary)" icon={Trophy} />
                   </Fragment>
                 )}
-                {tab === 'Pre_AP' && (
+                {tab === 'Pre_AP' && preApKPI && (
                   <Fragment>
                     <KPIBox title="Nominated" value={preApKPI.notified} icon={Zap} />
                     <KPIBox title="Attended" value={preApKPI.attended} color="var(--success)" icon={CheckCircle2} />

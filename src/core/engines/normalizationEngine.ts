@@ -13,20 +13,27 @@
  * Normalizes a string for logic comparisons (lowercase, no spaces)
  */
 export const normalizeString = (val?: string): string =>
+  val?.toLowerCase().trim() || "";
+
+/**
+ * Normalizes a string strictly for matching (lowercase, no spaces)
+ */
+export const normalizeForMatch = (val?: string): string =>
   val?.toLowerCase().trim().replace(/\s+/g, "") || "";
 
 // ─── TEAM INGESTION RULES ──────────────────────────────────────────────────
 const TEAM_NORMALIZATION_RULES: Record<string, string> = {
-  "ajanta dental": "Dental",
-  "ajanta nephro": "Nephro",
-  "diabetes task force": "DTF",
+  "ajantadental": "Dental",
+  "ajantanephro": "Nephro",
+  "diabetestaskforce": "DTF",
+  "dtf": "DTF",
 };
 
 const TEAM_EXCLUSION_RULES = new Set([
   "aplife",
   "hospicare",
   "gencare",
-  "field l&d",
+  "fieldl&d",
 ]);
 
 /**
@@ -79,7 +86,7 @@ export const processTeamData = (teamName?: string): {
   const raw = (teamName || "").trim();
   if (!raw) return { normalized: "", excluded: false, caseFormatted: false, isException: false };
   
-  const normalizedKey = raw.toLowerCase();
+  const normalizedKey = normalizeForMatch(raw);
 
   // 1. Check exclusion (Hard Filter)
   if (TEAM_EXCLUSION_RULES.has(normalizedKey)) {
@@ -182,7 +189,7 @@ export const normalizeTrainingRecord = (record: any) => {
 
     // STRING NORMALIZATION (For Logic)
     trainingType: normalizeString(record.trainingType),
-    team: normalizeString(record.team),
+    team: processTeamData(record.team).normalized,
     trainer: normalizeString(record.trainer),
 
     // SAFE FALLBACKS / LABELS (For UI Display)
@@ -210,7 +217,7 @@ export const normalizeEmployeeRecord = (record: any) => {
     ...record,
     employeeId: String(record.employeeId || "").trim(),
     name: preserveLabel(record.name, "Unknown Employee"),
-    team: normalizeString(record.team),
+    team: processTeamData(record.team).normalized,
     teamLabel: preserveLabel(record.team, "Unknown Team"),
     designation: preserveLabel(record.designation, "Not Specified"),
     status: record.status || "ACTIVE"

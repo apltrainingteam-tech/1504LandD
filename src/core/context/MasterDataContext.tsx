@@ -23,7 +23,7 @@ import { DataEdit } from '../contracts/edit.contract';
 import { applyEdits } from '../engines/editEngine';
 import { validateTrainingData, validateNominationData, validateEmployeeData } from '../engines/validationEngine';
 import { Employee } from '../../types/employee';
-import { normalizeDataset, normalizeEmployeeRecord } from '../engines/normalizationEngine';
+import { normalizeDataset, normalizeEmployeeRecord, processTeamData } from '../engines/normalizationEngine';
 
 export interface Cluster {
   id: string;
@@ -180,8 +180,13 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
         return t;
       });
 
+      const normalizedTeams = (tmBD as Team[]).map(t => ({
+        ...t,
+        teamName: processTeamData(t.teamName).normalized
+      }));
+
       setTrainers(sanitizedTrainers.length > 0 ? sanitizedTrainers : INITIAL_TRAINERS);
-      setTeams(tmBD.length > 0 ? tmBD as Team[] : INITIAL_TEAMS);
+      setTeams(normalizedTeams.length > 0 ? normalizedTeams : INITIAL_TEAMS);
       setClusters(cBD.length > 0 ? cBD as Cluster[] : INITIAL_CLUSTERS);
       setEligibilityRules(rulesBD as EligibilityRule[]);
     } catch (e) {
@@ -210,8 +215,10 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
       
       // Separate nominations if they are marked in training_data
       const rawTraining = td as any[];
-      const normalizedTraining = normalizeDataset(rawTraining);
-      const normalizedEmployees = (emps as any[]).map(normalizeEmployeeRecord);
+      const normalizedTraining = normalizeDataset(rawTraining).filter(r => !processTeamData(r.team).excluded);
+      const normalizedEmployees = (emps as any[])
+        .map(normalizeEmployeeRecord)
+        .filter(r => !processTeamData(r.team).excluded);
 
       setBaseData({
         trainingData: normalizedTraining,
