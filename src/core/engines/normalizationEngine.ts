@@ -39,7 +39,8 @@ const TEAM_EXCLUSION_RULES = new Set([
 /**
  * Formats a string to Proper Case (Capitalize each word)
  */
-export const toProperCase = (str: string): string => {
+export const toProperCase = (str: string | undefined | null): string => {
+  if (!str) return "";
   return str
     .toLowerCase()
     .split(' ')

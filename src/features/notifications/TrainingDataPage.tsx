@@ -16,7 +16,7 @@ import API_BASE from '../../config/api';
 import styles from './TrainingDataPage.module.css';
 import { useTrainingData } from '../../shared/hooks/useTrainingData';
 import { TRAINING_TEMPLATES, TEMPLATE_FIELD_MAP } from '../../core/constants/trainingTemplates';
-import { normalizeTrainingType } from '../../core/engines/normalizationEngine';
+import { normalizeTrainingType, toProperCase } from '../../core/engines/normalizationEngine';
 import { TrainingScore } from '../../types/attendance';
 
 interface Props {
@@ -164,10 +164,10 @@ const CandidateRow = React.memo<CandidateRowProps>(({
         />
       </td>
       <td className={`${styles.td} ${styles.tdEmpId}`}>{candidate.empId}</td>
-      <td className={`${styles.td} ${styles.tdName} ${curIsVoided ? styles.strike : ''}`}>{employee?.name || '—'}</td>
-      <td className={`${styles.td} ${styles.tdSecondary} ${curIsVoided ? styles.strike : ''}`}>{employee?.designation || '—'}</td>
-      <td className={`${styles.td} ${styles.tdSecondary} ${curIsVoided ? styles.strike : ''}`}>{employee?.hq || '—'}</td>
-      <td className={`${styles.td} ${styles.tdSecondary} ${curIsVoided ? styles.strike : ''}`}>{employee?.state || '—'}</td>
+      <td className={`${styles.td} ${styles.tdName} ${curIsVoided ? styles.strike : ''}`}>{toProperCase(employee?.name) || '—'}</td>
+      <td className={`${styles.td} ${styles.tdSecondary} ${curIsVoided ? styles.strike : ''}`}>{toProperCase(employee?.designation) || '—'}</td>
+      <td className={`${styles.td} ${styles.tdSecondary} ${curIsVoided ? styles.strike : ''}`}>{toProperCase(employee?.hq) || '—'}</td>
+      <td className={`${styles.td} ${styles.tdSecondary} ${curIsVoided ? styles.strike : ''}`}>{toProperCase(employee?.state) || '—'}</td>
       
       {templateColumns.map(col => {
         const field = TEMPLATE_FIELD_MAP[col];
