@@ -16,7 +16,7 @@ import API_BASE from '../../config/api';
 import styles from './TrainingDataPage.module.css';
 import { useTrainingData } from '../../shared/hooks/useTrainingData';
 import { FlowStepper } from '../../shared/components/ui/FlowStepper';
-import { TRAINING_TEMPLATES, TEMPLATE_FIELD_MAP } from '../../core/constants/trainingTemplates';
+import { TRAINING_TEMPLATES, TEMPLATE_FIELD_MAP, RATING_FIELDS } from '../../core/constants/trainingTemplates';
 import { normalizeTrainingType, toProperCase } from '../../core/engines/normalizationEngine';
 import { TrainingScore } from '../../types/attendance';
 
@@ -195,8 +195,9 @@ const CandidateRow = React.memo<CandidateRowProps>(({
               </div>
             ) : (
               <div className={`${styles.scoreDisplay} ${curIsVoided ? styles.strike : ''}`}>
-                {val === null || val === undefined || val === '' ? '—' 
-                  : (isNumeric && !isDateField && !isNotifiedField) ? `${Math.round(val)}%` 
+                {val === null || val === undefined || val === '' ? '—'
+                  : (isNumeric && !isDateField && !isNotifiedField && !RATING_FIELDS.has(field)) ? `${Math.round(val)}%`
+                  : isNumeric ? Math.round(val)
                   : val}
               </div>
             )}

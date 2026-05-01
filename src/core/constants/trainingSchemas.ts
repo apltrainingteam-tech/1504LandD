@@ -53,7 +53,7 @@ export const TRAINING_SCHEMAS: Record<string, TrainingSchema> = {
     scoreLabels: { score: 'Score' }
   },
 
-  Pre_AP: {
+  PreAP: {
     required: ['aadhaarNumber', 'employeeId', 'mobileNumber', 'name', 'trainerId', 'team', 'designation', 'hq', 'state', 'attendanceDate', 'attendanceStatus'],
     scoreFields: ['percent'],
     scoreLabels: { percent: 'Test Score' }

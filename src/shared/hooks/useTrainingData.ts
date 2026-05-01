@@ -131,15 +131,33 @@ export const useTrainingData = (
     };
 
     notificationRecords.forEach(r => {
-      if (r.trainingId) process(r.trainingId, r.teamId || '', r.team, r.trainingType, r.trainerId, r.notificationDate, r.notificationDate, 'NOTIFICATION', !!((r as any).isVoided || r.finalStatus === 'VOID'));
+      if (r.trainingId) {
+        process(r.trainingId, r.teamId || '', r.team, r.trainingType, r.trainerId, r.notificationDate, r.notificationDate, 'NOTIFICATION', !!((r as any).isVoided || r.finalStatus === 'VOID'));
+        const batch = batchesMap.get(r.trainingId);
+        if (batch) {
+          const matchScore = scores.find(s => 
+            String(s.employeeId) === String(r.empId || (r as any).employeeId) && 
+            normalizeTrainingType(s.trainingType) === normalizeTrainingType(r.trainingType) &&
+            (s.dateStr === r.notificationDate || s.dateStr === (r as any).month)
+          );
+          batch.candidates.push({
+            empId: String(r.empId || (r as any).employeeId),
+            attendance: r.attended ? 'present' : 'pending',
+            score: '',
+            scores: matchScore?.scores || (r as any).scores || {},
+            isVoided: r.finalStatus === 'VOID' || r.isVoided || false
+          });
+        }
+      }
     });
 
     drafts.forEach(d => {
       process(d.trainingId, d.teamId, d.team, d.trainingType, d.trainer || '', d.startDate || '', d.endDate || '', 'NOTIFICATION', d.isVoided);
+      // Candidates are mapped from notificationRecords above. For raw drafts, they usually map directly to records.
     });
 
     return Array.from(batchesMap.values());
-  }, [notificationRecords, drafts, filters]);
+  }, [notificationRecords, drafts, filters, scores]);
 
   const allBatches = useMemo(() => {
     const seen = new Set<string>();

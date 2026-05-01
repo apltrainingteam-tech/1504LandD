@@ -368,7 +368,7 @@ export function mapRowToMongoDB(
 
   // Map each Excel column to MongoDB field
   excelHeaders.forEach(excelHeader => {
-    const dbField = COLUMN_MAPPING[excelHeader];
+    const dbField = COLUMN_MAPPING[excelHeader.trim()];
     if (dbField) {
       let value = excelRow[excelHeader];
 

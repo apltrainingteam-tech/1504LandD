@@ -5,6 +5,7 @@ import { normalizeScore } from '../../core/utils/scoreNormalizer';
 import { getSchema, mapHeader } from '../../core/constants/trainingSchemas';
 import { normalizeText } from '../../core/utils/textNormalizer';
 import { mapTeamCodeToId } from '../../core/utils/teamIdMapper';
+import { normalizeTrainingType } from '../../core/engines/normalizationEngine';
 import { Employee } from '../../types/employee';
 import { Attendance, TrainingScore, TrainingNomination, Demographics as DemoType } from '../../types/attendance';
 import { useMasterData } from '../../core/context/MasterDataContext';
@@ -43,7 +44,8 @@ export const useAppData = () => {
       let attendanceDate = r.attendanceDate || row.attendanceDate;
       if (attendanceDate) attendanceDate = parseAnyDate(attendanceDate) || attendanceDate;
 
-      const trainingType = r.trainingType || row.trainingType;
+      const trainingType = r.trainingType || row.trainingType || '';
+      const normalizedType = normalizeTrainingType(String(trainingType));
       const employeeId = r.employeeId || r.aadhaarNumber || row.employeeId || row.aadhaarNumber;
       if (!employeeId) return;
 
@@ -54,7 +56,7 @@ export const useAppData = () => {
           a.push({
             id: row.id || row._id || `td-${index}`,
             employeeId: String(employeeId),
-            trainingType,
+            trainingType: normalizedType,
             attendanceDate,
             month: (attendanceDate as string).substring(0, 7),
             attendanceStatus: r.attendanceStatus || 'Present',
@@ -72,36 +74,42 @@ export const useAppData = () => {
       }
 
       const scoresObj: Record<string, number> = {};
-      const schema = getSchema(trainingType);
+      const schema = getSchema(normalizedType);
 
       const extractBySchema = (source: any) => {
         if (!source) return;
+        // Fields that are raw ratings, not percentages — do NOT multiply by 100
+        const RATING_KEYS = new Set(['tScore', 'grasping', 'participation', 'detailing', 'rolePlay', 'punctuality', 'grooming', 'behaviour', 'notified']);
         Object.keys(source).forEach(rawKey => {
           const canonicalKey = mapHeader(rawKey);
           if (schema.scoreFields.includes(canonicalKey)) {
             const val = source[rawKey];
-            const normalized = normalizeScore(val);
-            if (normalized !== null) {
-              scoresObj[canonicalKey] = normalized;
-            }
+            if (val === null || val === undefined) return;
+            const num = typeof val === 'number' ? val : parseFloat(val);
+            if (isNaN(num)) return;
+            // Rating fields: keep raw value. Percentage fields: normalize fraction→%
+            const stored = RATING_KEYS.has(canonicalKey) ? Math.round(num * 100) / 100 : (normalizeScore(val) ?? num);
+            scoresObj[canonicalKey] = stored;
           }
         });
       };
 
       extractBySchema(r);
       extractBySchema(row);
+      if (r.scores) extractBySchema(r.scores);
+      if (row.scores) extractBySchema(row.scores);
 
       if (Object.keys(scoresObj).length > 0) {
         s.push({
           id: row.id || row._id || `ts-${index}`,
           employeeId: String(employeeId),
-          trainingType,
+          trainingType: normalizedType,
           dateStr: attendanceDate,
           scores: scoresObj
         } as TrainingScore);
       }
 
-      if (trainingType === 'PreAP' || r.notified || row.notified) {
+      if (normalizedType === 'PreAP' || r.notified || row.notified) {
         let notificationDate = r.apDate || attendanceDate || '';
         if (notificationDate) notificationDate = parseAnyDate(notificationDate) || notificationDate;
 
@@ -111,7 +119,7 @@ export const useAppData = () => {
           n.push({
             id: row.id || row._id || `nom-${index}`,
             employeeId: String(employeeId),
-            trainingType,
+            trainingType: normalizedType,
             notificationDate,
             month: (notificationDate as string).substring(0, 7),
             notificationCount: 1,

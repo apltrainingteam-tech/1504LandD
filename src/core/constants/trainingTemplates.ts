@@ -49,3 +49,21 @@ export const TEMPLATE_FIELD_MAP: Record<string, string> = {
 
   'Score': 'score'
 };
+
+/**
+ * Fields that are raw ratings/numbers, NOT percentages.
+ * These will be rendered without the '%' suffix.
+ */
+export const RATING_FIELDS = new Set<string>([
+  'tScore',        // Trainability Score (0–30 rating scale)
+  'grasping',      // AP sub-score rating
+  'participation', // AP sub-score rating
+  'detailing',     // AP sub-score rating (Detailing & Presentation)
+  'rolePlay',      // AP sub-score rating
+  'punctuality',   // AP sub-score rating
+  'grooming',      // AP sub-score rating
+  'behaviour',     // AP sub-score rating
+  'notified',      // Notification count
+  'apDate',        // Date field
+]);
+
