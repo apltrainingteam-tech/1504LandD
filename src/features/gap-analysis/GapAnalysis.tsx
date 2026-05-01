@@ -10,10 +10,10 @@ import { InsightStrip } from '../../features/dashboard/components/InsightStrip';
 import TopRightControls from '../../shared/components/ui/TopRightControls';
 import { GlobalFilterPanel } from '../../shared/components/ui/GlobalFilterPanel';
 import { GlobalFilters, getActiveFilterCount } from '../../core/context/filterContext';
-import { getFiscalYears } from '../../core/utils/fiscalYear';
 import { useFilterOptions } from '../../shared/hooks/computationHooks';
 import { useMasterData } from '../../core/context/MasterDataContext';
 import { GapAnalysisData } from '../../core/engines/gapEngine';
+import { useGlobalFilters } from '../../core/context/GlobalFilterContext';
 import styles from './GapAnalysis.module.css';
 
 // Zone lookup from state
@@ -36,11 +36,13 @@ type TrainingTab = 'AP' | 'MIP' | 'Refresher' | 'Capsule';
 export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance, nominations, onNavigate }) => {
   const { trainers: masterTrainers, teams: masterTeams, clusters: masterClusters } = useMasterData();
   const { setSelectionSession } = usePlanningFlow();
-  const [tab, setTab] = useState<TrainingTab>('AP');
+  // ✅ Single Source of Truth — read tab and FY from GlobalFilterContext
+  const { filters: globalFilters } = useGlobalFilters();
+  const tab = (globalFilters.trainingType !== 'ALL' ? globalFilters.trainingType : 'AP') as TrainingTab;
+  const selectedFY = globalFilters.fiscalYear;
+
   const [expanded, setExpanded] = useState(new Set<string>());
   const [zoneFilter, setZoneFilter] = useState<string>('');
-  const FY_OPTIONS = getFiscalYears(2015);
-  const [selectedFY, setSelectedFY] = useState<string>(FY_OPTIONS[0]);
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
   const [pageFilters, setPageFilters] = useState<GlobalFilters>({ cluster: '', team: '', trainer: '', month: '' });
   const activeFilterCount = getActiveFilterCount(pageFilters);
@@ -50,6 +52,7 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
   // Orchestrated Data
   const { data, drilldownData } = useGapAnalysisData(tab, employees, attendance, nominations, masterTeams, pageFilters, zoneFilter);
 
+  // Reset team selection when the global training type changes
   useEffect(() => {
     setSelectedTeams([]);
   }, [tab]);
@@ -278,28 +281,14 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
           <p className={styles.subtitle}>Untrained population requiring training</p>
         </div>
         <TopRightControls
-          fiscalOptions={FY_OPTIONS}
-          selectedFY={selectedFY}
-          onChangeFY={(v) => setSelectedFY(v)}
           onOpenGlobalFilters={() => setShowGlobalFilters(true)}
           onExport={() => alert('Export not available for Training Requirements (UI placeholder)')}
           activeFilterCount={activeFilterCount}
         />
       </div>
 
-      {/* Tabs - Pill Style */}
-      <div className={styles.tabs}>
-        {(['AP', 'MIP', 'Refresher', 'Capsule'] as TrainingTab[]).map(t => (
-          <button
-            key={t}
-            className={`${styles.tab} ${tab === t ? styles.tabActive : ''}`}
-            onClick={() => setTab(t)}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
-
+      {/* TABS REMOVED - Driven by GlobalFilterContext */}
+      
       {selectedTeams.length > 0 && (
         <div className={styles.selectionBanner}>
           <div className={styles.selectionText}>Selected Teams: <strong>{selectedTeams.length}</strong></div>

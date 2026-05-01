@@ -428,6 +428,73 @@ body.presentation-active .main-content {
   border: 1px solid #e5e7eb;
 }
 
+/* Global Filters Bar */
+.global-filters-bar {
+  padding: 8px 16px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 50;
+  margin: 0 auto;
+  max-width: fit-content;
+}
+
+.filters-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.filter-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  transition: color 0.2s;
+}
+
+.filter-item:hover {
+  color: var(--accent-primary);
+}
+
+.filter-icon {
+  opacity: 0.6;
+}
+
+.filter-select {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 8px;
+  outline: none;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.filter-select:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.light-theme .filter-select:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.filter-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-color);
+  opacity: 0.5;
+}
+
+.sticky-top {
+  position: sticky;
+  top: 0;
+}
+
 /* Grid Layouts */
 .dashboard-grid {
   display: grid;

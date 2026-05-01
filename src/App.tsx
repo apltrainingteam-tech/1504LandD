@@ -55,6 +55,8 @@ import { PerformanceCharts } from './features/dashboard/PerformanceCharts';
 import { DataQualityCenter } from './features/dashboard/DataQualityCenter';
 import { AgentDebugPanel } from './features/debug/AgentDebugPanel';
 import { ErrorBoundary } from './core/debug/ErrorBoundary';
+import { GlobalFiltersBar } from './shared/components/GlobalFiltersBar';
+import { ActiveContextBadge } from './shared/components/ui/ActiveContextBadge';
 
 // Services & Types
 import { Employee } from './types/employee';
@@ -357,11 +359,14 @@ const App = () => {
 
       {/* Main Content Area */}
       <main className="main-content">
-        <header className="header mb-24">
+        <header className="header mb-16">
           <div className="global-search-container">
             <Search size={18} className="global-search-icon" />
             <input type="text" className="form-input global-search-input" placeholder="Search system globally..." />
           </div>
+          
+          <GlobalFiltersBar />
+
           <div className="flex-center">
             <button 
               className="btn btn-secondary theme-toggle-btn" 
@@ -375,6 +380,10 @@ const App = () => {
             </button>
           </div>
         </header>
+
+        <div style={{ padding: '0 24px', marginBottom: '16px', display: 'flex', justifyContent: 'flex-end' }}>
+          <ActiveContextBadge />
+        </div>
 
         <div className="shell-kpi-row">
           <div

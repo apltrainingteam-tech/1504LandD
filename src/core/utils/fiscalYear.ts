@@ -128,3 +128,13 @@ export const getFiscalMonths = (fy: string): string[] => {
 };
 
 export const FISCAL_YEARS = getFiscalYears(2015);
+
+/**
+ * Check if a date string falls within a given fiscal year
+ * @param dateStr Date string (YYYY-MM-DD)
+ * @param fy Fiscal year string (e.g., "2024-25")
+ */
+export const isWithinFY = (dateStr?: string, fy?: string): boolean => {
+  if (!fy || fy === 'ALL') return true;
+  return getFiscalYearFromDate(dateStr) === fy;
+};

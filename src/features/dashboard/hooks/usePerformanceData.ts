@@ -3,7 +3,7 @@ import { useDebugStore } from '../../../core/debug/debugStore';
 import { buildUnifiedDataset, applyFilters } from '../../../core/engines/reportEngine';
 import { normalizeTrainingType } from '../../../core/engines/normalizationEngine';
 import { getEligibleEmployees } from '../../../core/engines/eligibilityEngine';
-import { getFiscalMonths } from '../../../core/utils/fiscalYear';
+import { getFiscalMonths, isWithinFY } from '../../../core/utils/fiscalYear';
 import { buildEmployeeTimelines, filterTimelines } from '../../../core/engines/apEngine';
 import { 
   useGapMetrics, 
@@ -58,15 +58,27 @@ export interface UsePerformanceDataProps {
  * - ALWAYS return a structure compliant with PerformanceDataset contract.
  * - USE useMemo for all heavy derived state.
  */
+import { useGlobalFilters } from '../../../core/context/GlobalFilterContext';
+
 export const usePerformanceData = ({
-  tab, selectedFY, filter, viewBy = 'Team', tsMode = 'score', pageMode
+  tab: tabProp, selectedFY: fyProp, filter: filterProp, viewBy = 'Team', tsMode = 'score', pageMode
 }: UsePerformanceDataProps): PerformanceDataset & { resolutionLevel: 'Global' | 'Cluster' | 'Team' } => {
+  const { filters: globalFilters } = useGlobalFilters();
   const { 
     finalData, 
     teams: masterTeams, 
     trainers: masterTrainers, 
     eligibilityRules: rules 
   } = useMasterData();
+
+  // Use global filters as priority, but allow props to override (for specific dashboard views if needed)
+  // Actually, for "Global Filter System", the context should BE the source of truth.
+  const tab = globalFilters.trainingType !== 'ALL' ? globalFilters.trainingType : tabProp;
+  const selectedFY = globalFilters.fiscalYear;
+  const filter = useMemo(() => ({
+    ...filterProp,
+    trainer: globalFilters.trainer !== 'ALL' ? globalFilters.trainer : filterProp.trainer
+  }), [filterProp, globalFilters.trainer]);
 
   const {
     employeeData: employees,
@@ -202,8 +214,9 @@ export const usePerformanceData = ({
     return logStep("Unified Dataset Construction", () => {
       // We use a simple hash of input lengths to decide if we should re-compute
       const inputHash = [employees.length, attendance.length, scores.length, nominations.length, rules.length].join('|');
+      const cacheKey = `${globalFilters.trainingType}_${globalFilters.trainer}_${globalFilters.fiscalYear}_${inputHash}`;
       
-      const result = globalComputationCaches.grouping.compute([inputHash, activeNT], () => {
+      const result = globalComputationCaches.grouping.compute([cacheKey, activeNT], () => {
         const att = normalizedAttendance.filter(a => normalizeTrainingType(a.trainingType) === activeNT);
         console.log(`AFTER TYPE FILTER (${activeNT}):`, att?.length);
 
@@ -226,7 +239,7 @@ export const usePerformanceData = ({
       saveSnapshot("rawUnified", result);
       return result;
     });
-  }, [activeNT, normalizedAttendance, scores, nominations, employees, masterTeams, rules, tab, attendance]);
+  }, [activeNT, normalizedAttendance, scores, nominations, employees, masterTeams, rules, tab, attendance, globalFilters]);
 
 
   const unified = useMemo(() => {
@@ -239,10 +252,10 @@ export const usePerformanceData = ({
 
       if (normalizedCoreTabs.includes(activeNT)) {
         ds = ds.filter(r => {
-          const m = r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7);
-          const isMatch = MONTHS.includes(m);
+          const d = r.attendance.attendanceDate || r.attendance.date || r.attendance.month || '';
+          const isMatch = isWithinFY(d, selectedFY);
           if (!isMatch && ds.length < 100) {
-            console.warn(`[DATE MISMATCH] Record month "${m}" not in fiscal range for ${selectedFY}`);
+            console.warn(`[DATE MISMATCH] Record date "${d}" not in fiscal range for ${selectedFY}`);
           }
           return isMatch;
         });

@@ -1,8 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, X, AlertTriangle, Trash2, Calendar as CalIcon, Save, CheckCircle } from 'lucide-react';
 import TrainerAvatar from '../../shared/components/ui/TrainerAvatar';
-import TopRightControls from '../../shared/components/ui/TopRightControls';
-import { getFiscalYears, getFiscalYearFromDate, parseFiscalYear, getCurrentFiscalYear } from '../../core/utils/fiscalYear';
+import { getFiscalYearFromDate, parseFiscalYear, getCurrentFiscalYear } from '../../core/utils/fiscalYear';
 import { usePlanningFlow } from '../../core/context/PlanningFlowContext';
 import { getAvailableTrainers, Trainer } from '../../core/engines/trainerEngine';
 import { Employee } from '../../types/employee';
@@ -60,8 +59,13 @@ const getStatus = (plan: TrainingPlan) => {
 };
 
 
+import { useCalendarData } from '../../shared/hooks/useCalendarData';
+import { useGlobalFilters } from '../../core/context/GlobalFilterContext';
+
 export const TrainingCalendar = ({ employees, attendance }: { employees: Employee[], attendance: Attendance[] }) => {
+  const { filters: globalFilters, setFilters } = useGlobalFilters();
   const { trainers: masterTrainers, teams: masterTeams, refreshTransactional } = useMasterData();
+  const { plans } = useCalendarData();
 
   const resolveTrainerAvatar = (trainerId: string) => {
     const trainer = masterTrainers.find(t => t.id === trainerId);
@@ -71,9 +75,12 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
     const base = API_BASE.replace('/api', '');
     return `${base}${trainer.avatarUrl}`;
   };
-  const [tab, setTab] = useState<TrainingTab>('AP');
-  const FY_OPTIONS = getFiscalYears(2015);
-  const [selectedFY, setSelectedFY] = useState<string>(FY_OPTIONS[0]);
+
+  const [tabState, setTabState] = useState<TrainingTab>('AP');
+  const tab = globalFilters.trainingType !== 'ALL' ? globalFilters.trainingType as TrainingTab : tabState;
+
+  const FY_OPTIONS: string[] = []; // kept for type safety; FY now driven by GlobalFilterContext
+  const selectedFY = globalFilters.fiscalYear;
 
   const {
     selectionSession, consumedTeams, consumedTrainers, addConsumed,
@@ -83,10 +90,8 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
 
   useEffect(() => {
     if (selectionSession) {
-      setTab(selectionSession.trainingType as TrainingTab);
-      if (selectionSession.fiscalYear !== selectedFY) {
-        handleFYChange(selectionSession.fiscalYear);
-      }
+      setTabState(selectionSession.trainingType as TrainingTab);
+      // FY is now globally controlled
       if (selectedPlanningTeamIds.length === 0) {
         setSelectedPlanningTeamIds(selectionSession.teamIds || []);
       }
@@ -102,93 +107,29 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
   };
 
   const handleFYChange = (newFY: string) => {
-    setSelectedFY(newFY);
-    const fyStartYear = parseFiscalYear(newFY);
-    if (fyStartYear) {
-      const currentFY = getCurrentFiscalYear();
-      if (fyStartYear === currentFY) {
-        setCurrentDate(new Date()); // snap to current time if looking at current FY
-      } else {
-        setCurrentDate(new Date(fyStartYear, 3, 1)); // 3 = April
-      }
-    }
+    setFilters({ fiscalYear: newFY });
     setSelectedPlanId(null);
   };
 
-  // Filters
+  // Calendar State (Navigation)
+  const [currentDate, setCurrentDate] = useState(new Date());
+
+  useEffect(() => {
+    const fyStartYear = parseFiscalYear(selectedFY);
+    if (fyStartYear) {
+      const currentFY = getCurrentFiscalYear();
+      if (fyStartYear === currentFY) {
+        setCurrentDate(new Date()); 
+      } else {
+        setCurrentDate(new Date(fyStartYear, 3, 1)); // April
+      }
+    }
+  }, [selectedFY]);
+
+  // Filters (Local sub-filters)
   const [filterTeam, setFilterTeam] = useState('');
   const [filterTrainer, setFilterTrainer] = useState('');
 
-  // Calendar State
-  const [currentDate, setCurrentDate] = useState(new Date());
-
-  // --- State for Calendar Plans (Synced with Source of Truth) ---
-  const [plans, setPlans] = useState<TrainingPlan[]>([]);
-
-  useEffect(() => {
-    const plansMap = new Map<string, TrainingPlan>();
-
-    const processEntry = (
-      trainingId: string,
-      teamId: string,
-      teamName: string,
-      type: string,
-      trainer: string,
-      start: string,
-      end: string,
-      status: TrainingPlanStatus = 'Planned'
-    ) => {
-      if (!plansMap.has(trainingId)) {
-        plansMap.set(trainingId, {
-          id: trainingId,
-          trainingType: type,
-          status,
-          trainer,
-          startDate: start,
-          endDate: end,
-          teams: [],
-          checklist: (CHECKLIST_RULES[type] || []).map(name => ({ name, completed: false }))
-        });
-      }
-      const plan = plansMap.get(trainingId)!;
-      if (!plan.teams.some(t => t.teamId === teamId)) {
-        plan.teams.push({
-          trainingId,
-          teamId,
-          teamName,
-          status: 'OPEN'
-        });
-      }
-    };
-
-    notificationRecords.forEach((r: NotificationRecord) => {
-      if (r.trainingId) {
-        const status = (r.finalStatus === 'VOID' || (r as any).isVoided) ? 'Cancelled' : 'Notified';
-        processEntry(r.trainingId, r.teamId || '', r.team, r.trainingType, r.trainerId, r.notificationDate, r.notificationDate, status);
-      }
-    });
-
-    drafts.forEach((d: NominationDraft) => {
-      processEntry(
-        d.trainingId,
-        d.teamId,
-        d.team,
-        d.trainingType,
-        d.trainer || '',
-        d.startDate || '',
-        d.endDate || '',
-        d.isCancelled
-          ? 'Cancelled'
-          : d.status === 'NOTIFIED'
-          ? 'Notified'
-          : d.status === 'COMPLETED'
-          ? 'Completed'
-          : 'Planned'
-      );
-    });
-
-    setPlans(Array.from(plansMap.values()));
-  }, [notificationRecords, drafts]);
 
   // Drag selection state
   const [dragStart, setDragStart] = useState<string | null>(null);
@@ -364,7 +305,7 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
     if (!window.confirm("Delete this training plan?")) return;
     const plan = plans.find(p => p.id === id);
     if (plan) {
-      plan.teams.forEach(t => removeConsumed(t.teamId, plan.trainer));
+      plan.teams.forEach((t: any) => removeConsumed(t.teamId, plan.trainer));
       // Removing the draft will trigger the useMemo update
       removeDraft(plan.id);
     }
@@ -404,7 +345,8 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
       }
       return p;
     });
-    setPlans(updatedPlans);
+    // setPlans(updatedPlans); // Local state 'setPlans' removed in global filter refactor.
+    // TODO: Implement persistence for checklist items in NominationDraft
   };
 
 
@@ -417,13 +359,19 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
     return dateStr >= s && dateStr <= e;
   };
 
-  const filteredPlans = plans.filter(p => {
-    if (!match(p.trainingType, tab)) return false;
-    if (filterTeam && !p.teams.some(t => match(t.teamId, filterTeam))) return false;
-    if (filterTrainer && !match(p.trainer, filterTrainer)) return false;
-    if (getFiscalYearFromDate(p.startDate) !== selectedFY) return false;
-    return true;
-  });
+  const filteredPlans = useMemo(() => {
+    return plans.filter(p => {
+      // Training Type and Fiscal Year are already handled by useCalendarData
+      // Local sub-filters (Team) are applied here
+      if (filterTeam && !p.teams.some((t: any) => match(t.teamId, filterTeam))) return false;
+      
+      // If Global trainer filter is ALL, but local trainer filter is set
+      if (globalFilters.trainer === 'ALL' && filterTrainer && !match(p.trainer, filterTrainer)) return false;
+      
+      return true;
+    });
+  }, [plans, filterTeam, filterTrainer, globalFilters.trainer]);
+
 
   const getPlansForDate = (dateStr: string) => {
     return filteredPlans.filter(p => dateStr >= p.startDate && dateStr <= p.endDate);
@@ -438,28 +386,9 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
           <h1 className={styles.pageTitle}>Training Calendar</h1>
           <p className={styles.pageSubtitle}>Plan and monitor training activities</p>
         </div>
-        <TopRightControls
-          fiscalOptions={FY_OPTIONS}
-          selectedFY={selectedFY}
-          onChangeFY={handleFYChange}
-          activeFilterCount={0}
-        />
       </div>
 
-      {/* TABS */}
-      <div className={`gap-tabs ${styles.tabBar}`}>
-        <div>
-          {(['IP', 'AP', 'MIP', 'Capsule', 'Refresher', 'Pre-AP'] as TrainingTab[]).map(t => (
-            <button
-              key={t}
-              className={`gap-tab ${tab === t ? 'gap-tab-active' : ''}`}
-              onClick={() => { setTab(t); setSelectedPlanId(null); }}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* TABS REMOVED - Driven by GlobalFilterContext */}
 
       {hasPlanningContext && (
         <div className={styles.planningBanner}>
@@ -553,7 +482,7 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
                 <div className={styles.planList}>
                   {visiblePlans.map(p => {
                     const status = getStatus(p);
-                    const displayTeam = p.teams.map(t => t.teamName).join(', ');
+                    const displayTeam = p.teams.map((t: any) => t.teamName).join(', ');
                     const trainerObj = masterTrainers.find(mt => mt.id === p.trainer);
                     const displayTrainer = trainerObj ? trainerObj.name : p.trainer;
 
@@ -744,7 +673,7 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
                 {selectedPlan.checklist.length === 0 ? (
                   <div className={styles.checklistEmpty}>No checklist required for this type.</div>
                 ) : (
-                  selectedPlan.checklist.map((item, idx) => (
+                  selectedPlan.checklist.map((item: any, idx: number) => (
                     <div
                       key={item.name}
                       onClick={() => toggleChecklistItem(idx)}

@@ -10,13 +10,16 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 import { ThemeProvider } from './core/context/ThemeContext';
 import { MasterDataProvider } from './core/context/MasterDataContext';
+import { GlobalFilterProvider } from './core/context/GlobalFilterContext';
 
 root.render(
   <React.StrictMode>
     <MasterDataProvider>
-      <ThemeProvider>
-        <App />
-      </ThemeProvider>
+      <GlobalFilterProvider>
+        <ThemeProvider>
+          <App />
+        </ThemeProvider>
+      </GlobalFilterProvider>
     </MasterDataProvider>
   </React.StrictMode>
 );

@@ -207,11 +207,13 @@ export function applyFilters(ds: UnifiedRecord[], filter: ReportFilter, masterTe
       if (!filter.clusters.includes(cluster)) return false;
     }
 
+    // Global Trainer Filter Priority
+    if (filter.trainer && filter.trainer !== 'ALL') {
+      if (r.attendance.trainerId !== filter.trainer) return false;
+    }
+
     if (filter.trainers && filter.trainers.length > 0) {
       if (!r.attendance.trainerId || !filter.trainers.includes(r.attendance.trainerId)) return false;
-    } else if (filter.trainer && r.attendance.trainerId !== filter.trainer) {
-      // Legacy fallback
-      return false;
     }
 
     if (filter.trainerTypes && filter.trainerTypes.length > 0) {

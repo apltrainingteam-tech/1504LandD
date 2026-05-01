@@ -50,9 +50,12 @@ interface ReportsAnalyticsProps {
 
 type SubView = 'grouped' | 'timeseries' | 'trainer' | 'drilldown' | 'gap' | 'ip_matrix' | 'ip_cluster_rank' | 'ip_team_rank' | 'ap_performance' | 'mip_attendance' | 'mip_performance' | 'refresher_attendance' | 'refresher_performance' | 'capsule_attendance' | 'capsule_performance';
 
+import { useGlobalFilters } from '../../core/context/GlobalFilterContext';
+
 const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
   employees, attendance, scores, nominations, demographics, pageMode = 'overview', onNavigate
 }) => {
+  const { filters: globalFilters, setFilters } = useGlobalFilters();
   const { 
     trainers: masterTrainers, 
     teams: masterTeams, 
@@ -72,57 +75,14 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
   const activeFilterCount = getActiveFilterCount(pageFilters);
   const [showGlobalFilters, setShowGlobalFilters] = useState(false);
 
-  const [tab, setTab] = useState<string>('IP');
+  const [tabState, setTabState] = useState<string>('IP');
+  const tab = globalFilters.trainingType !== 'ALL' ? globalFilters.trainingType : tabState;
+
   const [viewBy, setViewBy] = useState<ViewByOption>('Team');
   const [subView, setSubView] = useState<SubView>('ip_matrix');
   const [expanded, setExpanded] = useState(new Set<string>());
-  const [selectedFYs, setSelectedFYs] = useState<Record<string, string>>({
-    IP: getCurrentFYString(),
-    AP: getCurrentFYString(),
-    MIP: getCurrentFYString(),
-    Refresher: getCurrentFYString(),
-    Capsule: getCurrentFYString(),
-    PRE_AP: getCurrentFYString()
-  });
+
   const [tsMode, setTsMode] = useState<'score' | 'count'>('score');
-
-  const computeDefaultFYs = useCallback(() => {
-    const maxMonths: Record<string, string> = {};
-    const updateMax = (typeFallback: string, dateStr: string) => {
-      const type = (typeFallback || '').toUpperCase();
-      const m = (dateStr || '').substring(0, 7);
-      if (m && (!maxMonths[type] || m > maxMonths[type])) {
-        maxMonths[type] = m;
-      }
-    };
-    nominations.forEach(n => updateMax(n.trainingType, n.notificationDate || ''));
-    attendance.forEach(a => updateMax(a.trainingType, a.month || a.attendanceDate || ''));
-
-    const res: Record<string, string> = {};
-    const types = ['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'PRE_AP'];
-    types.forEach(t => {
-      const maxMonth = maxMonths[t];
-      if (!maxMonth) {
-        res[t] = getCurrentFYString();
-      } else {
-        const [yearStr, monthStr] = maxMonth.split('-');
-        const year = parseInt(yearStr, 10);
-        const month = parseInt(monthStr, 10);
-        const startYear = month >= 4 ? year : year - 1;
-        res[t] = `${startYear}-${(startYear + 1).toString().slice(2)}`;
-      }
-    });
-    return res;
-  }, [attendance, nominations]);
-
-  useEffect(() => {
-    if (attendance.length > 0 || nominations.length > 0) {
-      setSelectedFYs(prev => {
-        const defaults = computeDefaultFYs();
-        return { ...prev, ...defaults };
-      });
-    }
-  }, [attendance, nominations, computeDefaultFYs]);
 
   const [filter, setFilter] = useState<ReportFilter>({
     monthFrom: '', monthTo: '', teams: [], clusters: [], trainer: ''
@@ -178,7 +138,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
     return <td className={finalClass}>{pct}%</td>;
   };
 
-  const selectedFY = selectedFYs[tab];
+  const selectedFY = globalFilters.fiscalYear;
 
   useEffect(() => {
     if (tab === 'IP') {
@@ -439,29 +399,6 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
           <button className={`btn ${subView === 'gap' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('gap')} title="Gap Analysis"><AlertTriangle size={16} /></button>
           <div className="v-divider mx-1" />
 
-          {(['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'PRE_AP'].includes(tab)) && (
-            <div className="fy-selector flex-center gap-2 mr-2">
-              <label htmlFor="fy-select" className="text-xs-bold text-muted uppercase">FISCAL YEAR</label>
-              <select
-                id="fy-select"
-                name="fy-select"
-                className="form-select glass-panel fy-select"
-                value={selectedFYs[tab]}
-                title="Select Fiscal Year"
-                aria-label="Select Fiscal Year"
-                onChange={(e) =>
-                  setSelectedFYs(prev => ({
-                    ...prev,
-                    [tab]: e.target.value
-                  }))
-                }
-              >
-                {FY_OPTIONS.map(fy => (
-                  <option key={fy} value={fy}>{fy}</option>
-                ))}
-              </select>
-            </div>
-          )}
 
           <button
             className={`btn btn-secondary btn-filter ${activeFilterCount > 0 ? 'active' : ''}`}
@@ -473,12 +410,6 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
           </button>
           <button className="btn btn-secondary" onClick={handleExport} title="Export CSV"><Download size={16} /></button>
         </div>
-      </div>
-      {/* Training Type Tabs */}
-      <div className="tab-row">
-        {ALL_TRAINING_TYPES.map(t => (
-          <button key={t} onClick={() => setTab(t)} className={`btn btn-tab ${tab === t ? 'btn-primary' : 'btn-secondary'}`}>{t}</button>
-        ))}
       </div>
 
       {/* View By Switcher */}

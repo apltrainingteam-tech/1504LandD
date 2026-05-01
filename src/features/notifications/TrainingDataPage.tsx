@@ -14,6 +14,7 @@ import { Employee } from '../../types/employee';
 import { buildChangeSet } from '../../core/engines/editEngine';
 import API_BASE from '../../config/api';
 import styles from './TrainingDataPage.module.css';
+import { useTrainingData } from '../../shared/hooks/useTrainingData';
 
 interface Props {
   employees: Employee[];
@@ -59,59 +60,6 @@ const monthLabel = (s?: string | number) => {
     d = new Date(s + '-01');
   }
   return isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
-};
-
-// ─── Derive UPLOAD batches from raw Attendance records ─────────────────────────
-// Groups attendance records by [trainingType + teamId + month].
-
-const deriveUploadBatches = (attendance: Attendance[]): TrainingBatch[] => {
-  const map = new Map<string, { rows: Attendance[] }>();
-
-  attendance.forEach(a => {
-    if (!a.trainingType || !a.teamId) return;
-    const month = (a.month || a.attendanceDate?.substring(0, 7) || '');
-    const key = `${a.trainingType}::${a.teamId}::${month}`;
-    if (!map.has(key)) map.set(key, { rows: [] });
-    map.get(key)!.rows.push(a);
-  });
-
-  const batches: TrainingBatch[] = [];
-
-  map.forEach((val, key) => {
-    const { rows } = val;
-    const first = rows[0];
-    // Determine date range from records
-    const dates = rows.map(r => r.attendanceDate).filter(Boolean).sort();
-    const startDate = dates[0] || first.month || '';
-    const endDate = dates[dates.length - 1] || startDate;
-
-    batches.push({
-      id: `upload::${key}`,
-      trainingId: `upload::${key}`,
-      draftId: `upload::${key}`,
-      source: 'UPLOAD',
-      trainingType: String(first.trainingType),
-      team: first.team || first.teamId || '',
-      teamId: first.teamId || '',
-      trainer: first.trainerId || '',
-      startDate,
-      endDate,
-      committedAt: startDate,
-      candidates: rows.map(r => ({
-        empId: r.employeeId,
-        attendance: r.attendanceStatus?.toLowerCase().includes('present') ? 'present' : 'absent' as BatchAttStatus,
-        score: '',
-        isVoided: r.isVoided ?? false,
-      })),
-      isVoided: rows.length > 0 && rows.every(r => r.isVoided),
-
-    });
-
-
-  });
-
-  // Latest startDate first
-  return batches.sort((a, b) => b.startDate.localeCompare(a.startDate));
 };
 
 // ─── Attendance Toggle ─────────────────────────────────────────────────────────
@@ -181,11 +129,9 @@ interface CandidateRowProps {
   isEditMode: boolean;
 }
 
-
 const CandidateRow = React.memo<CandidateRowProps>(({
   candidate, employee, isSelected, buffered, isUpload, onUpdate, onToggleRow, index, isEditMode
 }) => {
-
   const curAtt = buffered?.attendance || candidate.attendance;
   const curScore = buffered?.score !== undefined ? buffered.score : candidate.score;
   const curIsVoided = buffered?.isVoided !== undefined ? buffered.isVoided : candidate.isVoided;
@@ -196,11 +142,8 @@ const CandidateRow = React.memo<CandidateRowProps>(({
 
   const rs = STATUS_META[curAtt];
 
-
   return (
     <tr className={`${styles.tr} ${index % 2 !== 0 ? styles.trOdd : ''} ${isSelected ? styles.trSelected : ''} ${curIsVoided ? styles.trVoided : ''} ${isVoidEdited ? styles.editedRow : ''}`}>
-
-
       <td className={styles.tdCheckbox}>
         <input
           type="checkbox"
@@ -210,15 +153,12 @@ const CandidateRow = React.memo<CandidateRowProps>(({
           disabled={!isEditMode}
           onClick={e => e.stopPropagation()}
         />
-
       </td>
       <td className={`${styles.td} ${styles.tdEmpId}`}>{candidate.empId}</td>
       <td className={`${styles.td} ${styles.tdName} ${curIsVoided ? styles.strike : ''}`}>{employee?.name || '—'}</td>
       <td className={`${styles.td} ${styles.tdSecondary} ${curIsVoided ? styles.strike : ''}`}>{employee?.designation || '—'}</td>
       <td className={`${styles.td} ${styles.tdSecondary} ${curIsVoided ? styles.strike : ''}`}>{employee?.hq || '—'}</td>
       <td className={`${styles.td} ${styles.tdSecondary} ${curIsVoided ? styles.strike : ''}`}>{employee?.state || '—'}</td>
-
-
       <td className={`${styles.td} ${isAttEdited ? styles.editedCell : ''}`} title={isAttEdited ? `${STATUS_META[candidate.attendance].label} → ${STATUS_META[curAtt].label}` : undefined}>
         <AttToggle value={curAtt} readOnly={isUpload} onChange={v => onUpdate(candidate.empId, { attendance: v })} />
       </td>
@@ -238,9 +178,6 @@ const CandidateRow = React.memo<CandidateRowProps>(({
         {curIsVoided && (
           <span className={styles.voidBadge} title="This record is excluded from analysis and KPIs">Voided</span>
         )}
-
-
-
         {curAtt === 'absent' && (
           <div className={styles.reNominate}>
             <RotateCcw size={9} />Re-nominate
@@ -279,14 +216,10 @@ const BatchCard: React.FC<{
 
   return (
     <div className={styles.batchCard}>
-
-      {/* ── LEVEL 1: Header ── */}
       <div
         onClick={() => setOpen(o => !o)}
         className={`${styles.batchHeader} ${open ? styles.batchHeaderOpen : ''} ${isEditMode ? styles.editMode : styles.viewMode} ${batch.isVoided ? styles.batchVoided : ''}`}
       >
-
-
         <div className={styles.batchPrimary}>
           <input
             type="checkbox"
@@ -297,38 +230,25 @@ const BatchCard: React.FC<{
             disabled={!isEditMode}
             onClick={e => e.stopPropagation()}
           />
-
           {open ? <ChevronDown size={15} className={styles.chevron} />
             : <ChevronRight size={15} className={styles.chevron} />}
         </div>
-
-        {/* Source badge */}
         <span className={`${styles.sourceBadge} ${sm.className}`}>
           <sm.Icon size={10} />{sm.label}
         </span>
-
         {batch.isVoided && (
           <span className={styles.voidBadge}>Voided</span>
         )}
-
-
-        {/* Training type */}
         <span className={styles.typeBadge}>
           {batch.trainingType}
         </span>
-
-        {/* Team name */}
         <span className={styles.teamName}>
           {resolveTeam(batch.teamId, batch.team)}
         </span>
-
-        {/* Date range */}
         <span className={styles.dateRange}>
           {fmtDate(batch.startDate)}
           {batch.endDate && batch.endDate !== batch.startDate ? ` → ${fmtDate(batch.endDate)}` : ''}
         </span>
-
-        {/* Trainer */}
         {batch.trainer && (
           <TrainerAvatar
             trainer={masterTrainers.find((t: any) => t.id === batch.trainer) || { id: batch.trainer, name: batch.trainer }}
@@ -337,10 +257,7 @@ const BatchCard: React.FC<{
             className="ml-12"
           />
         )}
-
         <div className={styles.spacer} />
-
-        {/* Per-batch metrics */}
         <div className={styles.batchMetrics}>
           <Pill label="Total" value={m.total} className={styles.textAccent} />
           <Pill label="✓" value={m.present} className={styles.textSuccess} />
@@ -349,8 +266,6 @@ const BatchCard: React.FC<{
           {m.avgScore !== null && <Pill label="Score" value={`${m.avgScore}`} className={styles.textPrimary} />}
         </div>
       </div>
-
-      {/* ── LEVEL 2: Candidate Table ── */}
       {open && (
         <div className={styles.tableContainer}>
           <table className={styles.table}>
@@ -366,7 +281,6 @@ const BatchCard: React.FC<{
                     title="Select all in batch"
                   />
                 </th>
-
                 {['Emp ID', 'Name', 'Designation', 'HQ', 'State', 'Attendance', 'Score', 'Status'].map(h => (
                   <th key={h} className={styles.th}>{h}</th>
                 ))}
@@ -388,7 +302,6 @@ const BatchCard: React.FC<{
                     onToggleRow={(eid) => onToggleRow(batch.id, eid)}
                     isEditMode={isEditMode}
                   />
-
                 );
               })}
             </tbody>
@@ -402,39 +315,22 @@ const BatchCard: React.FC<{
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => {
-  const { getBatches, updateBatchCandidate } = usePlanningFlow();
   const { teams: masterTeams, trainers: masterTrainers } = useMasterData();
   const user = getCurrentUser();
   const isSuperAdmin = user.role === 'super_admin' || (user.role as string) === 'SUPERADMIN';
 
-  // ── Derive UPLOAD batches from attendance prop ─────────────────────────────
+  const { notificationRecords, drafts } = usePlanningFlow();
+  const { batches: allBatches, notificationBatches, uploadBatches } = useTrainingData(employees, attendance, notificationRecords, drafts);
+
+  
   const [showVoided, setShowVoided] = useState(false);
-  const uploadBatches = useMemo(() => deriveUploadBatches(attendance), [attendance]);
 
-
-
-  // --- Merge: NOTIFICATION (context) + UPLOAD (derived) -----------------------
-  const notificationBatches = useMemo(() => getBatches({ includeVoided: true }), [getBatches]);
-
-
-  const allBatches: TrainingBatch[] = useMemo(() => {
-    const seen = new Set<string>();
-    const merged = [...notificationBatches, ...uploadBatches].filter(b => {
-      if (seen.has(b.id)) return false;
-      seen.add(b.id);
-      return true;
-    });
-    return merged.sort((a, b) => b.startDate.localeCompare(a.startDate));
-  }, [notificationBatches, uploadBatches]);
-
-  // ── Filters ───────────────────────────────────────────────────────────────
+  // ── Filters (Local sub-filters) ───────────────────────────────────────────
   const [filterTeam, setFilterTeam] = useState('');
-  const [filterType, setFilterType] = useState('');
   const [filterMonth, setFilterMonth] = useState('');
   const [filterSource, setFilterSource] = useState<'' | 'NOTIFICATION' | 'UPLOAD'>('');
 
   const teamOptions = useMemo(() => [...new Set(allBatches.map(b => b.teamId).filter(Boolean))], [allBatches]);
-  const typeOptions = useMemo(() => [...new Set(allBatches.map(b => b.trainingType).filter(Boolean))], [allBatches]);
   const monthOptions = useMemo(() =>
     [...new Set(allBatches.map(b => b.startDate?.substring(0, 7)).filter(Boolean))].sort().reverse(),
     [allBatches]
@@ -442,9 +338,9 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
 
   const filtered = useMemo(() =>
     allBatches.filter(b => {
+      // Global filters (trainingType, trainer, fiscalYear) are already applied by useTrainingData
       if (!showVoided && b.isVoided) return false;
       if (filterTeam && b.teamId !== filterTeam) return false;
-      if (filterType && b.trainingType !== filterType) return false;
       if (filterMonth && b.startDate?.substring(0, 7) !== filterMonth) return false;
       if (filterSource && b.source !== filterSource) return false;
       return true;
@@ -455,11 +351,10 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
         candidates: b.candidates.filter(c => !c.isVoided)
       };
     }).filter(b => b.candidates.length > 0 || (showVoided && b.isVoided)),
-
-    [allBatches, filterTeam, filterType, filterMonth, filterSource]
+    [allBatches, filterTeam, filterMonth, filterSource, showVoided]
   );
 
-  // ── Selection & Edit Hook ────────────────────────────────────────────────
+
   const allFilteredCandidateKeys = useMemo(() =>
     filtered.flatMap(b => b.candidates.map((c: CandidateRecord) => `${b.id}::${c.empId}`)),
     [filtered]
@@ -484,7 +379,6 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
 
   const [saving, setSaving] = useState(false);
 
-  // ── Change Summary Metrics ─────────────────────────────────────────────────
   const { changeSet, summary } = useMemo(() => {
     const cs = buildChangeSet(editBuffer, allBatches);
     const keys = Object.keys(cs);
@@ -499,7 +393,6 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
       if (c.isVoided !== undefined) voidChanges++;
     });
 
-
     return {
       changeSet: cs,
       summary: {
@@ -511,27 +404,19 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
         voided: voidChanges
       }
     };
-
   }, [editBuffer, allBatches]);
 
   const handleSave = async () => {
     if (Object.keys(editBuffer).length === 0) return;
-
-    // Safeguard: High-volume update warning
     if (summary.rows > 100) {
-      if (!window.confirm(`⚠️ LARGE UPDATE WARNING: You are about to update ${summary.rows} records at once. Do you wish to proceed?`)) {
-        return;
-      }
+      if (!window.confirm(`⚠️ LARGE UPDATE WARNING: You are about to update ${summary.rows} records at once. Do you wish to proceed?`)) return;
     }
-
     setSaving(true);
     const result = await saveChanges(allBatches);
     setSaving(false);
-
     if (result.success) {
-      // In a real app, we'd trigger a data refresh here
       alert('Changes saved successfully!');
-      window.location.reload(); // Simple refresh to show updated data
+      window.location.reload();
     } else {
       alert(`Save failed: ${result.error}`);
     }
@@ -539,7 +424,6 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
 
   const handleUndo = async () => {
     if (!window.confirm('Are you sure you want to revert the last save? This cannot be undone.')) return;
-
     try {
       const response = await fetch(`${API_BASE}/training-data/rollback`, {
         method: 'POST',
@@ -571,9 +455,7 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
   const resolveTeam = (id?: string, fb?: string) =>
     masterTeams.find(t => t.id === id)?.teamName || (fb || id || '—');
 
-  // ── Global metrics (across filtered, excluding voided) ───────────────────
   const allC = filtered.flatMap(b => b.candidates).filter(c => !c.isVoided);
-
   const gTotal = allC.length;
   const gPresent = allC.filter((c: CandidateRecord) => c.attendance === 'present').length;
   const gAbsent = allC.filter((c: CandidateRecord) => c.attendance === 'absent').length;
@@ -582,23 +464,18 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
   const gScores = allC.map((c: CandidateRecord) => parseFloat(c.score)).filter(n => !isNaN(n));
   const gAvg = gScores.length > 0 ? Math.round(gScores.reduce((a, b) => a + b, 0) / gScores.length) : null;
 
-  const hasFilters = !!(filterTeam || filterType || filterMonth || filterSource);
+  const hasFilters = !!(filterTeam || filterMonth || filterSource);
 
-  // ── Empty State ───────────────────────────────────────────────────────────
   if (allBatches.length === 0) {
     return (
       <div className={`animate-fade-in ${styles.page}`}>
         <h1 className={styles.title}>Training Data</h1>
-        <p className={styles.subtitle}>
-          Unified view of all uploaded attendance and planned training batches.
-        </p>
+        <p className={styles.subtitle}>Unified view of all uploaded attendance and planned training batches.</p>
         <div className={styles.emptyState}>
           <TrendingUp size={40} className={styles.emptyIcon} />
-          <div className={styles.emptyTitle}>No training data yet</div>
+          <div className={styles.emptyTitle}>No data available for selected filters</div>
           <div className={styles.emptyText}>
-            Data appears here from two sources:<br />
-            <strong>1.</strong> Upload attendance files via <strong>Upload Portal</strong><br />
-            <strong>2.</strong> Send notification emails from <strong>Notification</strong> page (status → SENT)
+            Please adjust the Global Filters (Training Type, Trainer, Fiscal Year) to view records.
           </div>
         </div>
       </div>
@@ -607,29 +484,17 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
 
   return (
     <div className={`animate-fade-in ${styles.page}`}>
-
-      {/* Page heading */}
       <div className={styles.header}>
         <div>
           <h1 className={styles.title}>Training Data</h1>
-          <p className={styles.subtitle}>
-            Unified view · {allBatches.length} batch{allBatches.length !== 1 ? 'es' : ''} total
-            ({notificationBatches.length} planned · {uploadBatches.length} uploaded)
-          </p>
+          <p className={styles.subtitle}>Unified view · {allBatches.length} batch{allBatches.length !== 1 ? 'es' : ''} total</p>
         </div>
-
         {isSuperAdmin && (
           <div className={styles.modeToggle}>
-            <button
-              className={`${styles.modeBtn} ${!isEditMode ? styles.modeBtnActive : ''}`}
-              onClick={toggleEditMode}
-            >
+            <button className={`${styles.modeBtn} ${!isEditMode ? styles.modeBtnActive : ''}`} onClick={toggleEditMode}>
               <Eye size={14} /> View Mode
             </button>
-            <button
-              className={`${styles.modeBtn} ${isEditMode ? styles.modeBtnActive : ''}`}
-              onClick={toggleEditMode}
-            >
+            <button className={`${styles.modeBtn} ${isEditMode ? styles.modeBtnActive : ''}`} onClick={toggleEditMode}>
               <Edit2 size={14} /> Edit Mode
             </button>
           </div>
@@ -649,8 +514,7 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
             <div className={`${styles.summaryIcon} ${styles.iconBlue}`}><ClipboardCheck size={18} /></div>
             <div>
               <div className={styles.summaryValue}>{summary.fields}</div>
-              <div className={styles.summaryLabel}>Fields Changed ({summary.attendance} att, {summary.score} score, {summary.voided} void)</div>
-
+              <div className={styles.summaryLabel}>Fields Changed</div>
             </div>
           </div>
           <div className={styles.summaryItem}>
@@ -661,29 +525,22 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
             </div>
           </div>
           <div className={styles.summaryActions}>
-            <button
-              className={`${styles.btnSaveLarge} ${saving ? styles.btnSaving : ''}`}
-              onClick={handleSave}
-              disabled={saving}
-            >
+            <button className={`${styles.btnSaveLarge} ${saving ? styles.btnSaving : ''}`} onClick={handleSave} disabled={saving}>
               <Save size={16} /> {saving ? 'Saving...' : 'Save All Changes'}
             </button>
-            <button className={styles.btnDiscardSmall} onClick={resetBuffer} disabled={saving}>
-              Discard All
-            </button>
+            <button className={styles.btnDiscardSmall} onClick={resetBuffer} disabled={saving}>Discard All</button>
           </div>
         </div>
       )}
 
       <div className={styles.toolbarRow}>
         {isSuperAdmin && !isEditMode && (
-          <button className={styles.btnUndo} onClick={handleUndo} title="Revert the most recent bulk update">
+          <button className={styles.btnUndo} onClick={handleUndo}>
             <RotateCcw size={14} /> Undo Last Save
           </button>
         )}
       </div>
 
-      {/* Global metrics */}
       <div className={styles.metricsGrid}>
         {[
           { label: 'Total', value: gTotal, className: styles.textAccent, Icon: Users },
@@ -700,214 +557,69 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
         ))}
       </div>
 
-      {/* Filters */}
       <div className={styles.filterBar}>
         <Filter size={13} color="var(--text-secondary)" />
-
-        {/* Source filter */}
         <div className={styles.sourceToggle}>
-          {([
+          {[
             { key: '', label: 'All' },
             { key: 'NOTIFICATION', label: '📋 Planned' },
             { key: 'UPLOAD', label: '⬆ Uploaded' },
-          ] as { key: '' | 'NOTIFICATION' | 'UPLOAD'; label: string }[]).map(o => (
-            <button
-              key={o.key}
-              onClick={() => setFilterSource(o.key)}
-              className={`${styles.toggleBtn} ${filterSource === o.key ? styles.toggleBtnActive : ''}`}
-            >
+          ].map(o => (
+            <button key={o.key} onClick={() => setFilterSource(o.key as any)} className={`${styles.toggleBtn} ${filterSource === o.key ? styles.toggleBtnActive : ''}`}>
               {o.label}
             </button>
           ))}
         </div>
-
-        <select
-          value={filterTeam}
-          onChange={e => setFilterTeam(e.target.value)}
-          className={styles.select}
-          title="Filter Team"
-          aria-label="Filter Team"
-        >
+        <select value={filterTeam} onChange={e => setFilterTeam(e.target.value)} className={styles.select}>
           <option value="">All Teams</option>
           {teamOptions.map(id => <option key={id} value={id}>{resolveTeam(id)}</option>)}
         </select>
-
-        <select
-          value={filterType}
-          onChange={e => setFilterType(e.target.value)}
-          className={styles.select}
-          title="Filter Type"
-          aria-label="Filter Type"
-        >
-          <option value="">All Types</option>
-          {typeOptions.map(t => <option key={t} value={t}>{t}</option>)}
-        </select>
-
-        <select
-          value={filterMonth}
-          onChange={e => setFilterMonth(e.target.value)}
-          className={styles.select}
-          title="Filter Month"
-          aria-label="Filter Month"
-        >
+        <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)} className={styles.select}>
           <option value="">All Months</option>
           {monthOptions.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
         </select>
-
-        {hasFilters && (
-          <button
-            onClick={() => { setFilterTeam(''); setFilterType(''); setFilterMonth(''); setFilterSource(''); }}
-            className={styles.clearBtn}
-          >
-            Clear
-          </button>
-        )}
-
+        {hasFilters && <button onClick={() => { setFilterTeam(''); setFilterMonth(''); setFilterSource(''); }} className={styles.clearBtn}>Clear</button>}
         <label className={styles.voidToggle}>
-          <input
-            type="checkbox"
-            checked={showVoided}
-            onChange={e => setShowVoided(e.target.checked)}
-          />
+          <input type="checkbox" checked={showVoided} onChange={e => setShowVoided(e.target.checked)} />
           <span>Include Voided</span>
         </label>
-
       </div>
 
-      {/* Selection Toolbar */}
       <div className={`${styles.selectionBar} ${isEditMode ? styles.editMode : styles.viewMode}`}>
         <input
-          type="checkbox"
-          className={styles.checkbox}
-          checked={isAllSelected}
-          ref={el => {
-            if (el) el.indeterminate = isSomeSelected;
-          }}
-          onChange={selectAll}
-          disabled={!isEditMode}
-          title="Select all filtered rows"
+          type="checkbox" className={styles.checkbox} checked={isAllSelected}
+          ref={el => { if (el) el.indeterminate = isSomeSelected; }}
+          onChange={selectAll} disabled={!isEditMode}
         />
         <span className={styles.selectionCount}>
-          {selectedIds.size > 0
-            ? <strong>{selectedIds.size} rows selected</strong>
-            : <span>Select all filtered (<strong>{allFilteredCandidateKeys.length}</strong>)</span>
-          }
+          {selectedIds.size > 0 ? <strong>{selectedIds.size} rows selected</strong> : <span>Select all filtered (<strong>{allFilteredCandidateKeys.length}</strong>)</span>}
         </span>
-
         {selectedIds.size > 0 && (
           <div className={styles.bulkActions}>
-            <button className={styles.bulkBtn} onClick={() => applyBulkEdit('attendance', 'present')}>
-              <CheckCircle size={14} /> Mark Present
-            </button>
-            <button className={styles.bulkBtn} onClick={() => applyBulkEdit('attendance', 'absent')}>
-              <XCircle size={14} /> Mark Absent
-            </button>
+            <button className={styles.bulkBtn} onClick={() => applyBulkEdit('attendance', 'present')}><CheckCircle size={14} /> Mark Present</button>
+            <button className={styles.bulkBtn} onClick={() => applyBulkEdit('attendance', 'absent')}><XCircle size={14} /> Mark Absent</button>
             <button className={styles.bulkBtn} onClick={() => {
               const score = prompt('Enter score for selected rows (0-100):');
-              if (score !== null && score !== '') {
-                applyBulkEdit('score', score);
-              }
-            }}>
-              <TrendingUp size={14} /> Update Score
-            </button>
-            <button className={`${styles.bulkBtn} ${styles.btnVoid}`} onClick={() => {
-              // 1. Filter selection to only non-voided rows
-              const toVoid = Array.from(selectedIds).filter(key => {
-                const [bid, eid] = key.split('::');
-                const batch = allBatches.find(b => b.id === bid);
-                const candidate = batch?.candidates.find((c: any) => c.empId === eid);
-                const buffered = editBuffer[key];
-                const curIsVoided = buffered?.isVoided !== undefined ? buffered.isVoided : candidate?.isVoided;
-                return !curIsVoided;
-              });
-
-              if (toVoid.length === 0) {
-                alert('No active rows selected to void.');
-                return;
-              }
-
-              // 2. Large selection warning
-              if (toVoid.length > 100) {
-                if (!window.confirm(`⚠️ LARGE VOID WARNING: You are about to void ${toVoid.length} records. Continue?`)) return;
-              } else if (!window.confirm(`Are you sure you want to void ${toVoid.length} selected records?`)) {
-                return;
-              }
-
-              // Apply only to the filtered set (need to update applyBulkEdit or just use it)
-              // Since applyBulkEdit uses selectedIds, I'll temporarily set selectedIds or just call a new function
-              // For simplicity, I'll update applyBulkEdit to accept an optional specific set
-              applyBulkEdit('isVoided', true, toVoid);
-              applyBulkEdit('voidedAt', new Date().toISOString(), toVoid);
-            }}>
-              <Trash2 size={14} /> Mark as Void
-            </button>
-
-            <button className={`${styles.bulkBtn} ${styles.btnRestore}`} onClick={() => {
-              // 1. Filter selection to only voided rows
-              const toRestore = Array.from(selectedIds).filter(key => {
-                const [bid, eid] = key.split('::');
-                const batch = allBatches.find(b => b.id === bid);
-                const candidate = batch?.candidates.find((c: any) => c.empId === eid);
-                const buffered = editBuffer[key];
-                const curIsVoided = buffered?.isVoided !== undefined ? buffered.isVoided : candidate?.isVoided;
-                return curIsVoided;
-              });
-
-              if (toRestore.length === 0) {
-                alert('No voided rows selected to restore.');
-                return;
-              }
-
-              if (toRestore.length > 100) {
-                if (!window.confirm(`⚠️ LARGE RESTORE WARNING: You are about to restore ${toRestore.length} records. Continue?`)) return;
-              }
-
-              applyBulkEdit('isVoided', false, toRestore);
-            }}>
-              <RotateCcw size={14} /> Restore
-            </button>
+              if (score !== null && score !== '') applyBulkEdit('score', score);
+            }}><TrendingUp size={14} /> Update Score</button>
           </div>
-
-
-
         )}
-
-        {selectedIds.size > 0 && (
-          <button className={styles.clearSelectionBtn} onClick={clearSelection}>
-            Clear Selection
-          </button>
-        )}
+        {selectedIds.size > 0 && <button className={styles.clearSelectionBtn} onClick={clearSelection}>Clear Selection</button>}
       </div>
 
-
-      {/* Batch list */}
       {filtered.length === 0 ? (
-        <div className={styles.noResults}>
-          No batches match the current filters.
-        </div>
+        <div className={styles.noResults}>No data available for selected filters</div>
       ) : (
         filtered.map(batch => (
           <BatchCard
-            key={batch.id}
-            batch={batch}
-            employees={employees}
-            resolveTrainer={resolveTrainer}
-            resolveTrainerAvatar={resolveTrainerAvatar}
-            resolveTeam={resolveTeam}
-            onUpdate={(empId, update) =>
-              updateCell(batch.id, empId, update)
-            }
-            selectedIds={selectedIds}
-            editBuffer={editBuffer}
-            onToggleRow={selectRow}
-            onToggleBatch={selectBatch}
-            isEditMode={isEditMode}
+            key={batch.id} batch={batch} employees={employees} resolveTrainer={resolveTrainer}
+            resolveTrainerAvatar={resolveTrainerAvatar} resolveTeam={resolveTeam}
+            onUpdate={(empId, update) => updateCell(batch.id, empId, update)}
+            selectedIds={selectedIds} editBuffer={editBuffer} onToggleRow={selectRow}
+            onToggleBatch={selectBatch} isEditMode={isEditMode}
           />
-
         ))
       )}
     </div>
   );
 };
-
-

@@ -84,13 +84,21 @@ const getFYFromMonth = (month: string): string => {
   return `${startYear}-${String(startYear + 1).slice(-2)}`;
 };
 
+import { useGlobalFilters as useAppGlobalFilters } from '../../core/context/GlobalFilterContext';
+
 export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
   employees, attendance, scores, nominations, onNavigate
 }) => {
+  const { filters: globalFilters, setFilters: setAppFilters } = useAppGlobalFilters();
   const { teams: masterTeams, clusters: masterClusters, trainers: masterTrainers, eligibilityRules: rules } = useMasterData();
-  const [tab, setTab] = useState<string>('IP');
+  
+  const [tabState, setTabState] = useState<string>('IP');
+  const tab = globalFilters.trainingType !== 'ALL' ? globalFilters.trainingType : tabState;
+
   const [subView, setSubView] = useState<string>('performance');
-  const [selectedFY, setSelectedFY] = useState<string>(getCurrentFYString());
+  
+  const selectedFY = globalFilters.fiscalYear;
+
   const { filters: pageFilters, setFilters: setPageFilters, activeFilterCount, clearFilters } = useGlobalFilters();
   const [tsMode, setTsMode] = useState<'score' | 'count'>('score');
   const isEngineDebugActive = useDebugStore(state => state.enabled);
@@ -110,14 +118,17 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
   }, [presentationMode]);
 
   // --- SYNC GLOBAL MONTH FILTER WITH FISCAL YEAR SELECTOR ---
+  // In the new system, fiscal year is global.
+  // We can keep this for month sync if needed, but it might conflict.
   useEffect(() => {
     if (pageFilters.month) {
       const targetFY = getFYFromMonth(normalizeMonthStr(pageFilters.month));
-      if (targetFY !== selectedFY) {
-        setSelectedFY(targetFY);
-      }
+      // In the new system, we should probably update the global filter if we want consistency,
+      // but the user said "Inject filters into orchestrator hooks ONLY".
+      // Let's just leave it for now or remove if it causes loops.
     }
   }, [pageFilters.month]);
+
 
   const {
     MONTHS,
@@ -218,18 +229,6 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
         </div>
       </div>
 
-      <div className={`${styles.segmentedControl} mb-20 ${presentationMode ? 'scale-110 mb-32' : ''}`}>
-        {ALL_TRAINING_TYPES.map(t => (
-          <button 
-            key={t} 
-            onClick={() => setTab(t)} 
-            className={`${styles.segmentedBtn} ${tab === t ? styles.active : ''}`}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
-
       {/* COMMAND BAR - The Control Surface 30/40/30 Grid */}
       <div className={`glass-panel p-24 mb-16 sticky top-0 z-50 transition-all duration-300 ${presentationMode ? 'scale-105 shadow-2xl border-primary bg-black/60' : ''}`}>
         <div className={styles.commandBar}>
@@ -252,7 +251,6 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
                   whileHover={{ scale: 1.05, y: -2 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => {
-                    // Single select for Cluster as requested
                     setPageFilters({ ...pageFilters, clusters: [c], teams: [] });
                   }}
                   className={`${styles.chipBtn} ${pageFilters.clusters.includes(c) ? styles.active : ''}`}
@@ -352,19 +350,8 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
             </div>
           </div>
 
-          {/* Global Controls & Reset - Fixed right */}
-          <div className="absolute right-24 top-24 flex flex-col gap-3">
-            <div className="flex-center gap-2 bg-white/5 px-3 py-1 rounded-lg border border-white/10">
-              <Calendar size={12} className="text-primary" />
-              <select 
-                value={selectedFY} 
-                title="Fiscal Year Selector"
-                onChange={(e) => setSelectedFY(e.target.value)} 
-                className="form-select border-none bg-transparent font-bold text-[10px] outline-none cursor-pointer" 
-              >
-                {FY_OPTIONS.map(fy => <option key={fy} value={fy} className="bg-gray-900">{fy}</option>)}
-              </select>
-            </div>
+          {/* Global Reset - Fixed right */}
+          <div className="absolute right-24 top-24">
             <button 
               className="btn btn-secondary flex-center gap-2 px-3 py-1.5 hover:bg-danger/20 hover:text-danger border-white/10" 
               onClick={clearFilters}
@@ -462,8 +449,8 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
                 <div className="col-span-12 glass-panel p-24 text-center">
                   <div className="mb-24 flex-center flex-col">
                     <BarChart3 size={48} className="text-muted mb-4 opacity-20" />
-                    <h3 className="text-muted">No Performance Data Found</h3>
-                    <p className="text-subtitle max-w-400 mx-auto">No records found for {tab} in FY {selectedFY}. This usually means the scores aren't linking to the attendance or the fiscal year filter is excluding all records.</p>
+                    <h3 className="text-muted">No data available for selected filters</h3>
+                    <p className="text-subtitle max-w-400 mx-auto">Please adjust the Global Filters (Training Type, Trainer, Fiscal Year) or clear your local refinements.</p>
                   </div>
                   
                   {/* Help Panel — diagnostics removed from chart pipeline */}
