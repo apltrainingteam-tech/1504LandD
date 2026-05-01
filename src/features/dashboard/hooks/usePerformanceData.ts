@@ -125,6 +125,7 @@ export const usePerformanceData = ({
       activeNT: tab,
       rawUnified: [],
       unified: [],
+      filteredData: [],
       ipData: null,
       ipRankData: null,
       rawTimelines: new Map(),
@@ -237,79 +238,42 @@ export const usePerformanceData = ({
     });
   }, [activeNT, normalizedAttendance, scores, nominations, employees, masterTeams, rules, tab, attendance, globalFilters]);
 
-
-  const unified = useMemo(() => {
-    return logStep("Filter Application", () => {
-      let ds = applyFilters(rawUnified, filter, masterTeams);
-      console.log("AFTER CORE FILTERS:", ds?.length);
-
-      const coreTabs = ['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'PRE_AP'];
-      const normalizedCoreTabs = coreTabs.map(t => normalizeTrainingType(t));
-
-      if (normalizedCoreTabs.includes(activeNT)) {
-        ds = ds.filter(r => {
-          const d = r.attendance.attendanceDate || r.attendance.date || r.attendance.month || '';
-          const isMatch = isWithinFY(d, selectedFY);
-          if (!isMatch && ds.length < 100) {
-            console.warn(`[DATE MISMATCH] Record date "${d}" not in fiscal range for ${selectedFY}`);
-          }
-          return isMatch;
-        });
-        console.log("AFTER DATE FILTER:", ds?.length);
-      }
-      
-      console.log("FINAL INPUT TO AGG:", ds?.length);
-      if (ds?.length > 0) {
-        console.log("SAMPLE FINAL RECORD:", ds[0]);
-      } else {
-        console.warn("⚠️ AGGREGATION INPUT IS EMPTY - Check if data exists for FY", selectedFY);
-      }
-
-      saveSnapshot("filteredUnified", ds);
-      return ds;
-    });
-  }, [rawUnified, filter, tab, activeNT, MONTHS, masterTeams, selectedFY]);
-
-
-  // Domain Orchestration
   const tabNoms = useMemo(
-    () => nominations.filter(n => isActiveNomination(n) && normalizeTrainingType(n.trainingType) === activeNT),
+    () => nominations.filter(n => (n as any).isCancelled !== true && normalizeTrainingType(n.trainingType) === activeNT),
     [nominations, activeNT]
   );
 
-  // -- Universal Event Timelines --
-  const rawTimelines = useMemo(() => {
-    if (['AP', 'MIP', 'Refresher', 'Capsule', 'Pre_AP'].includes(activeNT)) {
-      const normalizedNoms = nominations
-        .filter(isActiveNomination)
-        .map(n => {
-          let m = n.month || n.notificationDate || '';
-          if (m && !/^\d{4}-\d{2}$/.test(m)) m = m.substring(0, 7);
-          return { ...n, month: m };
-        })
-        .filter(n => normalizeTrainingType(n.trainingType) === activeNT);
+  // ─── CENTRALIZED FILTERING ────────────────────────────────────────────────
+  const filteredData = useMemo(() => {
+    return logStep("Centralized Filtering", () => {
+      const cacheKey = `filter_${activeNT}_${selectedFY}_${JSON.stringify(filter)}_${rawUnified.length}`;
+      return globalComputationCaches.grouping.compute([cacheKey], () => {
+        let ds = applyFilters(rawUnified, filter, masterTeams);
         
-      return buildEmployeeTimelines(
-        normalizedAttendance.filter(a => normalizeTrainingType(a.trainingType) === activeNT),
-        normalizedNoms,
-        masterTeams, activeNT,
-        scores.filter(s => normalizeTrainingType(s.trainingType) === activeNT)
-      );
-    }
-    return new Map();
-  }, [normalizedAttendance, nominations, scores, activeNT, masterTeams]);
+        // Final Fiscal Year enforcement
+        return ds.filter(row => isWithinFY((row.attendance as any).attendanceDate || (row.attendance as any).notificationDate, selectedFY));
+      });
+    });
+  }, [rawUnified, filter, masterTeams, activeNT, selectedFY]);
 
-  const filteredTimelines = useMemo(() => {
-    if (!['AP', 'MIP', 'Refresher', 'Capsule', 'Pre_AP'].includes(activeNT)) return new Map();
-    return filterTimelines(rawTimelines, { trainer: filter.trainer, validMonths: MONTHS });
-  }, [rawTimelines, activeNT, filter.trainer, MONTHS]);
+  // Rename for internal consistency with engine expectations
+  const unified = filteredData;
 
-  // Compose Sub-Domain Logic
-  const { ipData, ipRankData, ipKPI } = useIPData(unified, MONTHS, activeNT);
-  const { apAttData, apPerfData, apKPI, preApKPI } = useAPData(filteredTimelines, MONTHS, activeNT, unified, tabNoms);
-  const { mipAttData, mipPerfData, mipKPI } = useMIPData(filteredTimelines, MONTHS, activeNT, unified);
-  const { refresherAttData, refresherPerfData, refresherKPI } = useRefresherData(filteredTimelines, MONTHS, activeNT, unified);
-  const { capsuleAttData, capsulePerfData, capsuleKPI } = useCapsuleData(filteredTimelines, MONTHS, activeNT, unified);
+  // ─── DOMAIN AGGREGATES ─────────────────────────────────────────────────────
+  const activeTimelines = useMemo(() => {
+    return buildEmployeeTimelines(
+      unified.filter((a: any) => normalizeTrainingType(a.attendance.trainingType) === activeNT),
+      tabNoms,
+      masterTeams, activeNT,
+      scores.filter(s => normalizeTrainingType(s.trainingType) === activeNT)
+    );
+  }, [unified, tabNoms, masterTeams, activeNT, scores]);
+
+  const ipData = useMemo(() => useIPData(unified, MONTHS, activeNT), [unified, MONTHS, activeNT]);
+  const apData = useAPData(activeTimelines, MONTHS, activeNT, unified, tabNoms);
+  const mipData = useMIPData(activeTimelines, MONTHS, activeNT, unified);
+  const refresherData = useRefresherData(activeTimelines, MONTHS, activeNT, unified);
+  const capsuleData = useCapsuleData(activeTimelines, MONTHS, activeNT, unified);
 
   // Eligibility & Gap
   const eligibilityResults = useMemo(() => {
@@ -333,18 +297,20 @@ export const usePerformanceData = ({
     activeNT,
     rawUnified,
     unified,
-    ipData,
-    ipRankData,
-    rawTimelines,
-    filteredTimelines,
-    apAttData,
-    mipAttData,
-    refresherAttData,
-    capsuleAttData,
-    apPerfData,
-    mipPerfData,
-    refresherPerfData,
-    capsulePerfData,
+    filteredData,
+    // Typed Datasets
+    ipData: ipData.ipData,
+    ipRankData: ipData.ipRankData,
+    apAttData: apData.apAttData,
+    apPerfData: apData.apPerfData,
+    mipAttData: mipData.mipAttData,
+    mipPerfData: mipData.mipPerfData,
+    refresherAttData: refresherData.refresherAttData,
+    refresherPerfData: refresherData.refresherPerfData,
+    capsuleAttData: capsuleData.capsuleAttData,
+    capsulePerfData: capsuleData.capsulePerfData,
+    rawTimelines: activeTimelines,
+    filteredTimelines: activeTimelines,
     eligibilityResults,
     gapMetrics,
     groups,
@@ -355,12 +321,12 @@ export const usePerformanceData = ({
     timeSeries,
     tabNoms,
     // KPIs
-    ipKPI,
-    apKPI,
-    mipKPI,
-    refresherKPI,
-    capsuleKPI,
-    preApKPI,
+    ipKPI: ipData.ipKPI,
+    apKPI: apData.apKPI,
+    mipKPI: mipData.mipKPI,
+    refresherKPI: refresherData.refresherKPI,
+    capsuleKPI: capsuleData.capsuleKPI,
+    preApKPI: apData.preApKPI,
     resolutionLevel
   };
 };

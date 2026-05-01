@@ -11,6 +11,7 @@ export interface PerformanceDataset {
   activeNT: TrainingType | string;
   rawUnified: any[];
   unified: any[];
+  filteredData: any[];
   
   // Domain Data
   ipData: any;

@@ -136,14 +136,10 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
     rawUnified,
     unified,
     ipData,
-    apAttData,
-    mipAttData,
-    refresherAttData,
-    capsuleAttData,
-    apPerfData,
-    mipPerfData,
-    refresherPerfData,
-    capsulePerfData,
+    apData,
+    mipData,
+    refresherData,
+    capsuleData,
     eligibilityResults,
     gapMetrics,
     groups,
@@ -163,8 +159,8 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
     }, viewBy: 'Month', tsMode, pageMode: 'performance-charts'
   });
 
-  const activeAttData = activeNT === 'AP' ? apAttData : activeNT === 'MIP' ? mipAttData : activeNT === 'Refresher' ? refresherAttData : (activeNT === 'Pre_AP' ? apAttData : capsuleAttData);
-  const activePerfData = activeNT === 'AP' ? apPerfData : activeNT === 'MIP' ? mipPerfData : activeNT === 'Refresher' ? refresherPerfData : (activeNT === 'Pre_AP' ? apPerfData : capsulePerfData);
+  const activeAttData = activeNT === 'AP' ? apData.apAttData : activeNT === 'MIP' ? mipData.mipAttData : activeNT === 'Refresher' ? refresherData.refresherAttData : (activeNT === 'Pre_AP' ? apData.apAttData : capsuleData.capsuleAttData);
+  const activePerfData = activeNT === 'AP' ? apData.apPerfData : activeNT === 'MIP' ? mipData.mipPerfData : activeNT === 'Refresher' ? refresherData.refresherPerfData : (activeNT === 'Pre_AP' ? apData.apPerfData : capsuleData.capsulePerfData);
 
   const {
     matrixData,
@@ -173,8 +169,16 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
     rankingData,
     trendData,
     attFunnelData,
+    bseDistribution,
+    scoreBands,
+    competencyData,
+    trainerEffectiveness,
+    radarData,
+    managerTiering
   } = useChartData({
-    tab, activeNT, ipData, activePerfData, activeAttData, MONTHS
+    tab, activeNT, MONTHS,
+    ipData, apData, mipData, refresherData, capsuleData, filteredData,
+    globalFilters
   });
 
   const tsChartData = useMemo(() => timeSeries.map((r) => ({ label: r.label, ...r.cells })), [timeSeries]);
@@ -217,7 +221,9 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
           )}
           <button className={`${styles.subViewBtn} ${subView === 'timeseries' ? styles.subViewBtnActive : ''}`} onClick={() => setSubView('timeseries')}><Calendar size={14} /> Trends</button>
           <button className={`${styles.subViewBtn} ${subView === 'trainer' ? styles.subViewBtnActive : ''}`} onClick={() => setSubView('trainer')}><GraduationCap size={14} /> Trainers</button>
-          <button className={`${styles.subViewBtn} ${subView === 'gap' ? styles.subViewBtnActive : ''}`} onClick={() => setSubView('gap')}><AlertTriangle size={14} /> Gap Analysis</button>
+          {(tab !== 'AP' && tab !== 'Pre_AP') && (
+            <button className={`${styles.subViewBtn} ${subView === 'gap' ? styles.subViewBtnActive : ''}`} onClick={() => setSubView('gap')}><AlertTriangle size={14} /> Gap Analysis</button>
+          )}
         </div>
 
         <div className="flex-center gap-2">
@@ -397,41 +403,17 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
         </div>
       </div>
 
-      {/* QUICK SCENARIO BUTTONS */}
+      {/* PHASE 7 — METRIC SWITCHER */}
       {!presentationMode && (
-        <div className="flex gap-3 mb-24 overflow-x-auto pb-2 px-2 no-scrollbar">
-          <motion.button whileHover={{ y: -2 }} whileTap={{ scale: 0.98 }} onClick={clearFilters} className={styles.scenarioBtn}>
-            <Users size={14} /> Full Snapshot
-          </motion.button>
-          <motion.button 
-            whileHover={{ y: -2 }} 
-            whileTap={{ scale: 0.98 }} 
-            onClick={() => {
-              // Scenario: Only show teams with Elite members
-              const topTeams = rankingData.filter(r => r.score > 80).map(r => masterTeams.find(t => t.teamName === r.name)?.id).filter(Boolean) as string[];
-              setPageFilters({ ...pageFilters, teams: topTeams, trainers: [], clusters: [], month: '' });
-            }} 
-            className={styles.scenarioBtn}
-          >
-            <Trophy size={14} className="text-success" /> Elite Squads
-          </motion.button>
-          <motion.button 
-            whileHover={{ y: -2 }} 
-            whileTap={{ scale: 0.98 }} 
-            onClick={() => {
-              // Scenario: Only show teams with significant gaps
-              const lowTeams = rankingData.filter(r => r.score < 60).map(r => masterTeams.find(t => t.teamName === r.name)?.id).filter(Boolean) as string[];
-              setPageFilters({ ...pageFilters, teams: lowTeams, trainers: [], clusters: [], month: '' });
-            }} 
-            className={styles.scenarioBtn}
-          >
-            <AlertTriangle size={14} className="text-danger" /> Risk Focus
-          </motion.button>
-          <motion.button whileHover={{ y: -2 }} whileTap={{ scale: 0.98 }} onClick={() => setSubView('gap')} className={styles.scenarioBtn}>
-            <Target size={14} className="text-warning" /> High Gap Areas
-          </motion.button>
+      <div className={styles.scenarioBar}>
+        <div className="flex-center gap-4">
+          <span className="text-xs font-medium text-secondary uppercase tracking-wider">Metric Switcher:</span>
+          <button className={`${styles.subViewBtn} ${subView === 'performance' ? styles.subViewBtnActive : ''}`} onClick={() => setSubView('performance')}><BarChart3 size={14} /> Distribution</button>
+          <button className={`${styles.subViewBtn} ${subView === 'performance' ? styles.subViewBtnActive : ''}`} onClick={() => setSubView('performance')}><LayoutGrid size={14} /> Cluster</button>
+          <button className={`${styles.subViewBtn} ${subView === 'timeseries' ? styles.subViewBtnActive : ''}`} onClick={() => setSubView('timeseries')}><TrendingUp size={14} /> Trend</button>
+          <button className={`${styles.subViewBtn} ${subView === 'performance' ? styles.subViewBtnActive : ''}`} onClick={() => setSubView('performance')}><Award size={14} /> Ranking</button>
         </div>
-      )}
+      </div>)}
 
       <AnimatePresence mode="wait">
         <motion.div key={`${tab}-${subView}-${selectedFY}`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
@@ -465,10 +447,57 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
               ) : (
                 <>
                   <div className={`${styles.chartCard} ${styles.chartCardLarge}`}>
-                    <div className={styles.chartHeader}><h3 className={styles.chartTitle}><BarChart3 size={18} className={styles.chartTitleIcon} /> Distribution Profile</h3></div>
+                    <div className={styles.chartHeader}><h3 className={styles.chartTitle}><BarChart3 size={18} className={styles.chartTitleIcon} /> {activeNT === 'AP' ? 'BSE Score Distribution' : 'Distribution Profile'}</h3></div>
                     <div className={styles.vizWrapperFixed}>
                       <ResponsiveContainer width="100%" height="100%">
-                        {tab === 'IP' ? (
+                        {activeNT === 'AP' ? (
+                          <PieChart>
+                            <Pie
+                              data={bseDistribution}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={60}
+                              outerRadius={100}
+                              paddingAngle={5}
+                              dataKey="value"
+                            >
+                              {bseDistribution?.map((entry: any, index: number) => {
+                                const COLORS = { Excellent: '#22c55e', Good: '#3b82f6', Average: '#f59e0b', Poor: '#ef4444' };
+                                return <Cell key={`cell-${index}`} fill={(COLORS as any)[entry.name] || '#8884d8'} />;
+                              })}
+                            </Pie>
+                            <Tooltip 
+                              contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px' }}
+                            />
+                            <Legend verticalAlign="bottom" height={36}/>
+                          </PieChart>
+                        ) : activeNT === 'IP' ? (
+                          <BarChart data={scoreBands} margin={{ top: 20, right: 30, left: 40, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
+                            <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
+                            <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px' }} />
+                            <Bar dataKey="value" name="Count" fill="#3b82f6" barSize={40}>
+                              {scoreBands?.map((entry: any, index: number) => {
+                                const COLORS = { A: '#22c55e', B: '#3b82f6', C: '#f59e0b', D: '#ef4444' };
+                                return <Cell key={`cell-${index}`} fill={(COLORS as any)[entry.name] || '#8884d8'} />;
+                              })}
+                            </Bar>
+                          </BarChart>
+                        ) : activeNT === 'MIP' ? (
+                          <BarChart data={managerTiering} margin={{ top: 20, right: 30, left: 40, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
+                            <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
+                            <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px' }} />
+                            <Bar dataKey="value" name="Count" fill="#f59e0b" barSize={40}>
+                              {managerTiering?.map((entry: any, index: number) => {
+                                const COLORS = { Ready: '#22c55e', Developing: '#f59e0b', Critical: '#ef4444' };
+                                return <Cell key={`cell-${index}`} fill={(COLORS as any)[entry.name] || '#8884d8'} />;
+                              })}
+                            </Bar>
+                          </BarChart>
+                        ) : tab === 'IP' ? (
                           <BarChart data={distributionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} onClick={(data: any) => {
                             if (data?.activeLabel) {
                               const label = String(data.activeLabel);
@@ -561,19 +590,45 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
                     </div>
                   </div>
                   <div className={`${styles.chartCard} ${styles.chartCardFull}`}>
-                    <div className={styles.chartHeader}><h3 className={styles.chartTitle}><TrendingUp size={18} className="text-accent-primary" /> {resolutionLevel === 'Global' ? 'Cluster' : 'Team'} Benchmarking</h3></div>
+                    <div className={styles.chartHeader}><h3 className={styles.chartTitle}><Target size={18} className="text-accent-primary" /> {activeNT === 'IP' ? 'Competency Breakdown' : activeNT === 'MIP' ? 'Behavioural Profile' : (resolutionLevel === 'Global' ? 'Cluster' : 'Team') + ' Benchmarking'}</h3></div>
                     <div className={styles.vizWrapper}>
-                      <div className={styles.chartScrollWrapper}>
-                        <LineChart width={1000} height={330} data={trendData.data} margin={{ top: 10, right: 30, left: -20, bottom: 0 }}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                          <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
-                          <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} domain={[0, 100]} />
-                          <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px' }} /><Legend />
-                          {trendData.clusters.map((c, i) => (
-                            <Line key={c} type="monotone" dataKey={c} stroke={['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'][i % 6]} strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: 'var(--bg-card)' }} activeDot={{ r: 6 }} connectNulls />
-                          ))}
-                        </LineChart>
-                      </div>
+                      {activeNT === 'IP' ? (
+                        <ResponsiveContainer width="100%" height={330}>
+                          <BarChart data={competencyData} margin={{ top: 10, right: 30, left: 20, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
+                            <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} domain={[0, 100]} />
+                            <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px' }} />
+                            <Bar dataKey="score" name="Avg Score" fill="#8b5cf6" barSize={60}>
+                              {competencyData?.map((entry: any, index: number) => (
+                                <Cell key={`cell-${index}`} fill={['#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6'][index % 4]} />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : activeNT === 'MIP' ? (
+                        <ResponsiveContainer width="100%" height={330}>
+                          <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
+                            <PolarGrid stroke="rgba(255,255,255,0.1)" />
+                            <PolarAngleAxis dataKey="subject" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
+                            <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} />
+                            <Radar name="Proficiency" dataKey="A" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.6} />
+                            <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px' }} />
+                          </RadarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className={styles.chartScrollWrapper}>
+                          <LineChart width={1000} height={330} data={trendData.data} margin={{ top: 10, right: 30, left: -20, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
+                            <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} domain={[0, 100]} />
+                            <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px' }} /><Legend />
+                            {trendData.clusters.map((c, i) => (
+                              <Line key={c} type="monotone" dataKey={c} stroke={['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'][i % 6]} strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: 'var(--bg-card)' }} activeDot={{ r: 6 }} connectNulls />
+                            ))}
+                          </LineChart>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </>
@@ -669,29 +724,51 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
           )}
 
           {subView === 'trainer' && (
-            <div className={`${styles.chartCard} ${styles.chartCardFull}`}>
-              <div className={styles.chartHeader}><h3 className={styles.chartTitle}><GraduationCap size={18} className="text-primary" /> Trainer Scatter Analysis</h3></div>
-              <div className={styles.vizWrapperTall}>
-                <ResponsiveContainer>
-                  <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                    <XAxis type="number" dataKey="volume" name="Volume" axisLine={false} tickLine={false} />
-                    <YAxis type="number" dataKey="score" name="Avg Score" domain={[0, 100]} axisLine={false} tickLine={false} />
-                    <ZAxis type="category" dataKey="name" name="Trainer" />
-                    <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ borderRadius: '12px' }} />
-                    <Scatter name="Trainers" data={trainerScatterData} onClick={(data: any) => {
-                      if (data && data.name) {
-                        const tId = data.name;
-                        const newTrainers = pageFilters.trainers.includes(tId)
-                          ? pageFilters.trainers.filter(x => x !== tId)
-                          : [...pageFilters.trainers, tId];
-                        setPageFilters({ ...pageFilters, trainers: newTrainers });
-                      }
-                    }}>
-                      {trainerScatterData.map((e: any, i: number) => <Cell key={i} fill={e.score >= 80 ? '#22c55e' : e.score >= 60 ? '#f59e0b' : '#ef4444'} />)}
-                    </Scatter>
-                  </ScatterChart>
-                </ResponsiveContainer>
+            <div className={styles.chartGrid}>
+              {activeNT === 'IP' && (
+                <div className={`${styles.chartCard} ${styles.chartCardFull} mb-16`}>
+                  <div className={styles.chartHeader}><h3 className={styles.chartTitle}><Users size={18} className="text-primary" /> Trainer Effectiveness (Avg Weighted Score)</h3></div>
+                  <div className={styles.vizWrapperTall}>
+                    <ResponsiveContainer>
+                      <BarChart data={trainerEffectiveness} layout="vertical" margin={{ top: 10, right: 30, left: 40, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(255,255,255,0.05)" />
+                        <XAxis type="number" domain={[0, 100]} axisLine={false} tickLine={false} />
+                        <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} width={100} />
+                        <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px' }} />
+                        <Bar dataKey="score" name="Avg Score" fill="#06b6d4" barSize={20}>
+                          {trainerEffectiveness?.map((entry: any, index: number) => (
+                            <Cell key={`cell-${index}`} fill={index === 0 ? '#22c55e' : '#3b82f6'} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+              <div className={`${styles.chartCard} ${styles.chartCardFull}`}>
+                <div className={styles.chartHeader}><h3 className={styles.chartTitle}><GraduationCap size={18} className="text-primary" /> Trainer Scatter Analysis</h3></div>
+                <div className={styles.vizWrapperTall}>
+                  <ResponsiveContainer>
+                    <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                      <XAxis type="number" dataKey="volume" name="Volume" axisLine={false} tickLine={false} />
+                      <YAxis type="number" dataKey="score" name="Avg Score" domain={[0, 100]} axisLine={false} tickLine={false} />
+                      <ZAxis type="category" dataKey="name" name="Trainer" />
+                      <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ borderRadius: '12px' }} />
+                      <Scatter name="Trainers" data={trainerScatterData} onClick={(data: any) => {
+                        if (data && data.name) {
+                          const tId = data.name;
+                          const newTrainers = pageFilters.trainers.includes(tId)
+                            ? pageFilters.trainers.filter(x => x !== tId)
+                            : [...pageFilters.trainers, tId];
+                          setPageFilters({ ...pageFilters, trainers: newTrainers });
+                        }
+                      }}>
+                        {trainerScatterData.map((e: any, i: number) => <Cell key={i} fill={e.score >= 80 ? '#22c55e' : e.score >= 60 ? '#f59e0b' : '#ef4444'} />)}
+                      </Scatter>
+                    </ScatterChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
           )}
