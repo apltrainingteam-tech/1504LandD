@@ -43,7 +43,7 @@ export const useTrainingData = (
         id: `upload::${key}`,
         trainingId: `upload::${key}`,
         draftId: `upload::${key}`,
-        source: 'UPLOAD',
+        source: 'UPLOAD' as const,
         trainingType: String(first.trainingType),
         team: first.team || first.teamId || '',
         teamId: first.teamId || '',
@@ -51,12 +51,20 @@ export const useTrainingData = (
         startDate,
         endDate,
         committedAt: startDate,
-        candidates: rows.map(r => ({
-          employeeId: r.employeeId,
-          name: r.employeeName || '',
-          status: (r.attendanceStatus === 'Present' || r.attendanceStatus === 'present') ? 'present' : 'absent',
-          score: r.score
-        }))
+        isVoided: false,            // required by TrainingBatch
+        candidates: rows.map(r => {
+          const rawStatus = (r.attendanceStatus || '').toLowerCase().trim();
+          const attendance: import('../../types/attendance').BatchAttStatus =
+            rawStatus === 'present' ? 'present'
+            : rawStatus === 'absent' ? 'absent'
+            : 'pending';
+          return {
+            empId: String(r.employeeId),
+            attendance,
+            score: '',              // score lives in TrainingScore, not Attendance
+            isVoided: r.isVoided ?? false,
+          };
+        })
       });
     });
     return batches;
@@ -66,7 +74,7 @@ export const useTrainingData = (
     const filteredRaw = attendance.filter(a => {
       if (filters.trainingType !== 'ALL' && normalizeTrainingType(a.trainingType) !== normalizeTrainingType(filters.trainingType)) return false;
       if (filters.trainer !== 'ALL' && a.trainerId !== filters.trainer) return false;
-      if (!isWithinFY(a.attendanceDate || a.date, filters.fiscalYear)) return false;
+      if (!isWithinFY(a.attendanceDate, filters.fiscalYear)) return false;
       return true;
     });
     return deriveUploadBatches(filteredRaw);

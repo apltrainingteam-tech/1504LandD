@@ -140,7 +140,7 @@ const CandidateRow = React.memo<CandidateRowProps>(({
   const isScoreEdited = buffered?.score !== undefined && buffered.score !== candidate.score;
   const isVoidEdited = buffered?.isVoided !== undefined && buffered.isVoided !== candidate.isVoided;
 
-  const rs = STATUS_META[curAtt];
+  const rs = STATUS_META[curAtt] ?? STATUS_META['pending']; // safe fallback — never undefined
 
   return (
     <tr className={`${styles.tr} ${index % 2 !== 0 ? styles.trOdd : ''} ${isSelected ? styles.trSelected : ''} ${curIsVoided ? styles.trVoided : ''} ${isVoidEdited ? styles.editedRow : ''}`}>
@@ -159,7 +159,7 @@ const CandidateRow = React.memo<CandidateRowProps>(({
       <td className={`${styles.td} ${styles.tdSecondary} ${curIsVoided ? styles.strike : ''}`}>{employee?.designation || '—'}</td>
       <td className={`${styles.td} ${styles.tdSecondary} ${curIsVoided ? styles.strike : ''}`}>{employee?.hq || '—'}</td>
       <td className={`${styles.td} ${styles.tdSecondary} ${curIsVoided ? styles.strike : ''}`}>{employee?.state || '—'}</td>
-      <td className={`${styles.td} ${isAttEdited ? styles.editedCell : ''}`} title={isAttEdited ? `${STATUS_META[candidate.attendance].label} → ${STATUS_META[curAtt].label}` : undefined}>
+      <td className={`${styles.td} ${isAttEdited ? styles.editedCell : ''}`} title={isAttEdited && STATUS_META[candidate.attendance] ? `${STATUS_META[candidate.attendance].label} → ${STATUS_META[curAtt]?.label}` : undefined}>
         <AttToggle value={curAtt} readOnly={isUpload} onChange={v => onUpdate(candidate.empId, { attendance: v })} />
       </td>
       <td className={`${styles.td} ${isScoreEdited ? styles.editedCell : ''}`} title={isScoreEdited ? `${candidate.score || '—'} → ${curScore}` : undefined}>
