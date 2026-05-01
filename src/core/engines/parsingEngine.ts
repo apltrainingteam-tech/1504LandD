@@ -26,6 +26,7 @@ import {
   createDebugInfo,
   ParseDebugInfo
 } from '../constants/uploadTemplates';
+import { processTeamData, formatTrainingType } from './normalizationEngine';
 import { traceEngine } from '../debug/traceEngine';
 
 export interface ParsedRowStrict {
@@ -97,6 +98,13 @@ export const parseExcelFileStrict = traceEngine("parseExcelFileStrict", async (f
         const parsedRows: ParsedRowStrict[] = [];
         const rowErrors: Array<{ rowNum: number; error: string }> = [];
         let validCount = 0;
+        let excludedCount = 0;
+        const normalizationStats: Record<string, number> = {};
+        const caseFixes = {
+          teamNamesFormatted: 0,
+          teamExceptionsApplied: 0,
+          trainingTypeProtected: 0
+        };
 
         json.forEach((excelRow, idx) => {
           const rowNum = idx + 2; // +2 because row 1 is headers, xlsx rows are 0-indexed
@@ -108,6 +116,49 @@ export const parseExcelFileStrict = traceEngine("parseExcelFileStrict", async (f
               excelHeaders,
               templateType
             );
+
+            // ─────────────────────────────────────────────────────────────────
+            // STEP 2.5: TEAM NORMALIZATION & EXCLUSION (HARD FILTER)
+            // ─────────────────────────────────────────────────────────────────
+            const teamResult = processTeamData(mongoData.team);
+            
+            if (teamResult.excluded) {
+              excludedCount++;
+              // Record as skipped row in debug info (reason: TEAM_EXCLUDED)
+              parsedRows.push({
+                rowNum,
+                status: 'error',
+                errors: [`Row skipped: Team "${mongoData.team}" is in the exclusion list.`],
+                warnings: [],
+                // @ts-ignore - internal flag for tracking
+                skipReason: 'TEAM_EXCLUDED'
+              });
+              return;
+            }
+
+            if (teamResult.ruleApplied) {
+              normalizationStats[teamResult.ruleApplied] = (normalizationStats[teamResult.ruleApplied] || 0) + 1;
+            }
+
+            if (teamResult.caseFormatted) {
+              caseFixes.teamNamesFormatted++;
+            }
+            if (teamResult.isException) {
+              caseFixes.teamExceptionsApplied++;
+            }
+            
+            mongoData.team = teamResult.normalized;
+
+            // ─────────────────────────────────────────────────────────────────
+            // STEP 2.6: TRAINING TYPE CASING (ABBREVIATION PROTECTION)
+            // ─────────────────────────────────────────────────────────────────
+            if (mongoData.trainingType) {
+              const ttResult = formatTrainingType(mongoData.trainingType);
+              if (ttResult.isAbbreviation) {
+                caseFixes.trainingTypeProtected++;
+              }
+              mongoData.trainingType = ttResult.formatted;
+            }
 
             // Validate row data (strict mode)
             const validation = validateRow(mongoData, rowNum);
@@ -176,7 +227,10 @@ export const parseExcelFileStrict = traceEngine("parseExcelFileStrict", async (f
           validCount,
           rejectedCount,
           rowErrors,
-          parsedRows.find(r => r.status === 'valid')?.data
+          parsedRows.find(r => r.status === 'valid')?.data,
+          normalizationStats,
+          excludedCount,
+          caseFixes
         );
 
         resolve({

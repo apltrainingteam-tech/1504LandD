@@ -149,7 +149,23 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
                 <strong>{errorRows.length}</strong> Rejected/Invalid ❌
               </div>
             )}
+            {previewResult.debug?.excluded && previewResult.debug.excluded > 0 && (
+              <div className={`${styles.statBadge} ${styles.statBadgeNeutral}`}>
+                <strong>{previewResult.debug.excluded}</strong> Excluded Teams 🛑
+              </div>
+            )}
           </div>
+
+          {previewResult.debug?.normalization && Object.keys(previewResult.debug.normalization).length > 0 && (
+            <div className={styles.normalizationInfo}>
+              <h4 className={styles.infoLabel}>🔄 Team Normalization</h4>
+              <div className={styles.infoList}>
+                {Object.entries(previewResult.debug.normalization).map(([rule, count]) => (
+                  <div key={rule}>• {rule}: {count as number} records</div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {errorRows.length > 0 && (
@@ -192,33 +208,62 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
       <div className={`animate-fade-in ${styles.doneContainer}`}>
         {/* SUCCESS HEADER */}
         {isSuccess ? (
-          <div className={styles.successHeader}>
-            <div className={styles.successIconWrapper}>
-              <CheckCircle size={48} className={styles.successIcon} />
-            </div>
-            <h2 className={styles.successTitle}>
-              Upload Successful
-            </h2>
-            <p className={styles.successMessage}>
-              {uploadResult.uploadedRows} of {uploadResult.totalRows} rows uploaded to training_data collection
-            </p>
-            <div className={styles.statsRow}>
-              <div className={`${styles.statBadge} ${styles.statBadgeSuccess}`}>
-                <strong>{uploadResult.uploadedRows}</strong> Uploaded ✅
+          <>
+            <div className={styles.successHeader}>
+              <div className={styles.successIconWrapper}>
+                <CheckCircle size={48} className={styles.successIcon} />
               </div>
-              {uploadResult.rejectedRows > 0 && (
-                <div className={`${styles.statBadge} ${styles.statBadgeDanger}`}>
-                  <strong>{uploadResult.rejectedRows}</strong> Rejected ❌
+              <h2 className={styles.successTitle}>
+                Upload Successful
+              </h2>
+              <p className={styles.successMessage}>
+                {uploadResult.uploadedRows} of {uploadResult.totalRows} rows uploaded to training_data collection
+              </p>
+              <div className={styles.statsRow}>
+                <div className={`${styles.statBadge} ${styles.statBadgeSuccess}`}>
+                  <strong>{uploadResult.uploadedRows}</strong> Uploaded ✅
+                </div>
+                {uploadResult.rejectedRows > 0 && (
+                  <div className={`${styles.statBadge} ${styles.statBadgeDanger}`}>
+                    <strong>{uploadResult.rejectedRows}</strong> Rejected ❌
+                  </div>
+                )}
+                <div className={`${styles.statBadge} ${styles.statBadgeHighlight}`}>
+                  👤 Active: <strong>{uploadResult.activeEmployees}</strong>
+                </div>
+                <div className={`${styles.statBadge} ${styles.statBadgeNeutral}`}>
+                  ⚠️ Inactive: <strong>{uploadResult.inactiveEmployees}</strong>
+                </div>
+                {uploadResult.debug?.excluded > 0 && (
+                  <div className={`${styles.statBadge} ${styles.statBadgeNeutral}`}>
+                    🛑 Excluded: <strong>{uploadResult.debug.excluded}</strong>
+                  </div>
+                )}
+              </div>
+
+              {uploadResult.debug?.normalization && Object.keys(uploadResult.debug.normalization).length > 0 && (
+                <div className={styles.normalizationBox}>
+                  <h4 className={styles.infoLabel}>🔄 Team Normalization</h4>
+                  <div className={styles.infoList}>
+                    {Object.entries(uploadResult.debug.normalization).map(([rule, count]) => (
+                      <div key={rule}>• {rule}: {count as number} records</div>
+                    ))}
+                  </div>
                 </div>
               )}
-              <div className={`${styles.statBadge} ${styles.statBadgeHighlight}`}>
-                👤 Active: <strong>{uploadResult.activeEmployees}</strong>
-              </div>
-              <div className={`${styles.statBadge} ${styles.statBadgeNeutral}`}>
-                ⚠️ Inactive: <strong>{uploadResult.inactiveEmployees}</strong>
-              </div>
             </div>
-          </div>
+
+            {uploadResult.debug?.caseFixes && (
+              <div className={styles.caseFixesBox}>
+                <h4 className={styles.infoLabel}>✨ Casing & Standards</h4>
+                <div className={styles.infoList}>
+                  <div>• Team Names Standardized: {uploadResult.debug.caseFixes.teamNamesFormatted}</div>
+                  <div>• Team Exceptions Protected (CDC/DTF): {uploadResult.debug.caseFixes.teamExceptionsApplied}</div>
+                  <div>• Training Abbreviations Protected: {uploadResult.debug.caseFixes.trainingTypeProtected}</div>
+                </div>
+              </div>
+            )}
+          </>
         ) : (
           /* FAILURE HEADER */
           <div className={styles.errorHeader}>
@@ -261,7 +306,7 @@ export const AttendanceUploadStrict: React.FC<AttendanceUploadStrictProps> = ({ 
             </h4>
             <div className={styles.warningList}>
               {uploadResult.warnings.slice(0, 5).map((w, i) => (
-                <div key={i}>{w}</div>
+                <div key={i}>Row {w.rowNum}: {w.message}</div>
               ))}
               {uploadResult.warnings.length > 5 && (
                 <div className={styles.moreItemsText}>

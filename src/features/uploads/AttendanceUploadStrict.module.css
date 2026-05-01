@@ -402,3 +402,21 @@
   font-size: 11px;
   color: var(--text-secondary);
 }
+
+.normalizationInfo, .normalizationBox, .caseFixesBox {
+  margin-top: 20px;
+  background: rgba(59, 130, 246, 0.05);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 8px;
+  padding: 16px;
+  text-align: left;
+}
+
+.infoLabel {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--accent-primary);
+  margin-bottom: 12px;
+}
+

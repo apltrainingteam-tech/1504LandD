@@ -455,6 +455,13 @@ export interface ParseDebugInfo {
   rejectedRows: number;
   errors: Array<{ rowNum: number; error: string }>;
   sampleRecord?: Record<string, any>;
+  normalization?: Record<string, number>;
+  excluded?: number;
+  caseFixes?: {
+    teamNamesFormatted: number;
+    teamExceptionsApplied: number;
+    trainingTypeProtected: number;
+  };
 }
 
 export function createDebugInfo(
@@ -463,7 +470,14 @@ export function createDebugInfo(
   validRows: number,
   rejectedRows: number,
   errors: Array<{ rowNum: number; error: string }>,
-  sampleRecord?: Record<string, any>
+  sampleRecord?: Record<string, any>,
+  normalization?: Record<string, number>,
+  excluded?: number,
+  caseFixes?: {
+    teamNamesFormatted: number;
+    teamExceptionsApplied: number;
+    trainingTypeProtected: number;
+  }
 ): ParseDebugInfo {
   return {
     templateType,
@@ -471,7 +485,10 @@ export function createDebugInfo(
     validRows,
     rejectedRows,
     errors: errors.slice(0, 5), // Keep first 5 errors
-    sampleRecord
+    sampleRecord,
+    normalization,
+    excluded,
+    caseFixes
   };
 }
 

@@ -9,8 +9,107 @@
 /**
  * Normalizes a string for logic comparisons (lowercase, no spaces)
  */
+/**
+ * Normalizes a string for logic comparisons (lowercase, no spaces)
+ */
 export const normalizeString = (val?: string): string =>
   val?.toLowerCase().trim().replace(/\s+/g, "") || "";
+
+// ─── TEAM INGESTION RULES ──────────────────────────────────────────────────
+const TEAM_NORMALIZATION_RULES: Record<string, string> = {
+  "ajanta dental": "Dental",
+  "ajanta nephro": "Nephro",
+  "diabetes task force": "DTF",
+};
+
+const TEAM_EXCLUSION_RULES = new Set([
+  "aplife",
+  "hospicare",
+  "gencare",
+  "field l&d",
+]);
+
+/**
+ * Formats a string to Proper Case (Capitalize each word)
+ */
+export const toProperCase = (str: string): string => {
+  return str
+    .toLowerCase()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
+/**
+ * Team Case Formatting Engine
+ */
+export const formatTeamName = (teamName: string): { formatted: string, isException: boolean } => {
+  const exceptions = ['CDC', 'DTF'];
+  const upper = teamName.toUpperCase().trim();
+  
+  if (exceptions.includes(upper)) {
+    return { formatted: upper, isException: true };
+  }
+  
+  return { formatted: toProperCase(teamName), isException: false };
+};
+
+/**
+ * Training Type Case Formatting Engine
+ */
+export const formatTrainingType = (type: string): { formatted: string, isAbbreviation: boolean } => {
+  const raw = (type || "").trim();
+  // Detect abbreviation: at least 2 uppercase letters and nothing else
+  if (/^[A-Z]{2,}$/.test(raw)) {
+    return { formatted: raw, isAbbreviation: true };
+  }
+  return { formatted: raw, isAbbreviation: false };
+};
+
+/**
+ * Team Normalization and Exclusion Engine (for ingestion)
+ */
+export const processTeamData = (teamName?: string): { 
+  normalized: string, 
+  excluded: boolean, 
+  ruleApplied?: string,
+  caseFormatted: boolean,
+  isException: boolean
+} => {
+  const raw = (teamName || "").trim();
+  if (!raw) return { normalized: "", excluded: false, caseFormatted: false, isException: false };
+  
+  const normalizedKey = raw.toLowerCase();
+
+  // 1. Check exclusion (Hard Filter)
+  if (TEAM_EXCLUSION_RULES.has(normalizedKey)) {
+    return { normalized: raw, excluded: true, caseFormatted: false, isException: false };
+  }
+
+  // 2. Check normalization
+  let currentName = raw;
+  let ruleApplied: string | undefined;
+  
+  const canonical = TEAM_NORMALIZATION_RULES[normalizedKey];
+  if (canonical) {
+    currentName = canonical;
+    if (canonical.toLowerCase() !== raw.toLowerCase()) {
+      ruleApplied = `${raw} → ${canonical}`;
+    }
+  }
+
+  // 3. Apply Casing
+  const casing = formatTeamName(currentName);
+  
+  return { 
+    normalized: casing.formatted, 
+    excluded: false, 
+    ruleApplied,
+    caseFormatted: casing.formatted !== currentName,
+    isException: casing.isException
+  };
+};
+
 
 const TRAINING_TYPE_MAP: Record<string, string> = {
   ip: "IP",
@@ -87,8 +186,8 @@ export const normalizeTrainingRecord = (record: any) => {
     trainer: normalizeString(record.trainer),
 
     // SAFE FALLBACKS / LABELS (For UI Display)
-    trainingTypeLabel: normalizeTrainingType(record.trainingType),
-    teamLabel: preserveLabel(record.team, "Unknown"),
+    trainingTypeLabel: formatTrainingType(record.trainingType).formatted,
+    teamLabel: formatTeamName(record.team || "").formatted || "Unknown",
     trainerLabel: preserveLabel(record.trainer, "Unassigned"),
 
     // DATE NORMALIZATION

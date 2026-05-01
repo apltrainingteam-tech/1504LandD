@@ -45,6 +45,7 @@ export interface UploadResult {
   errors: Array<{ rowNum: number; message: string }>;
   warnings: Array<{ rowNum: number; message: string }>;
   debugLog: string;
+  debug?: any;
   isBaseline?: boolean;
 }
 
@@ -361,7 +362,8 @@ export const uploadTrainingDataStrict = traceEngine("uploadTrainingDataStrict", 
             message: w
           }))
         ),
-      debugLog: debugLog.join('\n')
+      debugLog: debugLog.join('\n'),
+      debug: parseResult.debug
     };
 
     console.log(`[UPLOAD] ✅ Result:`, result);
@@ -393,7 +395,7 @@ export async function validateFile(file: File): Promise<ParseResult> {
  * Format upload result for user display
  */
 
-export function formatUploadResult(result: UploadResult): string {
+export function formatUploadResult(result: UploadResult, debug?: any): string {
   if (!result.success) {
     return (
       `❌ Upload Failed\n` +
@@ -407,7 +409,19 @@ export function formatUploadResult(result: UploadResult): string {
   message += `Total Rows: ${result.totalRows}\n`;
   message += `Uploaded: ${result.uploadedRows} ✅\n`;
   message += `Rejected: ${result.rejectedRows} ❌\n`;
-  message += `Success Rate: ${((result.uploadedRows / result.totalRows) * 100).toFixed(1)}%\n`;
+
+  if (debug?.excluded > 0) {
+    message += `Excluded Teams: ${debug.excluded} 🛑\n`;
+  }
+
+  if (debug?.normalization && Object.keys(debug.normalization).length > 0) {
+    message += `\n🔄 Team Normalization:\n`;
+    Object.entries(debug.normalization).forEach(([rule, count]) => {
+      message += `  • ${rule}: ${count} records\n`;
+    });
+  }
+
+  message += `\nSuccess Rate: ${((result.uploadedRows / result.totalRows) * 100).toFixed(1)}%\n`;
 
   if (result.errors.length > 0) {
     message += `\n❌ Errors (first 5):\n`;
@@ -416,16 +430,6 @@ export function formatUploadResult(result: UploadResult): string {
     });
     if (result.errors.length > 5) {
       message += `  ... and ${result.errors.length - 5} more\n`;
-    }
-  }
-
-  if (result.warnings.length > 0) {
-    message += `\n⚠️ Warnings (first 5):\n`;
-    result.warnings.slice(0, 5).forEach(w => {
-      message += `  Row ${w.rowNum}: ${w.message}\n`;
-    });
-    if (result.warnings.length > 5) {
-      message += `  ... and ${result.warnings.length - 5} more\n`;
     }
   }
 
