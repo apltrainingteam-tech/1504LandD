@@ -387,7 +387,7 @@ const App = () => {
 
         <div className="shell-kpi-row">
           <div
-            className={`glass-panel shell-kpi-card cursor-pointer ${view === 'employees' ? 'active-border' : ''}`}
+            className={`shell-kpi-card kpi-employees cursor-pointer ${view === 'employees' ? 'active' : ''}`}
             onClick={() => setView('employees')}
             title="Go to Employee Master"
           >
@@ -398,15 +398,15 @@ const App = () => {
                 : emps.length}
             </div>
           </div>
-          <div className="glass-panel shell-kpi-card">
+          <div className="shell-kpi-card kpi-attendance">
             <div className="shell-kpi-label">Attendance</div>
             <div className="shell-kpi-value">{att.length}</div>
           </div>
-          <div className="glass-panel shell-kpi-card">
+          <div className="shell-kpi-card kpi-scores">
             <div className="shell-kpi-label">Scores</div>
             <div className="shell-kpi-value">{scs.length}</div>
           </div>
-          <div className="glass-panel shell-kpi-card">
+          <div className="shell-kpi-card kpi-nominations">
             <div className="shell-kpi-label">Nominations</div>
             <div className="shell-kpi-value">{noms.length}</div>
           </div>

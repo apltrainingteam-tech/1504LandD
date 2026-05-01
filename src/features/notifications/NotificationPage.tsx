@@ -44,7 +44,7 @@ const buildHtml = (draft: NominationDraft, teamName: string, trainerName: string
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"/></head>
 <body style="font-family:Calibri,Arial,sans-serif;font-size:14px;color:#1f2937;background:#f3f4f6;margin:0;padding:24px">
 <div style="max-width:900px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)">
-  <div style="background:linear-gradient(135deg,#1e40af,#3b82f6);padding:28px 32px">
+  <div style="background:#1e40af;padding:28px 32px">
     <div style="font-size:22px;font-weight:700;color:#fff;margin-bottom:4px">${draft.trainingType} Training — Nomination Notice</div>
     <div style="font-size:14px;color:rgba(255,255,255,.82)">${teamName} | ${monthYear(draft.startDate)}</div>
   </div>

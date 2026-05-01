@@ -26,7 +26,7 @@ export const DataTable: React.FC<DataTableProps> = memo(({
                   <th 
                     key={i} 
                     className={isFirst ? 'sticky-col' : ''}
-                    style={isFirst ? { position: 'sticky', left: 0, zIndex: 10, background: 'var(--bg-main)' } : {}}
+                    style={isFirst ? { position: 'sticky', left: 0, zIndex: 10, background: '#0F1C3F' } : {}}
                   >
                     {label}
                   </th>

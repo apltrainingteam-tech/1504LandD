@@ -29,7 +29,7 @@
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #1a1f2e, #0f1219);
+  background: #1a1f2e;
   border: 1px solid rgba(88, 166, 255, 0.3);
   color: #58a6ff;
   cursor: pointer;
@@ -509,7 +509,7 @@
 .runBtn {
   flex: 1;
   padding: 8px 14px;
-  background: linear-gradient(135deg, rgba(88, 166, 255, 0.15), rgba(88, 166, 255, 0.08));
+  background: rgba(88, 166, 255, 0.15);
   border: 1px solid rgba(88, 166, 255, 0.3);
   border-radius: 6px;
   color: #58a6ff;
@@ -527,7 +527,7 @@
 }
 
 .runBtn:hover {
-  background: linear-gradient(135deg, rgba(88, 166, 255, 0.22), rgba(88, 166, 255, 0.12));
+  background: rgba(88, 166, 255, 0.22);
   border-color: rgba(88, 166, 255, 0.5);
 }
 
