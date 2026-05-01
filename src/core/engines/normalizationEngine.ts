@@ -54,11 +54,11 @@ export const toProperCase = (str: string | undefined | null): string => {
 export const formatTeamName = (teamName: string): { formatted: string, isException: boolean } => {
   const exceptions = ['CDC', 'DTF'];
   const upper = teamName.toUpperCase().trim();
-  
+
   if (exceptions.includes(upper)) {
     return { formatted: upper, isException: true };
   }
-  
+
   return { formatted: toProperCase(teamName), isException: false };
 };
 
@@ -77,16 +77,16 @@ export const formatTrainingType = (type: string): { formatted: string, isAbbrevi
 /**
  * Team Normalization and Exclusion Engine (for ingestion)
  */
-export const processTeamData = (teamName?: string): { 
-  normalized: string, 
-  excluded: boolean, 
+export const processTeamData = (teamName?: string): {
+  normalized: string,
+  excluded: boolean,
   ruleApplied?: string,
   caseFormatted: boolean,
   isException: boolean
 } => {
   const raw = (teamName || "").trim();
   if (!raw) return { normalized: "", excluded: false, caseFormatted: false, isException: false };
-  
+
   const normalizedKey = normalizeForMatch(raw);
 
   // 1. Check exclusion (Hard Filter)
@@ -97,7 +97,7 @@ export const processTeamData = (teamName?: string): {
   // 2. Check normalization
   let currentName = raw;
   let ruleApplied: string | undefined;
-  
+
   const canonical = TEAM_NORMALIZATION_RULES[normalizedKey];
   if (canonical) {
     currentName = canonical;
@@ -108,10 +108,10 @@ export const processTeamData = (teamName?: string): {
 
   // 3. Apply Casing
   const casing = formatTeamName(currentName);
-  
-  return { 
-    normalized: casing.formatted, 
-    excluded: false, 
+
+  return {
+    normalized: casing.formatted,
+    excluded: false,
     ruleApplied,
     caseFormatted: casing.formatted !== currentName,
     isException: casing.isException
@@ -246,11 +246,11 @@ export const applyFallbackFilter = <T>(
   useFallback: boolean = false
 ): T[] => {
   const filtered = data.filter(predicate);
-  
+
   if (filtered.length === 0 && useFallback) {
     console.warn("Filter returned empty set — fallback triggered");
     return data;
   }
-  
+
   return filtered;
 };
