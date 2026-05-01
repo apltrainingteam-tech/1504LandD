@@ -282,7 +282,7 @@ const BatchCard: React.FC<{
             : <ChevronRight size={15} className={styles.chevron} />}
         </div>
         <span className={`${styles.sourceBadge} ${sm.className}`}>
-          <sm.Icon size={10} />{sm.label}
+          <sm.Icon size={12} />{sm.label}
         </span>
         {batch.isVoided && (
           <span className={styles.voidBadge}>Voided</span>
@@ -557,13 +557,20 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance, score
           <p className={styles.subtitle}>Unified view · {allBatches.length} batch{allBatches.length !== 1 ? 'es' : ''} total</p>
         </div>
         {isSuperAdmin && (
-          <div className={styles.modeToggle}>
-            <button className={`${styles.modeBtn} ${!isEditMode ? styles.modeBtnActive : ''}`} onClick={toggleEditMode}>
-              <Eye size={14} /> View Mode
-            </button>
-            <button className={`${styles.modeBtn} ${isEditMode ? styles.modeBtnActive : ''}`} onClick={toggleEditMode}>
-              <Edit2 size={14} /> Edit Mode
-            </button>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            {!isEditMode && (
+              <button className={styles.btnUndo} onClick={handleUndo}>
+                <RotateCcw size={14} /> Undo Last Save
+              </button>
+            )}
+            <div className={styles.modeToggle}>
+              <button className={`${styles.modeBtn} ${!isEditMode ? styles.modeBtnActive : ''}`} onClick={toggleEditMode}>
+                <Eye size={14} /> View Mode
+              </button>
+              <button className={`${styles.modeBtn} ${isEditMode ? styles.modeBtnActive : ''}`} onClick={toggleEditMode}>
+                <Edit2 size={14} /> Edit Mode
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -600,14 +607,6 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance, score
           </div>
         </div>
       )}
-
-      <div className={styles.toolbarRow}>
-        {isSuperAdmin && !isEditMode && (
-          <button className={styles.btnUndo} onClick={handleUndo}>
-            <RotateCcw size={14} /> Undo Last Save
-          </button>
-        )}
-      </div>
 
       <div className={styles.batchSummaryBar}>
         <div className={styles.summaryItem}>

@@ -219,6 +219,12 @@
   color: var(--text-secondary);
 }
 
+.sourceBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .sourceUpload {
   background: #DCFAF0;
   color: #0A8F6A;
@@ -483,7 +489,7 @@
   width: 16px;
   height: 16px;
   cursor: pointer;
-  accent-color: var(--accent-primary);
+  accent-color: #0F1C3F;
   transition: all 0.2s;
 }
 
@@ -877,7 +883,7 @@
 
 .voidToggle input {
   cursor: pointer;
-  accent-color: var(--accent-primary);
+  accent-color: #0F1C3F;
 }
 
 .btnVoid:hover {

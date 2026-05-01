@@ -56,7 +56,7 @@ import { DataQualityCenter } from './features/dashboard/DataQualityCenter';
 import { AgentDebugPanel } from './features/debug/AgentDebugPanel';
 import { ErrorBoundary } from './core/debug/ErrorBoundary';
 import { GlobalFiltersBar } from './shared/components/GlobalFiltersBar';
-import { ActiveContextBadge } from './shared/components/ui/ActiveContextBadge';
+
 
 // Services & Types
 import { Employee } from './types/employee';
@@ -368,22 +368,11 @@ const App = () => {
           <GlobalFiltersBar />
 
           <div className="flex-center">
-            <button 
-              className="btn btn-secondary theme-toggle-btn" 
-              onClick={toggleTheme}
-              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-            >
-              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
-            <button className="btn btn-secondary theme-toggle-btn" title="Notifications">
-              <Bell size={18} />
+            <button className="btn btn-secondary" title="Notifications" style={{ width: '40px', height: '40px', padding: 0, borderRadius: '8px', background: '#FFFFFF', border: '1px solid #D6DFFB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Bell size={20} style={{ stroke: '#0F1C3F', minWidth: '20px', minHeight: '20px' }} />
             </button>
           </div>
         </header>
-
-        <div style={{ padding: '0 24px', marginBottom: '16px', display: 'flex', justifyContent: 'flex-end' }}>
-          <ActiveContextBadge />
-        </div>
 
         <div className="shell-kpi-row">
           <div
