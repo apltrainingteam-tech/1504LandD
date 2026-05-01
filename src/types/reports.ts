@@ -16,6 +16,7 @@ export interface GroupedData {
   records: UnifiedRecord[];
   nominations: TrainingNomination[];
   metric: number;
+  total: number;
   rank?: number;
 }
 

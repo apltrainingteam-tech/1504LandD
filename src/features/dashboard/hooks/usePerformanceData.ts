@@ -114,9 +114,10 @@ export const usePerformanceData = ({
   }, [filter.teams, filter.clusters]);
 
   const effectiveViewBy = useMemo(() => {
+    if (viewBy) return viewBy;
     if (resolutionLevel === 'Global') return 'Cluster' as ViewByOption;
     return 'Team' as ViewByOption;
-  }, [resolutionLevel]);
+  }, [resolutionLevel, viewBy]);
 
   if (isEngineDebugActive) {
     return {

@@ -253,8 +253,15 @@ export function groupData(
       k = r.employee.cluster || 'Others';
     }
 
-    if (!m.has(k)) m.set(k, { key: k, records: [], nominations: [], metric: 0 });
+    if (!m.has(k)) m.set(k, { key: k, records: [], nominations: [], metric: 0, total: 0 });
     m.get(k)!.records.push(r);
+    
+    // Count present records for total
+    const s = String(r.attendance.attendanceStatus || '').trim().toLowerCase();
+    const isPresent = (s === '' || s === 'present') && !r.attendance.isVoided;
+    if (isPresent) {
+      m.get(k)!.total++;
+    }
   }
 
   // Build lookup map for employees (O(n) instead of O(m*n) with repeated finds)
@@ -273,7 +280,7 @@ export function groupData(
       k = e?.cluster || 'Others';
     }
 
-    if (!m.has(k)) m.set(k, { key: k, records: [], nominations: [], metric: 0 });
+    if (!m.has(k)) m.set(k, { key: k, records: [], nominations: [], metric: 0, total: 0 });
     m.get(k)!.nominations.push(n);
   }
 

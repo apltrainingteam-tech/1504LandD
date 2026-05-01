@@ -9,7 +9,7 @@ import {
 import { Employee } from '../../types/employee';
 import { Attendance, TrainingScore, TrainingNomination, Demographics, TrainingType } from '../../types/attendance';
 import { ViewByOption, GroupedData, ReportFilter } from '../../types/reports';
-import { exportToCSV } from '../../core/engines/reportEngine';
+import { exportToCSV, groupData, rankGroups } from '../../core/engines/reportEngine';
 import { FISCAL_YEARS, getCurrentFYString, getFiscalYears, formatMonthLabel } from '../../core/utils/fiscalYear';
 import { scheduleIdle } from '../../core/utils/stagedComputation';
 import { KPIBox } from '../../shared/components/ui/KPIBox';
@@ -712,6 +712,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
             <table className="data-table w-full">
               <thead>
                 <tr>
+                  {viewBy === 'Cluster' && <th className="w-40"></th>}
                   <th>Rank</th>
                   <th>{viewBy}</th>
                   <th className="td-center">Count</th>
@@ -720,19 +721,50 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {ranked.map((g: any, idx) => (
-                  <tr key={g.key} className={idx < 3 ? 'row-highlight-success' : ''}>
-                    <td>#{g.rank}</td>
-                    <td className="font-bold">{g.key}</td>
-                    <td className="td-center font-mono">{g.total}</td>
-                    <td className="td-center font-bold">{g.metric.toFixed(1)}</td>
-                    <td>
-                      <ProgressBar width={g.metric} colorClass={flagClass(flagScore(g.metric))} />
-                    </td>
-                  </tr>
-                ))}
+                {ranked.map((g: any, idx) => {
+                  const isExpanded = expanded.has(g.key);
+                  
+                  // Compute sub-groups if expanded
+                  let subGroups: any[] = [];
+                  if (viewBy === 'Cluster' && isExpanded) {
+                    const teams = groupData(g.records, 'Team', g.nominations, employees, masterTeams);
+                    subGroups = rankGroups(teams, tab);
+                  }
+
+                  return (
+                    <Fragment key={g.key}>
+                      <tr className={idx < 3 ? 'row-highlight-success' : ''}>
+                        {viewBy === 'Cluster' && (
+                          <td onClick={() => toggleExpand(g.key)} className="cursor-pointer">
+                            {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                          </td>
+                        )}
+                        <td>#{g.rank}</td>
+                        <td className="font-bold">{g.key}</td>
+                        <td className="td-center font-mono">{g.total}</td>
+                        <td className="td-center font-bold">{g.metric.toFixed(1)}</td>
+                        <td>
+                          <ProgressBar width={g.metric} colorClass={flagClass(flagScore(g.metric))} />
+                        </td>
+                      </tr>
+                      
+                      {viewBy === 'Cluster' && isExpanded && subGroups.map((sg: any) => (
+                        <tr key={sg.key} className="row-child">
+                          <td />
+                          <td className="text-muted td-center">—</td>
+                          <td className="pl-24 text-muted">{sg.key}</td>
+                          <td className="td-center font-mono">{sg.total}</td>
+                          <td className="td-center font-bold">{sg.metric.toFixed(1)}</td>
+                          <td>
+                            <ProgressBar width={sg.metric} colorClass={flagClass(flagScore(sg.metric))} />
+                          </td>
+                        </tr>
+                      ))}
+                    </Fragment>
+                  );
+                })}
                 {ranked.length === 0 && (
-                  <tr><td colSpan={5} className="td-center py-40 text-muted">No data for this selection</td></tr>
+                  <tr><td colSpan={viewBy === 'Cluster' ? 6 : 5} className="td-center py-40 text-muted">No data for this selection</td></tr>
                 )}
               </tbody>
             </table>
@@ -884,23 +916,61 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>{viewBy}</th>
+                  <th>{viewBy === 'Cluster' ? 'Cluster' : 'Team'}</th>
                   <th className="td-center">Participants</th>
                   <th className="td-center">Avg Score</th>
                   <th className="td-center">Performance Status</th>
                 </tr>
               </thead>
               <tbody>
-                {Object.entries((tab === 'AP' ? apPerfData?.groupMap : tab === 'MIP' ? mipPerfData?.groupMap : {}) || {}).map(([key, data]: any) => (
-                  <tr key={key}>
-                    <td className="font-bold">{key}</td>
-                    <td className="td-center">{data.total}</td>
-                    <td className="td-center font-bold">{data.avg.toFixed(1)}</td>
-                    <td>
-                      <ProgressBar width={data.avg} colorClass={flagClass(flagScore(data.avg))} />
-                    </td>
-                  </tr>
-                ))}
+                {Object.entries((tab === 'AP' ? apPerfData?.clusterMap : tab === 'MIP' ? mipPerfData?.clusterMap : {}) || {}).map(([cluster, cData]: [string, any]) => {
+                  const isExpanded = expanded.has(cluster);
+                  
+                  // Compute cluster avg
+                  let cTotal = 0;
+                  let cScoreSum = 0;
+                  Object.values(cData.months).forEach((m: any) => {
+                    cTotal += m.count;
+                    cScoreSum += (tab === 'AP' ? (m.avgKnowledge + m.avgBSE) / 2 : (m.avgScience + m.avgSkill) / 2) * m.count;
+                  });
+                  const cAvg = cTotal > 0 ? cScoreSum / cTotal : 0;
+
+                  return (
+                    <Fragment key={cluster}>
+                      <tr className="row-group-header">
+                        <td onClick={() => toggleExpand(cluster)} className="cursor-pointer">
+                          {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                          <span className="font-bold ml-2">{cluster}</span>
+                        </td>
+                        <td className="td-center font-mono">{cTotal}</td>
+                        <td className="td-center font-bold">{cAvg.toFixed(1)}</td>
+                        <td>
+                          <ProgressBar width={cAvg} colorClass={flagClass(flagScore(cAvg))} />
+                        </td>
+                      </tr>
+                      {isExpanded && Object.entries(cData.teams).map(([team, tData]: [string, any]) => {
+                        let tTotal = 0;
+                        let tScoreSum = 0;
+                        Object.values(tData.months).forEach((m: any) => {
+                          tTotal += m.count;
+                          tScoreSum += (tab === 'AP' ? (m.avgKnowledge + m.avgBSE) / 2 : (m.avgScience + m.avgSkill) / 2) * m.count;
+                        });
+                        const tAvg = tTotal > 0 ? tScoreSum / tTotal : 0;
+
+                        return (
+                          <tr key={team} className="row-child">
+                            <td className="pl-32 text-muted italic">{team}</td>
+                            <td className="td-center font-mono">{tTotal}</td>
+                            <td className="td-center">{tAvg.toFixed(1)}</td>
+                            <td>
+                              <ProgressBar width={tAvg} colorClass={flagClass(flagScore(tAvg))} />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
