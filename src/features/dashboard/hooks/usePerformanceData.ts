@@ -40,6 +40,10 @@ export interface UsePerformanceDataProps {
   viewBy?: ViewByOption;
   tsMode?: 'score' | 'count';
   pageMode?: string;
+  employees?: Employee[];
+  attendance?: Attendance[];
+  scores?: TrainingScore[];
+  nominations?: TrainingNomination[];
 }
 
 /**
@@ -61,7 +65,8 @@ export interface UsePerformanceDataProps {
 import { useGlobalFilters } from '../../../core/context/GlobalFilterContext';
 
 export const usePerformanceData = ({
-  tab: tabProp, selectedFY: fyProp, filter: filterProp, viewBy = 'Team', tsMode = 'score', pageMode
+  tab: tabProp, selectedFY: fyProp, filter: filterProp, viewBy = 'Team', tsMode = 'score', pageMode,
+  employees: propsEmps, attendance: propsAtt, scores: propsScs, nominations: propsNoms
 }: UsePerformanceDataProps): PerformanceDataset & { resolutionLevel: 'Global' | 'Cluster' | 'Team' } => {
   const { filters: globalFilters } = useGlobalFilters();
   const { 
@@ -71,8 +76,7 @@ export const usePerformanceData = ({
     eligibilityRules: rules 
   } = useMasterData();
 
-  // Use global filters as priority, but allow props to override (for specific dashboard views if needed)
-  // Actually, for "Global Filter System", the context should BE the source of truth.
+  // Use global filters as priority, but allow props to override
   const tab = globalFilters.trainingType !== 'ALL' ? globalFilters.trainingType : tabProp;
   const selectedFY = globalFilters.fiscalYear;
   const filter = useMemo(() => ({
@@ -80,19 +84,10 @@ export const usePerformanceData = ({
     trainer: globalFilters.trainer !== 'ALL' ? globalFilters.trainer : filterProp.trainer
   }), [filterProp, globalFilters.trainer]);
 
-  const {
-    employeeData: employees,
-    trainingData: attendance,
-    nominationData: nominations,
-    // Scores are part of trainingData in the new schema-driven architecture,
-    // but building engines still expect 'scores' array or use 'attendance' as source.
-    // In this codebase, 'scores' was often derived or separate.
-    // If the new architecture nests scores inside attendance, we extract them if needed,
-    // but the engines currently use 'attendance' and 'scores' props.
-  } = finalData;
-
-  // For backward compatibility with existing engine logic that expects 'scores' separately:
-  const scores = attendance; 
+  const employees = propsEmps || finalData.employeeData;
+  const attendance = propsAtt || finalData.trainingData;
+  const nominations = propsNoms || finalData.nominationData;
+  const scores = propsScs || attendance; 
 
   console.log("=== PERFORMANCE PIPELINE START ===");
   console.log("DATA SOURCE OBJECT:", attendance);

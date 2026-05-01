@@ -221,7 +221,8 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
     capsuleKPI,
     preApKPI
   } = usePerformanceData({
-    tab, selectedFY, filter, viewBy, tsMode, pageMode
+    tab, selectedFY, filter, viewBy, tsMode, pageMode,
+    employees, attendance, scores, nominations
   });
 
   const { allClusters, allTeams, allTrainers } = useFilterOptions(rawUnified, attendance, tab, masterTrainers, pageFilters.clusters);

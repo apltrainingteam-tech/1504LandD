@@ -78,8 +78,10 @@ export const useAppData = () => {
 
       const extractBySchema = (source: any) => {
         if (!source) return;
-        // Fields that are raw ratings, not percentages — do NOT multiply by 100
-        const RATING_KEYS = new Set(['tScore', 'grasping', 'participation', 'detailing', 'rolePlay', 'punctuality', 'grooming', 'behaviour', 'notified']);
+        // Fields that are raw ratings stored as non-fractions — do NOT apply fraction×100 normalization.
+        // AP sub-scores (grasping, participation, etc.) are already integers in DB — normalizeScore handles them.
+        // tScore is 0–30 scale stored as integer; detailing is SHARED between IP (fraction) and AP (integer).
+        const RATING_KEYS = new Set(['tScore', 'notified']);
         Object.keys(source).forEach(rawKey => {
           const canonicalKey = mapHeader(rawKey);
           if (schema.scoreFields.includes(canonicalKey)) {
