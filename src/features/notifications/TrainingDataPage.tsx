@@ -322,7 +322,7 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => 
   const { notificationRecords, drafts } = usePlanningFlow();
   const { batches: allBatches, notificationBatches, uploadBatches } = useTrainingData(employees, attendance, notificationRecords, drafts);
 
-  
+
   const [showVoided, setShowVoided] = useState(false);
 
   // ── Filters (Local sub-filters) ───────────────────────────────────────────
