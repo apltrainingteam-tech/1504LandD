@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useGlobalFilters } from '../../core/context/GlobalFilterContext';
 import { useMasterData } from '../../core/context/MasterDataContext';
-import { Attendance, TrainingBatch, NotificationRecord, NominationDraft } from '../../types/attendance';
+import { Attendance, TrainingBatch, NotificationRecord, NominationDraft, TrainingScore } from '../../types/attendance';
 import { Employee } from '../../types/employee';
 import { isWithinFY } from '../../core/utils/fiscalYear';
 import { normalizeTrainingType, match } from '../../core/engines/normalizationEngine';
@@ -17,22 +17,25 @@ export const useTrainingData = (
   employees: Employee[], 
   attendance: Attendance[],
   notificationRecords: NotificationRecord[],
-  drafts: NominationDraft[]
+  drafts: NominationDraft[],
+  scores: TrainingScore[] = []
 ) => {
   const { filters } = useGlobalFilters();
 
   const deriveUploadBatches = (data: Attendance[]): TrainingBatch[] => {
     const map = new Map<string, { rows: Attendance[] }>();
     data.forEach(a => {
-      if (!a.trainingType || !a.teamId) return;
-      const month = (a.month || a.attendanceDate?.substring(0, 7) || '');
-      const key = `${a.trainingType}::${a.teamId}::${month}`;
+      if (!a.trainingType) return;
+      const date = a.attendanceDate || a.month || '';
+      const key = `${a.trainingType}::${date}`;
       if (!map.has(key)) map.set(key, { rows: [] });
       map.get(key)!.rows.push(a);
     });
 
     const batches: TrainingBatch[] = [];
     map.forEach((val, key) => {
+      // ... existing code inside map.forEach ...
+      // (I'll keep the logic I wrote earlier but ensure it's correct)
       const { rows } = val;
       const first = rows[0];
       const dates = rows.map(r => r.attendanceDate).filter(Boolean).sort();
@@ -45,29 +48,48 @@ export const useTrainingData = (
         draftId: `upload::${key}`,
         source: 'UPLOAD' as const,
         trainingType: String(first.trainingType),
-        team: first.team || first.teamId || '',
-        teamId: first.teamId || '',
+        team: (() => {
+          const uniqueTeams = [...new Set(rows.map(r => r.team || r.teamId).filter(Boolean))];
+          return uniqueTeams.length === 1 ? String(uniqueTeams[0]) : `${uniqueTeams.length} Teams`;
+        })(),
+        teamId: '', 
         trainer: first.trainerId || '',
         startDate,
         endDate,
         committedAt: startDate,
-        isVoided: false,            // required by TrainingBatch
+        isVoided: false,
         candidates: rows.map(r => {
           const rawStatus = (r.attendanceStatus || '').toLowerCase().trim();
-          const attendance: import('../../types/attendance').BatchAttStatus =
+          const attStatus: import('../../types/attendance').BatchAttStatus =
             rawStatus === 'present' ? 'present'
             : rawStatus === 'absent' ? 'absent'
             : 'pending';
+          
+          const matchScore = scores.find(s => 
+            String(s.employeeId) === String(r.employeeId) && 
+            s.trainingType === r.trainingType &&
+            (s.dateStr === r.attendanceDate || s.dateStr === r.month)
+          );
+
           return {
             empId: String(r.employeeId),
-            attendance,
-            score: '',              // score lives in TrainingScore, not Attendance
+            attendance: attStatus,
+            score: '', 
+            scores: matchScore?.scores || {},
             isVoided: r.isVoided ?? false,
           };
         })
       });
     });
-    return batches;
+
+    // Sort batches: Most recent first
+    return batches.sort((a, b) => {
+      const dateA = new Date(a.startDate).getTime();
+      const dateB = new Date(b.startDate).getTime();
+      if (isNaN(dateA)) return 1;
+      if (isNaN(dateB)) return -1;
+      return dateB - dateA;
+    });
   };
 
   const filteredUploadBatches = useMemo(() => {
@@ -78,7 +100,7 @@ export const useTrainingData = (
       return true;
     });
     return deriveUploadBatches(filteredRaw);
-  }, [attendance, filters]);
+  }, [attendance, filters, scores]);
 
   const filteredNotificationBatches = useMemo(() => {
     const batchesMap = new Map<string, TrainingBatch>();

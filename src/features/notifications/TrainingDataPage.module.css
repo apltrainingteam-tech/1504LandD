@@ -827,7 +827,41 @@
   background: rgba(16, 185, 129, 0.05) !important;
 }
 
+.scoreCell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: center;
+}
 
+.pctUnit {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 700;
+  opacity: 0.6;
+}
 
+.scoreInput:disabled {
+  background: transparent;
+  border-color: transparent;
+  cursor: default;
+  color: var(--text-primary);
+  font-weight: 600;
+}.batchDivider {
+  color: var(--border-color);
+  font-weight: 300;
+  margin: 0 4px;
+}
 
+.batchDate {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text-primary);
+}
 
+.teamSubtext {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  margin-left: 8px;
+}

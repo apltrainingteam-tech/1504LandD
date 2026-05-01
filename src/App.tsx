@@ -225,7 +225,7 @@ const App = () => {
       );
       case 'training-data': return (
         <ErrorBoundary componentName="TrainingDataPage" propsSnapshot={{ employees: emps.length, attendance: att.length }}>
-          <TrainingDataPage employees={emps} attendance={att} />
+          <TrainingDataPage employees={emps} attendance={att} scores={scs} />
         </ErrorBoundary>
       );
       case 'employees': return (

@@ -15,10 +15,13 @@ import { buildChangeSet } from '../../core/engines/editEngine';
 import API_BASE from '../../config/api';
 import styles from './TrainingDataPage.module.css';
 import { useTrainingData } from '../../shared/hooks/useTrainingData';
+import { TRAINING_TEMPLATES, TEMPLATE_FIELD_MAP } from '../../core/constants/trainingTemplates';
+import { TrainingScore } from '../../types/attendance';
 
 interface Props {
   employees: Employee[];
   attendance: Attendance[];
+  scores: TrainingScore[];
 }
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
@@ -101,7 +104,13 @@ const batchMetrics = (candidates: CandidateRecord[]) => {
   const total = active.length;
   const present = active.filter((c: CandidateRecord) => c.attendance === 'present').length;
   const absent = active.filter((c: CandidateRecord) => c.attendance === 'absent').length;
-  const scores = active.map((c: CandidateRecord) => parseFloat(c.score)).filter(n => !isNaN(n));
+  const scores = active.map((c: CandidateRecord) => {
+    const s = c.scores;
+    if (!s) return NaN;
+    // Try to find a primary score field
+    const val = s.score ?? s.percent ?? s.tScore ?? Object.values(s).find(v => typeof v === 'number');
+    return typeof val === 'number' ? val : parseFloat(val as any);
+  }).filter(n => !isNaN(n));
   const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
   const attPct = present + absent > 0 ? Math.round((present / (present + absent)) * 100) : null;
 
@@ -127,17 +136,17 @@ interface CandidateRowProps {
   onToggleRow: (empId: string) => void;
   index: number;
   isEditMode: boolean;
+  templateColumns: string[];
 }
 
 const CandidateRow = React.memo<CandidateRowProps>(({
-  candidate, employee, isSelected, buffered, isUpload, onUpdate, onToggleRow, index, isEditMode
+  candidate, employee, isSelected, buffered, isUpload, onUpdate, onToggleRow, index, isEditMode, templateColumns
 }) => {
   const curAtt = buffered?.attendance || candidate.attendance;
-  const curScore = buffered?.score !== undefined ? buffered.score : candidate.score;
+  const scores = { ...(candidate.scores || {}), ...(buffered?.scores || {}) };
   const curIsVoided = buffered?.isVoided !== undefined ? buffered.isVoided : candidate.isVoided;
 
   const isAttEdited = buffered?.attendance !== undefined && buffered.attendance !== candidate.attendance;
-  const isScoreEdited = buffered?.score !== undefined && buffered.score !== candidate.score;
   const isVoidEdited = buffered?.isVoided !== undefined && buffered.isVoided !== candidate.isVoided;
 
   const rs = STATUS_META[curAtt] ?? STATUS_META['pending']; // safe fallback — never undefined
@@ -159,18 +168,35 @@ const CandidateRow = React.memo<CandidateRowProps>(({
       <td className={`${styles.td} ${styles.tdSecondary} ${curIsVoided ? styles.strike : ''}`}>{employee?.designation || '—'}</td>
       <td className={`${styles.td} ${styles.tdSecondary} ${curIsVoided ? styles.strike : ''}`}>{employee?.hq || '—'}</td>
       <td className={`${styles.td} ${styles.tdSecondary} ${curIsVoided ? styles.strike : ''}`}>{employee?.state || '—'}</td>
+      
+      {templateColumns.map(col => {
+        const field = TEMPLATE_FIELD_MAP[col];
+        const val = scores[field];
+        const isEdited = buffered?.scores?.[field] !== undefined && buffered.scores[field] !== candidate.scores?.[field];
+
+        return (
+          <td key={col} className={`${styles.td} ${isEdited ? styles.editedCell : ''}`}>
+            <div className={styles.scoreCell}>
+              <input
+                type="number" min={0} max={100} placeholder="—"
+                value={val ?? ''}
+                onChange={e => {
+                  const newScores = { ...scores, [field]: e.target.value === '' ? null : parseFloat(e.target.value) };
+                  onUpdate(candidate.empId, { scores: newScores });
+                }}
+                className={styles.scoreInput}
+                disabled={!isEditMode}
+              />
+              {val !== null && val !== undefined && val !== '' && !col.toLowerCase().includes('date') && !col.toLowerCase().includes('notified') && <span className={styles.pctUnit}>%</span>}
+            </div>
+          </td>
+        );
+      })}
+
       <td className={`${styles.td} ${isAttEdited ? styles.editedCell : ''}`} title={isAttEdited && STATUS_META[candidate.attendance] ? `${STATUS_META[candidate.attendance].label} → ${STATUS_META[curAtt]?.label}` : undefined}>
         <AttToggle value={curAtt} readOnly={isUpload} onChange={v => onUpdate(candidate.empId, { attendance: v })} />
       </td>
-      <td className={`${styles.td} ${isScoreEdited ? styles.editedCell : ''}`} title={isScoreEdited ? `${candidate.score || '—'} → ${curScore}` : undefined}>
-        <input
-          type="number" min={0} max={100} placeholder="—"
-          value={curScore}
-          onChange={e => onUpdate(candidate.empId, { score: e.target.value })}
-          className={styles.scoreInput}
-          title="Score"
-        />
-      </td>
+
       <td className={styles.td}>
         <span className={`${styles.statusBadge} ${rs.className}`}>
           <rs.Icon size={10} />{rs.label}
@@ -206,6 +232,7 @@ const BatchCard: React.FC<{
   const { trainers: masterTrainers } = useMasterData();
   const [open, setOpen] = useState(false);
   const m = useMemo(() => batchMetrics(batch.candidates), [batch.candidates]);
+  const templateColumns = useMemo(() => TRAINING_TEMPLATES[batch.trainingType] || ['Score'], [batch.trainingType]);
   const sm = SOURCE_META[batch.source as keyof typeof SOURCE_META];
   const isUpload = batch.source === 'UPLOAD';
 
@@ -242,12 +269,12 @@ const BatchCard: React.FC<{
         <span className={styles.typeBadge}>
           {batch.trainingType}
         </span>
-        <span className={styles.teamName}>
-          {resolveTeam(batch.teamId, batch.team)}
+        <div className={styles.batchDivider}>|</div>
+        <span className={styles.batchDate}>
+          {batch.startDate ? new Date(batch.startDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'No Date'}
         </span>
-        <span className={styles.dateRange}>
-          {fmtDate(batch.startDate)}
-          {batch.endDate && batch.endDate !== batch.startDate ? ` → ${fmtDate(batch.endDate)}` : ''}
+        <span className={styles.teamSubtext}>
+          • {batch.team}
         </span>
         {batch.trainer && (
           <TrainerAvatar
@@ -281,9 +308,14 @@ const BatchCard: React.FC<{
                     title="Select all in batch"
                   />
                 </th>
-                {['Emp ID', 'Name', 'Designation', 'HQ', 'State', 'Attendance', 'Score', 'Status'].map(h => (
+                {['Emp ID', 'Name', 'Designation', 'HQ', 'State'].map(h => (
                   <th key={h} className={styles.th}>{h}</th>
                 ))}
+                {templateColumns.map(h => (
+                  <th key={h} className={styles.th}>{h}</th>
+                ))}
+                <th className={styles.th}>Attendance</th>
+                <th className={styles.th}>Status</th>
               </tr>
             </thead>
             <tbody>
@@ -301,6 +333,7 @@ const BatchCard: React.FC<{
                     onUpdate={(eid, upd) => onUpdate(eid, upd)}
                     onToggleRow={(eid) => onToggleRow(batch.id, eid)}
                     isEditMode={isEditMode}
+                    templateColumns={templateColumns}
                   />
                 );
               })}
@@ -314,13 +347,13 @@ const BatchCard: React.FC<{
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
-export const TrainingDataPage: React.FC<Props> = ({ employees, attendance }) => {
+export const TrainingDataPage: React.FC<Props> = ({ employees, attendance, scores }) => {
   const { teams: masterTeams, trainers: masterTrainers } = useMasterData();
   const user = getCurrentUser();
   const isSuperAdmin = user.role === 'super_admin' || (user.role as string) === 'SUPERADMIN';
 
   const { notificationRecords, drafts } = usePlanningFlow();
-  const { batches: allBatches, notificationBatches, uploadBatches } = useTrainingData(employees, attendance, notificationRecords, drafts);
+  const { batches: allBatches, notificationBatches, uploadBatches } = useTrainingData(employees, attendance, notificationRecords, drafts, scores);
 
 
   const [showVoided, setShowVoided] = useState(false);

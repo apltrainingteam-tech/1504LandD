@@ -85,7 +85,8 @@ export type BatchAttStatus = 'pending' | 'present' | 'absent';
 export interface CandidateRecord {
   empId: string;
   attendance: BatchAttStatus;
-  score: string; // '' until entered
+  score: string; // Legacy field - '' until entered
+  scores?: Record<string, any>; // Template-specific scores
   isVoided: boolean;
   voidReason?: string;
   voidedAt?: string;
