@@ -18,9 +18,7 @@
   margin-bottom: 20px;
 }
 
-.sectionLast {
-  /* no bottom margin for the last group */
-}
+
 
 .sectionLabel {
   font-size: 12px;
@@ -72,7 +70,7 @@
 .iconMedium { color: var(--warning); }
 .iconLow    { color: var(--success); }
 
-.cardBody {}
+
 
 .cardTitle {
   font-size: 12px;

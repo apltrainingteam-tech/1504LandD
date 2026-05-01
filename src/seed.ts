@@ -1,5 +1,16 @@
-import { upsertDoc } from './core/engines/apiClient';
+import { upsertDoc, addBatch } from './core/engines/apiClient';
 import { STATE_ZONE, DESIGNATIONS, TRAINERS } from './seed/masterData';
+
+/**
+ * Helper for bulk writes with explicit ID field
+ */
+const batchWrite = async (items: any[], collection: string, idField: string) => {
+  const docs = items.map(item => ({
+    _id: item[idField],
+    ...item
+  }));
+  await addBatch(collection, docs);
+};
 
 /**
  * Safe version of master data seeding

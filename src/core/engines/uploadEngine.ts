@@ -170,31 +170,16 @@ export const uploadTrainingDataStrict = traceEngine("uploadTrainingDataStrict", 
       if (!emp && rmb) emp = mobileMap.get(rmb);
       
       if (!emp) {
-        // ─── SPECIAL HANDLING: NOTIFICATION HISTORY ───
-        // For historical records, we allow employees NOT in the current master roster.
-        if (isNotificationHistory) {
-          activeEmployees++; // Count as success for history
-          finalValidRows.push({
-            ...row,
-            employeeId: String(row.employeeId).trim(),
-            _masterStatus: 'unlinked', // Tag for UI identification
-            _isHistorical: true
-          });
-          return;
-        }
-
-        mismatchCount++;
-        if (mismatchSamples.length < 5) {
-          const sample = `Row ${idx+2}: [ID:${row.employeeId}, Aadhaar:${row.aadhaarNumber || 'N/A'}]`;
-          mismatchSamples.push(sample);
-          console.warn(`[UPLOAD] Mismatch: ${sample}`);
-          debugLog.push(`[UPLOAD] ❌ Mismatch: ${sample} -> Not found in Master`);
-        }
-        
-        errorRows.push({
-          rowNum: idx + 2,
-          errors: [`Employee record not found in active master roster.`],
-          warnings: []
+        // ─── ACCEPT UNLINKED ROWS ───
+        // If employee not in master, we still accept the row (as per new rules)
+        // We tag it as 'unlinked' for UI identification
+        activeEmployees++; 
+        finalValidRows.push({
+          ...row,
+          // Ensure we have a primary ID for the record (fallback to Aadhaar or Mobile)
+          employeeId: row.employeeId || row.aadhaarNumber || row.mobileNumber,
+          _masterStatus: 'unlinked',
+          _isUnlinked: true
         });
         return;
       }

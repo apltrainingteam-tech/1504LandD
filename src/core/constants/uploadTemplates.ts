@@ -198,9 +198,13 @@ export function validateRow(
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  // MANDATORY: Employee ID
-  if (!rowData.employeeId || String(rowData.employeeId).trim() === '') {
-    errors.push(`Row ${rowNum}: Employee ID is missing or empty`);
+  // MANDATORY: At least one identifier (Employee ID, Aadhaar, or Mobile)
+  const hasId = rowData.employeeId && String(rowData.employeeId).trim() !== '';
+  const hasAadhaar = rowData.aadhaarNumber && String(rowData.aadhaarNumber).trim() !== '';
+  const hasMobile = rowData.mobileNumber && String(rowData.mobileNumber).trim() !== '';
+
+  if (!hasId && !hasAadhaar && !hasMobile) {
+    errors.push(`Row ${rowNum}: At least one identifier (Employee ID, Aadhaar, or Mobile) is required`);
   }
 
   // MANDATORY: Training Type
