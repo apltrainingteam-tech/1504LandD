@@ -79,8 +79,8 @@
 }
 
 .option {
-  background: #0f172a;
-  color: #fff;
+  background: var(--bg-card);
+  color: var(--text-primary);
 }
 
 .footer {
@@ -132,7 +132,7 @@
 .selectedTrainerPreview {
   margin-top: 8px;
   padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-hover);
   border-radius: 8px;
   border: 1px solid var(--border-color);
 }

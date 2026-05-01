@@ -3,6 +3,7 @@ import { CheckCircle, AlertCircle, TrendingDown, RotateCcw } from 'lucide-react'
 import { usePlanningFlow } from '../../core/context/PlanningFlowContext';
 import { Employee } from '../../types/employee';
 import { Attendance } from '../../types/attendance';
+import { FlowStepper } from '../../shared/components/ui/FlowStepper';
 import styles from './ExecutionPage.module.css';
 
 interface Props {
@@ -58,6 +59,7 @@ export const ExecutionPage: React.FC<Props> = ({ employees, attendance }) => {
   if (executionDrafts.length === 0) {
     return (
       <div className={styles.emptyState}>
+        <FlowStepper currentStep={2} />
         <TrendingDown size={36} className={styles.emptyIcon} />
         <div className={styles.emptyTitle}>No plans in execution phase</div>
         <div className={styles.emptyText}>Plans move here after the Notification email is sent (status → NOTIFIED).</div>
@@ -75,14 +77,35 @@ export const ExecutionPage: React.FC<Props> = ({ employees, attendance }) => {
 
   return (
     <div>
+      <FlowStepper currentStep={2} />
       {/* Metrics strip */}
       <div className={styles.metricsStrip}>
-        {METRICS.map(k => (
-          <div key={k.label} className={styles.metricCard}>
-            <div className={`${styles.metricValue} ${k.className}`}>{k.value}</div>
-            <div className={styles.metricLabel}>{k.label}</div>
-          </div>
-        ))}
+        {METRICS.map(k => {
+          const pct =
+            k.label === 'Attendance %'
+              ? attPct
+              : k.label === 'Drop-off %'
+              ? dropPct
+              : k.label === 'Repeat Needed' && total > 0
+              ? Math.round((absent / total) * 100)
+              : k.label === 'Pending' && total > 0
+              ? Math.round((pending / total) * 100)
+              : null;
+          return (
+            <div key={k.label} className={styles.metricCard}>
+              <div className={`${styles.metricValue} ${k.className}`}>{k.value}</div>
+              <div className={styles.metricLabel}>{k.label}</div>
+              {pct !== null && (
+                <div className="perf-bar" aria-hidden="true">
+                  <div
+                    className="perf-bar-fill"
+                    style={{ width: `${Math.max(0, Math.min(100, pct))}%`, background: 'var(--accent-primary)' }}
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* Table */}

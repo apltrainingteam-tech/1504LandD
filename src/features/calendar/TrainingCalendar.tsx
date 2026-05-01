@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, X, AlertTriangle, Trash2, Calendar as CalIcon, Save, CheckCircle } from 'lucide-react';
 import TrainerAvatar from '../../shared/components/ui/TrainerAvatar';
+import { FlowStepper } from '../../shared/components/ui/FlowStepper';
 import { getFiscalYearFromDate, parseFiscalYear, getCurrentFiscalYear } from '../../core/utils/fiscalYear';
 import { usePlanningFlow } from '../../core/context/PlanningFlowContext';
 import { getAvailableTrainers, Trainer } from '../../core/engines/trainerEngine';
@@ -387,6 +388,7 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
           <p className={styles.pageSubtitle}>Plan and monitor training activities</p>
         </div>
       </div>
+      <FlowStepper currentStep={0} />
 
       {/* TABS REMOVED - Driven by GlobalFilterContext */}
 
@@ -608,10 +610,10 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
           <div className={styles.detailPanelHeader}>
             <h2 className={styles.detailTitle}>
               Training Details
-              {getStatus(selectedPlan) === 'Completed' && <span className={`badge ${styles.badgeCompleted}`}>Completed</span>}
-              {getStatus(selectedPlan) === 'Notified' && <span className={`badge ${styles.badgeNotified}`}>Notified</span>}
-              {getStatus(selectedPlan) === 'Planned' && <span className={`badge ${styles.badgePlanned}`}>Planned</span>}
-              {getStatus(selectedPlan) === 'Cancelled' && <span className={`badge ${styles.badgeCancelled}`} title="This training was cancelled and excluded from analysis">Cancelled</span>}
+              {getStatus(selectedPlan) === 'Completed' && <span className={`badge ${styles.badgeCompleted} status-badge status-completed`}>Completed</span>}
+              {getStatus(selectedPlan) === 'Notified' && <span className={`badge ${styles.badgeNotified} status-badge status-notified`}>Notified</span>}
+              {getStatus(selectedPlan) === 'Planned' && <span className={`badge ${styles.badgePlanned} status-badge status-planned`}>Planned</span>}
+              {getStatus(selectedPlan) === 'Cancelled' && <span className={`badge ${styles.badgeCancelled} status-badge status-cancelled`} title="This training was cancelled and excluded from analysis">Cancelled</span>}
             </h2>
             <button className={`btn ${styles.detailCloseBtn}`} onClick={() => setSelectedPlanId(null)} title="Close Details" aria-label="Close Details"><X size={20} /></button>
           </div>

@@ -7,6 +7,7 @@ import { Attendance, TrainingNomination } from '../../types/attendance';
 import { NominationsPage }  from './NominationsPage';
 import { NotificationPage } from './NotificationPage';
 import { ExecutionPage }    from './ExecutionPage';
+import { FlowStepper } from '../../shared/components/ui/FlowStepper';
 import styles from './Notified.module.css';
 
 interface NotifiedProps {
@@ -44,6 +45,8 @@ export const Notified: React.FC<NotifiedProps> = ({ employees, attendance, nomin
     ? `${selectionSession.trainingType} · ${selectionSession.teams.join(', ')}`
     : 'No active session';
 
+  const activeStep = tab === 'nominations' ? 1 : tab === 'notification' ? 1 : 2;
+
   return (
     <div className="animate-fade-in">
 
@@ -59,6 +62,25 @@ export const Notified: React.FC<NotifiedProps> = ({ employees, attendance, nomin
               ● {sessionLabel}
             </span>
           )}
+        </div>
+      </div>
+      <FlowStepper currentStep={activeStep} />
+
+      <div className={styles.summaryStrip}>
+        <div className={styles.summaryCard}>
+          <div className={`status-badge status-planned ${styles.summaryBadge}`}>Planned</div>
+          <div className={styles.summaryValue}>{counts.nominations}</div>
+          <div className={styles.summaryLabel}>Awaiting Approval</div>
+        </div>
+        <div className={styles.summaryCard}>
+          <div className={`status-badge status-notified ${styles.summaryBadge}`}>Notified</div>
+          <div className={styles.summaryValue}>{counts.notification}</div>
+          <div className={styles.summaryLabel}>Ready To Email</div>
+        </div>
+        <div className={styles.summaryCard}>
+          <div className={`status-badge status-completed ${styles.summaryBadge}`}>Execution</div>
+          <div className={styles.summaryValue}>{counts.execution}</div>
+          <div className={styles.summaryLabel}>In/After Training</div>
         </div>
       </div>
 

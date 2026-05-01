@@ -90,31 +90,50 @@ const APDrilldownModal: React.FC<APDrilldownModalProps> = ({ cluster, team, mont
             <thead>
               <tr>
                 <th className={styles.indexColHeader}></th>
+                <th className={styles.thCenter}>Rank</th>
                 <th>Emp ID</th>
                 <th>Name</th>
                 <th>Trainer</th>
                 <th>Date</th>
                 <th className={styles.thCenter}>Knowledge</th>
                 <th className={styles.thCenter}>BSE</th>
+                <th className={styles.thCenter}>Signal</th>
               </tr>
             </thead>
             <tbody>
               {sortedRecords.map((r, i) => {
                 const isExpanded = expandedRow === r.employeeId + i;
+                const rank = i + 1;
+                const avgScore =
+                  r.knowledge !== null && r.bse !== null
+                    ? Math.round((r.knowledge + r.bse) / 2)
+                    : r.knowledge !== null
+                    ? Math.round(r.knowledge)
+                    : r.bse !== null
+                    ? Math.round(r.bse)
+                    : 0;
                 return (
                   <Fragment key={r.employeeId + i}>
                     <tr onClick={() => setExpandedRow(isExpanded ? null : r.employeeId + i)} className={styles.drilldownRow}>
                       <td>{isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</td>
+                      <td className={styles.tdCenter}>
+                        <span className={styles.rankPill}>#{rank}</span>
+                      </td>
                       <td className={styles.tdEmpId}>{r.employeeId}</td>
                       <td className={styles.tdBold}>{r.name}</td>
                       <td>{r.trainer}</td>
                       <td>{r.attendanceDate}</td>
                       <td className={`${styles.tdCenter} ${getColorClass(r.knowledge, 'knowledge')}`}>{r.knowledge !== null ? r.knowledge : '—'}</td>
                       <td className={`${styles.tdCenter} ${getColorClass(r.bse, 'bse')}`}>{r.bse !== null ? r.bse.toFixed(1) : '—'}</td>
+                      <td className={styles.tdSignal}>
+                        <div className="perf-bar" aria-hidden="true">
+                          <div className="perf-bar-fill" style={{ width: `${Math.max(0, Math.min(100, avgScore))}%`, background: 'var(--accent-primary)' }} />
+                        </div>
+                      </td>
                     </tr>
                     {isExpanded && (
                       <tr>
-                        <td colSpan={7} className={styles.expandTd}>
+                        <td colSpan={9} className={styles.expandTd}>
                           <div className={styles.expandContent}>
                             {['Grasping', 'Detailing', 'Situation Handling', 'English', 'Local Language', 'Involvement', 'Effort', 'Confidence'].map(k => {
                               let key = k.toLowerCase().replace(' ', '');
@@ -135,7 +154,7 @@ const APDrilldownModal: React.FC<APDrilldownModalProps> = ({ cluster, team, mont
                   </Fragment>
                 );
               })}
-              {sortedRecords.length === 0 && <tr><td colSpan={7} className={styles.noDataCell}>No candidates found.</td></tr>}
+              {sortedRecords.length === 0 && <tr><td colSpan={9} className={styles.noDataCell}>No candidates found.</td></tr>}
             </tbody>
           </table>
         </div>

@@ -77,26 +77,26 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div
           style={{
-            border: '1px solid rgba(248, 81, 73, 0.4)',
+            border: '1px solid rgba(0, 123, 255, 0.4)',
             borderRadius: '8px',
             padding: '16px',
-            background: 'rgba(248, 81, 73, 0.08)',
+            background: 'rgba(0, 123, 255, 0.08)',
             fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
             fontSize: '12px',
           }}
         >
-          <div style={{ color: '#f85149', fontWeight: 'bold', marginBottom: '8px' }}>
+          <div style={{ color: '#007bff', fontWeight: 'bold', marginBottom: '8px' }}>
             ⚠ Render failure: {this.props.componentName}
           </div>
-          <div style={{ color: '#8b949e', marginBottom: '4px' }}>
+          <div style={{ color: '#6c757d', marginBottom: '4px' }}>
             {this.state.errorMessage}
           </div>
           {this.state.traceId && (
-            <div style={{ color: '#58a6ff', fontSize: '11px', marginTop: '8px' }}>
+            <div style={{ color: '#17a2b8', fontSize: '11px', marginTop: '8px' }}>
               Debug trace: <code>{this.state.traceId}</code>
             </div>
           )}
-          <div style={{ color: '#3fb950', fontSize: '11px', marginTop: '4px' }}>
+          <div style={{ color: '#28a745', fontSize: '11px', marginTop: '4px' }}>
             Run <code>window.__DebugAPI.getLatestFailure()</code> in console to inspect
           </div>
         </div>

@@ -232,6 +232,11 @@
   gap: 8px;
 }
 
+.draftStatusPill {
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
 .sendBtn {
   display: inline-flex;
   align-items: center;

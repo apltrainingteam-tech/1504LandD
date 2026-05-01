@@ -53,6 +53,14 @@ export const SRMTable: React.FC<SRMTableProps> = ({ records, mode, clusterFilter
     return trendMap;
   }, [records]);
 
+  const rankedMetrics = useMemo(
+    () =>
+      [...metrics]
+        .sort((a, b) => (b.avgIP || 0) - (a.avgIP || 0))
+        .map((m, idx) => ({ ...m, rank: idx + 1 })),
+    [metrics]
+  );
+
   if (metrics.length === 0) {
     return (
       <div className={`glass-panel ${styles.empty}`}>
@@ -66,10 +74,12 @@ export const SRMTable: React.FC<SRMTableProps> = ({ records, mode, clusterFilter
       <table className={`data-table ${styles.table}`}>
         <thead>
           <tr>
+            <th className={styles.thCenter}>Rank</th>
             <th className={styles.thLabel}>{mode === 'cluster' ? 'Cluster' : 'Team'}</th>
             <th className={styles.thRight}>Count</th>
             <th className={styles.thRight}>Avg TS</th>
             <th className={styles.thRight}>Avg IP</th>
+            <th className={styles.thGeneral}>Signal</th>
             <th className={styles.thCenter}>&lt;75%</th>
             <th className={styles.thCenter}>75-90%</th>
             <th className={styles.thCenter}>&gt;90%</th>
@@ -78,7 +88,7 @@ export const SRMTable: React.FC<SRMTableProps> = ({ records, mode, clusterFilter
           </tr>
         </thead>
         <tbody>
-          {metrics.map((m, idx) => {
+          {rankedMetrics.map((m, idx) => {
             const diagnosis = getDiagnosis(m.avgTS, m.below50Pct + m.range50_75Pct, m.above90Pct);
             const getDiagnosisClass = (diag: string) => {
               if (diag === 'Strong Hiring') return styles.textSuccess;
@@ -86,13 +96,30 @@ export const SRMTable: React.FC<SRMTableProps> = ({ records, mode, clusterFilter
               if (diag === 'TS Evaluation Issue') return styles.textWarning;
               return styles.textAccent;
             };
+            const diagnosisBadgeClass =
+              diagnosis === 'Strong Hiring'
+                ? 'status-completed'
+                : diagnosis === 'Poor Hiring'
+                ? 'status-cancelled'
+                : diagnosis === 'TS Evaluation Issue'
+                ? 'status-planned'
+                : 'status-notified';
+            const ipSignal = Math.max(0, Math.min(100, Number(m.avgIP) || 0));
 
             return (
               <tr key={idx}>
+                <td className={styles.tdRank}>
+                  <span className={styles.rankBadge}>#{m.rank}</span>
+                </td>
                 <td className={styles.tdName}>{m.cluster || m.team}</td>
                 <td className={styles.tdCount}>{m.count}</td>
                 <td className={styles.tdRight}>{m.avgTS}</td>
                 <td className={styles.tdRight}>{m.avgIP}</td>
+                <td className={styles.tdSignal}>
+                  <div className="perf-bar" aria-hidden="true">
+                    <div className="perf-bar-fill" style={{ width: `${ipSignal}%`, background: 'var(--accent-primary)' }} />
+                  </div>
+                </td>
                 <td className={`${styles.tdCenter} ${m.below50Pct > 30 ? styles.textDanger : styles.textMuted}`}>
                   {m.below50Pct}%
                 </td>
@@ -106,7 +133,7 @@ export const SRMTable: React.FC<SRMTableProps> = ({ records, mode, clusterFilter
                   <MiniSparkline data={[m.avgIP - 5, m.avgIP, m.avgIP + 2]} />
                 </td>
                 <td className={`${styles.tdDiagnosis} ${getDiagnosisClass(diagnosis)}`}>
-                  {diagnosis}
+                  <span className={`status-badge ${diagnosisBadgeClass}`}>{diagnosis}</span>
                 </td>
               </tr>
             );

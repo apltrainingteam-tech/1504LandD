@@ -3,6 +3,7 @@ import { Mail, Users, Lock, Check, Copy, ExternalLink, X, ChevronDown, ChevronRi
 import { usePlanningFlow } from '../../core/context/PlanningFlowContext';
 import { useMasterData } from '../../core/context/MasterDataContext';
 import TrainerAvatar from '../../shared/components/ui/TrainerAvatar';
+import { FlowStepper } from '../../shared/components/ui/FlowStepper';
 import { Employee } from '../../types/employee';
 import { NominationDraft } from '../../types/attendance';
 import { updateByQuery } from '../../core/engines/apiClient';
@@ -356,10 +357,25 @@ export const NotificationPage: React.FC<Props> = ({ allEmployees }) => {
     }
   };
 
+  const getDraftStatusClass = (draft: NominationDraft) => {
+    if (draft.isCancelled) return 'status-cancelled';
+    if (draft.status === 'COMPLETED') return 'status-completed';
+    if (draft.status === 'NOTIFIED' || draft.status === 'SENT') return 'status-notified';
+    return 'status-planned';
+  };
+
+  const getDraftStatusLabel = (draft: NominationDraft) => {
+    if (draft.isCancelled) return 'Cancelled';
+    if (draft.status === 'COMPLETED') return 'Completed';
+    if (draft.status === 'NOTIFIED' || draft.status === 'SENT') return 'Notified';
+    return 'Planned';
+  };
+
   if (approvedDrafts.length === 0) {
     return (
       <div className={`animate-fade-in ${styles.page}`}>
         <h1 className={styles.pageTitle}>Notification</h1>
+        <FlowStepper currentStep={1} />
         <div className={styles.emptyState}>
           <Lock size={36} className={styles.emptyIcon}/>
           <div className={styles.emptyTitle}>No approved nominations yet</div>
@@ -377,6 +393,7 @@ export const NotificationPage: React.FC<Props> = ({ allEmployees }) => {
           Send training communication to approved candidates, grouped by team.
         </p>
       </div>
+      <FlowStepper currentStep={1} />
       <div className={styles.statsBar}>
         <span className={styles.statsText}>
           <strong className={styles.textAccent}>{approvedDrafts.length}</strong> approved nomination{approvedDrafts.length!==1?'s':''} ready to send — grouped by team
@@ -415,6 +432,12 @@ export const NotificationPage: React.FC<Props> = ({ allEmployees }) => {
                           size={24} 
                           showName={false} 
                         />
+                        <span
+                          className={`status-badge ${styles.draftStatusPill} ${getDraftStatusClass(draft)}`}
+                          title={draft.isCancelled ? 'This training was cancelled and excluded from analysis' : undefined}
+                        >
+                          {getDraftStatusLabel(draft)}
+                        </span>
                         {draft.isCancelled ? (
                           <span className={styles.cancelledLabel}>Cancelled</span>
                         ) : (

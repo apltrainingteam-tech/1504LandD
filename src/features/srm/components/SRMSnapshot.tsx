@@ -62,19 +62,19 @@ export const SRMSnapshot: React.FC<SRMSnapshotProps> = ({ records, className = '
           <div className={styles.distHeader}>IP Distribution</div>
           <div className={styles.distRow}>
             <div className={styles.distCol}>
-              <div className={`${styles.distVal} ${styles.danger}`}>{metrics.ipDist.below50Pct}%</div>
+              <div className={`${styles.distVal} status-badge status-cancelled`}>{metrics.ipDist.below50Pct}%</div>
               <div className={styles.distLabel}>&lt;50</div>
             </div>
             <div className={styles.distCol}>
-              <div className={`${styles.distVal} ${styles.warning}`}>{metrics.ipDist.range50_75Pct}%</div>
+              <div className={`${styles.distVal} status-badge status-planned`}>{metrics.ipDist.range50_75Pct}%</div>
               <div className={styles.distLabel}>50-75</div>
             </div>
             <div className={styles.distCol}>
-              <div className={`${styles.distVal} ${styles.primary}`}>{metrics.ipDist.range75_90Pct}%</div>
+              <div className={`${styles.distVal} status-badge status-notified`}>{metrics.ipDist.range75_90Pct}%</div>
               <div className={styles.distLabel}>75-90</div>
             </div>
             <div className={styles.distCol}>
-              <div className={`${styles.distVal} ${styles.success}`}>{metrics.ipDist.above90Pct}%</div>
+              <div className={`${styles.distVal} status-badge status-completed`}>{metrics.ipDist.above90Pct}%</div>
               <div className={styles.distLabel}>&gt;90</div>
             </div>
           </div>

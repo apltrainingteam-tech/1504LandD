@@ -5,6 +5,7 @@ import { Employee } from '../../types/employee';
 import { TrainingNomination, Attendance, NominationDraft } from '../../types/attendance';
 import { parseAnyDate } from '../../core/utils/dateParser';
 import { useNominationsData } from './hooks/useNominationsData';
+import { FlowStepper } from '../../shared/components/ui/FlowStepper';
 import styles from './NominationsPage.module.css';
 
 /** Calculates tenure from DOJ to today → "Xyr Ym" */
@@ -133,12 +134,14 @@ export const NominationsPage: React.FC<Props> = ({ employees, nominations, atten
 
   const included = draft?.candidates.length ?? 0;
   const repeatCount = filteredEmps.filter(e => (noticeMap.get(String(e.employeeId))?.length ?? 0) >= 2).length;
-  const statusClassMap: Record<string, string> = {
-    DRAFT: styles.statusPlanned,
-    APPROVED: styles.statusNotified,
-    NOTIFIED: styles.statusNotified,
-    COMPLETED: styles.statusCompleted
+  const getStatusPillClass = (d: NominationDraft) => {
+    if (d.isCancelled) return 'status-cancelled';
+    if (d.status === 'COMPLETED') return 'status-completed';
+    if (d.status === 'NOTIFIED' || d.status === 'APPROVED') return 'status-notified';
+    return 'status-planned';
   };
+
+  const getStatusLabel = (d: NominationDraft) => (d.isCancelled ? 'CANCELLED' : d.status);
 
   if (sessionTeamIds.length === 0) {
     return (
@@ -166,6 +169,7 @@ export const NominationsPage: React.FC<Props> = ({ employees, nominations, atten
           </span>
         )}
       </div>
+      <FlowStepper currentStep={1} />
 
       {/* Team tabs */}
       {sessionTeamIds.length > 1 && (
@@ -209,11 +213,11 @@ export const NominationsPage: React.FC<Props> = ({ employees, nominations, atten
         <div className={styles.toolbarRight}>
           {draft && (
             <span
-              className={`${styles.statusPill} ${statusClassMap[draft.status] || styles.statusPlanned}`}
+              className={`${styles.statusPill} status-badge ${getStatusPillClass(draft)}`}
               title={draft.isCancelled ? 'This training was cancelled and excluded from analysis' : undefined}
             >
-              {draft.status === 'DRAFT' ? <AlertTriangle size={11} /> : <CheckCircle size={11} />}
-              {draft.status}
+              {draft.isCancelled || draft.status === 'DRAFT' ? <AlertTriangle size={11} /> : <CheckCircle size={11} />}
+              {getStatusLabel(draft)}
             </span>
           )}
           <span className={styles.countText}>

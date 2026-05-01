@@ -16,14 +16,14 @@
 }
 
 .chartCard {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: 16px;
+  background: #FFFFFF;
+  border: 1px solid #E4E8F0;
+  border-radius: 12px;
   padding: 24px;
   display: flex;
   flex-direction: column;
   min-height: 400px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: none;
 }
 
 .chartCardFull { grid-column: span 12; }
@@ -64,17 +64,17 @@
 .kpiCard {
   position: relative;
   overflow: hidden;
-  border-radius: 16px;
-  padding: 20px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px;
+  background: #FFFFFF;
+  border: 1px solid #E4E8F0;
   transition: all 0.3s ease;
 }
 
 .kpiCard:hover {
-  transform: translateY(-4px);
-  border-color: var(--primary);
-  box-shadow: 0 8px 30px rgba(34, 45, 104, 0.15);
+  transform: none;
+  border-color: #E4E8F0;
+  box-shadow: none;
 }
 
 .kpiHeader {
@@ -87,29 +87,29 @@
 
 .kpiLabel {
   font-size: 10px;
-  font-weight: 700;
-  color: var(--text-secondary);
+  font-weight: 600;
+  color: #8A9BC0;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.07em;
   margin-bottom: 4px;
 }
 
 .kpiValue {
-  font-size: 24px;
-  font-weight: 800;
-  color: var(--text-primary);
+  font-size: 26px;
+  font-weight: 700;
+  color: #0F1C3F;
 }
 
 .kpiIconWrapper {
   padding: 10px;
   border-radius: 12px;
-  background: rgba(34, 45, 104, 0.05);
-  color: var(--primary);
+  background: rgba(79, 142, 247, 0.1);
+  color: #4F8EF7;
   transition: all 0.3s ease;
 }
 
 .kpiCard:hover .kpiIconWrapper {
-  transform: rotate(12deg);
+  transform: none;
 }
 
 .kpiGlow {
@@ -125,38 +125,39 @@
 }
 
 /* Variants */
-.kpiPrimary .kpiIconWrapper { background: rgba(34, 45, 104, 0.1); color: var(--primary); }
-.kpiPrimary .kpiGlow { background: var(--primary); }
+.kpiPrimary .kpiIconWrapper { background: rgba(79, 142, 247, 0.1); color: #4F8EF7; }
+.kpiPrimary .kpiGlow { background: #4F8EF7; opacity: 0; }
 
-.kpiSuccess .kpiIconWrapper { background: rgba(16, 185, 129, 0.1); color: var(--success); }
-.kpiSuccess .kpiGlow { background: var(--success); }
+.kpiSuccess .kpiIconWrapper { background: rgba(10, 143, 106, 0.1); color: #0A8F6A; }
+.kpiSuccess .kpiGlow { background: #0A8F6A; opacity: 0; }
 
-.kpiWarning .kpiIconWrapper { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
-.kpiWarning .kpiGlow { background: var(--warning); }
+.kpiWarning .kpiIconWrapper { background: rgba(176, 122, 10, 0.1); color: #B07A0A; }
+.kpiWarning .kpiGlow { background: #B07A0A; opacity: 0; }
 
-.kpiDanger .kpiIconWrapper { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
-.kpiDanger .kpiGlow { background: var(--danger); }
+.kpiDanger .kpiIconWrapper { background: rgba(239, 68, 68, 0.1); color: #EF4444; }
+.kpiDanger .kpiGlow { background: #EF4444; opacity: 0; }
 
-.kpiAccent .kpiIconWrapper { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
-.kpiAccent .kpiGlow { background: #8b5cf6; }
+.kpiAccent .kpiIconWrapper { background: rgba(107, 127, 247, 0.1); color: #6B7FF7; }
+.kpiAccent .kpiGlow { background: #6B7FF7; opacity: 0; }
 
 /* Sub-nav */
 .subViewNav {
   display: flex;
   gap: 8px;
   margin-bottom: 20px;
-  background: rgba(0, 0, 0, 0.03);
+  background: #FAFBFF;
   padding: 4px;
   border-radius: 12px;
   width: fit-content;
+  border: 1px solid #E4E8F0;
 }
 
 .subViewBtn {
   padding: 6px 12px;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: #8A9BC0;
   transition: all 0.2s;
   display: flex;
   align-items: center;
@@ -164,9 +165,10 @@
 }
 
 .subViewBtnActive {
-  background: var(--bg-card);
-  color: var(--primary);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  background: #FFFFFF;
+  color: #4F8EF7;
+  box-shadow: none;
+  border: 1px solid #E4E8F0;
 }
 
 .filterSummary {
@@ -179,11 +181,11 @@
 }
 
 .filterBadge {
-  background: rgba(34, 45, 104, 0.05);
+  background: rgba(79, 142, 247, 0.1);
   padding: 2px 8px;
   border-radius: 4px;
-  border: 1px solid rgba(34, 45, 104, 0.1);
-  color: var(--primary);
+  border: 1px solid rgba(79, 142, 247, 0.2);
+  color: #4F8EF7;
   font-weight: 600;
 }
 

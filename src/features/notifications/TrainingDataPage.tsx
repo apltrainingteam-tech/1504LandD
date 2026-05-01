@@ -15,6 +15,7 @@ import { buildChangeSet } from '../../core/engines/editEngine';
 import API_BASE from '../../config/api';
 import styles from './TrainingDataPage.module.css';
 import { useTrainingData } from '../../shared/hooks/useTrainingData';
+import { FlowStepper } from '../../shared/components/ui/FlowStepper';
 import { TRAINING_TEMPLATES, TEMPLATE_FIELD_MAP } from '../../core/constants/trainingTemplates';
 import { normalizeTrainingType, toProperCase } from '../../core/engines/normalizationEngine';
 import { TrainingScore } from '../../types/attendance';
@@ -519,6 +520,7 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance, score
       <div className={`animate-fade-in ${styles.page}`}>
         <h1 className={styles.title}>Training Data</h1>
         <p className={styles.subtitle}>Unified view of all uploaded attendance and planned training batches.</p>
+        <FlowStepper currentStep={2} />
         <div className={styles.emptyState}>
           <TrendingUp size={40} className={styles.emptyIcon} />
           <div className={styles.emptyTitle}>No data available for selected filters</div>
@@ -548,6 +550,7 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance, score
           </div>
         )}
       </div>
+      <FlowStepper currentStep={2} />
 
       {isEditMode && summary.rows > 0 && (
         <div className={styles.saveSummary}>
@@ -597,12 +600,39 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance, score
           { label: 'Drop-off', value: gAbsent, className: styles.textDanger, Icon: XCircle },
           { label: 'Pending', value: gPending, className: styles.textWarning, Icon: AlertCircle },
           { label: 'Avg Score', value: gAvg !== null ? gAvg : '—', className: styles.textPrimary, Icon: TrendingUp },
-        ].map(k => (
+        ].map(k => {
+          const numericValue =
+            typeof k.value === 'string' && k.value.endsWith('%')
+              ? Number(k.value.replace('%', ''))
+              : typeof k.value === 'number'
+              ? k.value
+              : null;
+          const barPercent =
+            k.label === 'Att %'
+              ? numericValue
+              : k.label === 'Present' && gTotal > 0
+              ? Math.round((gPresent / gTotal) * 100)
+              : k.label === 'Drop-off' && gTotal > 0
+              ? Math.round((gAbsent / gTotal) * 100)
+              : k.label === 'Pending' && gTotal > 0
+              ? Math.round((gPending / gTotal) * 100)
+              : null;
+
+          return (
           <div key={k.label} className={styles.metricCard}>
             <div className={`${styles.metricValue} ${k.className}`}>{k.value}</div>
             <div className={styles.metricLabel}>{k.label}</div>
+            {barPercent !== null && (
+              <div className="perf-bar" aria-hidden="true">
+                <div
+                  className="perf-bar-fill"
+                  style={{ width: `${Math.max(0, Math.min(100, barPercent))}%`, background: 'var(--accent-primary)' }}
+                />
+              </div>
+            )}
           </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className={styles.filterBar}>
