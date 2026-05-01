@@ -47,7 +47,7 @@ export const useTrainingData = (
         trainingId: `upload::${key}`,
         draftId: `upload::${key}`,
         source: 'UPLOAD' as const,
-        trainingType: String(first.trainingType),
+        trainingType: normalizeTrainingType(String(first.trainingType)),
         team: (() => {
           const uniqueTeams = [...new Set(rows.map(r => r.team || r.teamId).filter(Boolean))];
           return uniqueTeams.length === 1 ? String(uniqueTeams[0]) : `${uniqueTeams.length} Teams`;
@@ -65,9 +65,10 @@ export const useTrainingData = (
             : rawStatus === 'absent' ? 'absent'
             : 'pending';
           
+          // Match Score
           const matchScore = scores.find(s => 
             String(s.employeeId) === String(r.employeeId) && 
-            s.trainingType === r.trainingType &&
+            normalizeTrainingType(s.trainingType) === normalizeTrainingType(r.trainingType) &&
             (s.dateStr === r.attendanceDate || s.dateStr === r.month)
           );
 

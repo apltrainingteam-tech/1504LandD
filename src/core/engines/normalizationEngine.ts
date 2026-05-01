@@ -124,7 +124,7 @@ const TRAINING_TYPE_MAP: Record<string, string> = {
   mip: "MIP",
   refresher: "Refresher",
   capsule: "Capsule",
-  preap: "PRE_AP",
+  preap: "PreAP",
 };
 
 /**

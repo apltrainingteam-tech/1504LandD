@@ -865,3 +865,10 @@
   font-weight: 500;
   margin-left: 8px;
 }
+
+.scoreDisplay {
+  text-align: center;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 13px;
+}

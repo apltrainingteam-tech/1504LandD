@@ -16,6 +16,7 @@ import API_BASE from '../../config/api';
 import styles from './TrainingDataPage.module.css';
 import { useTrainingData } from '../../shared/hooks/useTrainingData';
 import { TRAINING_TEMPLATES, TEMPLATE_FIELD_MAP } from '../../core/constants/trainingTemplates';
+import { normalizeTrainingType } from '../../core/engines/normalizationEngine';
 import { TrainingScore } from '../../types/attendance';
 
 interface Props {
@@ -105,9 +106,8 @@ const batchMetrics = (candidates: CandidateRecord[]) => {
   const present = active.filter((c: CandidateRecord) => c.attendance === 'present').length;
   const absent = active.filter((c: CandidateRecord) => c.attendance === 'absent').length;
   const scores = active.map((c: CandidateRecord) => {
-    const s = c.scores;
-    if (!s) return NaN;
-    // Try to find a primary score field
+    const s = c.scores || {};
+    // Primary score candidates in priority order
     const val = s.score ?? s.percent ?? s.tScore ?? Object.values(s).find(v => typeof v === 'number');
     return typeof val === 'number' ? val : parseFloat(val as any);
   }).filter(n => !isNaN(n));
@@ -143,7 +143,7 @@ const CandidateRow = React.memo<CandidateRowProps>(({
   candidate, employee, isSelected, buffered, isUpload, onUpdate, onToggleRow, index, isEditMode, templateColumns
 }) => {
   const curAtt = buffered?.attendance || candidate.attendance;
-  const scores = { ...(candidate.scores || {}), ...(buffered?.scores || {}) };
+  const combinedScores = { ...(candidate.scores || {}), ...(buffered?.scores || {}) };
   const curIsVoided = buffered?.isVoided !== undefined ? buffered.isVoided : candidate.isVoided;
 
   const isAttEdited = buffered?.attendance !== undefined && buffered.attendance !== candidate.attendance;
@@ -171,24 +171,34 @@ const CandidateRow = React.memo<CandidateRowProps>(({
       
       {templateColumns.map(col => {
         const field = TEMPLATE_FIELD_MAP[col];
-        const val = scores[field];
+        const val = combinedScores[field];
         const isEdited = buffered?.scores?.[field] !== undefined && buffered.scores[field] !== candidate.scores?.[field];
+        const isNumeric = typeof val === 'number';
+        const isDateField = col.toLowerCase().includes('date');
+        const isNotifiedField = col.toLowerCase().includes('notified');
 
         return (
           <td key={col} className={`${styles.td} ${isEdited ? styles.editedCell : ''}`}>
-            <div className={styles.scoreCell}>
-              <input
-                type="number" min={0} max={100} placeholder="—"
-                value={val ?? ''}
-                onChange={e => {
-                  const newScores = { ...scores, [field]: e.target.value === '' ? null : parseFloat(e.target.value) };
-                  onUpdate(candidate.empId, { scores: newScores });
-                }}
-                className={styles.scoreInput}
-                disabled={!isEditMode}
-              />
-              {val !== null && val !== undefined && val !== '' && !col.toLowerCase().includes('date') && !col.toLowerCase().includes('notified') && <span className={styles.pctUnit}>%</span>}
-            </div>
+            {isEditMode ? (
+              <div className={styles.scoreCell}>
+                <input
+                  type="number" min={0} max={100} placeholder="—"
+                  value={val ?? ''}
+                  onChange={e => {
+                    const newScores = { ...combinedScores, [field]: e.target.value === '' ? null : parseFloat(e.target.value) };
+                    onUpdate(candidate.empId, { scores: newScores });
+                  }}
+                  className={styles.scoreInput}
+                />
+                {isNumeric && !isDateField && !isNotifiedField && <span className={styles.pctUnit}>%</span>}
+              </div>
+            ) : (
+              <div className={styles.scoreDisplay}>
+                {val === null || val === undefined || val === '' ? '—' 
+                  : (isNumeric && !isDateField && !isNotifiedField) ? `${Math.round(val)}%` 
+                  : val}
+              </div>
+            )}
           </td>
         );
       })}
@@ -232,7 +242,7 @@ const BatchCard: React.FC<{
   const { trainers: masterTrainers } = useMasterData();
   const [open, setOpen] = useState(false);
   const m = useMemo(() => batchMetrics(batch.candidates), [batch.candidates]);
-  const templateColumns = useMemo(() => TRAINING_TEMPLATES[batch.trainingType] || ['Score'], [batch.trainingType]);
+  const templateColumns = useMemo(() => TRAINING_TEMPLATES[normalizeTrainingType(batch.trainingType)] || ['Score'], [batch.trainingType]);
   const sm = SOURCE_META[batch.source as keyof typeof SOURCE_META];
   const isUpload = batch.source === 'UPLOAD';
 
@@ -308,12 +318,17 @@ const BatchCard: React.FC<{
                     title="Select all in batch"
                   />
                 </th>
+                {/* Base Columns */}
                 {['Emp ID', 'Name', 'Designation', 'HQ', 'State'].map(h => (
                   <th key={h} className={styles.th}>{h}</th>
                 ))}
+
+                {/* Template-Driven Dynamic Columns */}
                 {templateColumns.map(h => (
                   <th key={h} className={styles.th}>{h}</th>
                 ))}
+
+                {/* Status Columns */}
                 <th className={styles.th}>Attendance</th>
                 <th className={styles.th}>Status</th>
               </tr>
