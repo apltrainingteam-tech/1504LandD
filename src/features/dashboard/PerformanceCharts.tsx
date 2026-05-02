@@ -25,7 +25,7 @@ interface PerformanceChartsProps {
 }
 
 export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
-  employees, attendance, scores, nominations, onNavigate
+  onNavigate
 }) => {
   const { filters: globalFilters, setFilters: setGlobalFilters } = useGlobalFilters();
   const { teams: masterTeams, clusters: masterClusters, loading: masterDataLoading } = useMasterData();
@@ -149,14 +149,14 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
         <div className="w-[280px] flex-shrink-0"> 
           <HierarchyController 
             clusterTeamMap={clusterTeamMap}
-            selectedClusters={globalFilters.cluster ? [globalFilters.cluster] : []}
-            selectedTeams={globalFilters.team ? [globalFilters.team] : []}
+            selectedCluster={globalFilters.cluster}
+            selectedTeam={globalFilters.team}
             onSelectCluster={(c) => setGlobalFilters({ cluster: c, team: null })}
-            onSelectTeam={(tName) => {
+            onSelectTeam={(cName, tName) => {
+              // Resolve teamId if possible, else use name
               const teamId = masterTeams.find(mt => mt.teamName === tName)?.id || tName;
-              setGlobalFilters({ team: teamId, cluster: null });
+              setGlobalFilters({ cluster: cName, team: teamId });
             }}
-            onClear={handleClearAll}
           />
         </div>
         {/* RIGHT PANEL */} 

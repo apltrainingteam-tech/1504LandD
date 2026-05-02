@@ -1,26 +1,31 @@
-import React, { useState, useMemo } from 'react';
-import { ChevronRight, ChevronDown, LayoutGrid, Users, CheckCircle2 } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { ChevronRight, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './HierarchyController.module.css';
 
 interface HierarchyControllerProps {
-  clusterTeamMap: Record<string, string[]>; // New prop
-  selectedClusters: string[];
-  selectedTeams: string[];
+  clusterTeamMap: Record<string, string[]>;
+  selectedCluster: string | null;
+  selectedTeam: string | null;
   onSelectCluster: (clusterName: string) => void;
-  onSelectTeam: (teamName: string) => void; // Changed to teamName
-  onClear: () => void;
+  onSelectTeam: (clusterName: string, teamName: string) => void;
 }
 
 export const HierarchyController: React.FC<HierarchyControllerProps> = ({
   clusterTeamMap,
-  selectedClusters,
-  selectedTeams,
+  selectedCluster,
+  selectedTeam,
   onSelectCluster,
-  onSelectTeam,
-  onClear
+  onSelectTeam
 }) => {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  // If a cluster is selected from outside, ensure it is expanded
+  useEffect(() => {
+    if (selectedCluster) {
+      setExpanded(prev => new Set(prev).add(selectedCluster));
+    }
+  }, [selectedCluster]);
 
   const toggleExpand = (clusterName: string) => {
     const newExpanded = new Set(expanded);
@@ -45,13 +50,13 @@ export const HierarchyController: React.FC<HierarchyControllerProps> = ({
       <div className={styles.list}>
         {sortedClusters.map(clusterName => {
           const isExpanded = expanded.has(clusterName);
-          const isSelected = selectedClusters.includes(clusterName) && selectedTeams.length === 0;
+          const isClusterActive = selectedCluster === clusterName && !selectedTeam;
           const teamsInCluster = clusterTeamMap[clusterName] || [];
           
           return (
             <div key={clusterName} className={styles.clusterGroup}>
               <div 
-                className={`${styles.clusterRow} ${isSelected ? styles.active : ''}`}
+                className={`${styles.clusterRow} ${isClusterActive ? styles.active : ''}`}
                 onClick={() => {
                   onSelectCluster(clusterName);
                   toggleExpand(clusterName);
@@ -61,7 +66,7 @@ export const HierarchyController: React.FC<HierarchyControllerProps> = ({
                   {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                 </div>
                 <span className={styles.clusterName}>{clusterName}</span>
-                {isSelected && <div className={styles.indicator} />}
+                {isClusterActive && <div className={styles.indicator} />}
               </div>
 
               <AnimatePresence>
@@ -73,15 +78,14 @@ export const HierarchyController: React.FC<HierarchyControllerProps> = ({
                     className={styles.teamList}
                   >
                     {teamsInCluster.map(teamName => {
-                      const isTeamSelected = selectedTeams.includes(teamName);
                       return (
                         <div 
                           key={teamName}
-                          className={`${styles.teamRow} ${isTeamSelected ? styles.active : ''}`}
-                          onClick={() => onSelectTeam(teamName)}
+                          className={`${styles.teamRow} ${selectedTeam === teamName ? styles.active : ''}`}
+                          onClick={() => onSelectTeam(clusterName, teamName)}
                         >
                           <span className={styles.teamName}>{teamName}</span>
-                          {isTeamSelected && <div className={styles.indicator} />}
+                          {selectedTeam === teamName && <div className={styles.indicator} />}
                         </div>
                       );
                     })}
