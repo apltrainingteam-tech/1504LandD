@@ -13,7 +13,7 @@ import { EligibilityResult } from './eligibilityEngine';
 import { Team } from '../context/MasterDataContext';
 import { mapTeamCodeToId } from '../utils/teamIdMapper';
 import { groupByTwoLevels } from '../utils/mapGrouping';
-import { getSchema } from '../constants/trainingSchemas';
+import { mapHeader, normalizeHeader, getSchema } from '../constants/trainingSchemas';
 
 const avg = (arr: (number | null)[]) => {
   const filtered = arr.filter((x): x is number => x !== null && !isNaN(x));
@@ -28,6 +28,23 @@ const extractScores = (scores: Record<string, number | null> | undefined, traini
   return schema.scoreFields
     .map(f => normalizeScore(scores[f]))
     .filter((v): v is number => v !== null && !isNaN(v));
+};
+
+const normalizeScoreRecord = (scores: Record<string, any> | undefined, trainingType: string): Record<string, number | null> => {
+  const schema = getSchema(trainingType);
+  const labelMap = Object.entries(schema.scoreLabels).reduce((acc, [field, label]) => {
+    acc[normalizeHeader(label)] = field;
+    return acc;
+  }, {} as Record<string, string>);
+
+  if (!scores) return {};
+
+  return Object.entries(scores).reduce((acc, [rawKey, value]) => {
+    const normalizedKey = mapHeader(rawKey);
+    const canonicalKey = labelMap[normalizeHeader(rawKey)] || normalizedKey;
+    acc[canonicalKey] = normalizeScore(value);
+    return acc;
+  }, {} as Record<string, number | null>);
 };
 
 export const getWeightedScore = (record: UnifiedRecord, trainingType: string): number | null => {
@@ -154,6 +171,7 @@ export const buildUnifiedDataset = traceEngine("buildUnifiedDataset", (
       const m = (a.attendanceDate || '').substring(0, 7);
       sc = monthScoreMap.get(`${tid}::${type}::${m}`) || null;
     }
+    const normalizedScore = sc ? { ...sc, scores: { ...sc.scores, ...normalizeScoreRecord(sc.scores, type) } } : null;
     const nm = nominationMap.get(`${tid}::${type}`) || null;
     const el = eligibilityMap.get(tid);
     
@@ -180,7 +198,7 @@ export const buildUnifiedDataset = traceEngine("buildUnifiedDataset", (
     return {
       employee: { ...emp, teamId, cluster } as Employee,
       attendance: { ...a, trainingType: type as any, teamId: teamId } as Attendance,
-      score: sc,
+      score: normalizedScore,
       nomination: nm,
       eligibilityStatus: el?.eligibilityStatus,
       eligibilityReason: el?.reasonIfNotEligible

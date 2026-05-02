@@ -225,6 +225,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
     employees, attendance, scores, nominations
   });
 
+  console.log("TABLE DATA:", rawUnified?.length);
   const { allClusters, allTeams, allTrainers } = useFilterOptions(rawUnified, attendance, tab, masterTrainers, pageFilters.clusters);
 
   const toggleExpand = useCallback((k: string) => {

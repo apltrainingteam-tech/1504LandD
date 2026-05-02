@@ -25,6 +25,10 @@ interface PerformanceChartsProps {
 }
 
 export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
+  employees,
+  attendance,
+  scores,
+  nominations,
   onNavigate
 }) => {
   const { filters: globalFilters, setFilters: setGlobalFilters } = useGlobalFilters();
@@ -59,13 +63,22 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
     resolutionLevel,
     gapMetrics
   } = usePerformanceData({
-    tab, selectedFY, filter: {
+    tab,
+    selectedFY,
+    filter: {
       monthFrom: '', 
       monthTo: '',
       teams: globalFilters.team ? [globalFilters.team] : [],
       clusters: globalFilters.cluster ? [globalFilters.cluster] : [],
       trainer: globalFilters.trainer !== 'ALL' ? globalFilters.trainer : ''
-    }, viewBy: 'Month', tsMode: 'score', pageMode: 'performance-charts'
+    },
+    viewBy: 'Month',
+    tsMode: 'score',
+    pageMode: 'performance-charts',
+    employees,
+    attendance,
+    scores,
+    nominations
   });
 
   // Use master data to build the full cluster/team hierarchy for the selector

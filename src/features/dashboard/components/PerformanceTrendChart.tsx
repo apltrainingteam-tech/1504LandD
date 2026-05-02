@@ -3,12 +3,6 @@ import { ResponsiveContainer, ComposedChart, Line, Bar, XAxis, YAxis, CartesianG
 import { useTrendData } from '../hooks/useTrendData';
 import { UnifiedRecord } from '../../../types/reports';
 
-const mockData = [
-  { month: "Apr", metric1: 60, metric2: 55 },
-  { month: "May", metric1: 70, metric2: 65 },
-  { month: "Jun", metric1: 75, metric2: 68 },
-];
-
 interface PerformanceTrendChartProps {
   trainingType: string;
   rawUnified: UnifiedRecord[];
@@ -26,9 +20,16 @@ export const PerformanceTrendChart: React.FC<PerformanceTrendChartProps> = ({
   rawUnified,
   chartType
 }) => {
-  const chartData = useTrendData(rawUnified);
+  console.log("CHART INPUT:", rawUnified?.length);
+  const chartData = useTrendData(rawUnified, trainingType);
+  console.log("FINAL CHART DATA:", chartData);
   const [label1, label2] = labelMap[trainingType] || ["Metric 1", "Metric 2"];
   const isDualAxis = trainingType === "IP";
+
+  const dataMaxLeft = chartData.reduce((max, row) => Math.max(max, row.metric1, row.metric2), 0);
+  const dataMaxRight = chartData.reduce((max, row) => Math.max(max, row.metric2), 0);
+  const leftAxisMax = isDualAxis ? 100 : Math.max(10, Math.ceil(dataMaxLeft * 1.2));
+  const rightAxisMax = Math.max(25, Math.ceil(dataMaxRight * 1.2));
 
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -45,7 +46,7 @@ export const PerformanceTrendChart: React.FC<PerformanceTrendChartProps> = ({
           axisLine={false} 
           tickLine={false} 
           tick={{ fill: '#64748b', fontSize: 10, fontWeight: 600 }}
-          domain={[0, 100]}
+          domain={[0, leftAxisMax]}
         />
         {isDualAxis && (
           <YAxis 
@@ -54,7 +55,7 @@ export const PerformanceTrendChart: React.FC<PerformanceTrendChartProps> = ({
             axisLine={false} 
             tickLine={false} 
             tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 600 }}
-            domain={[0, 25]}
+            domain={[0, rightAxisMax]}
           />
         )}
         <Tooltip 
