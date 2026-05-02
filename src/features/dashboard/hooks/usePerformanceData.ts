@@ -97,7 +97,42 @@ export const usePerformanceData = ({
   console.log("SAMPLE RAW RECORD:", attendance?.[0]);
 
   if (!attendance || attendance.length === 0) {
-    console.error("❌ NO DATA REACHING PERFORMANCE LAYER");
+    console.warn("⚠️ NO DATA REACHING PERFORMANCE LAYER - check if training data is loaded");
+    return {
+      MONTHS: [],
+      activeNT: tab,
+      rawUnified: [],
+      unified: [],
+      ipData: null,
+      ipRankData: null,
+      rawTimelines: new Map(),
+      filteredTimelines: new Map(),
+      apAttData: null,
+      mipAttData: null,
+      refresherAttData: null,
+      capsuleAttData: null,
+      apPerfData: null,
+      mipPerfData: null,
+      refresherPerfData: null,
+      capsulePerfData: null,
+      eligibilityResults: [],
+      gapMetrics: null,
+      groups: [],
+      ranked: [],
+      trainerStats: null,
+      drilldownNodes: [],
+      months: [],
+      timeSeries: [],
+      tabNoms: [],
+      ipKPI: null,
+      apKPI: null,
+      mipKPI: null,
+      refresherKPI: null,
+      capsuleKPI: null,
+      preApKPI: null,
+      isDebugMode: false,
+      resolutionLevel: 'Global'
+    };
   }
 
   const isEngineDebugActive = useDebugStore(state => state.enabled);

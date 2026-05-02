@@ -10,45 +10,90 @@ export interface TrendPoint {
 }
 
 const METRIC_MAP: Record<string, [string, string]> = {
-  IP: ["testScore", "trainability"],
+  IP: ["percent", "tScore"],
   AP: ["knowledge", "bse"],
   MIP: ["scienceScore", "skillScore"]
 };
 
 const MONTH_ORDER = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
 
+/**
+ * Robust Month Normalizer for Chart Axis
+ * Converts YYYY-MM or long names to "MMM" (Apr, May, etc.)
+ */
+const normalizeMonthForChart = (m: any): string => {
+  if (!m) return '';
+  const str = String(m).trim().toLowerCase();
+  
+  // If already a short month name
+  const shortMonths: Record<string, string> = {
+    jan: 'Jan', feb: 'Feb', mar: 'Mar', apr: 'Apr', may: 'May', jun: 'Jun',
+    jul: 'Jul', aug: 'Aug', sep: 'Sep', oct: 'Oct', nov: 'Nov', dec: 'Dec'
+  };
+  
+  if (shortMonths[str.substring(0, 3)]) return shortMonths[str.substring(0, 3)];
+
+  // If YYYY-MM
+  if (/^\d{4}-\d{2}/.test(str)) {
+    const monthNum = parseInt(str.split('-')[1]);
+    const monthMap: Record<number, string> = {
+      1: 'Jan', 2: 'Feb', 3: 'Mar', 4: 'Apr', 5: 'May', 6: 'Jun',
+      7: 'Jul', 8: 'Aug', 9: 'Sep', 10: 'Oct', 11: 'Nov', 12: 'Dec'
+    };
+    return monthMap[monthNum] || '';
+  }
+
+  return '';
+};
+
 export const useTrendData = (rawUnified: UnifiedRecord[]): TrendPoint[] => {
   const { filters } = useGlobalFilters();
-  const { trainingType, cluster, team } = filters;
+  const { trainingType, cluster: selectedCluster, team: selectedTeam } = filters;
 
   return useMemo(() => {
     if (!rawUnified || rawUnified.length === 0) return [];
 
     // STEP 1: Apply Hierarchy-Based Filtering (PRIORITY LOGIC)
     const filtered = rawUnified.filter(r => {
+      // 1. Strict Training Type Filter
+      if (r.attendance.trainingType !== trainingType) return false;
+
+      // 2. Hierarchy Filter (Using actual Team and Cluster fields from record)
+      const empTeam = r.employee.team || r.employee.teamId || '';
+      const empCluster = r.employee.cluster || 'Others';
+
       // Highest priority → Team
-      if (team) {
-        return (r.employee.teamId || r.employee.team) === team;
+      if (selectedTeam) {
+        return empTeam === selectedTeam;
       }
 
       // Next → Cluster
-      if (cluster) {
-        return (r.employee.cluster || 'Others') === cluster;
+      if (selectedCluster) {
+        return empCluster === selectedCluster;
       }
 
-      // Default → All clusters
+      // Default → All clusters (Aggregate All)
       return true;
     });
 
     // STEP 2 & 3: Group by Month and Map Metrics
-    const [m1, m2] = METRIC_MAP[trainingType] || ["testScore", "trainability"];
+    const [m1, m2] = METRIC_MAP[trainingType] || ["percent", "tScore"];
     
     const monthGroups: Record<string, UnifiedRecord[]> = {};
     filtered.forEach(r => {
-      const month = r.attendance.month || (r.attendance.attendanceDate || '').substring(0, 7);
-      if (!month) return;
-      if (!monthGroups[month]) monthGroups[month] = [];
-      monthGroups[month].push(r);
+      // Robust month extraction from multiple possible fields
+      const rawMonth = r.attendance.month || 
+                       r.attendance.attendanceDate || 
+                       (r as any).month || 
+                       '';
+                       
+      const normalizedMonth = normalizeMonthForChart(rawMonth);
+      
+      // If month normalization fails, default to 'Apr' to prevent dropping records
+      const finalMonth = normalizedMonth || 'Apr';
+
+      if (!monthGroups[finalMonth]) monthGroups[finalMonth] = [];
+      monthGroups[finalMonth].push(r);
     });
 
     // STEP 4: Aggregate from RAW DATA ONLY
@@ -85,5 +130,5 @@ export const useTrendData = (rawUnified: UnifiedRecord[]): TrendPoint[] => {
     return result.sort((a, b) => {
       return MONTH_ORDER.indexOf(a.month) - MONTH_ORDER.indexOf(b.month);
     });
-  }, [rawUnified, trainingType, cluster, team]);
+  }, [rawUnified, trainingType, selectedCluster, selectedTeam]);
 };

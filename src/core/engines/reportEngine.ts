@@ -2,18 +2,24 @@
  * Report Engine
  * ⚠️ DO NOT IMPORT IN COMPONENTS — USE HOOKS ONLY
  */
-import { normalizeTrainingType } from './normalizationEngine';
+import { normalizeTrainingType, normalizeForMatch } from './normalizationEngine';
 import { normalizeText } from '../utils/textNormalizer';
 import { normalizeScore } from '../utils/scoreNormalizer';
 import { traceEngine } from '../debug/traceEngine';
 import { Employee } from '../../types/employee';
 import { Attendance, TrainingScore, TrainingNomination } from '../../types/attendance';
-import { UnifiedRecord, GroupedData, ViewByOption, TimeSeriesRow, TrainerStat, DrilldownNode, ReportFilter, SCORE_SCHEMAS } from '../../types/reports';
+import { UnifiedRecord, GroupedData, ViewByOption, TimeSeriesRow, TrainerStat, DrilldownNode, ReportFilter } from '../../types/reports';
 import { EligibilityResult } from './eligibilityEngine';
 import { Team } from '../context/MasterDataContext';
-import { getTeamId, mapTeamCodeToId } from '../utils/teamIdMapper';
-import { groupByKey, groupByTwoLevels, groupByField } from '../utils/mapGrouping';
+import { mapTeamCodeToId } from '../utils/teamIdMapper';
+import { groupByTwoLevels } from '../utils/mapGrouping';
 import { getSchema } from '../constants/trainingSchemas';
+
+const avg = (arr: (number | null)[]) => {
+  const filtered = arr.filter((x): x is number => x !== null && !isNaN(x));
+  if (filtered.length === 0) return 0;
+  return Math.round(filtered.reduce((a, b) => a + b, 0) / filtered.length);
+};
 
 const extractScores = (scores: Record<string, number | null> | undefined, trainingType: string): number[] => {
   const schema = getSchema(trainingType);
@@ -59,8 +65,12 @@ export const buildUnifiedDataset = traceEngine("buildUnifiedDataset", (
   
   // 1. Build robust lookup maps from master data
   masterTeams.forEach(t => {
-    const normName = t.teamName.trim().toLowerCase();
+    const normName = normalizeForMatch(t.teamName);
     teamIdMap.set(normName, t.id);
+    
+    // Also map by code if available
+    if (t.code) teamIdMap.set(normalizeForMatch(t.code), t.id);
+
     // Sanitize legacy cluster names during lookup build
     let cluster = t.cluster || 'Others';
     if (['MIS', 'ALL', 'UNMAPPED'].includes(cluster.toUpperCase())) {
@@ -74,11 +84,11 @@ export const buildUnifiedDataset = traceEngine("buildUnifiedDataset", (
 
   for (const e of emps) {
     const rawTeam = (e.team || '').trim();
-    const normTeam = rawTeam.toLowerCase();
+    const normTeam = normalizeForMatch(rawTeam);
     
     // Resolve ID and Cluster
     const teamId = e.teamId || teamIdMap.get(normTeam);
-    const cluster = teamId ? (clusterMapLookup.get(teamId) || 'Others') : 'Others';
+    let cluster = e.cluster || (teamId ? clusterMapLookup.get(teamId) : 'Others') || 'Others';
     
     if (!teamId && rawTeam) unmappedTeams.add(rawTeam);
     
@@ -118,7 +128,7 @@ export const buildUnifiedDataset = traceEngine("buildUnifiedDataset", (
   let totalRecords = 0;
   const clusterDist: Record<string, number> = {};
 
-  const result = att.filter(a => !a.isVoided).map((a, idx) => {
+  const result = att.filter(a => !a.isVoided).map((a) => {
 
     const tid = String(a.employeeId).trim();
     const type = normalizeTrainingType(a.trainingType);
@@ -148,14 +158,18 @@ export const buildUnifiedDataset = traceEngine("buildUnifiedDataset", (
     const el = eligibilityMap.get(tid);
     
     // Final resolution of metadata
-    const rawTeam = (emp.team || '').trim();
-    const normTeam = rawTeam.toLowerCase();
-    const teamId = emp.teamId || teamIdMap.get(normTeam) || (emp.team ? `unmapped::${normalizeText(emp.team)}` : undefined);
+    const rawTeamName = (emp.team || '').trim();
+    const normTeam = normalizeForMatch(rawTeamName);
+    
+    // Priority: 1. ID from Record, 2. Name Match, 3. Unmapped Placeholder
+    const teamId = emp.teamId || teamIdMap.get(normTeam) || (rawTeamName ? `unmapped::${normalizeText(rawTeamName)}` : undefined);
     
     if (!teamId) return; 
     
-    let cluster = emp.cluster || clusterMapLookup.get(teamId) || 'Others';
-    if (['MIS', 'ALL', 'UNMAPPED'].includes(cluster.toUpperCase())) {
+    // Cluster Resolution: 1. From Master Data (via ID), 2. From Record (if ID unmapped), 3. Fallback
+    let cluster = (teamId.startsWith('unmapped::') ? emp.cluster : clusterMapLookup.get(teamId)) || emp.cluster || 'Others';
+    
+    if (['MIS', 'ALL', 'UNMAPPED'].includes(String(cluster).toUpperCase())) {
       cluster = 'Others';
     }
     
@@ -190,8 +204,10 @@ export const buildUnifiedDataset = traceEngine("buildUnifiedDataset", (
 
 
 // ─── FILTER ENGINE ─────────────────────────────────────────────────────────
-export function applyFilters(ds: UnifiedRecord[], filter: ReportFilter, masterTeams: Team[], masterTrainers: any[] = []): UnifiedRecord[] {
-  const teamMap = Object.fromEntries(masterTeams.map(t => [t.id, t]));
+export function applyFilters(ds: UnifiedRecord[], 
+  filter: ReportFilter, 
+  masterTrainers: any[] = []
+): UnifiedRecord[] {
   const trainerMap = Object.fromEntries(masterTrainers.map(t => [t.id, t]));
 
   return ds.filter(r => {
@@ -237,12 +253,10 @@ export function applyFilters(ds: UnifiedRecord[], filter: ReportFilter, masterTe
 export function groupData(
   ds: UnifiedRecord[],
   by: ViewByOption,
-  noms: TrainingNomination[],
-  emps: Employee[],
-  masterTeams: Team[]
-): GroupedData[] {
+    noms: TrainingNomination[],
+    emps: Employee[]
+  ): GroupedData[] {
   const m = new Map<string, GroupedData>();
-  const teamMap = Object.fromEntries(masterTeams.map(t => [t.id, t]));
 
   // Single pass through records
   for (const r of ds) {
