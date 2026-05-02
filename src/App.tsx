@@ -359,7 +359,7 @@ const App = () => {
 
       {/* Main Content Area */}
       <main className="main-content">
-        <header className="header mb-16">
+        <header className="header">
           <div className="global-search-container">
             <Search size={18} className="global-search-icon" />
             <input type="text" className="form-input global-search-input" placeholder="Search system globally..." />
@@ -374,7 +374,7 @@ const App = () => {
           </div>
         </header>
 
-        <div className="shell-kpi-row">
+        <div className="shell-kpi-row mt-4">
           <div
             className={`shell-kpi-card kpi-employees cursor-pointer ${view === 'employees' ? 'active' : ''}`}
             onClick={() => setView('employees')}

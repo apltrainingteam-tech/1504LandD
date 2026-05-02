@@ -230,7 +230,10 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
       </div>
 
       {/* COMMAND BAR - The Control Surface 30/40/30 Grid */}
-      <div className={`glass-panel p-24 mb-16 sticky top-0 z-50 transition-all duration-300 ${presentationMode ? 'scale-105 shadow-2xl border-primary bg-black/60' : ''}`}>
+      <div 
+        className={`glass-panel p-24 mb-16 sticky z-50 transition-all duration-300 ${presentationMode ? 'scale-105 shadow-2xl border-primary bg-black/60' : ''}`}
+        style={{ top: 'var(--header-height)' }}
+      >
         <div className={styles.commandBar}>
           
           {/* Section 1: Cluster (30%) - HIGHEST HIERARCHY */}
