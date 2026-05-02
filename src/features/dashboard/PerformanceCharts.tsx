@@ -1,44 +1,19 @@
-import React, { useState, useMemo, useEffect, Fragment } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  LineChart, Line, Cell, PieChart, Pie, ScatterChart, Scatter, ZAxis, ComposedChart, ResponsiveContainer
-} from 'recharts';
-import {
-  BarChart3, TrendingUp, Users, Target, Table, Trophy, GraduationCap, AlertTriangle, Calendar, Zap, CheckCircle2, Filter, ListOrdered, Info
-} from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { Table, TrendingUp, Trophy, Users, AlertTriangle } from 'lucide-react';
 
 import { Employee } from '../../types/employee';
-import { Attendance, TrainingScore, TrainingNomination, TrainingType, EligibilityRule, Demographics } from '../../types/attendance';
-import { getCurrentFYString, getFiscalYears } from '../../core/utils/fiscalYear';
+import { Attendance, TrainingScore, TrainingNomination, Demographics } from '../../types/attendance';
 import { useMasterData } from '../../core/context/MasterDataContext';
-import { GlobalFilterPanel } from '../../shared/components/ui/GlobalFilterPanel';
-import { GlobalFilters, useGlobalFilters } from '../../core/context/filterContext';
-import { useFilterOptions, useMonthsFromData } from '../../shared/hooks/computationHooks';
 import { useDebugStore } from '../../core/debug/debugStore';
 import { usePerformanceData } from './hooks/usePerformanceData';
-import API_BASE from '../../config/api';
+import { useGlobalFilters } from '../../core/context/GlobalFilterContext';
 
 import styles from './PerformanceCharts.module.css';
 
 // --- COMPONENTS ---
 import { HierarchicalTrendModel } from './components/HierarchicalTrendModel';
 import { HierarchyController } from './components/HierarchyController';
-
-// --- INTERFACES ---
-interface MatrixTeam {
-  name: string;
-  total: number;
-  score: number;
-  metrics: Record<string, number>;
-  monthly: Record<string, any>;
-}
-
-interface MatrixCluster {
-  cluster: string;
-  teams: MatrixTeam[];
-  avgScore: number;
-}
 
 interface PerformanceChartsProps {
   employees: Employee[];
@@ -49,61 +24,17 @@ interface PerformanceChartsProps {
   onNavigate?: (view: any) => void;
 }
 
-const ALL_TRAINING_TYPES = ['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'PRE_AP'];
-const FY_OPTIONS = getFiscalYears(2015);
-
-/**
- * Robust Month Normalizer
- */
-const normalizeMonthStr = (m: any): string => {
-  if (!m) return '';
-  let str = String(m).trim();
-  if (/^\d{4}-\d{2}/.test(str)) return str.substring(0, 7);
-  const monthNames: Record<string, string> = { jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06', jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12' };
-  const slashMatch = str.match(/^(\d{1,2})\/(\d{2,4})$/);
-  if (slashMatch) {
-    let mm = slashMatch[1].padStart(2, '0');
-    let yy = slashMatch[2];
-    let yyyy = yy.length === 2 ? (parseInt(yy) > 50 ? `19${yy}` : `20${yy}`) : yy;
-    return `${yyyy}-${mm}`;
-  }
-  const wordMatch = str.match(/^([A-Za-z]{3})[-\s](\d{2,4})$/);
-  if (wordMatch) {
-    let mm = monthNames[wordMatch[1].toLowerCase()] || '00';
-    let yy = wordMatch[2];
-    let yyyy = yy.length === 2 ? (parseInt(yy) > 50 ? `19${yy}` : `20${yy}`) : yy;
-    return `${yyyy}-${mm}`;
-  }
-  return str;
-};
-
-/**
- * Determine Fiscal Year from YYYY-MM
- */
-const getFYFromMonth = (month: string): string => {
-  if (!month || month.length < 7) return getCurrentFYString();
-  const [y, m] = month.split('-').map(Number);
-  const startYear = m >= 4 ? y : y - 1;
-  return `${startYear}-${String(startYear + 1).slice(-2)}`;
-};
-
-import { useGlobalFilters as useAppGlobalFilters } from '../../core/context/GlobalFilterContext';
-
 export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
   employees, attendance, scores, nominations, onNavigate
 }) => {
-  const { filters: globalFilters, setFilters: setAppFilters } = useAppGlobalFilters();
-  const { teams: masterTeams, clusters: masterClusters, trainers: masterTrainers, eligibilityRules: rules, loading: masterDataLoading } = useMasterData();
+  const { filters: globalFilters, setFilters: setGlobalFilters } = useGlobalFilters();
+  const { teams: masterTeams, clusters: masterClusters, loading: masterDataLoading } = useMasterData();
   
-  const [tabState, setTabState] = useState<string>('IP');
+  const [tabState] = useState<string>('IP');
   const tab = globalFilters.trainingType !== 'ALL' ? globalFilters.trainingType : tabState;
-
-  const [subView, setSubView] = useState<string>('performance');
   
   const selectedFY = globalFilters.fiscalYear;
 
-  const { filters: pageFilters, setFilters: setPageFilters, activeFilterCount, clearFilters } = useGlobalFilters();
-  const [tsMode, setTsMode] = useState<'score' | 'count'>('score');
   const isEngineDebugActive = useDebugStore(state => state.enabled);
   const [presentationMode, setPresentationMode] = useState(false);
 
@@ -120,66 +51,22 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
     return () => document.body.classList.remove('presentation-active');
   }, [presentationMode]);
 
-  // --- SYNC GLOBAL MONTH FILTER WITH FISCAL YEAR SELECTOR ---
-  // In the new system, fiscal year is global.
-  // We can keep this for month sync if needed, but it might conflict.
-  useEffect(() => {
-    if (pageFilters.month) {
-      const targetFY = getFYFromMonth(normalizeMonthStr(pageFilters.month));
-      // In the new system, we should probably update the global filter if we want consistency,
-      // but the user said "Inject filters into orchestrator hooks ONLY".
-      // Let's just leave it for now or remove if it causes loops.
-    }
-  }, [pageFilters.month]);
-
-
   const {
-    MONTHS,
     activeNT,
     rawUnified,
-    unified,
-    ipData,
-    apAttData,
-    mipAttData,
-    refresherAttData,
-    capsuleAttData,
-    apPerfData,
-    mipPerfData,
-    refresherPerfData,
-    capsulePerfData,
-    eligibilityResults,
-    gapMetrics,
-    groups,
     ranked,
-    trainerStats,
-    months: dataMonths,
     timeSeries,
-    resolutionLevel
+    resolutionLevel,
+    gapMetrics
   } = usePerformanceData({
     tab, selectedFY, filter: {
-      monthFrom: pageFilters.month ? normalizeMonthStr(pageFilters.month) : '', 
-      monthTo: pageFilters.month ? normalizeMonthStr(pageFilters.month) : '',
-      teams: pageFilters.teams.length > 0 ? pageFilters.teams : (pageFilters.team ? [pageFilters.team] : []),
-      clusters: pageFilters.clusters.length > 0 ? pageFilters.clusters : (pageFilters.cluster ? [pageFilters.cluster] : []),
-      trainers: pageFilters.trainers,
-      trainerTypes: pageFilters.trainerTypes,
-      trainer: pageFilters.trainer || ''
-    }, viewBy: 'Month', tsMode, pageMode: 'performance-charts'
+      monthFrom: '', 
+      monthTo: '',
+      teams: globalFilters.team ? [globalFilters.team] : [],
+      clusters: globalFilters.cluster ? [globalFilters.cluster] : [],
+      trainer: globalFilters.trainer !== 'ALL' ? globalFilters.trainer : ''
+    }, viewBy: 'Month', tsMode: 'score', pageMode: 'performance-charts'
   });
-
-  const activeAttData = activeNT === 'AP' ? apAttData : activeNT === 'MIP' ? mipAttData : activeNT === 'Refresher' ? refresherAttData : (activeNT === 'Pre_AP' ? apAttData : capsuleAttData);
-  const activePerfData = activeNT === 'AP' ? apPerfData : activeNT === 'MIP' ? mipPerfData : activeNT === 'Refresher' ? refresherPerfData : (activeNT === 'Pre_AP' ? apPerfData : capsulePerfData);
-
-  const tsChartData = useMemo(() => timeSeries.map((r) => ({ label: r.label, ...r.cells })), [timeSeries]);
-  const tsKeys = useMemo(() => {
-    const keys = new Set<string>();
-    timeSeries.forEach((r) => Object.keys(r.cells).forEach(k => keys.add(k)));
-    return Array.from(keys);
-  }, [timeSeries]);
-
-  const trainerScatterData = useMemo(() => {
-    return trainerStats.map((t: any) => ({ name: t.trainerId, volume: t.trainingsConducted, score: t.avgScore })).sort((a: any, b: any) => b.volume - a.volume).slice(0, 30);
-  }, [trainerStats]);
 
   // Use master data to build the full cluster/team hierarchy for the selector
   const clusterTeamMap = useMemo(() => {
@@ -197,6 +84,11 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
       Object.entries(map).map(([k, v]) => [k, Array.from(v)])
     );
   }, [masterTeams, masterClusters]);
+
+  // --- QUICK SCENARIO BUTTONS ---
+  const handleClearAll = () => {
+    setGlobalFilters({ cluster: null, team: null, trainer: 'ALL' });
+  };
 
   return (
     <div className={`${styles.chartsContainer} animate-fade-in`}>
@@ -222,7 +114,7 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
       {/* QUICK SCENARIO BUTTONS */}
       {!presentationMode && (
         <div className="flex gap-3 mb-24 overflow-x-auto pb-2 px-2 no-scrollbar">
-          <motion.button whileHover={{ y: -2 }} whileTap={{ scale: 0.98 }} onClick={clearFilters} className={styles.scenarioBtn}>
+          <motion.button whileHover={{ y: -2 }} whileTap={{ scale: 0.98 }} onClick={handleClearAll} className={styles.scenarioBtn}>
             <Users size={14} /> Full Snapshot
           </motion.button>
           <motion.button 
@@ -230,8 +122,8 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
             whileTap={{ scale: 0.98 }} 
             onClick={() => {
               // Scenario: Only show teams with Elite members
-              const topTeams = ranked.filter(r => r.score > 80).map(r => masterTeams.find(t => t.teamName === r.name)?.id).filter(Boolean) as string[];
-              setPageFilters({ ...pageFilters, teams: topTeams, trainers: [], clusters: [], month: '' });
+              const topTeamId = ranked.filter(r => r.score > 80).map(r => masterTeams.find(t => t.teamName === r.name)?.id).filter(Boolean)[0];
+              if (topTeamId) setGlobalFilters({ team: topTeamId, cluster: null });
             }} 
             className={styles.scenarioBtn}
           >
@@ -242,8 +134,8 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
             whileTap={{ scale: 0.98 }} 
             onClick={() => {
               // Scenario: Only show teams with significant gaps
-              const lowTeams = ranked.filter(r => r.score < 60).map(r => masterTeams.find(t => t.teamName === r.name)?.id).filter(Boolean) as string[];
-              setPageFilters({ ...pageFilters, teams: lowTeams, trainers: [], clusters: [], month: '' });
+              const lowTeamId = ranked.filter(r => r.score < 60).map(r => masterTeams.find(t => t.teamName === r.name)?.id).filter(Boolean)[0];
+              if (lowTeamId) setGlobalFilters({ team: lowTeamId, cluster: null });
             }} 
             className={styles.scenarioBtn}
           >
@@ -257,11 +149,14 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
         <div className="w-[280px] flex-shrink-0"> 
           <HierarchyController 
             clusterTeamMap={clusterTeamMap}
-            selectedClusters={pageFilters.clusters}
-            selectedTeams={pageFilters.teams}
-            onSelectCluster={(c) => setPageFilters({ ...pageFilters, clusters: [c], teams: [] })}
-            onSelectTeam={(tName) => setPageFilters({ ...pageFilters, teams: [masterTeams.find(mt => mt.teamName === tName)?.id || ''], clusters: [] })}
-            onClear={clearFilters}
+            selectedClusters={globalFilters.cluster ? [globalFilters.cluster] : []}
+            selectedTeams={globalFilters.team ? [globalFilters.team] : []}
+            onSelectCluster={(c) => setGlobalFilters({ cluster: c, team: null })}
+            onSelectTeam={(tName) => {
+              const teamId = masterTeams.find(mt => mt.teamName === tName)?.id || tName;
+              setGlobalFilters({ team: teamId, cluster: null });
+            }}
+            onClear={handleClearAll}
           />
         </div>
         {/* RIGHT PANEL */} 
@@ -274,9 +169,9 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
             ranked={ranked}
             gapMetrics={gapMetrics}
             activeNT={activeNT}
-            MONTHS={MONTHS}
-            filters={pageFilters}
+            filters={globalFilters}
             masterTeams={masterTeams}
+            rawUnified={rawUnified}
           />
         </div>
       </div>

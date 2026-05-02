@@ -81,8 +81,10 @@ export const usePerformanceData = ({
   const selectedFY = globalFilters.fiscalYear;
   const filter = useMemo(() => ({
     ...filterProp,
-    trainer: globalFilters.trainer !== 'ALL' ? globalFilters.trainer : filterProp.trainer
-  }), [filterProp, globalFilters.trainer]);
+    trainer: globalFilters.trainer !== 'ALL' ? globalFilters.trainer : filterProp.trainer,
+    teams: globalFilters.team ? [globalFilters.team] : (filterProp.teams || []),
+    clusters: globalFilters.cluster ? [globalFilters.cluster] : (filterProp.clusters || [])
+  }), [filterProp, globalFilters.trainer, globalFilters.team, globalFilters.cluster]);
 
   const employees = propsEmps || finalData.employeeData;
   const attendance = propsAtt || finalData.trainingData;
@@ -105,13 +107,13 @@ export const usePerformanceData = ({
     (n as any).finalStatus !== 'VOID';
 
   const resolutionLevel = useMemo(() => {
-    const hasTeam = filter.teams.length > 0;
-    const hasCluster = filter.clusters.length > 0;
+    const hasTeam = !!globalFilters.team;
+    const hasCluster = !!globalFilters.cluster;
     
     if (hasTeam) return 'Team';
     if (hasCluster) return 'Cluster'; // Viewing teams within a cluster
     return 'Global'; // Viewing clusters
-  }, [filter.teams, filter.clusters]);
+  }, [globalFilters.team, globalFilters.cluster]);
 
   const effectiveViewBy = useMemo(() => {
     if (resolutionLevel === 'Global') return 'Cluster' as ViewByOption;
