@@ -84,6 +84,7 @@ export const HierarchicalTrendModel: React.FC<HierarchicalTrendModelProps> = ({
             <PerformanceTrendChart 
               trainingType={tab} 
               rawUnified={rawUnified} 
+              chartType={chartType}
             />
           </div>
         ) : (
