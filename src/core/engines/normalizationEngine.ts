@@ -27,6 +27,7 @@ const TEAM_NORMALIZATION_RULES: Record<string, string> = {
   "ajantanephro": "Nephro",
   "diabetestaskforce": "DTF",
   "dtf": "DTF",
+  "axlear": "Axelar", // Added normalization rule for 'Axlear'
 };
 
 const TEAM_EXCLUSION_RULES = new Set([

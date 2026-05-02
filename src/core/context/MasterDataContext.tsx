@@ -213,16 +213,31 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
         getCollection('training_batches')
       ]);
       
-      // Separate nominations if they are marked in training_data
       const rawTraining = td as any[];
-      const normalizedTraining = normalizeDataset(rawTraining).filter(r => !processTeamData(r.team).excluded);
+      console.log("[MasterDataProvider] Raw Training Data Count:", rawTraining.length);
+      console.log("[MasterDataProvider] Sample Raw Training Record:", rawTraining[0]);
+
+      const normalizedTraining = normalizeDataset(rawTraining);
+      console.log("[MasterDataProvider] Normalized Training Data Count:", normalizedTraining.length);
+      console.log("[MasterDataProvider] Sample Normalized Training Record:", normalizedTraining[0]);
+
+      const filteredTraining = normalizedTraining.filter(r => {
+        const processed = processTeamData(r.team);
+        if (processed.excluded) {
+          console.log(`[MasterDataProvider] Excluding training record due to team: ${r.team}`);
+        }
+        return !processed.excluded;
+      });
+      console.log("[MasterDataProvider] Filtered Training Data Count (after team exclusion):", filteredTraining.length);
+      console.log("[MasterDataProvider] Sample Filtered Training Record:", filteredTraining[0]);
+
       const normalizedEmployees = (emps as any[])
         .map(normalizeEmployeeRecord)
         .filter(r => !processTeamData(r.team).excluded);
 
       setBaseData({
-        trainingData: normalizedTraining,
-        nominationData: normalizedTraining.filter(x => x.notified || x.data?.notified),
+        trainingData: filteredTraining,
+        nominationData: filteredTraining.filter(x => x.notified || x.data?.notified),
         employeeData: normalizedEmployees as Employee[],
         notificationHistory: nh as NotificationRecord[],
         trainingBatches: tb as TrainingBatch[]
