@@ -1,16 +1,13 @@
 import React from 'react';
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
+import { ResponsiveContainer, ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
+import { useTrendData } from '../hooks/useTrendData';
+import { UnifiedRecord } from '../../../types/reports';
 
 const mockData = [
   { month: "Apr", metric1: 60, metric2: 55 },
   { month: "May", metric1: 70, metric2: 65 },
   { month: "Jun", metric1: 75, metric2: 68 },
 ];
-
-import React from 'react';
-import { ResponsiveContainer, ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
-import { useTrendData } from '../hooks/useTrendData';
-import { UnifiedRecord } from '../../../types/reports';
 
 interface PerformanceTrendChartProps {
   trainingType: string;
