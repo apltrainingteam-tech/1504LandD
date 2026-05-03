@@ -324,7 +324,18 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
         }
       });
     };
-  }, [unified, tab, subView, lazyMatrices, ipKPI, apKPI, apPerfData, mipAttendanceData, mipPerfData, refresherAttData, refresherPerfData, capsuleAttData, capsulePerfData, gapMetrics, ranked, drilldownNodes, timeSeries, trainerStats]);
+  }, [
+    // Stable primitives instead of object arrays
+    unified.length,
+    tab,
+    subView,
+    lazyMatrices.size,
+    ranked.length,
+    drilldownNodes.length,
+    timeSeries.length,
+    trainerStats?.length || 0,
+    gapMetrics?.details?.length || 0
+  ]);
 
   const KPISkeletons = () => (
     <div className="dashboard-grid mb-24">

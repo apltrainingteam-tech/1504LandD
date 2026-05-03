@@ -68,6 +68,7 @@ export const usePerformanceData = ({
   tab: tabProp, selectedFY: fyProp, filter: filterProp, viewBy = 'Team', tsMode = 'score', pageMode,
   employees: propsEmps, attendance: propsAtt, scores: propsScs, nominations: propsNoms
 }: UsePerformanceDataProps): PerformanceDataset & { resolutionLevel: 'Global' | 'Cluster' | 'Team' } => {
+  // ⚠️ ALL HOOKS MUST BE CALLED AT TOP LEVEL - BEFORE ANY EARLY RETURNS
   const { filters: globalFilters } = useGlobalFilters();
   const { 
     finalData, 
@@ -75,6 +76,7 @@ export const usePerformanceData = ({
     trainers: masterTrainers, 
     eligibilityRules: rules 
   } = useMasterData();
+  const isEngineDebugActive = useDebugStore(state => state.enabled);
 
   // Use global filters as priority, but allow props to override
   const tab = globalFilters.trainingType !== 'ALL' ? globalFilters.trainingType : tabProp;
@@ -134,28 +136,12 @@ export const usePerformanceData = ({
       resolutionLevel: 'Global'
     };
   }
-
-  const isEngineDebugActive = useDebugStore(state => state.enabled);
   const isActiveNomination = (n: TrainingNomination) =>
     (n as any).isCancelled !== true &&
     (n as any).isVoided !== true &&
     (n as any).finalStatus !== 'VOID';
 
-  const resolutionLevel = useMemo(() => {
-    const hasTeam = !!globalFilters.team;
-    const hasCluster = !!globalFilters.cluster;
-    
-    if (hasTeam) return 'Team';
-    if (hasCluster) return 'Cluster'; // Viewing teams within a cluster
-    return 'Global'; // Viewing clusters
-  }, [globalFilters.team, globalFilters.cluster]);
-
-  const effectiveViewBy = useMemo(() => {
-    if (viewBy) return viewBy;
-    if (resolutionLevel === 'Global') return 'Cluster' as ViewByOption;
-    return 'Team' as ViewByOption;
-  }, [resolutionLevel, viewBy]);
-
+  // Early exit for debug mode
   if (isEngineDebugActive) {
     return {
       MONTHS: [],
@@ -195,10 +181,25 @@ export const usePerformanceData = ({
     };
   }
 
+  // Resolution level computation
+  const resolutionLevel = useMemo(() => {
+    const hasTeam = !!globalFilters.team;
+    const hasCluster = !!globalFilters.cluster;
+    
+    if (hasTeam) return 'Team';
+    if (hasCluster) return 'Cluster'; // Viewing teams within a cluster
+    return 'Global'; // Viewing clusters
+  }, [globalFilters.team, globalFilters.cluster]);
+
+  const effectiveViewBy = useMemo(() => {
+    if (viewBy) return viewBy;
+    if (resolutionLevel === 'Global') return 'Cluster' as ViewByOption;
+    return 'Team' as ViewByOption;
+  }, [resolutionLevel, viewBy]);
+
   useEffect(() => {
     saveSession({ employees, attendance, scores, nominations, rules, masterTeams, tab, selectedFY, filter });
   }, [employees, attendance, scores, nominations, rules, masterTeams, tab, selectedFY, filter]);
-
 
   const MONTHS = useMemo(() => {
     const months = getFiscalMonths(selectedFY);

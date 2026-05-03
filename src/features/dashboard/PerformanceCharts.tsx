@@ -42,9 +42,6 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
   const isEngineDebugActive = useDebugStore(state => state.enabled);
   const [presentationMode, setPresentationMode] = useState(false);
 
-  if (isEngineDebugActive) return null;
-  if (masterDataLoading) return <div>Loading master data...</div>;
-
   // --- PRESENTATION MODE SIDEBAR HIDING ---
   useEffect(() => {
     if (presentationMode) {
@@ -54,6 +51,10 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
     }
     return () => document.body.classList.remove('presentation-active');
   }, [presentationMode]);
+
+  // Early exit for debug/loading states (after all hooks)
+  if (isEngineDebugActive) return null;
+  if (masterDataLoading) return <div>Loading master data...</div>;
 
   const {
     activeNT,
