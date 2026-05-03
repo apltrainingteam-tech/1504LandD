@@ -17,6 +17,8 @@ export type GlobalFilterState = {
   trainingType: string;   // "ALL" | "IP" | "AP" | etc.
   trainer: string;        // "ALL" | trainerId
   fiscalYear: string;     // "YYYY-YY"
+  cluster: string | null;
+  team: string | null;
 };
 
 type GlobalFilterContextType = {
@@ -31,6 +33,8 @@ export const GlobalFilterProvider: React.FC<{ children: ReactNode }> = ({ childr
     trainingType: "ALL",
     trainer: "ALL",
     fiscalYear: getCurrentFYString(),
+    cluster: null,
+    team: null,
   });
 
   const setFilters = useCallback((updates: Partial<GlobalFilterState>) => {

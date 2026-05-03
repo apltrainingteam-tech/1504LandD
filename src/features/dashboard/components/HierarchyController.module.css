@@ -1,0 +1,133 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  background: #FFFFFF;
+  border: 1px solid #E4E8F0;
+  border-radius: 12px;
+  height: 520px;
+  overflow: hidden;
+  position: sticky;
+  top: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+}
+
+.header {
+  padding: 14px 20px;
+  background: #0F1C3F;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-bottom: none;
+}
+
+.headerTitle {
+  color: #FFFFFF;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 0;
+}
+
+.list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.list::-webkit-scrollbar-thumb {
+  background: #E4E8F0;
+  border-radius: 10px;
+}
+
+.clusterGroup {
+  border-bottom: 1px solid #F0F4FF;
+}
+
+.clusterRow {
+  display: flex;
+  align-items: center;
+  padding: 16px 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #FFFFFF;
+  gap: 16px;
+}
+
+.clusterRow:hover {
+  background: #F8FAFF;
+}
+
+.clusterRow.active {
+  background: rgba(79, 142, 247, 0.04);
+}
+
+.clusterRow.active .clusterName {
+  color: #4F8EF7;
+}
+
+.expandIcon {
+  color: #8A9BC0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  transition: transform 0.2s ease;
+}
+
+.clusterName {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0F1C3F;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  flex: 1;
+}
+
+.teamList {
+  overflow: hidden;
+  background: #F7F9FF;
+}
+
+.teamRow {
+  display: flex;
+  align-items: center;
+  padding: 12px 20px 12px 56px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  border-top: 1px solid rgba(0, 0, 0, 0.02);
+}
+
+.teamRow:hover {
+  background: #EDF2FF;
+}
+
+.teamRow.active {
+  background: #E0E7FF;
+}
+
+.teamRow.active .teamName {
+  color: #4F8EF7;
+  font-weight: 700;
+}
+
+.teamName {
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  flex: 1;
+}
+
+.indicator {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: #4F8EF7;
+}
+

@@ -22,7 +22,7 @@ export const GlobalFiltersBar: React.FC = () => {
   const { trainers } = useMasterData();
 
   return (
-    <div className="global-filters-bar glass-panel sticky-top">
+    <div className="global-filters-bar glass-panel">
       <div className="filters-container">
         {/* Training Type Filter */}
         <div className="filter-item">

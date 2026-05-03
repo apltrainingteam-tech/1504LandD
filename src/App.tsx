@@ -170,18 +170,18 @@ const App = () => {
 
     switch (view) {
       case 'reports': return (
-        <ErrorBoundary componentName="ReportsAnalytics" propsSnapshot={{ employees: emps.length, attendance: att.length }}>
+        <ErrorBoundary componentName="ReportsAnalytics" propsSnapshot={{ employees: emps?.length ?? 0, attendance: att?.length ?? 0 }}>
           <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} pageMode="overview" onNavigate={setView} />
         </ErrorBoundary>
       );
       case 'performance-tables':
       case 'performance': return (
-        <ErrorBoundary componentName="ReportsAnalytics[performance-insights]" propsSnapshot={{ employees: emps.length }}>
+        <ErrorBoundary componentName="ReportsAnalytics[performance-insights]" propsSnapshot={{ employees: emps?.length ?? 0 }}>
           <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} pageMode="performance-insights" onNavigate={setView} />
         </ErrorBoundary>
       );
       case 'performance-charts': return (
-        <ErrorBoundary componentName="PerformanceCharts" propsSnapshot={{ employees: emps.length, scores: scs.length }}>
+        <ErrorBoundary componentName="PerformanceCharts" propsSnapshot={{ employees: emps?.length ?? 0, scores: scs?.length ?? 0 }}>
           <PerformanceCharts employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} onNavigate={setView} />
         </ErrorBoundary>
       );
@@ -359,7 +359,7 @@ const App = () => {
 
       {/* Main Content Area */}
       <main className="main-content">
-        <header className="header mb-16">
+        <header className="header">
           <div className="global-search-container">
             <Search size={18} className="global-search-icon" />
             <input type="text" className="form-input global-search-input" placeholder="Search system globally..." />
@@ -374,7 +374,7 @@ const App = () => {
           </div>
         </header>
 
-        <div className="shell-kpi-row">
+        <div className="shell-kpi-row mt-4">
           <div
             className={`shell-kpi-card kpi-employees cursor-pointer ${view === 'employees' ? 'active' : ''}`}
             onClick={() => setView('employees')}

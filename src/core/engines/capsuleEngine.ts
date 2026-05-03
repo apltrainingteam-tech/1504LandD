@@ -21,6 +21,11 @@ export interface CapsuleMonthMapNode {
 
 export interface CapsuleAttendanceAggregates {
   clusterMonthMap: Record<string, CapsuleMonthMapNode>;
+  globalKPIs: {
+    totalNotified: number;
+    totalAttended: number;
+    attendancePercent: number;
+  };
 }
 
 export interface CapsuleCandidateAttendance {
@@ -93,14 +98,28 @@ export const buildCapsuleAttendanceMatrix = traceEngine("buildCapsuleAttendanceM
     }
   }
 
+  let totalNotified = 0;
+  let totalAttended = 0;
+
   for (const cluster of Object.values(clusterMonthMap)) {
     for (const data of Object.values(cluster.months)) {
       cluster.totalNotified += data.notified;
       cluster.totalAttended += data.attended;
+      totalNotified += data.notified;
+      totalAttended += data.attended;
     }
   }
 
-  return { clusterMonthMap };
+  const attendancePercent = totalNotified > 0 ? (totalAttended / totalNotified) * 100 : 0;
+
+  return {
+    clusterMonthMap,
+    globalKPIs: {
+      totalNotified,
+      totalAttended,
+      attendancePercent
+    }
+  };
 });
 
 export function getCapsuleAttendanceDrilldown(

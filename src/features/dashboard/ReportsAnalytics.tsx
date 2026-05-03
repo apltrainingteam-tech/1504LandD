@@ -53,7 +53,7 @@ type SubView = 'grouped' | 'timeseries' | 'trainer' | 'drilldown' | 'gap' | 'ip_
 import { useGlobalFilters } from '../../core/context/GlobalFilterContext';
 
 const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
-  employees, attendance, scores, nominations, demographics, pageMode = 'overview', onNavigate
+  employees = [], attendance = [], scores = [], nominations = [], demographics = [], pageMode = 'overview', onNavigate
 }) => {
   const { filters: globalFilters, setFilters } = useGlobalFilters();
   const { 
@@ -194,38 +194,40 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
   }, []);
 
   const {
-    months: MONTHS,
-    unified,
-    rawUnified,
-    apAttData: apData,
-    mipAttData: mipAttendanceData,
-    refresherAttData,
-    capsuleAttData,
-    apPerfData,
-    mipPerfData,
-    refresherPerfData,
-    capsulePerfData,
-    eligibilityResults,
-    gapMetrics,
-    groups,
-    ranked,
-    trainerStats,
-    drilldownNodes,
-    timeSeries,
-    ipData,
-    ipRankData,
-    ipKPI,
-    apKPI,
-    mipKPI,
-    refresherKPI,
-    capsuleKPI,
-    preApKPI
+    months: MONTHS = [],
+    unified = [],
+    rawUnified = [],
+    apAttData: apData = null,
+    mipAttData: mipAttendanceData = null,
+    refresherAttData = null,
+    capsuleAttData = null,
+    apPerfData = null,
+    mipPerfData = null,
+    refresherPerfData = null,
+    capsulePerfData = null,
+    eligibilityResults = [],
+    gapMetrics = { details: [] },
+    groups = [],
+    ranked = [],
+    trainerStats = [],
+    drilldownNodes = [],
+    timeSeries = [],
+    ipData = null,
+    ipRankData = null,
+    ipKPI = null,
+    apKPI = null,
+    mipKPI = null,
+    refresherKPI = null,
+    capsuleKPI = null,
+    preApKPI = null
   } = usePerformanceData({
     tab, selectedFY, filter, viewBy, tsMode, pageMode,
     employees, attendance, scores, nominations
   });
 
-  const { allClusters, allTeams, allTrainers } = useFilterOptions(rawUnified, attendance, tab, masterTrainers, pageFilters.clusters);
+  console.log("TABLE DATA:", rawUnified?.length);
+  const { allClusters, allTeams, allTrainers } = useFilterOptions(rawUnified || [], attendance || [], tab, masterTrainers, pageFilters.clusters || []);
+  const gapDetails = gapMetrics?.details || [];
 
   const toggleExpand = useCallback((k: string) => {
     setExpanded(prev => {
@@ -854,7 +856,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {gapMetrics.details.map((d: any) => (
+                {gapDetails.map((d: any) => (
                   <tr key={d.name}>
                     <td className="font-bold">{d.name}</td>
                     <td className="td-center">{d.eligible}</td>
@@ -867,7 +869,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                     </td>
                   </tr>
                 ))}
-                {gapMetrics.details.length === 0 && (
+                {gapDetails.length === 0 && (
                   <tr><td colSpan={5} className="td-center py-40 text-muted">No gap analysis data available</td></tr>
                 )}
               </tbody>

@@ -698,7 +698,7 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance, score
           padding: '0 24px 6px',
           background: 'transparent',
           position: 'sticky',
-          top: 0,
+          top: 'var(--header-height)',
           zIndex: 10,
           fontSize: '10px',
           fontWeight: 700,

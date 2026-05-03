@@ -81,21 +81,58 @@ export const usePerformanceData = ({
   const selectedFY = globalFilters.fiscalYear;
   const filter = useMemo(() => ({
     ...filterProp,
-    trainer: globalFilters.trainer !== 'ALL' ? globalFilters.trainer : filterProp.trainer
-  }), [filterProp, globalFilters.trainer]);
+    trainer: globalFilters.trainer !== 'ALL' ? globalFilters.trainer : filterProp.trainer,
+    teams: globalFilters.team ? [globalFilters.team] : (filterProp.teams || []),
+    clusters: globalFilters.cluster ? [globalFilters.cluster] : (filterProp.clusters || [])
+  }), [filterProp, globalFilters.trainer, globalFilters.team, globalFilters.cluster]);
 
   const employees = propsEmps || finalData.employeeData;
   const attendance = propsAtt || finalData.trainingData;
   const nominations = propsNoms || finalData.nominationData;
-  const scores = propsScs || attendance; 
+  const scores = propsScs || [];
 
   console.log("=== PERFORMANCE PIPELINE START ===");
-  console.log("DATA SOURCE OBJECT:", attendance);
-  console.log("RAW trainingData COUNT:", attendance?.length);
+  console.log("TRAINING DATA COUNT:", attendance?.length);
+  console.log("SCORE RECORD COUNT:", scores?.length);
   console.log("SAMPLE RAW RECORD:", attendance?.[0]);
 
   if (!attendance || attendance.length === 0) {
-    console.error("❌ NO DATA REACHING PERFORMANCE LAYER");
+    console.warn("⚠️ NO DATA REACHING PERFORMANCE LAYER - check if training data is loaded");
+    return {
+      MONTHS: [],
+      activeNT: tab,
+      rawUnified: [],
+      unified: [],
+      ipData: null,
+      ipRankData: null,
+      rawTimelines: new Map(),
+      filteredTimelines: new Map(),
+      apAttData: null,
+      mipAttData: null,
+      refresherAttData: null,
+      capsuleAttData: null,
+      apPerfData: null,
+      mipPerfData: null,
+      refresherPerfData: null,
+      capsulePerfData: null,
+      eligibilityResults: [],
+      gapMetrics: null,
+      groups: [],
+      ranked: [],
+      trainerStats: null,
+      drilldownNodes: [],
+      months: [],
+      timeSeries: [],
+      tabNoms: [],
+      ipKPI: null,
+      apKPI: null,
+      mipKPI: null,
+      refresherKPI: null,
+      capsuleKPI: null,
+      preApKPI: null,
+      isDebugMode: false,
+      resolutionLevel: 'Global'
+    };
   }
 
   const isEngineDebugActive = useDebugStore(state => state.enabled);
@@ -105,13 +142,13 @@ export const usePerformanceData = ({
     (n as any).finalStatus !== 'VOID';
 
   const resolutionLevel = useMemo(() => {
-    const hasTeam = filter.teams.length > 0;
-    const hasCluster = filter.clusters.length > 0;
+    const hasTeam = !!globalFilters.team;
+    const hasCluster = !!globalFilters.cluster;
     
     if (hasTeam) return 'Team';
     if (hasCluster) return 'Cluster'; // Viewing teams within a cluster
     return 'Global'; // Viewing clusters
-  }, [filter.teams, filter.clusters]);
+  }, [globalFilters.team, globalFilters.cluster]);
 
   const effectiveViewBy = useMemo(() => {
     if (viewBy) return viewBy;
@@ -233,6 +270,15 @@ export const usePerformanceData = ({
         return buildUnifiedDataset(employees, att, scs, noms, eligResults, masterTeams);
       });
       console.log("RAW UNIFIED COUNT:", result?.length);
+      console.log("NORMALIZED SAMPLE:", result.slice(0, 5).map(r => ({
+        trainingType: r.attendance.trainingType,
+        percent: r.score?.scores?.percent,
+        tScore: r.score?.scores?.tScore,
+        knowledge: r.score?.scores?.knowledge,
+        bse: r.score?.scores?.bse,
+        scienceScore: r.score?.scores?.scienceScore,
+        skillScore: r.score?.scores?.skillScore
+      })));
       saveSnapshot("rawUnified", result);
       return result;
     });
