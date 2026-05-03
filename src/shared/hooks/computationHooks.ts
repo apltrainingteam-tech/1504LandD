@@ -102,10 +102,10 @@ export function useMonthsFromData(unified: UnifiedRecord[]) {
  * Separate from main component to avoid inline mapping
  */
 export function useFilterOptions(
-  unified: UnifiedRecord[],
-  attendance: any[], 
+  unified: UnifiedRecord[] = [],
+  attendance: any[] = [], 
   trainingType?: string,
-  masterTrainers?: Trainer[],
+  masterTrainers: Trainer[] = [],
   selectedClusters: string[] = []
 ) {
   const allClusters = useMemo(() => {

@@ -53,7 +53,7 @@ type SubView = 'grouped' | 'timeseries' | 'trainer' | 'drilldown' | 'gap' | 'ip_
 import { useGlobalFilters } from '../../core/context/GlobalFilterContext';
 
 const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
-  employees, attendance, scores, nominations, demographics, pageMode = 'overview', onNavigate
+  employees = [], attendance = [], scores = [], nominations = [], demographics = [], pageMode = 'overview', onNavigate
 }) => {
   const { filters: globalFilters, setFilters } = useGlobalFilters();
   const { 
@@ -226,7 +226,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
   });
 
   console.log("TABLE DATA:", rawUnified?.length);
-  const { allClusters, allTeams, allTrainers } = useFilterOptions(rawUnified, attendance, tab, masterTrainers, pageFilters.clusters);
+  const { allClusters, allTeams, allTrainers } = useFilterOptions(rawUnified || [], attendance || [], tab, masterTrainers, pageFilters.clusters || []);
 
   const toggleExpand = useCallback((k: string) => {
     setExpanded(prev => {

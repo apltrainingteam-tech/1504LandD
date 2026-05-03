@@ -170,18 +170,18 @@ const App = () => {
 
     switch (view) {
       case 'reports': return (
-        <ErrorBoundary componentName="ReportsAnalytics" propsSnapshot={{ employees: emps.length, attendance: att.length }}>
+        <ErrorBoundary componentName="ReportsAnalytics" propsSnapshot={{ employees: emps?.length ?? 0, attendance: att?.length ?? 0 }}>
           <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} pageMode="overview" onNavigate={setView} />
         </ErrorBoundary>
       );
       case 'performance-tables':
       case 'performance': return (
-        <ErrorBoundary componentName="ReportsAnalytics[performance-insights]" propsSnapshot={{ employees: emps.length }}>
+        <ErrorBoundary componentName="ReportsAnalytics[performance-insights]" propsSnapshot={{ employees: emps?.length ?? 0 }}>
           <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} pageMode="performance-insights" onNavigate={setView} />
         </ErrorBoundary>
       );
       case 'performance-charts': return (
-        <ErrorBoundary componentName="PerformanceCharts" propsSnapshot={{ employees: emps.length, scores: scs.length }}>
+        <ErrorBoundary componentName="PerformanceCharts" propsSnapshot={{ employees: emps?.length ?? 0, scores: scs?.length ?? 0 }}>
           <PerformanceCharts employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} onNavigate={setView} />
         </ErrorBoundary>
       );
