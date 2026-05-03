@@ -108,6 +108,8 @@ button {
 .app-container {
   display: flex;
   min-height: 100vh;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 /* Presentation Mode Overrides */
@@ -115,8 +117,9 @@ body.presentation-active .sidebar {
   display: none !important;
 }
 
-body.presentation-active .app-container {
-  padding-left: 0 !important;
+.sidebar.modal-active {
+  opacity: 0;
+  pointer-events: none;
 }
 
 body.presentation-active .header {
@@ -136,7 +139,8 @@ body.presentation-active .main-content {
   display: flex;
   flex-direction: column;
   background: #0F1C3F;
-  z-index: 100;
+  z-index: 300;
+  position: relative;
   transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s ease;
   overflow-y: auto;
 }
@@ -355,6 +359,18 @@ body.presentation-active .main-content {
   padding: 20px;
   background: #F0F4FF;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 0;
+}
+
+.app-container {
+  min-width: 0;
+}
+
+.glass-panel,
+.overflow-x-auto,
+.overflow-x-auto > .data-table,
+.overflow-x-auto table {
+  min-width: 0;
 }
 
 .header {
@@ -689,7 +705,18 @@ body.presentation-active .main-content {
 .min-w-90 { min-width: 90px; }
 .h-full { height: 100%; }
 .overflow-hidden { overflow: hidden; }
-.overflow-x-auto { overflow-x: auto; }
+.overflow-x-auto {
+  overflow-x: auto;
+  width: 100%;
+  min-width: 0;
+}
+.overflow-x-auto > .data-table,
+.overflow-x-auto table {
+  width: auto !important;
+  min-width: 100% !important;
+  max-width: none !important;
+}
+
 .uppercase { text-transform: uppercase; }
 .font-bold { font-weight: 700; }
 .font-semibold { font-weight: 600; }
@@ -995,6 +1022,12 @@ table {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
+}
+
+.overflow-x-auto > .data-table,
+.overflow-x-auto table {
+  width: max-content !important;
+  min-width: 100% !important;
 }
 
 th {
