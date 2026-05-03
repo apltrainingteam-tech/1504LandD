@@ -266,42 +266,42 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
 
     if (!unified || unified.length === 0) return;
 
-    const cleanups: Array<() => void> = [];
+    const cleanups: Array<(() => void) | undefined> = [];
 
     const cleanup0 = scheduleIdle(
       () => ({}),
       () => setKpiStage('ready'),
       1, true
     );
-    cleanups.push(cleanup0);
+    if (cleanup0) cleanups.push(cleanup0);
 
     const cleanup1 = scheduleIdle(
       () => (subView === 'grouped' && ranked.length > 0 ? { ranked } : {}),
       () => setGroupedStage('ready'),
       20, true
     );
-    cleanups.push(cleanup1);
+    if (cleanup1) cleanups.push(cleanup1);
 
     const cleanup2 = scheduleIdle(
       () => (subView === 'timeseries' && timeSeries.length > 0 ? { timeSeries } : {}),
       () => setTimeseriesStage('ready'),
       40, true
     );
-    cleanups.push(cleanup2);
+    if (cleanup2) cleanups.push(cleanup2);
 
     const cleanup3 = scheduleIdle(
       () => (subView === 'trainer' && trainerStats.length > 0 ? { trainerStats } : {}),
       () => setTrainerStage('ready'),
       60, true
     );
-    cleanups.push(cleanup3);
+    if (cleanup3) cleanups.push(cleanup3);
 
     const cleanup4 = scheduleIdle(
       () => (subView === 'drilldown' && drilldownNodes.length > 0 ? { drilldownNodes } : {}),
       () => setDrilldownStage('ready'),
       80, true
     );
-    cleanups.push(cleanup4);
+    if (cleanup4) cleanups.push(cleanup4);
 
     const matrixKey = `matrix_${tab}_${subView}`;
     if (lazyMatrices.has(matrixKey)) {
@@ -310,10 +310,20 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
         () => setMatrixStage('ready'),
         100, true
       );
-      cleanups.push(cleanup5);
+      if (cleanup5) cleanups.push(cleanup5);
     }
 
-    return () => cleanups.forEach(c => c());
+    return () => {
+      cleanups.forEach(c => {
+        if (typeof c === 'function') {
+          try {
+            c();
+          } catch (e) {
+            console.error('Cleanup error:', e);
+          }
+        }
+      });
+    };
   }, [unified, tab, subView, lazyMatrices, ipKPI, apKPI, apPerfData, mipAttendanceData, mipPerfData, refresherAttData, refresherPerfData, capsuleAttData, capsulePerfData, gapMetrics, ranked, drilldownNodes, timeSeries, trainerStats]);
 
   const KPISkeletons = () => (
