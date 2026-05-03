@@ -326,13 +326,13 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
     };
   }, [
     // Stable primitives instead of object arrays
-    unified.length,
+    unified?.length || 0,
     tab,
     subView,
-    lazyMatrices.size,
-    ranked.length,
-    drilldownNodes.length,
-    timeSeries.length,
+    lazyMatrices?.size || 0,
+    ranked?.length || 0,
+    drilldownNodes?.length || 0,
+    timeSeries?.length || 0,
     trainerStats?.length || 0,
     gapMetrics?.details?.length || 0
   ]);

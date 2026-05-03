@@ -98,13 +98,85 @@ export const usePerformanceData = ({
   console.log("SCORE RECORD COUNT:", scores?.length);
   console.log("SAMPLE RAW RECORD:", attendance?.[0]);
 
+  // ⚠️ CALL ALL HOOKS HERE, BEFORE ANY CONDITIONAL LOGIC
+  const isActiveNomination = (n: TrainingNomination) =>
+    (n as any).isCancelled !== true &&
+    (n as any).isVoided !== true &&
+    (n as any).finalStatus !== 'VOID';
+
+  // Resolution level computation
+  const resolutionLevel = useMemo(() => {
+    const hasTeam = !!globalFilters.team;
+    const hasCluster = !!globalFilters.cluster;
+    
+    if (hasTeam) return 'Team';
+    if (hasCluster) return 'Cluster'; // Viewing teams within a cluster
+    return 'Global'; // Viewing clusters
+  }, [globalFilters.team, globalFilters.cluster]);
+
+  const effectiveViewBy = useMemo(() => {
+    if (viewBy) return viewBy;
+    if (resolutionLevel === 'Global') return 'Cluster' as ViewByOption;
+    return 'Team' as ViewByOption;
+  }, [resolutionLevel, viewBy]);
+
+  const MONTHS = useMemo(() => {
+    const months = getFiscalMonths(selectedFY);
+    console.log(`[PIPELINE] FISCAL RANGE (${selectedFY}):`, months);
+    return months;
+  }, [selectedFY]);
+  
+  const activeNT = useMemo(() => {
+    const nt = normalizeTrainingType(tab);
+    console.log(`[PIPELINE] ACTIVE TRAINING TYPE: "${tab}" -> normalized: "${nt}"`);
+    return nt;
+  }, [tab]);
+
+  useEffect(() => {
+    saveSession({ employees, attendance, scores, nominations, rules, masterTeams, tab, selectedFY, filter });
+  }, [employees, attendance, scores, nominations, rules, masterTeams, tab, selectedFY, filter]);
+
+  // Data Normalization (Heavy - Cached internally)
+  const normalizedAttendance = useMemo(() => {
+    return logStep("Attendance Normalization", () => {
+      const result = attendance.map(a => {
+        // Generate a robust monthKey (YYYY-MM)
+        // If a.month already exists (legacy), use it. 
+        // Otherwise, extract from attendanceDate or notificationDate.
+        const rawDate = a.attendanceDate || a.notificationDate || a.date || '';
+        let monthKey = a.month || '';
+
+        if (!monthKey && rawDate) {
+          // If rawDate is YYYY-MM-DD, take first 7 chars
+          if (/^\d{4}-\d{2}-\d{2}/.test(rawDate)) {
+            monthKey = rawDate.substring(0, 7);
+          } else {
+            // Try parsing if it's some other format (should already be normalized by upload)
+            const d = new Date(rawDate);
+            if (!isNaN(d.getTime())) {
+              monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            }
+          }
+        }
+        
+        return { ...a, month: monthKey };
+      });
+      console.log("NORMALIZED COUNT:", result?.length);
+      saveSnapshot("normalizedAttendance", result);
+      return result;
+    });
+  }, [attendance]);
+
+  // NOW CHECK DATA AND RETURN EARLY IF EMPTY
+  // ⚠️ This guard comes AFTER all hooks are called
   if (!attendance || attendance.length === 0) {
     console.warn("⚠️ NO DATA REACHING PERFORMANCE LAYER - check if training data is loaded");
     return {
       MONTHS: [],
-      activeNT: tab,
+      activeNT: activeNT,
       rawUnified: [],
       unified: [],
+      filteredData: [],
       ipData: null,
       ipRankData: null,
       rawTimelines: new Map(),
@@ -136,16 +208,12 @@ export const usePerformanceData = ({
       resolutionLevel: 'Global'
     };
   }
-  const isActiveNomination = (n: TrainingNomination) =>
-    (n as any).isCancelled !== true &&
-    (n as any).isVoided !== true &&
-    (n as any).finalStatus !== 'VOID';
 
-  // Early exit for debug mode
+  // Early exit for debug mode  
   if (isEngineDebugActive) {
     return {
       MONTHS: [],
-      activeNT: tab,
+      activeNT: activeNT,
       rawUnified: [],
       unified: [],
       filteredData: [],
@@ -180,69 +248,6 @@ export const usePerformanceData = ({
       resolutionLevel: 'Global'
     };
   }
-
-  // Resolution level computation
-  const resolutionLevel = useMemo(() => {
-    const hasTeam = !!globalFilters.team;
-    const hasCluster = !!globalFilters.cluster;
-    
-    if (hasTeam) return 'Team';
-    if (hasCluster) return 'Cluster'; // Viewing teams within a cluster
-    return 'Global'; // Viewing clusters
-  }, [globalFilters.team, globalFilters.cluster]);
-
-  const effectiveViewBy = useMemo(() => {
-    if (viewBy) return viewBy;
-    if (resolutionLevel === 'Global') return 'Cluster' as ViewByOption;
-    return 'Team' as ViewByOption;
-  }, [resolutionLevel, viewBy]);
-
-  useEffect(() => {
-    saveSession({ employees, attendance, scores, nominations, rules, masterTeams, tab, selectedFY, filter });
-  }, [employees, attendance, scores, nominations, rules, masterTeams, tab, selectedFY, filter]);
-
-  const MONTHS = useMemo(() => {
-    const months = getFiscalMonths(selectedFY);
-    console.log(`[PIPELINE] FISCAL RANGE (${selectedFY}):`, months);
-    return months;
-  }, [selectedFY]);
-  
-  const activeNT = useMemo(() => {
-    const nt = normalizeTrainingType(tab);
-    console.log(`[PIPELINE] ACTIVE TRAINING TYPE: "${tab}" -> normalized: "${nt}"`);
-    return nt;
-  }, [tab]);
-
-  // Data Normalization (Heavy - Cached internally)
-  const normalizedAttendance = useMemo(() => {
-    return logStep("Attendance Normalization", () => {
-      const result = attendance.map(a => {
-        // Generate a robust monthKey (YYYY-MM)
-        // If a.month already exists (legacy), use it. 
-        // Otherwise, extract from attendanceDate or notificationDate.
-        const rawDate = a.attendanceDate || a.notificationDate || a.date || '';
-        let monthKey = a.month || '';
-
-        if (!monthKey && rawDate) {
-          // If rawDate is YYYY-MM-DD, take first 7 chars
-          if (/^\d{4}-\d{2}-\d{2}/.test(rawDate)) {
-            monthKey = rawDate.substring(0, 7);
-          } else {
-            // Try parsing if it's some other format (should already be normalized by upload)
-            const d = new Date(rawDate);
-            if (!isNaN(d.getTime())) {
-              monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-            }
-          }
-        }
-        
-        return { ...a, month: monthKey };
-      });
-      console.log("NORMALIZED COUNT:", result?.length);
-      saveSnapshot("normalizedAttendance", result);
-      return result;
-    });
-  }, [attendance]);
 
 
   const rawUnified = useMemo(() => {
@@ -316,7 +321,8 @@ export const usePerformanceData = ({
     );
   }, [unified, tabNoms, masterTeams, activeNT, scores]);
 
-  const ipData = useMemo(() => useIPData(unified, MONTHS, activeNT), [unified, MONTHS, activeNT]);
+  // ⚠️ HOOKS MUST NOT BE CALLED INSIDE useMemo - call them directly
+  const ipData = useIPData(unified, MONTHS, activeNT);
   const apData = useAPData(activeTimelines, MONTHS, activeNT, unified, tabNoms);
   const mipData = useMIPData(activeTimelines, MONTHS, activeNT, unified);
   const refresherData = useRefresherData(activeTimelines, MONTHS, activeNT, unified);
