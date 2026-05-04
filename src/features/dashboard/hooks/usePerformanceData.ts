@@ -5,14 +5,14 @@ import { normalizeTrainingType } from '../../../core/engines/normalizationEngine
 import { getEligibleEmployees } from '../../../core/engines/eligibilityEngine';
 import { getFiscalMonths, isWithinFY } from '../../../core/utils/fiscalYear';
 import { buildEmployeeTimelines } from '../../../core/engines/apEngine';
-import { 
-  useGapMetrics, 
-  useGroupedData, 
-  useRankedGroups, 
-  useTrainerStats, 
-  useDrilldownNodes, 
-  useMonthsFromData, 
-  useTimeSeries 
+import {
+  useGapMetrics,
+  useGroupedData,
+  useRankedGroups,
+  useTrainerStats,
+  useDrilldownNodes,
+  useMonthsFromData,
+  useTimeSeries
 } from '../../../shared/hooks/computationHooks';
 
 import { Employee } from '../../../types/employee';
@@ -50,21 +50,21 @@ export const usePerformanceData = ({
   tab: tabProp, filter: filterProp, viewBy = 'Team', tsMode = 'score',
   employees: propsEmps, attendance: propsAtt, scores: propsScs, nominations: propsNoms
 }: UsePerformanceDataProps): PerformanceDataset & { resolutionLevel: 'Global' | 'Cluster' | 'Team' } => {
-  
+
   // 1. Core State Hooks
   const { filters: globalFilters } = useGlobalFilters();
-  const { 
-    finalData, 
-    teams: masterTeams, 
-    trainers: masterTrainers, 
-    eligibilityRules: rules 
+  const {
+    finalData,
+    teams: masterTeams,
+    trainers: masterTrainers,
+    eligibilityRules: rules
   } = useMasterData();
   const isEngineDebugActive = useDebugStore(state => state.enabled);
 
   // 2. Derive Configuration
   const tab = globalFilters.trainingType !== 'ALL' ? globalFilters.trainingType : tabProp;
   const selectedFY = globalFilters.fiscalYear;
-  
+
   const filter = useMemo(() => ({
     ...filterProp,
     trainer: globalFilters.trainer !== 'ALL' ? globalFilters.trainer : filterProp.trainer,
@@ -132,10 +132,10 @@ export const usePerformanceData = ({
           return { ...n, month: m };
         })
         .filter(n => normalizeTrainingType(n.trainingType) === activeNT);
-        
+
       const rule = rules.find(r => normalizeTrainingType(r.trainingType) === activeNT);
       const eligResults = getEligibleEmployees(tab as TrainingType, rule, employees, attendance, nominations);
-      
+
       return buildUnifiedDataset(employees, att, scs, noms, eligResults, masterTeams);
     });
   }, [activeNT, normalizedAttendance, scores, nominations, employees, masterTeams, rules, tab, attendance]);
@@ -175,7 +175,7 @@ export const usePerformanceData = ({
     const rule = rules.find(r => normalizeTrainingType(r.trainingType) === activeNT);
     return getEligibleEmployees(activeNT as TrainingType, rule, employees, attendance, nominations);
   }, [activeNT, rules, employees, attendance, nominations]);
-  
+
   const gapMetrics = useGapMetrics(tab, eligibilityResults, attendance);
   const groups = useGroupedData(unified, effectiveViewBy, tabNoms, employees, masterTeams);
   const ranked = useRankedGroups(groups, tab);
