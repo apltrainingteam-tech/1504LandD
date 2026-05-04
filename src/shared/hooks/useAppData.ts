@@ -61,6 +61,7 @@ export const useAppData = () => {
             month: (attendanceDate as string).substring(0, 7),
             attendanceStatus: r.attendanceStatus || 'Present',
             employeeStatus: r.employeeStatus || 'Active',
+            trainer: r.trainer || row.trainer || r.sessionTrainer || row.sessionTrainer || 'Unassigned',
             aadhaarNumber: r.aadhaarNumber || row.aadhaarNumber,
             mobileNumber: r.mobileNumber || row.mobileNumber,
             name: r.name || row.name,

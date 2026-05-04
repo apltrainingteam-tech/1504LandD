@@ -47,27 +47,35 @@ export const TOE: React.FC<TOEProps> = ({ employees, attendance, scores }) => {
 
   // Transform Data
   const { tableData, trainers } = useMemo(() => {
-    // Filter by FY
+    // 1. Filter by Fiscal Year
     const fyAttendance = attendance.filter(a => isWithinFY(a.attendanceDate || a.date || a.month, selectedFY));
     
-    // Also filter by global training type if not 'ALL'
+    // 2. Filter by Global Training Type (or all if 'ALL')
     const typeFiltered = filters.trainingType === 'ALL' 
       ? fyAttendance 
       : fyAttendance.filter(a => normalizeTrainingType(a.trainingType) === activeType);
 
     const uniqueTrainers = [...new Set(typeFiltered.map(a => a.sessionTrainer || a.trainer).filter(Boolean))].sort();
 
-    // Grouping by Batch
+    // 3. Batch/Session Grouping
     const batchesMap = new Map<string, { type: string, trainer: string, month: string, team: string, count: number }>();
 
     typeFiltered.forEach(a => {
       const type = normalizeTrainingType(a.trainingType);
       const trainer = a.sessionTrainer || a.trainer || 'Unassigned';
-      const date = a.attendanceDate || a.date || a.month || '';
-      const team = a.team || a.sessionTeam || 'Unknown';
-      const monthKey = date.substring(0, 7); // YYYY-MM
       
-      const bid = getBatchId(a.trainingType, date, team, trainer);
+      // Handle Date object or string safely
+      const dateVal = a.attendanceDate || a.date || a.month;
+      if (!dateVal) return;
+      
+      const d = new Date(dateVal);
+      if (isNaN(d.getTime())) return;
+      
+      const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const dateStr = d.toISOString().split('T')[0];
+      const team = a.team || a.sessionTeam || 'Unknown';
+      
+      const bid = getBatchId(a.trainingType, dateStr, team, trainer);
       
       if (!batchesMap.has(bid)) {
         batchesMap.set(bid, { type, trainer, month: monthKey, team, count: 0 });
@@ -75,8 +83,9 @@ export const TOE: React.FC<TOEProps> = ({ employees, attendance, scores }) => {
       batchesMap.get(bid)!.count++;
     });
 
-    // Aggregate into Cell Data
+    // 4. Cell Aggregation
     const data: Record<string, string> = {};
+    
     batchesMap.forEach(b => {
       const key = `${b.trainer}_${b.month}`;
       if (b.type === 'IP' || b.type === 'MIP') {
@@ -87,9 +96,8 @@ export const TOE: React.FC<TOEProps> = ({ employees, attendance, scores }) => {
         if (!data[key]) {
           data[key] = entry;
         } else {
-          if (!data[key].includes(b.team)) {
-            data[key] += `,\n${entry}`;
-          }
+          // Comma-separated list for others
+          data[key] += `, ${entry}`;
         }
       }
     });
@@ -104,7 +112,7 @@ export const TOE: React.FC<TOEProps> = ({ employees, attendance, scores }) => {
         <div className={styles.titleSection}>
           <h1 className={styles.title}>TOE Analytics</h1>
           <p className={styles.subtitle}>
-            {isIpMip ? 'In-Clinic / Mega In-Clinic Performance' : 'Monthly Training Performance Report'} · FY {selectedFY}
+            {isIpMip ? 'Participant Coverage Report' : 'Team Training Distribution'} · FY {selectedFY}
           </p>
         </div>
       </div>
@@ -112,7 +120,7 @@ export const TOE: React.FC<TOEProps> = ({ employees, attendance, scores }) => {
       <div className={styles.reportSection}>
         <div className={styles.tableContainer}>
           <div className={styles.scrollWrapper}>
-            <table className={`${styles.toeTable} ${isIpMip ? styles.yellowTheme : styles.blueTheme}`}>
+            <table className={styles.toeTable}>
               <thead>
                 <tr>
                   <th className={styles.stickyCol}>Trainer</th>
@@ -125,7 +133,7 @@ export const TOE: React.FC<TOEProps> = ({ employees, attendance, scores }) => {
                 {trainers.length === 0 ? (
                   <tr>
                     <td colSpan={months.length + 1} className={styles.emptyState}>
-                      No training data found for {filters.trainingType === 'ALL' ? 'any' : filters.trainingType} in {selectedFY}.
+                      No training activity found for {filters.trainingType === 'ALL' ? 'the selected' : filters.trainingType} type in {selectedFY}.
                     </td>
                   </tr>
                 ) : (
@@ -141,9 +149,7 @@ export const TOE: React.FC<TOEProps> = ({ employees, attendance, scores }) => {
                                 {isIpMip ? (
                                   <span className={styles.badge}>{cellValue}</span>
                                 ) : (
-                                  cellValue.split('\n').map((line, i) => (
-                                    <div key={i}>{line}</div>
-                                  ))
+                                  <span className={styles.teamEntry}>{cellValue}</span>
                                 )}
                               </div>
                             )}

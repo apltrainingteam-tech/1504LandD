@@ -191,13 +191,13 @@ export const normalizeTrainingRecord = (record: any) => {
 
     // STRING NORMALIZATION (For Logic)
     trainingType: normalizeString(record.trainingType),
-    team: processTeamData(record.team).normalized,
-    trainer: normalizeString(record.trainer),
+    team: processTeamData(record.team || record.sessionTeam).normalized,
+    trainer: normalizeString(record.trainer || record.sessionTrainer || record.trainerName || record.trainerId || record.sessionTrainerId),
 
     // SAFE FALLBACKS / LABELS (For UI Display)
     trainingTypeLabel: formatTrainingType(record.trainingType).formatted,
-    teamLabel: formatTeamName(record.team || "").formatted || "Unknown",
-    trainerLabel: preserveLabel(record.trainer, "Unassigned"),
+    teamLabel: formatTeamName(record.team || record.sessionTeam || "").formatted || "Unknown",
+    trainerLabel: preserveLabel(record.trainer || record.sessionTrainer || record.trainerName || record.trainerId || record.sessionTrainerId, "Unassigned"),
 
     // DATE NORMALIZATION
     date: normalizeDate(record.date || record.attendanceDate || record.startDate),
