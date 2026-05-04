@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useGlobalFilters } from '../../core/context/GlobalFilterContext';
 import { getFiscalMonths, formatMonthLabel, isWithinFY } from '../../core/utils/fiscalYear';
-import { normalizeTrainingType } from '../../core/engines/normalizationEngine';
+import { normalizeTrainingType, toProperCase } from '../../core/engines/normalizationEngine';
 import styles from './TOE.module.css';
 
 interface TOEProps {
@@ -55,14 +55,14 @@ export const TOE: React.FC<TOEProps> = ({ employees, attendance, scores }) => {
       ? fyAttendance 
       : fyAttendance.filter(a => normalizeTrainingType(a.trainingType) === activeType);
 
-    const uniqueTrainers = [...new Set(typeFiltered.map(a => a.sessionTrainer || a.trainer).filter(Boolean))].sort();
+    const uniqueTrainers = [...new Set(typeFiltered.map(a => toProperCase(a.sessionTrainer || a.trainer)).filter(Boolean))].sort();
 
     // 3. Batch/Session Grouping
     const batchesMap = new Map<string, { type: string, trainer: string, month: string, team: string, count: number }>();
 
     typeFiltered.forEach(a => {
       const type = normalizeTrainingType(a.trainingType);
-      const trainer = a.sessionTrainer || a.trainer || 'Unassigned';
+      const trainer = toProperCase(a.sessionTrainer || a.trainer || 'Unassigned');
       
       // Handle Date object or string safely
       const dateVal = a.attendanceDate || a.date || a.month;
@@ -97,7 +97,7 @@ export const TOE: React.FC<TOEProps> = ({ employees, attendance, scores }) => {
           data[key] = entry;
         } else {
           // Comma-separated list for others
-          data[key] += `, ${entry}`;
+          data[key] += `\n${entry}`;
         }
       }
     });
@@ -149,7 +149,11 @@ export const TOE: React.FC<TOEProps> = ({ employees, attendance, scores }) => {
                                 {isIpMip ? (
                                   <span className={styles.badge}>{cellValue}</span>
                                 ) : (
-                                  <span className={styles.teamEntry}>{cellValue}</span>
+                                  <div className={styles.teamList}>
+                                    {cellValue.split('\n').map((item, i) => (
+                                      <span key={i} className={styles.teamEntry}>{item}</span>
+                                    ))}
+                                  </div>
                                 )}
                               </div>
                             )}
