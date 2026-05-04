@@ -24,7 +24,8 @@ import {
   Settings,
   Pin,
   PinOff,
-  ShieldAlert
+  ShieldAlert,
+  LayoutDashboard
 } from 'lucide-react';
 import { useTheme } from './core/context/ThemeContext';
 import { FilterProvider } from './core/context/FilterProvider';
@@ -80,6 +81,12 @@ interface SidebarSection {
 }
 
 const sidebarSections: SidebarSection[] = [
+  {
+    title: "GENERAL",
+    items: [
+      { label: "Overview", view: "reports", icon: LayoutDashboard }
+    ]
+  },
   {
     title: "REQUIREMENT",
     items: [
@@ -295,7 +302,7 @@ const App = () => {
           onMouseEnter={() => setIsSidebarHovered(true)}
           onMouseLeave={() => setIsSidebarHovered(false)}
         >
-        <div className="sidebar-logo">
+        <div className="sidebar-logo" onClick={() => setView('reports')} style={{ cursor: 'pointer' }}>
           <img
             src={logoUrl}
             alt="Ajanta Pharma logo"
