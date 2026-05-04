@@ -56,6 +56,7 @@ import { DataQualityCenter } from './features/dashboard/DataQualityCenter';
 import { AgentDebugPanel } from './features/debug/AgentDebugPanel';
 import { ErrorBoundary } from './core/debug/ErrorBoundary';
 import { GlobalFiltersBar } from './shared/components/GlobalFiltersBar';
+import { TOE } from './features/dashboard/TOE';
 
 
 // Services & Types
@@ -65,7 +66,7 @@ import { Attendance, TrainingScore, TrainingNomination, Demographics as DemoType
 import { useAppData } from './shared/hooks/useAppData';
 import { getCurrentUser } from './core/context/userContext';
 
-type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'nominations' | 'notification' | 'training-data' | 'gap-analysis' | 'performance-tables' | 'performance-charts' | 'performance' | 'srm' | 'defaulters' | 'calendar' | 'master-settings' | 'data-quality' | 'dev/engine-debug';
+type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'nominations' | 'notification' | 'training-data' | 'gap-analysis' | 'performance-tables' | 'performance-charts' | 'performance' | 'srm' | 'defaulters' | 'calendar' | 'master-settings' | 'data-quality' | 'toe' | 'dev/engine-debug';
 interface SidebarItem {
   label: string;
   view: string;
@@ -103,7 +104,8 @@ const sidebarSections: SidebarSection[] = [
     title: "PERFORMANCE",
     items: [
       { label: "Performance Tables", view: "performance-tables", icon: FileText },
-      { label: "Performance Charts", view: "performance-charts", icon: BarChart3 }
+      { label: "Performance Charts", view: "performance-charts", icon: BarChart3 },
+      { label: "TOE", view: "toe", icon: Target }
     ]
   },
   {
@@ -183,6 +185,11 @@ const App = () => {
       case 'performance-charts': return (
         <ErrorBoundary componentName="PerformanceCharts" propsSnapshot={{ employees: emps?.length ?? 0, scores: scs?.length ?? 0 }}>
           <PerformanceCharts employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} onNavigate={setView} />
+        </ErrorBoundary>
+      );
+      case 'toe': return (
+        <ErrorBoundary componentName="TOE" propsSnapshot={{ employees: emps?.length ?? 0 }}>
+          <TOE employees={emps} attendance={att} scores={scs} />
         </ErrorBoundary>
       );
       case 'srm': return (
