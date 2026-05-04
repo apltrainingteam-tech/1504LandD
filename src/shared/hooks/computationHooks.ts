@@ -16,6 +16,8 @@ import { EligibilityResult } from '../../core/engines/eligibilityEngine';
 import { Employee } from '../../types/employee';
 import { getAvailableTrainers } from '../../core/engines/trainerEngine';
 import { Team, Trainer } from '../../core/context/MasterDataContext';
+import { normalizeTrainingType, toProperCase, normalizeForMatch } from '../../core/engines/normalizationEngine';
+import { isWithinFY } from '../../core/utils/fiscalYear';
 
 /**
  * Hook: Compute grouped data independently
@@ -29,7 +31,7 @@ export function useGroupedData(
   masterTeams: Team[]
 ) {
   return useMemo(() => {
-    return groupData(unified, viewBy, tabNoms, employees, masterTeams);
+    return groupData(unified, viewBy, tabNoms, employees);
   }, [unified, viewBy, tabNoms, employees, masterTeams]);
 }
 
@@ -165,3 +167,88 @@ export function useFilterOptions(
 
 
 
+
+/**
+ * Hook: Compute Trainer-Level KPI stats for TOE
+ */
+export function useTOEStats(
+  attendance: any[],
+  masterTrainers: Trainer[],
+  selectedFY: string,
+  filters: any
+) {
+  return useMemo(() => {
+    const activeType = normalizeTrainingType(filters.trainingType);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+
+    const statsMap = new Map<string, {
+      trainerName: string;
+      batches: Set<string>;
+      attendees: Set<string>;
+      avatarUrl: string | null;
+    }>();
+
+    attendance.forEach(a => {
+      const dateVal = a.attendanceDate || a.date || a.month;
+      if (!dateVal) return;
+      
+      const d = new Date(dateVal);
+      if (isNaN(d.getTime()) || d > today) return;
+      if (!isWithinFY(dateVal, selectedFY)) return;
+
+      const type = normalizeTrainingType(a.trainingType);
+      if (filters.trainingType !== 'ALL' && type !== activeType) return;
+
+      const rawTrainer = a.sessionTrainer || a.trainer || 'Unassigned';
+      const trainerName = toProperCase(rawTrainer);
+
+      // Global trainer filter
+      if (filters.trainer !== 'ALL' && toProperCase(filters.trainer) !== trainerName) return;
+      
+      // Global team filter
+      if (filters.team && a.teamId !== filters.team) return;
+
+      if (!statsMap.has(trainerName)) {
+        const mt = masterTrainers.find(t => 
+          normalizeForMatch(t.name) === normalizeForMatch(rawTrainer) ||
+          normalizeForMatch(t.id) === normalizeForMatch(rawTrainer)
+        );
+        statsMap.set(trainerName, {
+          trainerName,
+          batches: new Set(),
+          attendees: new Set(),
+          avatarUrl: mt?.avatarUrl || null,
+          category: mt?.category || 'Unknown'
+        });
+      }
+
+      const stats = statsMap.get(trainerName)!;
+      const team = a.team || a.sessionTeam || 'Unknown';
+      const dateStr = d.toISOString().split('T')[0];
+
+      // Batch Identity Rules
+      let bid = '';
+      if (type === 'IP' || type === 'MIP') {
+        bid = `${type}_${trainerName}_${dateStr}`;
+      } else {
+        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        bid = `${type}_${trainerName}_${team}_${monthKey}`;
+      }
+      stats.batches.add(bid);
+
+      // Candidates (Present only)
+      if (String(a.attendanceStatus || '').toLowerCase() === 'present') {
+        stats.attendees.add(a.employeeId);
+      }
+    });
+
+    return Array.from(statsMap.values()).map(s => ({
+      trainerName: s.trainerName,
+      trainingsConducted: s.batches.size,
+      candidatesTrained: s.attendees.size,
+      avatarUrl: s.avatarUrl,
+      category: s.category
+    })).sort((a, b) => a.trainerName.localeCompare(b.trainerName));
+  }, [attendance, masterTrainers, selectedFY, filters]);
+}

@@ -1,7 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useGlobalFilters } from '../../core/context/GlobalFilterContext';
 import { getFiscalMonths, formatMonthLabel, isWithinFY } from '../../core/utils/fiscalYear';
 import { normalizeTrainingType, toProperCase } from '../../core/engines/normalizationEngine';
+import { useMasterData } from '../../core/context/MasterDataContext';
+import { useTOEStats } from '../../shared/hooks/computationHooks';
+import API_BASE from '../../config/api';
+import { ChevronDown, ChevronUp, Users, Presentation } from 'lucide-react';
 import styles from './TOE.module.css';
 
 interface TOEProps {
@@ -38,9 +42,30 @@ const getBatchId = (
 
 export const TOE: React.FC<TOEProps> = ({ employees, attendance, scores }) => {
   const { filters } = useGlobalFilters();
+  const { trainers: masterTrainers } = useMasterData();
   const selectedFY = filters.fiscalYear || '2024-25';
   const activeType = normalizeTrainingType(filters.trainingType);
   const isIpMip = activeType === 'IP' || activeType === 'MIP';
+
+  const toeStats = useTOEStats(attendance, masterTrainers, selectedFY, filters);
+
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({
+    HO: false,
+    RTM: false
+  });
+
+  const toggleGroup = (group: string) => {
+    setCollapsedGroups(prev => ({ ...prev, [group]: !prev[group] }));
+  };
+
+  const groupedStats = useMemo(() => {
+    const groups: Record<string, any[]> = { HO: [], RTM: [] };
+    toeStats.forEach(s => {
+      const cat = s.category === 'RTM' ? 'RTM' : 'HO';
+      groups[cat].push(s);
+    });
+    return groups;
+  }, [toeStats]);
 
   // Get months for columns
   const months = useMemo(() => getFiscalMonths(selectedFY), [selectedFY]);
@@ -115,6 +140,73 @@ export const TOE: React.FC<TOEProps> = ({ employees, attendance, scores }) => {
             {isIpMip ? 'Participant Coverage Report' : 'Team Training Distribution'} · FY {selectedFY}
           </p>
         </div>
+      </div>
+
+      {/* Trainer KPI Groups */}
+      <div className={styles.kpiContainer}>
+        {['HO', 'RTM'].map(group => {
+          const stats = groupedStats[group] || [];
+          if (stats.length === 0) return null;
+          const isCollapsed = collapsedGroups[group];
+
+          return (
+            <div key={group} className={styles.groupSection}>
+              <div 
+                className={styles.groupHeader} 
+                onClick={() => toggleGroup(group)}
+              >
+                <div className={styles.groupTitle}>
+                  <span className={styles.groupLabel}>{group} Trainers</span>
+                  <span className={styles.groupCount}>({stats.length})</span>
+                </div>
+                {isCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+              </div>
+
+              {!isCollapsed && (
+                <div className={styles.statsGrid}>
+                  {stats.map(stat => {
+                    const baseUrl = API_BASE.replace('/api', '');
+                    const avatarUrl = stat.avatarUrl ? (stat.avatarUrl.startsWith('http') ? stat.avatarUrl : `${baseUrl}${stat.avatarUrl}`) : null;
+                    
+                    return (
+                      <div key={stat.trainerName} className={styles.statCard}>
+                        <div className={styles.trainerHeader}>
+                          <div className={styles.avatarBox}>
+                            {avatarUrl ? (
+                              <img src={avatarUrl} alt={stat.trainerName} className={styles.avatarImg} />
+                            ) : (
+                              <div className={styles.avatarFallback}>{stat.trainerName.charAt(0)}</div>
+                            )}
+                          </div>
+                          <div className={styles.trainerTitle}>
+                            <div className={styles.name}>{stat.trainerName}</div>
+                            <div className={styles.fyBadge}>FY {selectedFY}</div>
+                          </div>
+                        </div>
+                        <div className={styles.metricsWrapper}>
+                          <div className={styles.metricBlock}>
+                            <div className={styles.iconBox}><Presentation size={12} /></div>
+                            <div className={styles.metricInfo}>
+                              <div className={styles.value}>{stat.trainingsConducted}</div>
+                              <div className={styles.label}>Sessions</div>
+                            </div>
+                          </div>
+                          <div className={styles.metricBlock}>
+                            <div className={styles.iconBox}><Users size={12} /></div>
+                            <div className={styles.metricInfo}>
+                              <div className={styles.value}>{stat.candidatesTrained}</div>
+                              <div className={styles.label}>Trained</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       <div className={styles.reportSection}>
