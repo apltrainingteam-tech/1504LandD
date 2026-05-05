@@ -16,14 +16,17 @@ import React, { createContext, useContext, useState, ReactNode, useEffect, useMe
  * - DO NOT import domain engines (IP, AP, etc.) here. Use it ONLY for core metadata.
  * - ENSURE all consumers use the useMasterData() hook for access.
  */
-import { getCollection, upsertDoc, updateDocument } from '../engines/apiClient';
+import { getCollection, upsertDoc, updateDocument, deleteDocument } from '../engines/apiClient';
 import { EligibilityRule, NotificationRecord, TrainingBatch } from '../../types/attendance';
+import { generateChecklistForTraining } from '../engines/checklistEngine';
 import { ValidationError } from '../contracts/validation.contract';
 import { DataEdit } from '../contracts/edit.contract';
 import { applyEdits } from '../engines/editEngine';
 import { validateTrainingData, validateNominationData, validateEmployeeData } from '../engines/validationEngine';
 import { Employee } from '../../types/employee';
 import { normalizeDataset, normalizeEmployeeRecord, processTeamData } from '../engines/normalizationEngine';
+import { ChecklistTemplate, ChecklistItem, ChecklistTaskTemplate } from '../../types/checklist';
+import { TaskMasterEntry, PlannedTask, RecurrenceType } from '../../types/task';
 
 export interface Cluster {
   id: string;
@@ -53,6 +56,10 @@ interface MasterDataContextType {
   trainers: Trainer[];
   teams: Team[];
   eligibilityRules: EligibilityRule[];
+  checklistTemplates: ChecklistTemplate[];
+  checklistItems: ChecklistItem[];
+  taskMaster: TaskMasterEntry[];
+  plannedTasks: PlannedTask[];
   loading: boolean;
   
   addTrainer: (trainer: Omit<Trainer, 'id'>) => Promise<void>;
@@ -64,6 +71,22 @@ interface MasterDataContextType {
   deleteTeam: (id: string) => Promise<void>;
 
   addCluster: (name: string) => Promise<void>;
+
+  // Checklist Handlers
+  addChecklistTemplate: (template: ChecklistTemplate) => Promise<void>;
+  updateChecklistTemplate: (template: ChecklistTemplate) => Promise<void>;
+  deleteChecklistTemplate: (id: string) => Promise<void>;
+  toggleChecklistItem: (itemId: string) => Promise<void>;
+  createChecklistForTraining: (trainingId: string, trainingType: string, trainer: string, triggerDate: string) => Promise<void>;
+
+  // Task Master & Planned Tasks Handlers
+  addTaskMasterEntry: (entry: TaskMasterEntry) => Promise<void>;
+  updateTaskMasterEntry: (entry: TaskMasterEntry) => Promise<void>;
+  deleteTaskMasterEntry: (id: string) => Promise<void>;
+  addPlannedTask: (task: Omit<PlannedTask, 'id' | 'status'>) => Promise<void>;
+  updatePlannedTask: (id: string, updates: Partial<PlannedTask>) => Promise<void>;
+  togglePlannedTaskCompletion: (id: string) => Promise<void>;
+  deletePlannedTask: (id: string) => Promise<void>;
 
   // --- NEW: Data Quality & Edit Layer ---
   baseData: {
@@ -140,6 +163,10 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
   const [teams, setTeams] = useState<Team[]>([]);
   const [clusters, setClusters] = useState<Cluster[]>([]);
   const [eligibilityRules, setEligibilityRules] = useState<EligibilityRule[]>([]);
+  const [checklistTemplates, setChecklistTemplates] = useState<ChecklistTemplate[]>([]);
+  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
+  const [taskMaster, setTaskMaster] = useState<TaskMasterEntry[]>([]);
+  const [plannedTasks, setPlannedTasks] = useState<PlannedTask[]>([]);
   const [loading, setLoading] = useState(true);
 
   // --- Transactional Data & Edits ---
@@ -166,11 +193,13 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
   const loadMasterData = async () => {
     setLoading(true);
     try {
-      const [tBD, tmBD, cBD, rulesBD] = await Promise.all([
+      const [tBD, tmBD, cBD, rulesBD, checklistTemplatesBD, taskMasterBD] = await Promise.all([
         getCollection('trainers'),
         getCollection('teams'),
         getCollection('clusters'),
-        getCollection('eligibility_rules')
+        getCollection('eligibility_rules'),
+        getCollection('checklist_templates'),
+        getCollection('task_master')
       ]);
 
       const sanitizedTrainers = (tBD as Trainer[]).map(t => {
@@ -189,6 +218,8 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
       setTeams(normalizedTeams.length > 0 ? normalizedTeams : INITIAL_TEAMS);
       setClusters(cBD.length > 0 ? cBD as Cluster[] : INITIAL_CLUSTERS);
       setEligibilityRules(rulesBD as EligibilityRule[]);
+      setChecklistTemplates(checklistTemplatesBD as ChecklistTemplate[]);
+      setTaskMaster(taskMasterBD as TaskMasterEntry[]);
     } catch (e) {
       console.warn("Falling back to INITIAL master data due to fetch error:", e);
       setTrainers(INITIAL_TRAINERS);
@@ -206,11 +237,13 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
 
   const loadTransactionalData = async () => {
     try {
-      const [td, emps, nh, tb] = await Promise.all([
+      const [td, emps, nh, tb, checklistItemsBD, plannedTasksBD] = await Promise.all([
         getCollection('training_data'),
         getCollection('employees'),
         getCollection('notification_history'),
-        getCollection('training_batches')
+        getCollection('training_batches'),
+        getCollection('checklist_items'),
+        getCollection('planned_tasks')
       ]);
       
       const rawTraining = td as any[];
@@ -242,6 +275,8 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
         notificationHistory: nh as NotificationRecord[],
         trainingBatches: tb as TrainingBatch[]
       });
+      setChecklistItems(checklistItemsBD as ChecklistItem[]);
+      setPlannedTasks(plannedTasksBD as PlannedTask[]);
 
 
     } catch (e) {
@@ -342,6 +377,101 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
     }
   };
 
+  // --- Checklist Template Handlers ---
+  const addChecklistTemplate = async (template: ChecklistTemplate) => {
+    await upsertDoc('checklist_templates', template.id, template);
+    setChecklistTemplates(prev => [...prev.filter(t => t.id !== template.id), template]);
+  };
+
+  const updateChecklistTemplate = async (template: ChecklistTemplate) => {
+    await updateDocument('checklist_templates', template.id, template);
+    setChecklistTemplates(prev => prev.map(t => t.id === template.id ? template : t));
+  };
+
+  const deleteChecklistTemplate = async (id: string) => {
+    await updateDocument('checklist_templates', id, { status: 'Deleted' }); // Or real delete if preferred
+    setChecklistTemplates(prev => prev.filter(t => t.id !== id));
+  };
+
+  // --- Checklist Item Logic ---
+  const toggleChecklistItem = async (itemId: string) => {
+    const item = checklistItems.find(i => i.id === itemId);
+    if (!item) return;
+
+    const updated: ChecklistItem = {
+      ...item,
+      status: item.status === 'Pending' ? 'Completed' : 'Pending',
+      completedAt: item.status === 'Pending' ? new Date().toISOString() : undefined
+    };
+
+    await updateDocument('checklist_items', itemId, updated);
+    setChecklistItems(prev => prev.map(i => i.id === itemId ? updated : i));
+  };
+
+  const createChecklistForTraining = async (trainingId: string, trainingType: string, trainer: string, triggerDate: string) => {
+    const newItems = await generateChecklistForTraining({
+      trainingId,
+      trainingType,
+      trainer,
+      trainingDate: triggerDate
+    });
+
+    if (newItems && newItems.length > 0) {
+      setChecklistItems(prev => [...prev, ...newItems]);
+    }
+  };
+
+  // --- Task Master Handlers ---
+  const addTaskMasterEntry = async (entry: TaskMasterEntry) => {
+    await upsertDoc('task_master', entry.id, entry);
+    setTaskMaster(prev => [...prev, entry]);
+  };
+
+  const updateTaskMasterEntry = async (entry: TaskMasterEntry) => {
+    await updateDocument('task_master', entry.id, entry);
+    setTaskMaster(prev => prev.map(e => e.id === entry.id ? entry : e));
+  };
+
+  const deleteTaskMasterEntry = async (id: string) => {
+    await updateDocument('task_master', id, { status: 'Deleted' });
+    setTaskMaster(prev => prev.filter(e => e.id !== id));
+  };
+
+  // --- Planned Task Logic ---
+  const addPlannedTask = async (taskData: Omit<PlannedTask, 'id' | 'status'>) => {
+    const id = `pt-${Date.now()}`;
+    const newTask: PlannedTask = { ...taskData, id, status: 'Not Started' };
+    await upsertDoc('planned_tasks', id, newTask);
+    setPlannedTasks(prev => [...prev, newTask]);
+  };
+
+  const updatePlannedTask = async (id: string, updates: Partial<PlannedTask>) => {
+    const existing = plannedTasks.find(t => t.id === id);
+    if (!existing) return;
+    const updated = { ...existing, ...updates };
+    await updateDocument('planned_tasks', id, updated);
+    setPlannedTasks(prev => prev.map(t => t.id === id ? updated : t));
+  };
+
+  const togglePlannedTaskCompletion = async (id: string) => {
+    const task = plannedTasks.find(t => t.id === id);
+    if (!task) return;
+
+    const isChecked = !task.completedAt;
+    const updated: PlannedTask = {
+      ...task,
+      completedAt: isChecked ? new Date().toISOString() : undefined
+    };
+
+    await updateDocument('planned_tasks', id, updated);
+    setPlannedTasks(prev => prev.map(t => t.id === id ? updated : t));
+  };
+
+  const deletePlannedTask = async (id: string) => {
+    await deleteDocument('planned_tasks', id);
+    setPlannedTasks(prev => prev.filter(t => t.id !== id));
+  };
+
   const errorIndex = useMemo(() => {
     const idx = {
       byType: {} as Record<string, ValidationError[]>,
@@ -366,7 +496,7 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
     return idx;
   }, [validationErrors]);
 
-  // --- DEBUG INDEXES removed from context — built lazily in DataQualityCenter ---
+  // --- DEBUG INDEXES removed from context — built lazily in DataQualityCenter —
 
   const patchRecord = (module: "trainingData" | "nomination" | "employee", recordId: string, field: string, newValue: any) => {
     addEdit({
@@ -386,6 +516,10 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
       addTrainer, updateTrainer, deleteTrainer,
       addTeam, updateTeam, deleteTeam,
       addCluster,
+      addChecklistTemplate, updateChecklistTemplate, deleteChecklistTemplate,
+      checklistTemplates, checklistItems, toggleChecklistItem, createChecklistForTraining,
+      taskMaster, plannedTasks, addTaskMasterEntry, updateTaskMasterEntry, deleteTaskMasterEntry,
+      addPlannedTask, updatePlannedTask, togglePlannedTaskCompletion, deletePlannedTask,
       baseData, finalData, edits, validationErrors, activeError,
       addEdit, bulkEdit, clearEdits, setActiveError, refreshTransactional: loadTransactionalData, errorIndex,
       patchRecord,

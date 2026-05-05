@@ -1,13 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Save, X, Settings, Users, Layers, Upload, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Settings, Users, Layers, Upload, Loader2, CheckCircle2, AlertCircle, ClipboardList } from 'lucide-react';
 import { useMasterData, Trainer, Team, Cluster } from '../../core/context/MasterDataContext';
 import { useAvatarUpload } from '../uploads/hooks/useAvatarUpload';
 import { AvatarUpload } from '../uploads/components/AvatarUpload';
 import API_BASE from '../../config/api';
 import styles from './MasterSettings.module.css';
+import { ChecklistSettings } from './components/ChecklistSettings';
+import { TaskMasterSettings } from './components/TaskMasterSettings';
 
 export const MasterSettings: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'trainers' | 'teams'>('trainers');
+  const [activeTab, setActiveTab] = useState<'trainers' | 'teams' | 'checklist' | 'taskMaster'>('trainers');
   const {
     trainers, teams, clusters,
     addTrainer, updateTrainer, deleteTrainer,
@@ -41,6 +43,18 @@ export const MasterSettings: React.FC = () => {
         >
           <Layers size={18} /> Teams &amp; Clusters
         </button>
+        <button
+          onClick={() => setActiveTab('checklist')}
+          className={`${styles.tabBtn} ${activeTab === 'checklist' ? styles.tabBtnActive : styles.tabBtnInactive}`}
+        >
+          <ClipboardList size={18} /> Checklist
+        </button>
+        <button
+          onClick={() => setActiveTab('taskMaster')}
+          className={`${styles.tabBtn} ${activeTab === 'taskMaster' ? styles.tabBtnActive : styles.tabBtnInactive}`}
+        >
+          <Settings size={18} /> Task Master
+        </button>
       </div>
 
       {activeTab === 'trainers' ? (
@@ -50,7 +64,7 @@ export const MasterSettings: React.FC = () => {
           onEdit={(t: Trainer) => setShowModal({ type: 'trainer', mode: 'edit', data: t })}
           onDelete={deleteTrainer}
         />
-      ) : (
+      ) : activeTab === 'teams' ? (
         <TeamsList
           teams={teams}
           clusters={clusters}
@@ -59,6 +73,10 @@ export const MasterSettings: React.FC = () => {
           onDelete={deleteTeam}
           onAddCluster={addCluster}
         />
+      ) : activeTab === 'checklist' ? (
+        <ChecklistSettings />
+      ) : (
+        <TaskMasterSettings />
       )}
 
       {showModal && (

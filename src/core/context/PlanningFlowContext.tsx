@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, ReactNode, useCallback, use
 import { Employee } from '../../types/employee';
 import { TrainingNomination, NotificationRecord, NominationDraft, TrainingBatch, CandidateRecord, BatchAttStatus } from '../../types/attendance';
 import { addBatch, updateByQuery, getCollection, updateDocument, upsertDoc } from '../engines/apiClient';
+import { generateChecklistForTraining } from '../engines/checklistEngine';
 import API_BASE from '../../config/api';
 
 export interface SelectionSession {
@@ -113,6 +114,7 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
   };
 
   // ── Drafts ───────────────────────────────────────────────────────────────────
+
   const saveDraft = (draft: NominationDraft) => {
     const draftWithDefaults: NominationDraft = {
       ...draft,
@@ -124,6 +126,14 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
     upsertDoc('nomination_drafts', draft.id, draftWithDefaults).catch(err => {
       console.error('Failed to persist nomination draft', err);
     });
+
+    // Trigger Checklist Generation immediately upon saving draft
+    generateChecklistForTraining({
+      trainingId: draft.id,
+      trainingType: draft.trainingType,
+      trainer: draft.trainer || 'Unassigned',
+      trainingDate: draft.startDate || new Date().toISOString()
+    }).catch(err => console.error('Checklist generation failed for draft', err));
   };
   const updateDraft = (id: string, updates: Partial<NominationDraft>) => {
     setDrafts(prev => {
@@ -275,6 +285,14 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
         });
         return next;
       });
+
+      // Trigger Checklist Generation (idempotent)
+      generateChecklistForTraining({
+        trainingId: batchId,
+        trainingType: draft.trainingType,
+        trainer: draft.trainer || 'Unassigned',
+        trainingDate: draft.startDate || new Date().toISOString()
+      }).catch(err => console.error('Checklist generation failed for batch', err));
 
     } catch (error) {
       console.error("Failed to commit batch and notifications", error);

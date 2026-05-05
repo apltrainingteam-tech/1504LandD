@@ -180,7 +180,7 @@ const EmailModal: React.FC<{
 
 export const NotificationPage: React.FC<Props> = ({ allEmployees }) => {
   const { getDrafts, updateDraft, commitBatch, selectionSession, cancelDraft } = usePlanningFlow();
-  const { teams: masterTeams, trainers: masterTrainers } = useMasterData();
+  const { teams: masterTeams, trainers: masterTrainers, createChecklistForTraining } = useMasterData();
 
   const sessionTeamIds = selectionSession?.teamIds ?? [];
   const [emailModal, setEmailModal] = useState<{ html:string; subject:string; mailto:string; tableHtml:string; draftId:string }|null>(null);

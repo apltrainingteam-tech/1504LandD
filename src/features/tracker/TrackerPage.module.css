@@ -253,3 +253,316 @@
   background: #3b82f6;
   border-radius: 3px;
 }
+
+/* New Layout Sections */
+.section {
+  margin-top: 32px;
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 20px;
+}
+
+.divider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 40px 0;
+}
+
+/* Checklist Cards */
+.checklistCardsGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.checklistCard {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  transition: all 0.2s ease;
+}
+
+.checklistCard:hover {
+  border-color: var(--accent-primary);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.cardExpanded {
+  border-color: var(--accent-primary);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.cardHeader {
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+
+.cardHeaderMain {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.cardIdentity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.typeBadge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.typeAP { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+.typeIP { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
+.typeMIP { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+.typeCapsule { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+.typeRefresher { background: rgba(236, 72, 153, 0.1); color: #ec4899; }
+
+.cardTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.cardMeta {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.metaItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.cardStatusArea {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.progressContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  min-width: 120px;
+}
+
+.progressLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.miniProgressTrack {
+  width: 100px;
+  height: 6px;
+  background: #f1f5f9;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.miniProgressBar {
+  height: 100%;
+  background: var(--accent-primary);
+  border-radius: 3px;
+}
+
+.cardContent {
+  border-top: 1px solid #f1f5f9;
+  padding: 0;
+}
+
+/* Restored Checklist Styles for Card Content */
+.checklistContainer {
+  padding: 20px;
+  background: #fafafa;
+}
+
+.checklistTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: #64748b;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+}
+
+.taskList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.taskItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: #ffffff;
+  border: 1px solid #f1f5f9;
+  transition: all 0.2s;
+}
+
+.taskItem:hover {
+  border-color: #e2e8f0;
+  background: #f8fafc;
+}
+
+.taskMain {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.taskName {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.taskMeta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.taskCompleted {
+  opacity: 0.6;
+}
+
+.taskCompleted .taskName {
+  text-decoration: line-through;
+  color: #94a3b8;
+}
+
+.taskOverdue {
+  border-color: #fee2e2;
+  background: #fffafa;
+}
+
+.taskOverdue .taskName {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+/* Planned Table - Structured Theme */
+.tableContainer {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.plannedTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.plannedTable thead th {
+  background: #fdfaf3; /* Light beige header */
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 700;
+  color: #64748b;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 2px solid #f1f5f9;
+}
+
+.plannedTable tbody td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  color: var(--text-primary);
+}
+
+.tableTr:hover {
+  background: #f8fafc;
+}
+
+.rowCompleted {
+  background: #f9fafb !important;
+  opacity: 0.7;
+}
+
+.strikeText {
+  text-decoration: line-through;
+  color: #94a3b8 !important;
+}
+
+.tdBold {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.trainerCell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.statusBadge {
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.bgSuccess { background: #dcfce7; color: #166534; }
+.bgDanger { background: #fee2e2; color: #991b1b; }
+.bgWarning { background: #fef3c7; color: #92400e; }
+.bgDefault { background: #f1f5f9; color: #475569; }
+
+.textDelayed {
+  color: #ef4444;
+  font-weight: 700;
+}
+
+.emptyTable {
+  padding: 40px;
+  text-align: center;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.emptyResults {
+  padding: 60px;
+  text-align: center;
+  background: #f8fafc;
+  border: 2px dashed #e2e8f0;
+  border-radius: 12px;
+  color: #94a3b8;
+}

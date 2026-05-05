@@ -18,6 +18,7 @@
 
 import { parseExcelFileStrict, getValidRows, getErrorRows, getSummary, ParseResult } from './parsingEngine';
 import { addBatch, getCollection } from './apiClient';
+import { generateChecklistForTraining } from './checklistEngine';
 import { NotificationRecord } from '../../types/attendance';
 
 export interface UploadOptions {
@@ -304,6 +305,36 @@ export const uploadTrainingDataStrict = async (
     } catch (uploadError: any) {
       const errorMsg = uploadError?.message || 'Upload to MongoDB failed';
       throw new Error(`MongoDB upload failed: ${errorMsg}`);
+    }
+
+    // ─── STAGE 3.5: GENERATE CHECKLISTS (FOR NOTIFICATION HISTORY) ───
+    if (isNotificationHistory && uploadedCount > 0) {
+      try {
+        // Identify unique training sessions in this upload
+        const uniqueSessions = new Map();
+        validRows.forEach(row => {
+          if (row.trainingId && !uniqueSessions.has(row.trainingId)) {
+            uniqueSessions.set(row.trainingId, {
+              trainingId: row.trainingId,
+              trainingType: row.trainingType,
+              trainer: row.trainerId || 'Unassigned',
+              trainingDate: row.notificationDate || new Date().toISOString().split('T')[0]
+            });
+          }
+        });
+
+        console.log(`[UploadEngine] Triggering checklists for ${uniqueSessions.size} training sessions...`);
+        
+        // Trigger generation for each unique session (Engine handles duplicates)
+        for (const session of uniqueSessions.values()) {
+          await generateChecklistForTraining(session).catch(err => 
+            console.error(`[UploadEngine] Checklist failed for ${session.trainingId}`, err)
+          );
+        }
+      } catch (checklistError) {
+        console.error('[UploadEngine] Error in post-upload checklist trigger', checklistError);
+        // We don't throw here to avoid failing the whole upload if checklists fail
+      }
     }
 
     // ───────────────────────────────────────────────────────────────────

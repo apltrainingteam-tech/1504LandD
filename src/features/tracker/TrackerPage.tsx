@@ -1,13 +1,14 @@
 import React, { useState, useMemo } from 'react';
-import { 
-  Search, Filter, Calendar, Users, CheckCircle, Clock, AlertCircle, 
-  ChevronRight, ArrowUpRight, ArrowDownRight, Activity, ClipboardList
+import {
+  Search, Filter, Calendar, Users, CheckCircle, Clock, AlertCircle,
+  ChevronRight, ChevronDown, ArrowUpRight, ArrowDownRight, Activity, ClipboardList, User, Plus, Trash2
 } from 'lucide-react';
 import { useMasterData } from '../../core/context/MasterDataContext';
 import { usePlanningFlow } from '../../core/context/PlanningFlowContext';
 import TrainerAvatar from '../../shared/components/ui/TrainerAvatar';
 import { toProperCase } from '../../core/engines/normalizationEngine';
 import styles from './TrackerPage.module.css';
+import { PlannedTaskForm } from './components/PlannedTaskForm';
 
 interface ActivityRecord {
   id: string;
@@ -34,24 +35,44 @@ const STATUS_CONFIG: Record<string, { className: string; icon: React.ElementType
 };
 
 export const TrackerPage: React.FC = () => {
-  const { finalData, trainers: masterTrainers } = useMasterData();
+  const { finalData } = useMasterData();
   const { drafts } = usePlanningFlow();
-  
+
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('ALL');
   const [filterStatus, setFilterStatus] = useState('ALL');
+  const [expandedSession, setExpandedSession] = useState<string | null>(null);
+  const [showTaskForm, setShowTaskForm] = useState(false);
+  const {
+    checklistItems, toggleChecklistItem,
+    plannedTasks, addPlannedTask, togglePlannedTaskCompletion, deletePlannedTask,
+    trainers: masterTrainers
+  } = useMasterData();
+
+  const getTaskStatus = (task: any) => {
+    if (task.completedAt) return 'Completed';
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dueDate = new Date(task.dueDate);
+    const planDate = new Date(task.planDate);
+
+    if (today > dueDate) return 'Delayed';
+    if (today >= planDate) return 'In Progress';
+    return 'Not Started';
+  };
 
   const activities = useMemo(() => {
     const list: ActivityRecord[] = [];
+    // ... same mapping logic for drafts and batches ...
 
     // Map Drafts
     drafts.forEach(d => {
       // If there's a corresponding batch, we'll prefer the batch data later or mark it as ongoing
-      const status: ActivityRecord['status'] = d.isCancelled ? 'Cancelled' : 
-                                               d.status === 'COMPLETED' ? 'Completed' :
-                                               d.status === 'NOTIFIED' ? 'Notified' :
-                                               d.status === 'APPROVED' ? 'Approved' : 'Draft';
-      
+      const status: ActivityRecord['status'] = d.isCancelled ? 'Cancelled' :
+        d.status === 'COMPLETED' ? 'Completed' :
+          d.status === 'NOTIFIED' ? 'Notified' :
+            d.status === 'APPROVED' ? 'Approved' : 'Draft';
+
       list.push({
         id: d.id,
         trainingType: d.trainingType,
@@ -69,11 +90,11 @@ export const TrackerPage: React.FC = () => {
     finalData.trainingBatches.forEach(b => {
       // Find existing draft to update or add as new
       const existingIdx = list.findIndex(a => a.id === b.id || a.id === b.draftId);
-      
+
       const presentCount = b.candidates.filter(c => c.attendance === 'present').length;
       const totalCount = b.candidates.length;
       const isCompleted = b.candidates.every(c => c.attendance !== 'pending');
-      
+
       const scores = b.candidates
         .map(c => {
           const s = c.scores || {};
@@ -81,7 +102,7 @@ export const TrackerPage: React.FC = () => {
           return typeof val === 'number' ? val : parseFloat(val as any);
         })
         .filter(n => !isNaN(n));
-      
+
       const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : undefined;
 
       const activity: ActivityRecord = {
@@ -111,7 +132,7 @@ export const TrackerPage: React.FC = () => {
 
   const filteredActivities = useMemo(() => {
     return activities.filter(a => {
-      const matchesSearch = !search || 
+      const matchesSearch = !search ||
         a.trainingType.toLowerCase().includes(search.toLowerCase()) ||
         a.team.toLowerCase().includes(search.toLowerCase());
       const matchesType = filterType === 'ALL' || a.trainingType === filterType;
@@ -125,7 +146,7 @@ export const TrackerPage: React.FC = () => {
     const completed = activities.filter(a => a.status === 'Completed').length;
     const ongoing = activities.filter(a => a.status === 'Ongoing' || a.status === 'Notified').length;
     const cancelled = activities.filter(a => a.status === 'Cancelled').length;
-    
+
     return { total, completed, ongoing, cancelled };
   }, [activities]);
 
@@ -142,23 +163,22 @@ export const TrackerPage: React.FC = () => {
     <div className={styles.page}>
       <div className={styles.header}>
         <div>
-          <h1 className={styles.title}>Training Tracker</h1>
-          <p className={styles.subtitle}>End-to-end execution monitoring of training activities</p>
+          <h1 className={styles.title}>Execution Tracker</h1>
+          <p className={styles.subtitle}>Track training checklists and planned operational tasks</p>
         </div>
-        <div className={styles.metricsContainer}>
-           <div className={styles.summaryCard}>
-              <span className={styles.cardLabel}>Success Rate</span>
-              <span className={styles.cardValue}>{stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0}%</span>
-           </div>
+        <div className="flex gap-4">
+          <button className="btn btn-primary" onClick={() => setShowTaskForm(true)}>
+            <Plus size={16} className="mr-2" /> Add Planned Task
+          </button>
         </div>
       </div>
 
       <div className={styles.summaryCards}>
         <div className={styles.summaryCard}>
-          <span className={styles.cardLabel}>Total Activities</span>
+          <span className={styles.cardLabel}>Training Activities</span>
           <span className={styles.cardValue}>{stats.total}</span>
           <div className={`${styles.cardTrend} ${styles.trendUp}`}>
-            <ArrowUpRight size={14} /> <span>Live tracking</span>
+            <Activity size={14} /> <span>Live tracking</span>
           </div>
         </div>
         <div className={styles.summaryCard}>
@@ -172,14 +192,14 @@ export const TrackerPage: React.FC = () => {
           <span className={styles.cardLabel}>Ongoing / Notified</span>
           <span className={styles.cardValue}>{stats.ongoing}</span>
           <div className={`${styles.cardTrend} ${styles.trendUp}`}>
-            <Activity size={14} /> <span>Active cycles</span>
+            <Clock size={14} /> <span>Active cycles</span>
           </div>
         </div>
         <div className={styles.summaryCard}>
-          <span className={styles.cardLabel}>Cancelled</span>
-          <span className={styles.cardValue}>{stats.cancelled}</span>
-          <div className={`${styles.cardTrend} ${styles.trendDown}`}>
-            <AlertCircle size={14} /> <span>Requires review</span>
+          <span className={styles.cardLabel}>Planned Tasks</span>
+          <span className={styles.cardValue}>{plannedTasks.length}</span>
+          <div className={`${styles.cardTrend} ${styles.trendUp}`}>
+            <ClipboardList size={14} /> <span>Manual tasks</span>
           </div>
         </div>
       </div>
@@ -187,21 +207,21 @@ export const TrackerPage: React.FC = () => {
       <div className={styles.filterBar}>
         <div className={styles.searchWrapper}>
           <Search size={16} className={styles.searchIcon} />
-          <input 
-            type="text" 
-            placeholder="Search by training or team..." 
+          <input
+            type="text"
+            placeholder="Search..."
             className={styles.searchInput}
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        
-        <select 
+
+        <select
           className={styles.select}
           value={filterType}
           onChange={e => setFilterType(e.target.value)}
         >
-          <option value="ALL">All Types</option>
+          <option value="ALL">All Training Types</option>
           <option value="IP">IP</option>
           <option value="AP">AP</option>
           <option value="MIP">MIP</option>
@@ -209,7 +229,7 @@ export const TrackerPage: React.FC = () => {
           <option value="Capsule">Capsule</option>
         </select>
 
-        <select 
+        <select
           className={styles.select}
           value={filterStatus}
           onChange={e => setFilterStatus(e.target.value)}
@@ -220,92 +240,278 @@ export const TrackerPage: React.FC = () => {
           <option value="Notified">Notified</option>
           <option value="Ongoing">Ongoing</option>
           <option value="Completed">Completed</option>
-          <option value="Cancelled">Cancelled</option>
+          <option value="Delayed">Delayed</option>
         </select>
       </div>
 
-      <div className={styles.trackerTableContainer}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th className={styles.th}>Activity & Team</th>
-              <th className={styles.th}>Schedule</th>
-              <th className={styles.th}>Trainer</th>
-              <th className={styles.th}>Status</th>
-              <th className={styles.th}>Execution</th>
-              <th className={styles.th}>Perf.</th>
-              <th className={styles.th}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredActivities.map(activity => {
-              const statusCfg = STATUS_CONFIG[activity.status] || STATUS_CONFIG['Draft'];
-              const StatusIcon = statusCfg.icon;
-              const attPct = activity.actualCount !== undefined ? Math.round((activity.actualCount / activity.plannedCount) * 100) : null;
-              
-              return (
-                <tr key={activity.id} className={styles.tr}>
-                  <td className={styles.td}>
-                    <div className={styles.activityInfo}>
-                      <span className={styles.activityType}>{activity.trainingType}</span>
-                      <span className={styles.activityTeam}>{toProperCase(activity.team)}</span>
+      {/* SECTION 1: Training Checklists (Cards) */}
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>
+          <ClipboardList size={20} color="var(--accent-primary)" /> Training Checklists
+        </h2>
+        <div className={styles.checklistCardsGrid}>
+          {filteredActivities.map(activity => {
+            const items = checklistItems.filter(i => i.trainingId === activity.id);
+            const completedCount = items.filter(i => i.status === 'Completed').length;
+            const totalCount = items.length;
+            const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+            const statusCfg = STATUS_CONFIG[activity.status] || STATUS_CONFIG['Draft'];
+            const isExpanded = expandedSession === activity.id;
+
+            return (
+              <div key={activity.id} className={`${styles.checklistCard} ${isExpanded ? styles.cardExpanded : ''}`}>
+                <div
+                  className={styles.cardHeader}
+                  onClick={() => setExpandedSession(isExpanded ? null : activity.id)}
+                >
+                  <div className={styles.cardHeaderMain}>
+                    <div className={styles.cardIdentity}>
+                      <span className={`${styles.typeBadge} ${styles['type' + activity.trainingType]}`}>{activity.trainingType}</span>
+                      <h4 className={styles.cardTitle}>{toProperCase(activity.team)}</h4>
                     </div>
-                  </td>
-                  <td className={styles.td}>
-                    <div className={styles.dateCell}>
-                      <span className={styles.dateLabel}>Planned</span>
-                      <span className={styles.dateValue}>{fmtDate(activity.scheduledDate)}</span>
+                    <div className={styles.cardMeta}>
+                      <div className={styles.metaItem}>
+                        <TrainerAvatar trainer={getTrainer(activity.trainer)} size={18} />
+                        {getTrainer(activity.trainer).name}
+                      </div>
+                      <div className={styles.metaItem}><Calendar size={12} /> {fmtDate(activity.scheduledDate)}</div>
                     </div>
-                  </td>
-                  <td className={styles.td}>
-                    <div className={styles.trainerCell}>
-                      <TrainerAvatar trainer={getTrainer(activity.trainer)} size={24} />
-                      <span style={{ fontSize: '12px' }}>{getTrainer(activity.trainer).name}</span>
-                    </div>
-                  </td>
-                  <td className={styles.td}>
-                    <span className={`${styles.statusBadge} ${statusCfg.className}`}>
-                      <StatusIcon size={12} />
-                      {activity.status}
-                    </span>
-                  </td>
-                  <td className={styles.td}>
-                    <div className={styles.metricsContainer}>
-                      <div className={styles.metric}>
-                        <span className={styles.metricValue}>
-                          {activity.actualCount !== undefined ? activity.actualCount : '—'} 
-                          <span style={{ color: '#94a3b8', fontSize: '11px', fontWeight: 400 }}> / {activity.plannedCount}</span>
-                        </span>
-                        <div className={styles.progressTrack}>
-                          <div 
-                            className={styles.progressBar} 
-                            style={{ 
-                              width: `${attPct || 0}%`,
-                              background: (attPct || 0) > 80 ? '#10b981' : (attPct || 0) > 50 ? '#f59e0b' : '#ef4444'
-                            }}
-                          />
-                        </div>
+                  </div>
+                  <div className={styles.cardStatusArea}>
+                    <div className={styles.progressContainer}>
+                      <span className={styles.progressLabel}>{completedCount}/{totalCount} Tasks</span>
+                      <div className={styles.miniProgressTrack}>
+                        <div className={styles.miniProgressBar} style={{ width: `${progress}%` }} />
                       </div>
                     </div>
-                  </td>
-                  <td className={styles.td}>
-                    <div className={styles.metric}>
-                      <span className={`${styles.metricValue} ${activity.avgScore && activity.avgScore >= 80 ? styles.trendUp : ''}`}>
-                        {activity.avgScore !== undefined ? `${activity.avgScore}%` : '—'}
-                      </span>
-                      <span className={styles.metricLabel}>Avg Score</span>
-                    </div>
-                  </td>
-                  <td className={styles.td}>
-                    <button className="btn-icon" title="View Details">
-                      <ChevronRight size={16} />
-                    </button>
-                  </td>
+                    {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                  </div>
+                </div>
+
+                {isExpanded && (
+                  <div className={styles.cardContent}>
+                    <SessionChecklist
+                      trainingId={activity.id}
+                      trainingType={activity.trainingType}
+                      items={items}
+                      onToggle={toggleChecklistItem}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {filteredActivities.length === 0 && (
+            <div className={styles.emptyResults}>No training activities found.</div>
+          )}
+        </div>
+      </section>
+
+      <div className={styles.divider} />
+
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>
+          <Activity size={20} color="var(--accent-primary)" /> Planned Tasks
+        </h2>
+        <div className={styles.tableContainer}>
+          <table className={styles.plannedTable}>
+            <thead>
+              <tr>
+                <th style={{ width: '40px', textAlign: 'center' }}>✓</th>
+                <th>Category</th>
+                <th>Type</th>
+                <th>Task</th>
+                <th>Assignee</th>
+                <th>Plan Date</th>
+                <th>Due Date</th>
+                <th>Status</th>
+                <th style={{ width: '60px', textAlign: 'center' }}>Delete</th>
+              </tr>
+            </thead>
+            <tbody>
+              {plannedTasks
+                .filter(t => {
+                  const matchesSearch = !search || t.category.toLowerCase().includes(search.toLowerCase()) || t.type.toLowerCase().includes(search.toLowerCase());
+                  const status = getTaskStatus(t);
+                  const matchesStatus = filterStatus === 'ALL' || status === filterStatus;
+                  return matchesSearch && matchesStatus;
+                })
+                .sort((a, b) => {
+                  const sA = getTaskStatus(a);
+                  const sB = getTaskStatus(b);
+
+                  // Sort Order: Delayed -> In Progress -> Not Started -> Completed
+                  const order = { 'Delayed': 0, 'In Progress': 1, 'Not Started': 2, 'Completed': 3 };
+                  if (order[sA] !== order[sB]) return order[sA] - order[sB];
+
+                  return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+                })
+                .map(task => {
+                  const status = getTaskStatus(task);
+                  const isDelayed = status === 'Delayed';
+                  const isCompleted = status === 'Completed';
+                  const trainer = masterTrainers.find(tr => tr.id === task.assignee);
+
+                  return (
+                    <tr key={task.id} className={`${styles.tableTr} ${isCompleted ? styles.rowCompleted : ''}`}>
+                      <td style={{ textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={isCompleted}
+                          onChange={() => togglePlannedTaskCompletion(task.id)}
+                          className={styles.checkbox}
+                        />
+                      </td>
+                      <td className={`${styles.tdBold} ${isCompleted ? styles.strikeText : ''}`}>{task.category}</td>
+                      <td className={isCompleted ? styles.strikeText : ''}>{task.type}</td>
+                      <td className={isCompleted ? styles.strikeText : ''}>{task.task || '—'}</td>
+                      <td>
+                        <div className={`${styles.trainerCell} ${isCompleted ? styles.strikeText : ''}`}>
+                          <TrainerAvatar trainer={trainer || { id: task.assignee, name: task.assignee }} size={26} />
+                          <span style={{ marginLeft: '4px' }}>{trainer?.name || task.assignee}</span>
+                        </div>
+                      </td>
+                      <td className={isCompleted ? styles.strikeText : ''}>{fmtDate(task.planDate)}</td>
+                      <td className={isCompleted ? styles.strikeText : ''}>
+                        <span className={isDelayed ? styles.textDelayed : ''}>
+                          {fmtDate(task.dueDate)}
+                        </span>
+                      </td>
+                      <td>
+                        <span
+                          className={`${styles.statusBadge} ${status === 'Completed' ? styles.bgSuccess :
+                              status === 'Delayed' ? styles.bgDanger :
+                                status === 'In Progress' ? styles.bgWarning :
+                                  styles.bgDefault
+                            }`}
+                        >
+                          {status}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <button
+                          className="btn-icon text-danger"
+                          onClick={() => {
+                            if (window.confirm('Are you sure you want to delete this task?')) {
+                              deletePlannedTask(task.id);
+                            }
+                          }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              {plannedTasks.length === 0 && (
+                <tr>
+                  <td colSpan={9} className={styles.emptyTable}>No planned tasks configured.</td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {showTaskForm && (
+        <PlannedTaskForm
+          onClose={() => setShowTaskForm(false)}
+          onSubmit={async (data) => {
+            await addPlannedTask(data);
+            setShowTaskForm(false);
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
+const SessionChecklist: React.FC<{
+  trainingId: string;
+  trainingType: string;
+  items: any[];
+  onToggle: (id: string) => void;
+}> = ({ trainingId, trainingType, items, onToggle }) => {
+  const { createChecklistForTraining } = useMasterData();
+  const [isGenerating, setIsGenerating] = React.useState(false);
+  const [hasAttempted, setHasAttempted] = React.useState(false);
+
+  // Auto-repair: If no items exist, trigger generation automatically from Master Settings
+  React.useEffect(() => {
+    if (items.length === 0 && trainingType && !hasAttempted && !isGenerating) {
+      setIsGenerating(true);
+      createChecklistForTraining(
+        trainingId,
+        trainingType,
+        'System',
+        new Date().toISOString()
+      ).finally(() => {
+        setIsGenerating(false);
+        setHasAttempted(true);
+      });
+    }
+  }, [items.length, trainingId, trainingType, createChecklistForTraining, hasAttempted, isGenerating]);
+
+  const sortedItems = useMemo(() => {
+    return [...items].sort((a, b) => {
+      if (a.status === b.status) {
+        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+      }
+      return a.status === 'Pending' ? -1 : 1;
+    });
+  }, [items]);
+
+  if (items.length === 0) {
+    if (isGenerating) {
+      return (
+        <div className={styles.checklistEmpty}>
+          <p>Generating checklist items...</p>
+        </div>
+      );
+    }
+    
+    if (hasAttempted) {
+      return (
+        <div className={styles.checklistEmpty}>
+          <p className="text-warning">No checklist template found for "{trainingType}" in Master Settings.</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className={styles.checklistEmpty}>
+        <p>Loading checklist items...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.checklistContainer}>
+      <h4 className={styles.checklistTitle}>Action Checklist</h4>
+      <div className={styles.taskList}>
+        {sortedItems.map(item => {
+          const isOverdue = item.status === 'Pending' && new Date(item.dueDate) < new Date(new Date().setHours(0, 0, 0, 0));
+          return (
+            <div
+              key={item.id}
+              className={`${styles.taskItem} ${item.status === 'Completed' ? styles.taskCompleted : ''} ${isOverdue ? styles.taskOverdue : ''}`}
+            >
+              <div className={styles.taskMain}>
+                <input
+                  type="checkbox"
+                  checked={item.status === 'Completed'}
+                  onChange={() => onToggle(item.id)}
+                  className={styles.checkbox}
+                />
+                <span className={styles.taskName}>{item.taskName}</span>
+              </div>
+              <div className={styles.taskMeta}>
+                <span className={styles.taskAssignee}><User size={12} /> {item.assignee}</span>
+                <span className={styles.taskDue}><Calendar size={12} /> {new Date(item.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</span>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
