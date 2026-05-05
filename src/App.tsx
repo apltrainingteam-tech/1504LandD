@@ -51,13 +51,11 @@ import { RecruitmentQuality } from './features/srm/RecruitmentQuality';
 import { DefaulterTracking } from './features/srm/DefaulterTracking';
 import { TrainingCalendar } from './features/calendar/TrainingCalendar';
 import { MasterSettings } from './features/settings/MasterSettings';
-import { EngineDebugPanel } from './core/debug/engine-debug/EngineDebugPanel';
-import { PerformanceCharts } from './features/dashboard/PerformanceCharts';
 import { DataQualityCenter } from './features/dashboard/DataQualityCenter';
-import { AgentDebugPanel } from './features/debug/AgentDebugPanel';
-import { ErrorBoundary } from './core/debug/ErrorBoundary';
 import { GlobalFiltersBar } from './shared/components/GlobalFiltersBar';
+import { PerformanceCharts } from './features/dashboard/PerformanceCharts';
 import { TOE } from './features/dashboard/TOE';
+import { TrackerPage } from './features/tracker/TrackerPage';
 
 
 // Services & Types
@@ -67,7 +65,7 @@ import { Attendance, TrainingScore, TrainingNomination, Demographics as DemoType
 import { useAppData } from './shared/hooks/useAppData';
 import { getCurrentUser } from './core/context/userContext';
 
-type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'nominations' | 'notification' | 'training-data' | 'gap-analysis' | 'performance-tables' | 'performance-charts' | 'performance' | 'srm' | 'defaulters' | 'calendar' | 'master-settings' | 'data-quality' | 'toe' | 'dev/engine-debug';
+type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'nominations' | 'notification' | 'training-data' | 'gap-analysis' | 'performance-tables' | 'performance-charts' | 'performance' | 'srm' | 'defaulters' | 'calendar' | 'master-settings' | 'data-quality' | 'toe' | 'tracker';
 interface SidebarItem {
   label: string;
   view: string;
@@ -102,6 +100,7 @@ const sidebarSections: SidebarSection[] = [
   {
     title: "EXECUTION",
     items: [
+      { label: "Tracker",      view: "tracker",       icon: Activity      },
       { label: "Nominations",   view: "nominations",   icon: ClipboardList },
       { label: "Notification",  view: "notification",  icon: Mail          },
       { label: "Training Data", view: "training-data", icon: ListChecks    }
@@ -179,114 +178,80 @@ const App = () => {
 
     switch (view) {
       case 'reports': return (
-        <ErrorBoundary componentName="ReportsAnalytics" propsSnapshot={{ employees: emps?.length ?? 0, attendance: att?.length ?? 0 }}>
-          <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} pageMode="overview" onNavigate={setView} />
-        </ErrorBoundary>
+        <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} pageMode="overview" onNavigate={setView} />
       );
       case 'performance-tables':
       case 'performance': return (
-        <ErrorBoundary componentName="ReportsAnalytics[performance-insights]" propsSnapshot={{ employees: emps?.length ?? 0 }}>
-          <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} pageMode="performance-insights" onNavigate={setView} />
-        </ErrorBoundary>
+        <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} pageMode="performance-insights" onNavigate={setView} />
       );
       case 'performance-charts': return (
-        <ErrorBoundary componentName="PerformanceCharts" propsSnapshot={{ employees: emps?.length ?? 0, scores: scs?.length ?? 0 }}>
-          <PerformanceCharts employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} onNavigate={setView} />
-        </ErrorBoundary>
+        <PerformanceCharts employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} onNavigate={setView} />
       );
       case 'toe': return (
-        <ErrorBoundary componentName="TOE" propsSnapshot={{ employees: emps?.length ?? 0 }}>
-          <TOE employees={emps} attendance={att} scores={scs} />
-        </ErrorBoundary>
+        <TOE employees={emps} attendance={att} scores={scs} />
       );
       case 'srm': return (
-        <ErrorBoundary componentName="RecruitmentQuality" propsSnapshot={{ employees: emps.length, attendance: att.length }}>
-          <RecruitmentQuality employees={emps} attendance={att} scores={scs} />
-        </ErrorBoundary>
+        <RecruitmentQuality employees={emps} attendance={att} scores={scs} />
       );
       case 'defaulters': return (
-        <ErrorBoundary componentName="DefaulterTracking">
-          <DefaulterTracking />
-        </ErrorBoundary>
+        <DefaulterTracking />
       );
       case 'trainings': return (
-        <ErrorBoundary componentName="TrainingsViewer" propsSnapshot={{ employees: emps.length }}>
-          <TrainingsViewer employees={emps} attendance={att} scores={scs} />
-        </ErrorBoundary>
+        <TrainingsViewer employees={emps} attendance={att} scores={scs} />
       );
       case 'calendar': return (
-        <ErrorBoundary componentName="TrainingCalendar" propsSnapshot={{ employees: emps.length }}>
-          <TrainingCalendar employees={emps} attendance={att} />
-        </ErrorBoundary>
+        <TrainingCalendar employees={emps} attendance={att} />
       );
       case 'attendance': return (
-        <ErrorBoundary componentName="AttendanceUploadStrict">
-          <AttendanceUploadStrict onUploadComplete={() => {
-            setRefreshKey(k => k + 1);
-            setView('training-data');
-          }} />
-        </ErrorBoundary>
+        <AttendanceUploadStrict onUploadComplete={() => {
+          setRefreshKey(k => k + 1);
+          setView('training-data');
+        }} />
       );
       case 'nominations': return (
-        <ErrorBoundary componentName="NominationsPage" propsSnapshot={{ employees: emps.length, nominations: noms.length }}>
-          <NominationsPage employees={emps} nominations={noms} attendance={att} />
-        </ErrorBoundary>
+        <NominationsPage employees={emps} nominations={noms} attendance={att} />
       );
       case 'notification': return (
-        <ErrorBoundary componentName="NotificationPage" propsSnapshot={{ employees: emps.length }}>
-          <NotificationPage allEmployees={emps} />
-        </ErrorBoundary>
+        <NotificationPage allEmployees={emps} />
       );
       case 'training-data': return (
-        <ErrorBoundary componentName="TrainingDataPage" propsSnapshot={{ employees: emps.length, attendance: att.length }}>
-          <TrainingDataPage employees={emps} attendance={att} scores={scs} />
-        </ErrorBoundary>
+        <TrainingDataPage employees={emps} attendance={att} scores={scs} />
       );
       case 'employees': return (
-        <ErrorBoundary componentName="Employees" propsSnapshot={{ employees: emps.length, filtered: filteredEmps.length }}>
-          <Employees
-            employees={emps}
-            onUploadComplete={() => {
-              setRefreshKey(k => k + 1);
-              setView('employees');
-            }}
-            searchQuery={empSearch}
-            onSearchChange={setEmpSearch}
-            filterDesignation={empFilterDesignation}
-            onFilterDesignationChange={setEmpFilterDesignation}
-            filterTeam={empFilterTeam}
-            onFilterTeamChange={setEmpFilterTeam}
-            filterZone={empFilterZone}
-            onFilterZoneChange={setEmpFilterZone}
-            filteredEmployees={filteredEmps}
-          />
-        </ErrorBoundary>
+        <Employees
+          employees={emps}
+          onUploadComplete={() => {
+            setRefreshKey(k => k + 1);
+            setView('employees');
+          }}
+          searchQuery={empSearch}
+          onSearchChange={setEmpSearch}
+          filterDesignation={empFilterDesignation}
+          onFilterDesignationChange={setEmpFilterDesignation}
+          filterTeam={empFilterTeam}
+          onFilterTeamChange={setEmpFilterTeam}
+          filterZone={empFilterZone}
+          onFilterZoneChange={setEmpFilterZone}
+          filteredEmployees={filteredEmps}
+        />
       );
       case 'demographics': return (
-        <ErrorBoundary componentName="Demographics">
-          <Demographics />
-        </ErrorBoundary>
+        <Demographics />
       );
       case 'gap-analysis': return (
-        <ErrorBoundary componentName="GapAnalysis" propsSnapshot={{ employees: emps.length, nominations: noms.length }}>
-          <GapAnalysis employees={emps} attendance={att} nominations={noms} onNavigate={setView} />
-        </ErrorBoundary>
+        <GapAnalysis employees={emps} attendance={att} nominations={noms} onNavigate={setView} />
       );
       case 'master-settings': return (
-        <ErrorBoundary componentName="MasterSettings">
-          <MasterSettings />
-        </ErrorBoundary>
+        <MasterSettings />
       );
       case 'data-quality': return (
-        <ErrorBoundary componentName="DataQualityCenter">
-          <DataQualityCenter />
-        </ErrorBoundary>
+        <DataQualityCenter />
       );
-      case 'dev/engine-debug': return <EngineDebugPanel />;
+      case 'tracker': return (
+        <TrackerPage />
+      );
       default: return (
-        <ErrorBoundary componentName="ReportsAnalytics[default]">
-          <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} />
-        </ErrorBoundary>
+        <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} />
       );
     }
   };
@@ -343,20 +308,7 @@ const App = () => {
             </div>
           ))}
 
-          {/* SUPERADMIN-only Engine Debug link — DEV mode only */}
-          {isSuperAdmin && process.env.NODE_ENV !== 'production' && (
-            <div className="sidebar-section">
-              <div className="section-title text-danger opacity-60">SYSTEM</div>
-              <button
-                className={`nav-item nav-item-debug ${'dev/engine-debug' === view ? 'active' : ''}`}
-                onClick={() => setView('dev/engine-debug')}
-                title="Engine Debug Panel (SUPERADMIN only)"
-              >
-                <Activity size={20} />
-                <span>Engine Debug</span>
-              </button>
-            </div>
-          )}
+          {/* SUPERADMIN-only link — DEV mode only */}
         </nav>
 
         <div className="user-profile">
@@ -435,8 +387,6 @@ const App = () => {
         </FilterProvider>
       </PlanningFlowProvider>
 
-      {/* Agent Debug Panel — SUPERADMIN + dev only, gated internally */}
-      <AgentDebugPanel />
     </>
   );
 };

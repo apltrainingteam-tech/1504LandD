@@ -8,7 +8,6 @@ import { Team } from '../context/MasterDataContext';
 import { getTeamId } from '../utils/teamIdMapper';
 import { normalizeTrainingType } from './normalizationEngine';
 import { normalizeScore } from '../utils/scoreNormalizer';
-import { traceEngine } from '../debug/traceEngine';
 
 // ─── TYPES & INTERFACES ──────────────────────────────────────────────────────
 
@@ -97,7 +96,7 @@ export interface APPerformanceAggregates {
 
 // ─── INTELLIGENCE ENGINE ─────────────────────────────────────────────────────
 
-export const buildEmployeeTimelines = traceEngine("buildEmployeeTimelines", (
+export const buildEmployeeTimelines = (
   attendances: Attendance[],
   nominations: TrainingNomination[],
   masterTeams: Team[],
@@ -157,10 +156,10 @@ export const buildEmployeeTimelines = traceEngine("buildEmployeeTimelines", (
   }
 
   return map;
-});
+};
 
 
-export const filterTimelines = traceEngine("filterTimelines", (
+export const filterTimelines = (
   rawTimelines: Map<string, EmployeeEventTimeline>,
   filters: { trainer?: string; validMonths?: string[] }
 ): Map<string, EmployeeEventTimeline> => {
@@ -188,10 +187,10 @@ export const filterTimelines = traceEngine("filterTimelines", (
     }
   }
   return filtered;
-});
+};
 
 
-export const buildAPMonthlyMatrix = traceEngine("buildAPMonthlyMatrix", (
+export const buildAPMonthlyMatrix = (
   timelines: Map<string, EmployeeEventTimeline>,
   fyMonths: string[]
 ): APAggregates => {
@@ -275,13 +274,13 @@ export const buildAPMonthlyMatrix = traceEngine("buildAPMonthlyMatrix", (
       compositeScore: scoredSessions > 0 ? totalScoreSum / scoredSessions : 0
     }
   };
-});
+};
 
 
 
 // ─── PERFORMANCE ENGINE ──────────────────────────────────────────────────────
 
-export const getAPPerformanceAggregates = traceEngine("getAPPerformanceAggregates", (
+export const getAPPerformanceAggregates = (
   filteredTimelines: Map<string, EmployeeEventTimeline>,
   fyMonths: string[]
 ): APPerformanceAggregates => {
@@ -398,7 +397,7 @@ export const getAPPerformanceAggregates = traceEngine("getAPPerformanceAggregate
       highPerformersPct: uniqueCandidateIds.size > 0 ? (highPerformersCount / uniqueCandidateIds.size) * 100 : 0
     }
   };
-});
+};
 
 
 

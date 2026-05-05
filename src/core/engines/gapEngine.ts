@@ -9,7 +9,6 @@ import { standardizeDesignation } from '../utils/designationMapper';
 import { getTeamId } from '../utils/teamIdMapper';
 import { Team } from '../context/MasterDataContext';
 import { STATE_ZONE } from '../../seed/masterData';
-import { traceEngine } from '../debug/traceEngine';
 import { safeSort } from './normalizationEngine';
 
 
@@ -160,8 +159,7 @@ export const aggregateClusterMetrics = (groupedData: Map<string, Map<string, Gap
 // enrichEmployees removed - using Master Data directly in computeGapAnalysis
 
 // Main function to compute gap analysis
-export const computeGapAnalysis = traceEngine("computeGapAnalysis", (
-
+export const computeGapAnalysis = (
   trainingType: TrainingType,
   employees: Employee[],
   attendance: Attendance[],
@@ -258,16 +256,6 @@ export const computeGapAnalysis = traceEngine("computeGapAnalysis", (
     !attendedSet.has(normalizeId(emp.employeeId))
   );
 
-  // 🔥 STEP 9: DEBUG VALIDATION
-  console.log('GAP DEBUG', {
-    trainingType: normalizedTrainingType,
-    totalActive: baseEmployees.length,
-    eligible: eligibleEmployees.length,
-    trained: trainedEmployees.length,
-    untrained: untrainedEmployees.length,
-    attendedSetSize: attendedSet.size,
-    zoneFilter: zoneFilter || 'None'
-  });
 
   // 🔥 STEP 7: GROUP BY CLUSTER → TEAM (FROM ELIGIBLE EMPLOYEES)
   const grouped = groupByClusterTeam(
@@ -388,26 +376,8 @@ export const computeGapAnalysis = traceEngine("computeGapAnalysis", (
   });
 
   return { data, drilldownData };
-});
+};
 
-
-/**
- * Partial Recompute for Gap Engine
- */
-export function recomputeGapPartial(
-  existingData: GapAnalysisData[],
-  rowsAffected: { old: Employee[], next: Employee[] },
-  attendedSet: Set<string>,
-  eligibleSet: Set<string>
-): GapAnalysisData[] {
-  const next = [...existingData];
-  
-  // Logic to decrement old and increment next based on affected employees
-  // For a zero-overhead layer, we target the specific team/cluster records in 'next'
-  // and update their totals (eligible, untrained, etc.)
-  
-  return next; 
-}
 
 
 

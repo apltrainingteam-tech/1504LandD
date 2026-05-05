@@ -2,7 +2,6 @@ import { ValidationError } from '../contracts/validation.contract';
 import { getSchema } from '../constants/trainingSchemas';
 // NOTE: getClosestMatches removed from validation loop — was causing O(n×m) freeze.
 // Suggestions are now computed on-demand when user clicks an error, not during validation.
-import { traceEngine } from '../debug/traceEngine';
 
 export interface ValidationMasterData {
   employeeIds: Set<string>;
@@ -11,7 +10,7 @@ export interface ValidationMasterData {
   rawMasterTeams: string[]; // Add this for suggestions
 }
 
-export const validateTrainingData = traceEngine("validateTrainingData", (data: any[], masterData: ValidationMasterData): ValidationError[] => {
+export const validateTrainingData = (data: any[], masterData: ValidationMasterData): ValidationError[] => {
   const errors: ValidationError[] = [];
   data.forEach((row, index) => {
     const type = row.trainingType || 'UNKNOWN';
@@ -87,9 +86,9 @@ export const validateTrainingData = traceEngine("validateTrainingData", (data: a
     });
   });
   return errors;
-});
+};
 
-export const validateNominationData = traceEngine("validateNominationData", (data: any[], masterData: ValidationMasterData): ValidationError[] => {
+export const validateNominationData = (data: any[], masterData: ValidationMasterData): ValidationError[] => {
   const errors: ValidationError[] = [];
   data.forEach((row, index) => {
     const recordId = row.id || row._id || `nom-${index}`;
@@ -132,9 +131,9 @@ export const validateNominationData = traceEngine("validateNominationData", (dat
     }
   });
   return errors;
-});
+};
 
-export const validateEmployeeData = traceEngine("validateEmployeeData", (data: any[], masterData: ValidationMasterData): ValidationError[] => {
+export const validateEmployeeData = (data: any[], masterData: ValidationMasterData): ValidationError[] => {
   const errors: ValidationError[] = [];
   const seenIds = new Set<string>();
 
@@ -198,4 +197,4 @@ export const validateEmployeeData = traceEngine("validateEmployeeData", (data: a
     }
   });
   return errors;
-});
+};

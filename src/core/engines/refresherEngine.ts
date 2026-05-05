@@ -4,7 +4,6 @@
  */
 import { EmployeeEventTimeline } from './apEngine';
 import { normalizeScore } from '../utils/scoreNormalizer';
-import { traceEngine } from '../debug/traceEngine';
 
 // ─── TYPES & INTERFACES ──────────────────────────────────────────────────────
 
@@ -73,7 +72,7 @@ export interface RefresherPerformanceAggregates {
 
 // ─── ATTENDANCE ENGINE ───────────────────────────────────────────────────────
 
-export const buildRefresherAttendanceMatrix = traceEngine("buildRefresherAttendanceMatrix", (
+export const buildRefresherAttendanceMatrix = (
   timelines: Map<string, EmployeeEventTimeline>,
   fyMonths: string[]
 ): RefresherAttendanceAggregates => {
@@ -105,11 +104,11 @@ export const buildRefresherAttendanceMatrix = traceEngine("buildRefresherAttenda
   }
 
   return { clusterMonthMap };
-});
+};
 
 // ─── PERFORMANCE ENGINE ──────────────────────────────────────────────────────
 
-export const getRefresherPerformanceAggregates = traceEngine("getRefresherPerformanceAggregates", (
+export const getRefresherPerformanceAggregates = (
   timelines: Map<string, EmployeeEventTimeline>,
   fyMonths: string[]
 ): RefresherPerformanceAggregates => {
@@ -210,7 +209,7 @@ export const getRefresherPerformanceAggregates = traceEngine("getRefresherPerfor
       highPerformersPct: uniqueIds.size > 0 ? (highPerformersCount / uniqueIds.size) * 100 : 0
     }
   };
-});
+};
 
 export function getRefresherDrilldownList(
   timelines: Map<string, EmployeeEventTimeline>,

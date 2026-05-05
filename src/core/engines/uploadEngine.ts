@@ -18,7 +18,6 @@
 
 import { parseExcelFileStrict, getValidRows, getErrorRows, getSummary, ParseResult } from './parsingEngine';
 import { addBatch, getCollection } from './apiClient';
-import { traceEngine } from '../debug/traceEngine';
 import { NotificationRecord } from '../../types/attendance';
 
 export interface UploadOptions {
@@ -44,8 +43,6 @@ export interface UploadResult {
   inactiveEmployees: number;
   errors: Array<{ rowNum: number; message: string }>;
   warnings: Array<{ rowNum: number; message: string }>;
-  debugLog: string;
-  debug?: any;
   isBaseline?: boolean;
 }
 
@@ -57,19 +54,16 @@ export interface UploadResult {
  * 3. Upload valid rows to MongoDB
  * 4. Return detailed result
  */
-export const uploadTrainingDataStrict = traceEngine("uploadTrainingDataStrict", async (
+export const uploadTrainingDataStrict = async (
   file: File,
   options: UploadOptions = { mode: 'append' }
 ): Promise<UploadResult> => {
   const chunkSize = options.chunkSize || 50;
-  const debugLog: string[] = [];
 
   try {
     // ───────────────────────────────────────────────────────────────────
     // STAGE 1: PARSE EXCEL FILE
     // ───────────────────────────────────────────────────────────────────
-    console.log(`[UPLOAD] Starting upload: mode=${options.mode}, file=${file.name}`);
-    debugLog.push(`[UPLOAD] Starting upload: mode=${options.mode}, file=${file.name}`);
 
     if (options.onProgress) {
       options.onProgress({
@@ -83,10 +77,8 @@ export const uploadTrainingDataStrict = traceEngine("uploadTrainingDataStrict", 
     let parseResult: ParseResult;
     try {
       parseResult = await parseExcelFileStrict(file);
-      debugLog.push(`[UPLOAD] ✅ Parse complete: template=${parseResult.templateType}`);
     } catch (parseError: any) {
       const errorMsg = parseError?.message || 'Parse failed';
-      debugLog.push(`[UPLOAD] ❌ Parse error: ${errorMsg}`);
       throw new Error(`Parse failed: ${errorMsg}`);
     }
 
@@ -105,8 +97,6 @@ export const uploadTrainingDataStrict = traceEngine("uploadTrainingDataStrict", 
     const validRowsRaw = getValidRows(parseResult);
     const errorRows = getErrorRows(parseResult);
     const summary = getSummary(parseResult);
-
-    debugLog.push(`[UPLOAD] Validation summary: ${JSON.stringify(summary)}`);
 
     // ─── STAGE 2.5: EMPLOYEE MASTER VALIDATION (STRICT) ───
     // Fix: Using 'employees' collection to match MasterDataContext and Employees module
@@ -144,8 +134,6 @@ export const uploadTrainingDataStrict = traceEngine("uploadTrainingDataStrict", 
     });
     
     const mapStats = `IDs=${idMap.size}, Aadhaar=${aadhaarMap.size}, Mobile=${mobileMap.size}`;
-    console.log(`[UPLOAD] Lookup maps built: ${mapStats}`);
-    debugLog.push(`[UPLOAD] Lookup maps built: ${mapStats}`);
 
     // Valid training types (standardized)
     const VALID_TRAINING_TYPES = ['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'PreAP', 'GTG', 'HO', 'RTM'];
@@ -189,9 +177,6 @@ export const uploadTrainingDataStrict = traceEngine("uploadTrainingDataStrict", 
       const status = String(emp.status || 'Active').toLowerCase();
       if (!isNotificationHistory && status !== 'active') {
         inactiveEmployees++;
-        if (inactiveEmployees <= 5) {
-            debugLog.push(`[UPLOAD] ⚠️ Row ${idx+2}: Employee ${emp.employeeId} is ${emp.status}`);
-        }
         errorRows.push({
           rowNum: idx + 2,
           errors: [`Employee ${emp.employeeId} (${emp.name}) is marked ${emp.status || 'Inactive'}`],
@@ -235,7 +220,6 @@ export const uploadTrainingDataStrict = traceEngine("uploadTrainingDataStrict", 
                        `Details: ${mismatchCount} Not Found, ${inactiveEmployees} Inactive.\n` +
                        `Check if Employee IDs in Excel match the Master Roster.\n` +
                        `Samples:\n${mismatchSamples.join('\n')}`;
-      debugLog.push(`[UPLOAD] Fatal: ${errorMsg}`);
       throw new Error(errorMsg);
     }
 
@@ -303,9 +287,6 @@ export const uploadTrainingDataStrict = traceEngine("uploadTrainingDataStrict", 
           await addBatch(collectionName, docsToInsert);
           uploadedCount += chunk.length;
 
-          console.log(`[UPLOAD] Chunk ${chunkNum}: ${uploadedCount}/${validRows.length} rows uploaded`);
-          debugLog.push(`[UPLOAD] Chunk ${chunkNum}: ${uploadedCount}/${validRows.length} rows`);
-
           if (options.onProgress) {
             const progress = 60 + (uploadedCount / validRows.length) * 35;
             options.onProgress({
@@ -317,17 +298,11 @@ export const uploadTrainingDataStrict = traceEngine("uploadTrainingDataStrict", 
           }
         } catch (chunkError: any) {
           const errorMsg = chunkError?.message || 'Chunk upload failed';
-          console.error(`[UPLOAD] Chunk ${chunkNum} error:`, errorMsg);
-          debugLog.push(`[UPLOAD] ❌ Chunk ${chunkNum} error: ${errorMsg}`);
           throw new Error(`Chunk ${chunkNum} upload failed: ${errorMsg}`);
         }
       }
-
-      console.log(`[UPLOAD] ✅ All ${uploadedCount} rows uploaded successfully`);
-      debugLog.push(`[UPLOAD] ✅ All ${uploadedCount} rows uploaded successfully`);
     } catch (uploadError: any) {
       const errorMsg = uploadError?.message || 'Upload to MongoDB failed';
-      debugLog.push(`[UPLOAD] ❌ Upload error: ${errorMsg}`);
       throw new Error(`MongoDB upload failed: ${errorMsg}`);
     }
 
@@ -361,16 +336,12 @@ export const uploadTrainingDataStrict = traceEngine("uploadTrainingDataStrict", 
             rowNum: e.rowNum,
             message: w
           }))
-        ),
-      debugLog: debugLog.join('\n'),
-      debug: parseResult.debug
+        )
     };
 
-    console.log(`[UPLOAD] ✅ Result:`, result);
     return result;
   } catch (err: any) {
     const errorMsg = err?.message || 'Unknown error';
-    debugLog.push(`[UPLOAD] ❌ Fatal error: ${errorMsg}`);
 
     return {
       success: false,
@@ -381,11 +352,10 @@ export const uploadTrainingDataStrict = traceEngine("uploadTrainingDataStrict", 
       activeEmployees: 0,
       inactiveEmployees: 0,
       errors: [{ rowNum: 0, message: errorMsg }],
-      warnings: [],
-      debugLog: debugLog.join('\n')
+      warnings: []
     };
   }
-});
+};
 
 export async function validateFile(file: File): Promise<ParseResult> {
   return await parseExcelFileStrict(file);
@@ -395,12 +365,11 @@ export async function validateFile(file: File): Promise<ParseResult> {
  * Format upload result for user display
  */
 
-export function formatUploadResult(result: UploadResult, debug?: any): string {
+export function formatUploadResult(result: UploadResult): string {
   if (!result.success) {
     return (
       `❌ Upload Failed\n` +
-      `Error: ${result.errors[0]?.message || 'Unknown error'}\n\n` +
-      `Debug Log:\n${result.debugLog}`
+      `Error: ${result.errors[0]?.message || 'Unknown error'}\n`
     );
   }
 
@@ -409,17 +378,6 @@ export function formatUploadResult(result: UploadResult, debug?: any): string {
   message += `Total Rows: ${result.totalRows}\n`;
   message += `Uploaded: ${result.uploadedRows} ✅\n`;
   message += `Rejected: ${result.rejectedRows} ❌\n`;
-
-  if (debug?.excluded > 0) {
-    message += `Excluded Teams: ${debug.excluded} 🛑\n`;
-  }
-
-  if (debug?.normalization && Object.keys(debug.normalization).length > 0) {
-    message += `\n🔄 Team Normalization:\n`;
-    Object.entries(debug.normalization).forEach(([rule, count]) => {
-      message += `  • ${rule}: ${count} records\n`;
-    });
-  }
 
   message += `\nSuccess Rate: ${((result.uploadedRows / result.totalRows) * 100).toFixed(1)}%\n`;
 

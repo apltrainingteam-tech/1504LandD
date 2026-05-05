@@ -1,5 +1,4 @@
 import { useMemo, useEffect } from 'react';
-import { useDebugStore } from '../../../core/debug/debugStore';
 import { buildUnifiedDataset, applyFilters } from '../../../core/engines/reportEngine';
 import { normalizeTrainingType } from '../../../core/engines/normalizationEngine';
 import { getEligibleEmployees } from '../../../core/engines/eligibilityEngine';
@@ -20,9 +19,6 @@ import { Attendance, TrainingScore, TrainingNomination, EligibilityRule, Trainin
 import { ReportFilter, ViewByOption } from '../../../types/reports';
 import { PerformanceDataset } from '../../../core/contracts/performance.contract';
 import { globalComputationCaches } from '../../../core/utils/computationCache';
-import { logStep } from '../../../core/debug/pipelineTracer';
-import { saveSnapshot } from '../../../core/debug/snapshotStore';
-import { saveSession } from '../../../core/debug/debugSession';
 import { useMasterData } from '../../../core/context/MasterDataContext';
 import { useGlobalFilters } from '../../../core/context/GlobalFilterContext';
 
@@ -59,7 +55,6 @@ export const usePerformanceData = ({
     trainers: masterTrainers,
     eligibilityRules: rules
   } = useMasterData();
-  const isEngineDebugActive = useDebugStore(state => state.enabled);
 
   // 2. Derive Configuration
   const tab = globalFilters.trainingType !== 'ALL' ? globalFilters.trainingType : tabProp;
@@ -92,10 +87,6 @@ export const usePerformanceData = ({
   const MONTHS = useMemo(() => getFiscalMonths(selectedFY), [selectedFY]);
   const activeNT = useMemo(() => normalizeTrainingType(tab), [tab]);
 
-  // 4. Persistence Effect
-  useEffect(() => {
-    saveSession({ employees, attendance, scores, nominations, rules, masterTeams, tab, selectedFY, filter });
-  }, [employees, attendance, scores, nominations, rules, masterTeams, tab, selectedFY, filter]);
 
   // 5. Data Pipeline Hooks (MUST be called unconditionally)
   const normalizedAttendance = useMemo(() => {
@@ -121,23 +112,21 @@ export const usePerformanceData = ({
 
   const rawUnified = useMemo(() => {
     if (!attendance.length) return [];
-    return logStep("Unified Dataset Construction", () => {
-      const att = normalizedAttendance.filter(a => normalizeTrainingType(a.trainingType) === activeNT);
-      const scs = scores.filter(s => normalizeTrainingType(s.trainingType) === activeNT);
-      const noms = nominations
-        .filter(isActiveNomination)
-        .map(n => {
-          let m = n.month || n.notificationDate || '';
-          if (m && !/^\d{4}-\d{2}$/.test(m)) m = m.substring(0, 7);
-          return { ...n, month: m };
-        })
-        .filter(n => normalizeTrainingType(n.trainingType) === activeNT);
+    const att = normalizedAttendance.filter(a => normalizeTrainingType(a.trainingType) === activeNT);
+    const scs = scores.filter(s => normalizeTrainingType(s.trainingType) === activeNT);
+    const noms = nominations
+      .filter(isActiveNomination)
+      .map(n => {
+        let m = n.month || n.notificationDate || '';
+        if (m && !/^\d{4}-\d{2}$/.test(m)) m = m.substring(0, 7);
+        return { ...n, month: m };
+      })
+      .filter(n => normalizeTrainingType(n.trainingType) === activeNT);
 
-      const rule = rules.find(r => normalizeTrainingType(r.trainingType) === activeNT);
-      const eligResults = getEligibleEmployees(tab as TrainingType, rule, employees, attendance, nominations);
+    const rule = rules.find(r => normalizeTrainingType(r.trainingType) === activeNT);
+    const eligResults = getEligibleEmployees(tab as TrainingType, rule, employees, attendance, nominations);
 
-      return buildUnifiedDataset(employees, att, scs, noms, eligResults, masterTeams);
-    });
+    return buildUnifiedDataset(employees, att, scs, noms, eligResults, masterTeams);
   }, [activeNT, normalizedAttendance, scores, nominations, employees, masterTeams, rules, tab, attendance]);
 
   const tabNoms = useMemo(
@@ -185,11 +174,11 @@ export const usePerformanceData = ({
   const timeSeries = useTimeSeries(groups, months, tab, tsMode);
 
   // 7. Final Output Construction (Handling early exit states gracefully)
-  const isEmpty = !attendance.length || isEngineDebugActive;
+  const isEmpty = !attendance.length;
 
   if (isEmpty) {
     return {
-      MONTHS: isEngineDebugActive ? [] : MONTHS,
+      MONTHS,
       activeNT,
       rawUnified: [],
       unified: [],
@@ -221,7 +210,6 @@ export const usePerformanceData = ({
       refresherKPI: null,
       capsuleKPI: null,
       preApKPI: null,
-      isDebugMode: isEngineDebugActive,
       resolutionLevel
     };
   }

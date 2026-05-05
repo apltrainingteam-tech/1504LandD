@@ -4,7 +4,6 @@
  */
 import { EmployeeEventTimeline } from './apEngine';
 import { normalizeScore } from '../utils/scoreNormalizer';
-import { traceEngine } from '../debug/traceEngine';
 
 // ─── TYPES & INTERFACES ──────────────────────────────────────────────────────
 
@@ -64,7 +63,7 @@ export interface MIPPerformanceAggregates {
 
 // ─── ATTENDANCE ENGINE ───────────────────────────────────────────────────────
 
-export const buildMIPAttendanceMatrix = traceEngine("buildMIPAttendanceMatrix", (
+export const buildMIPAttendanceMatrix = (
   timelines: Map<string, EmployeeEventTimeline>,
   fyMonths: string[]
 ): MIPAttendanceAggregates => {
@@ -96,11 +95,11 @@ export const buildMIPAttendanceMatrix = traceEngine("buildMIPAttendanceMatrix", 
   }
 
   return { clusterMonthMap };
-});
+};
 
 // ─── PERFORMANCE ENGINE ──────────────────────────────────────────────────────
 
-export const getMIPPerformanceAggregates = traceEngine("getMIPPerformanceAggregates", (
+export const getMIPPerformanceAggregates = (
   timelines: Map<string, EmployeeEventTimeline>,
   fyMonths: string[]
 ): MIPPerformanceAggregates => {
@@ -208,7 +207,7 @@ export const getMIPPerformanceAggregates = traceEngine("getMIPPerformanceAggrega
       highPerformersPct: uniqueIds.size > 0 ? (highPerformersCount / uniqueIds.size) * 100 : 0
     }
   };
-});
+};
 
 export function getMIPDrilldownList(
   timelines: Map<string, EmployeeEventTimeline>,

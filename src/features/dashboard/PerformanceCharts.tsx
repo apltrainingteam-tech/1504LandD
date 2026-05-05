@@ -5,7 +5,6 @@ import { Table, TrendingUp, Trophy, Users, AlertTriangle } from 'lucide-react';
 import { Employee } from '../../types/employee';
 import { Attendance, TrainingScore, TrainingNomination, Demographics } from '../../types/attendance';
 import { useMasterData } from '../../core/context/MasterDataContext';
-import { useDebugStore } from '../../core/debug/debugStore';
 import { usePerformanceData } from './hooks/usePerformanceData';
 import { useGlobalFilters } from '../../core/context/GlobalFilterContext';
 
@@ -39,7 +38,6 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
   
   const selectedFY = globalFilters.fiscalYear;
 
-  const isEngineDebugActive = useDebugStore(state => state.enabled);
   const [presentationMode, setPresentationMode] = useState(false);
 
   // --- PRESENTATION MODE SIDEBAR HIDING ---
@@ -52,8 +50,7 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
     return () => document.body.classList.remove('presentation-active');
   }, [presentationMode]);
 
-  // Early exit for debug/loading states (after all hooks)
-  if (isEngineDebugActive) return null;
+  // Early exit for loading states (after all hooks)
   if (masterDataLoading) return <div>Loading master data...</div>;
 
   const {

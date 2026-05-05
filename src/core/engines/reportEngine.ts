@@ -5,7 +5,6 @@
 import { normalizeTrainingType, normalizeForMatch } from './normalizationEngine';
 import { normalizeText } from '../utils/textNormalizer';
 import { normalizeScore } from '../utils/scoreNormalizer';
-import { traceEngine } from '../debug/traceEngine';
 import { Employee } from '../../types/employee';
 import { Attendance, TrainingScore, TrainingNomination } from '../../types/attendance';
 import { UnifiedRecord, GroupedData, ViewByOption, TimeSeriesRow, TrainerStat, DrilldownNode, ReportFilter } from '../../types/reports';
@@ -66,7 +65,7 @@ const avgScores = (scores: Record<string, number | null> | undefined): number =>
 };
 
 // ─── UNIFIED DATASET BUILDER ───────────────────────────────────────────────
-export const buildUnifiedDataset = traceEngine("buildUnifiedDataset", (
+export const buildUnifiedDataset = (
   emps: Employee[],
   att: Attendance[],
   scs: TrainingScore[],
@@ -78,17 +77,10 @@ export const buildUnifiedDataset = traceEngine("buildUnifiedDataset", (
   const teamIdMap = new Map<string, string>();
   const clusterMapLookup = new Map<string, string>();
   
-  console.log(`[ReportEngine] Master Teams Count: ${masterTeams.length}`);
-  
-  // 1. Build robust lookup maps from master data
   masterTeams.forEach(t => {
     const normName = normalizeForMatch(t.teamName);
     teamIdMap.set(normName, t.id);
-    
-    // Also map by code if available
     if (t.code) teamIdMap.set(normalizeForMatch(t.code), t.id);
-
-    // Sanitize legacy cluster names during lookup build
     let cluster = t.cluster || 'Others';
     if (['MIS', 'ALL', 'UNMAPPED'].includes(cluster.toUpperCase())) {
       cluster = 'Others';
@@ -97,18 +89,10 @@ export const buildUnifiedDataset = traceEngine("buildUnifiedDataset", (
   });
 
   const empMap = new Map<string, Employee>();
-  const unmappedTeams = new Set<string>();
-
   for (const e of emps) {
-    const rawTeam = (e.team || '').trim();
-    const normTeam = normalizeForMatch(rawTeam);
-    
-    // Resolve ID and Cluster
+    const normTeam = normalizeForMatch(e.team || '');
     const teamId = e.teamId || teamIdMap.get(normTeam);
     let cluster = e.cluster || (teamId ? clusterMapLookup.get(teamId) : 'Others') || 'Others';
-    
-    if (!teamId && rawTeam) unmappedTeams.add(rawTeam);
-    
     empMap.set(e.employeeId || e.id, { ...e, teamId, cluster });
   }
 
@@ -119,7 +103,6 @@ export const buildUnifiedDataset = traceEngine("buildUnifiedDataset", (
     const type = normalizeTrainingType(s.trainingType);
     const dateKey = `${tid}::${type}::${s.dateStr}`;
     scoreMap.set(dateKey, s);
-    
     const m = (s.dateStr || '').substring(0, 7);
     if (m) {
       const monthKey = `${tid}::${type}::${m}`;
@@ -131,69 +114,34 @@ export const buildUnifiedDataset = traceEngine("buildUnifiedDataset", (
   for (const n of noms) {
     const tid = String(n.employeeId).trim();
     const type = normalizeTrainingType(n.trainingType);
-    const key = `${tid}::${type}`;
-    nominationMap.set(key, n);
+    nominationMap.set(`${tid}::${type}`, n);
   }
 
   const eligibilityMap = new Map<string, EligibilityResult>();
   for (const el of eligibilityResults) {
-    const tid = String(el.employeeId).trim();
-    eligibilityMap.set(tid, el);
+    eligibilityMap.set(String(el.employeeId).trim(), el);
   }
 
-  let totalMapped = 0;
-  let totalRecords = 0;
-  const clusterDist: Record<string, number> = {};
-
-  const result = att.filter(a => !a.isVoided).map((a) => {
-
+  return att.filter(a => !a.isVoided).map((a) => {
     const tid = String(a.employeeId).trim();
     const type = normalizeTrainingType(a.trainingType);
-    
     const emp = empMap.get(tid) || {
-      id: tid,
-      employeeId: tid,
-      name: a.name || '—',
-      team: a.team || '—',
-      state: a.state || '-',
-      hq: a.hq || '-',
-      designation: a.designation || '-',
-      aadhaarNumber: a.aadhaarNumber || '-',
-      mobileNumber: a.mobileNumber || '-',
-      doj: '', dob: '', email: '', basicQualification: '',
-      aplExperience: 0, pastExperience: 0, totalExperience: 0, age: 0,
-      status: 'Active' as const,
-      cluster: 'Others'
+      id: tid, employeeId: tid, name: a.name || '—', team: a.team || '—',
+      state: a.state || '-', hq: a.hq || '-', designation: a.designation || '-',
+      status: 'Active' as const, cluster: 'Others', teamId: undefined
     };
 
-    let sc = scoreMap.get(`${tid}::${type}::${a.attendanceDate}`) || null;
-    if (!sc) {
-      const m = (a.attendanceDate || '').substring(0, 7);
-      sc = monthScoreMap.get(`${tid}::${type}::${m}`) || null;
-    }
+    let sc = scoreMap.get(`${tid}::${type}::${a.attendanceDate}`) || monthScoreMap.get(`${tid}::${type}::${(a.attendanceDate || '').substring(0, 7)}`) || null;
     const normalizedScore = sc ? { ...sc, scores: { ...sc.scores, ...normalizeScoreRecord(sc.scores, type) } } : null;
     const nm = nominationMap.get(`${tid}::${type}`) || null;
     const el = eligibilityMap.get(tid);
     
-    // Final resolution of metadata
-    const rawTeamName = (emp.team || '').trim();
-    const normTeam = normalizeForMatch(rawTeamName);
-    
-    // Priority: 1. ID from Record, 2. Name Match, 3. Unmapped Placeholder
-    const teamId = emp.teamId || teamIdMap.get(normTeam) || (rawTeamName ? `unmapped::${normalizeText(rawTeamName)}` : undefined);
+    const normTeam = normalizeForMatch(emp.team || '');
+    const teamId = emp.teamId || teamIdMap.get(normTeam) || (emp.team ? `unmapped::${normalizeText(emp.team)}` : undefined);
     
     if (!teamId) return; 
-    
-    // Cluster Resolution: 1. From Master Data (via ID), 2. From Record (if ID unmapped), 3. Fallback
     let cluster = (teamId.startsWith('unmapped::') ? emp.cluster : clusterMapLookup.get(teamId)) || emp.cluster || 'Others';
-    
-    if (['MIS', 'ALL', 'UNMAPPED'].includes(String(cluster).toUpperCase())) {
-      cluster = 'Others';
-    }
-    
-    totalRecords++;
-    if (cluster !== 'Others') totalMapped++;
-    clusterDist[cluster] = (clusterDist[cluster] || 0) + 1;
+    if (['MIS', 'ALL', 'UNMAPPED'].includes(String(cluster).toUpperCase())) cluster = 'Others';
 
     return {
       employee: { ...emp, teamId, cluster } as Employee,
@@ -204,26 +152,13 @@ export const buildUnifiedDataset = traceEngine("buildUnifiedDataset", (
       eligibilityReason: el?.reasonIfNotEligible
     } as UnifiedRecord;
   }).filter((r): r is UnifiedRecord => !!r);
-
-  const engineClusters = [...new Set(result.map(d => d.employee.cluster))];
-  console.log("ENGINE CLUSTERS:", engineClusters);
-
-  const unmappedPct = totalRecords > 0 ? ((totalRecords - totalMapped) / totalRecords) * 100 : 0;
-  console.log(`[ReportEngine] Mapping Summary: Total=${totalRecords}, Mapped=${totalMapped}, Unmapped=${totalRecords - totalMapped} (${unmappedPct.toFixed(1)}%)`);
-  console.log(`[ReportEngine] Cluster Distribution:`, clusterDist);
-
-  if (unmappedPct > 20) {
-    console.error(`[ReportEngine] CRITICAL: High unmapped percentage (${unmappedPct.toFixed(1)}%). Check master data unit names.`);
-    if (unmappedTeams.size > 0) console.warn(`[ReportEngine] Unmapped teams list:`, Array.from(unmappedTeams));
-  }
-
-  return result;
-});
+};
 
 
 // ─── FILTER ENGINE ─────────────────────────────────────────────────────────
 export function applyFilters(ds: UnifiedRecord[], 
   filter: ReportFilter, 
+  masterTeams: Team[] = [],
   masterTrainers: any[] = []
 ): UnifiedRecord[] {
   const trainerMap = Object.fromEntries(masterTrainers.map(t => [t.id, t]));

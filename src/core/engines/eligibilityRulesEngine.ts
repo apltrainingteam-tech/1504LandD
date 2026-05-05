@@ -3,9 +3,8 @@ import { Attendance, TrainingNomination } from '../../types/attendance';
 import { ELIGIBILITY_RULES } from '../constants/eligibilityRules';
 import { standardizeDesignation } from '../utils/designationMapper';
 import { parseAnyDate } from '../utils/dateParser';
-import { traceEngine } from '../debug/traceEngine';
 
-export const applyEligibilityRules = traceEngine("applyEligibilityRules", (
+export const applyEligibilityRules = (
   trainingType: string,
   employees: Employee[],
   attendance: Attendance[],
@@ -118,7 +117,7 @@ export const applyEligibilityRules = traceEngine("applyEligibilityRules", (
 
     return true;
   });
-});
+};
 
 
 

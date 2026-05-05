@@ -4,7 +4,6 @@
  */
 import { EmployeeEventTimeline } from './apEngine';
 import { normalizeScore } from '../utils/scoreNormalizer';
-import { traceEngine } from '../debug/traceEngine';
 
 // ─── TYPES & INTERFACES ──────────────────────────────────────────────────────
 
@@ -74,7 +73,7 @@ export interface CapsulePerformanceAggregates {
 
 // ─── ATTENDANCE ENGINE ───────────────────────────────────────────────────────
 
-export const buildCapsuleAttendanceMatrix = traceEngine("buildCapsuleAttendanceMatrix", (
+export const buildCapsuleAttendanceMatrix = (
   timelines: Map<string, EmployeeEventTimeline>,
   fyMonths: string[]
 ): CapsuleAttendanceAggregates => {
@@ -120,7 +119,7 @@ export const buildCapsuleAttendanceMatrix = traceEngine("buildCapsuleAttendanceM
       attendancePercent
     }
   };
-});
+};
 
 export function getCapsuleAttendanceDrilldown(
   timelines: Map<string, EmployeeEventTimeline>,
@@ -145,7 +144,7 @@ export function getCapsuleAttendanceDrilldown(
 
 // ─── PERFORMANCE ENGINE ──────────────────────────────────────────────────────
 
-export const getCapsulePerformanceAggregates = traceEngine("getCapsulePerformanceAggregates", (
+export const getCapsulePerformanceAggregates = (
   timelines: Map<string, EmployeeEventTimeline>,
   fyMonths: string[]
 ): CapsulePerformanceAggregates => {
@@ -229,7 +228,7 @@ export const getCapsulePerformanceAggregates = traceEngine("getCapsulePerformanc
       highPerformersPct: uniqueIds.size > 0 ? (highPerformersCount / uniqueIds.size) * 100 : 0
     }
   };
-});
+};
 
 export function getCapsulePerformanceDrilldown(
   timelines: Map<string, EmployeeEventTimeline>,
