@@ -1,12 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import {
   Search, Filter, Calendar, Users, CheckCircle, Clock, AlertCircle,
-  ChevronRight, ChevronDown, ArrowUpRight, ArrowDownRight, Activity, ClipboardList, User, Plus, Trash2
+  ChevronRight, ChevronDown, ArrowUpRight, ArrowDownRight, Activity, ClipboardList, User, Plus, Trash2, Target, Loader2
 } from 'lucide-react';
 import { useMasterData } from '../../core/context/MasterDataContext';
 import { usePlanningFlow } from '../../core/context/PlanningFlowContext';
 import TrainerAvatar from '../../shared/components/ui/TrainerAvatar';
 import { toProperCase } from '../../core/engines/normalizationEngine';
+import { ChecklistType } from '../../types/checklist';
 import styles from './TrackerPage.module.css';
 import { PlannedTaskForm } from './components/PlannedTaskForm';
 
@@ -46,8 +47,28 @@ export const TrackerPage: React.FC = () => {
   const {
     checklistItems, toggleChecklistItem,
     plannedTasks, addPlannedTask, togglePlannedTaskCompletion, deletePlannedTask,
+    newProducts, addNewProduct,
     trainers: masterTrainers
   } = useMasterData();
+
+  const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
+  const [newProductName, setNewProductName] = useState('');
+  const [isSavingProduct, setIsSavingProduct] = useState(false);
+
+  const handleSaveProduct = async () => {
+    if (!newProductName.trim()) return;
+    setIsSavingProduct(true);
+    try {
+      await addNewProduct(newProductName.trim());
+      setIsAddProductModalOpen(false);
+      setNewProductName('');
+    } catch (error) {
+      console.error('Failed to add product:', error);
+      alert('Failed to add product. Please try again.');
+    } finally {
+      setIsSavingProduct(false);
+    }
+  };
 
   const getTaskStatus = (task: any) => {
     if (task.completedAt) return 'Completed';
@@ -251,7 +272,7 @@ export const TrackerPage: React.FC = () => {
         </h2>
         <div className={styles.checklistCardsGrid}>
           {filteredActivities.map(activity => {
-            const items = checklistItems.filter(i => i.trainingId === activity.id);
+            const items = checklistItems.filter(i => i.parentId === activity.id && i.checklistType === 'Training');
             const completedCount = items.filter(i => i.status === 'Completed').length;
             const totalCount = items.length;
             const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
@@ -291,8 +312,9 @@ export const TrackerPage: React.FC = () => {
                 {isExpanded && (
                   <div className={styles.cardContent}>
                     <SessionChecklist
-                      trainingId={activity.id}
-                      trainingType={activity.trainingType}
+                      parentId={activity.id}
+                      checklistType="Training"
+                      keyVal={activity.trainingType}
                       items={items}
                       onToggle={toggleChecklistItem}
                     />
@@ -305,6 +327,121 @@ export const TrackerPage: React.FC = () => {
             <div className={styles.emptyResults}>No training activities found.</div>
           )}
         </div>
+      </section>
+
+      <div className={styles.divider} />
+
+      {/* NEW PRODUCT CHECKLISTS SECTION */}
+      <section className={styles.section}>
+        <div className="flex justify-between items-center mb-16">
+          <h2 className={styles.sectionTitle} style={{ margin: 0 }}>
+            <Target size={20} color="var(--accent-primary)" /> New Product Checklists
+          </h2>
+          <button className="btn btn-primary btn-sm" onClick={() => setIsAddProductModalOpen(true)}>
+            <Plus size={14} /> Add Product
+          </button>
+        </div>
+        
+        <div className={styles.checklistCardsGrid}>
+          {newProducts.map(product => {
+            const items = checklistItems.filter(i => i.parentId === product.id && i.checklistType === 'NewProduct');
+            const completedCount = items.filter(i => i.status === 'Completed').length;
+            const totalCount = items.length;
+            const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+            const isExpanded = expandedSession === product.id;
+
+            return (
+              <div key={product.id} className={`${styles.checklistCard} ${isExpanded ? styles.cardExpanded : ''}`}>
+                <div
+                  className={styles.cardHeader}
+                  onClick={() => setExpandedSession(isExpanded ? null : product.id)}
+                >
+                  <div className={styles.cardHeaderMain}>
+                    <div className={styles.cardIdentity}>
+                      <span className={styles.typeBadge}>Product</span>
+                      <h4 className={styles.cardTitle}>{product.productName}</h4>
+                    </div>
+                    <div className={styles.cardMeta}>
+                      <div className={styles.metaItem}><Calendar size={12} /> Created: {new Date(product.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</div>
+                    </div>
+                  </div>
+                  <div className={styles.cardStatusArea}>
+                    <div className={styles.progressContainer}>
+                      <span className={styles.progressLabel}>{completedCount}/{totalCount} Tasks</span>
+                      <div className={styles.miniProgressTrack}>
+                        <div className={styles.miniProgressBar} style={{ width: `${progress}%` }} />
+                      </div>
+                    </div>
+                    {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                  </div>
+                </div>
+
+                {isExpanded && (
+                  <div className={styles.cardContent}>
+                    <SessionChecklist
+                      parentId={product.id}
+                      checklistType="NewProduct"
+                      keyVal="New Product"
+                      items={items}
+                      onToggle={toggleChecklistItem}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {newProducts.length === 0 && (
+            <div className={styles.emptyResults}>
+              <p>No products added yet.</p>
+              <button className="btn btn-secondary btn-sm mt-8" onClick={() => setIsAddProductModalOpen(true)}>
+                <Plus size={14} /> Add Product
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Add Product Modal */}
+        {isAddProductModalOpen && (
+          <div className={styles.modalBackdrop}>
+            <div className={`glass-panel ${styles.miniModal}`}>
+              <h3>Add New Product</h3>
+              <div className="mt-16">
+                <label className="text-xs font-bold uppercase opacity-60">Product Name</label>
+                <input 
+                  autoFocus
+                  className="form-input mt-4"
+                  value={newProductName}
+                  onChange={e => setNewProductName(e.target.value)}
+                  placeholder="e.g. Revance Launch"
+                  disabled={isSavingProduct}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && newProductName.trim() && !isSavingProduct) {
+                      handleSaveProduct();
+                    }
+                  }}
+                />
+              </div>
+              <div className="flex gap-12 mt-24">
+                <button 
+                  className="btn btn-secondary flex-1" 
+                  onClick={() => { setIsAddProductModalOpen(false); setNewProductName(''); }}
+                  disabled={isSavingProduct}
+                >
+                  Cancel
+                </button>
+                <button 
+                  className="btn btn-primary flex-1" 
+                  disabled={!newProductName.trim() || isSavingProduct}
+                  onClick={handleSaveProduct}
+                >
+                  {isSavingProduct ? (
+                    <><Loader2 size={16} className="animate-spin mr-2" /> Saving...</>
+                  ) : 'Save'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </section>
 
       <div className={styles.divider} />
@@ -427,22 +564,23 @@ export const TrackerPage: React.FC = () => {
 };
 
 const SessionChecklist: React.FC<{
-  trainingId: string;
-  trainingType: string;
+  parentId: string;
+  checklistType: ChecklistType;
+  keyVal: string;
   items: any[];
   onToggle: (id: string) => void;
-}> = ({ trainingId, trainingType, items, onToggle }) => {
+}> = ({ parentId, checklistType, keyVal, items, onToggle }) => {
   const { createChecklistForTraining } = useMasterData();
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [hasAttempted, setHasAttempted] = React.useState(false);
 
   // Auto-repair: If no items exist, trigger generation automatically from Master Settings
   React.useEffect(() => {
-    if (items.length === 0 && trainingType && !hasAttempted && !isGenerating) {
+    if (items.length === 0 && keyVal && !hasAttempted && !isGenerating) {
       setIsGenerating(true);
       createChecklistForTraining(
-        trainingId,
-        trainingType,
+        parentId,
+        keyVal,
         'System',
         new Date().toISOString()
       ).finally(() => {
@@ -450,7 +588,7 @@ const SessionChecklist: React.FC<{
         setHasAttempted(true);
       });
     }
-  }, [items.length, trainingId, trainingType, createChecklistForTraining, hasAttempted, isGenerating]);
+  }, [items.length, parentId, keyVal, createChecklistForTraining, hasAttempted, isGenerating]);
 
   const sortedItems = useMemo(() => {
     return [...items].sort((a, b) => {
@@ -473,7 +611,7 @@ const SessionChecklist: React.FC<{
     if (hasAttempted) {
       return (
         <div className={styles.checklistEmpty}>
-          <p className="text-warning">No checklist template found for "{trainingType}" in Master Settings.</p>
+          <p className="text-warning">No checklist template found for "{keyVal}" in Master Settings.</p>
         </div>
       );
     }

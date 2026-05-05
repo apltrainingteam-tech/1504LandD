@@ -17,7 +17,7 @@ import React, { createContext, useContext, useState, ReactNode, useEffect, useMe
  * - ENSURE all consumers use the useMasterData() hook for access.
  */
 import { getCollection, upsertDoc, updateDocument, deleteDocument } from '../engines/apiClient';
-import { EligibilityRule, NotificationRecord, TrainingBatch } from '../../types/attendance';
+import { EligibilityRule, NotificationRecord, TrainingBatch, NewProduct } from '../../types/attendance';
 import { generateChecklistForTraining } from '../engines/checklistEngine';
 import { ValidationError } from '../contracts/validation.contract';
 import { DataEdit } from '../contracts/edit.contract';
@@ -60,6 +60,7 @@ interface MasterDataContextType {
   checklistItems: ChecklistItem[];
   taskMaster: TaskMasterEntry[];
   plannedTasks: PlannedTask[];
+  newProducts: NewProduct[];
   loading: boolean;
   
   addTrainer: (trainer: Omit<Trainer, 'id'>) => Promise<void>;
@@ -87,6 +88,7 @@ interface MasterDataContextType {
   updatePlannedTask: (id: string, updates: Partial<PlannedTask>) => Promise<void>;
   togglePlannedTaskCompletion: (id: string) => Promise<void>;
   deletePlannedTask: (id: string) => Promise<void>;
+  addNewProduct: (name: string) => Promise<void>;
 
   // --- NEW: Data Quality & Edit Layer ---
   baseData: {
@@ -167,6 +169,7 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
   const [taskMaster, setTaskMaster] = useState<TaskMasterEntry[]>([]);
   const [plannedTasks, setPlannedTasks] = useState<PlannedTask[]>([]);
+  const [newProducts, setNewProducts] = useState<NewProduct[]>([]);
   const [loading, setLoading] = useState(true);
 
   // --- Transactional Data & Edits ---
@@ -193,13 +196,16 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
   const loadMasterData = async () => {
     setLoading(true);
     try {
-      const [tBD, tmBD, cBD, rulesBD, checklistTemplatesBD, taskMasterBD] = await Promise.all([
+      const [tBD, tmBD, cBD, rulesBD, checklistTemplatesBD, taskMasterBD, plannedTasksBD, checklistItemsBD, newProductsBD] = await Promise.all([
         getCollection('trainers'),
         getCollection('teams'),
         getCollection('clusters'),
         getCollection('eligibility_rules'),
         getCollection('checklist_templates'),
-        getCollection('task_master')
+        getCollection('task_master'),
+        getCollection('planned_tasks'),
+        getCollection('checklist_items'),
+        getCollection('new_products')
       ]);
 
       const sanitizedTrainers = (tBD as Trainer[]).map(t => {
@@ -237,13 +243,14 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
 
   const loadTransactionalData = async () => {
     try {
-      const [td, emps, nh, tb, checklistItemsBD, plannedTasksBD] = await Promise.all([
+      const [td, emps, nh, tb, checklistItemsBD, plannedTasksBD, newProductsBD] = await Promise.all([
         getCollection('training_data'),
         getCollection('employees'),
         getCollection('notification_history'),
         getCollection('training_batches'),
         getCollection('checklist_items'),
-        getCollection('planned_tasks')
+        getCollection('planned_tasks'),
+        getCollection('new_products')
       ]);
       
       const rawTraining = td as any[];
@@ -277,6 +284,7 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
       });
       setChecklistItems(checklistItemsBD as ChecklistItem[]);
       setPlannedTasks(plannedTasksBD as PlannedTask[]);
+      setNewProducts(newProductsBD as NewProduct[] || []);
 
 
     } catch (e) {
@@ -410,10 +418,11 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
 
   const createChecklistForTraining = async (trainingId: string, trainingType: string, trainer: string, triggerDate: string) => {
     const newItems = await generateChecklistForTraining({
-      trainingId,
-      trainingType,
+      parentId: trainingId,
+      checklistType: 'Training',
+      key: trainingType,
       trainer,
-      trainingDate: triggerDate
+      triggerDate
     });
 
     if (newItems && newItems.length > 0) {
@@ -443,6 +452,21 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
     const newTask: PlannedTask = { ...taskData, id, status: 'Not Started' };
     await upsertDoc('planned_tasks', id, newTask);
     setPlannedTasks(prev => [...prev, newTask]);
+
+    // Trigger New Product Checklist if applicable
+    if (taskData.category === 'New Product') {
+      const newItems = await generateChecklistForTraining({
+        parentId: id,
+        checklistType: 'NewProduct',
+        key: taskData.type,
+        trainer: taskData.assignee, // Defaulting assignee as trainer for checklist
+        triggerDate: taskData.planDate
+      });
+
+      if (newItems && newItems.length > 0) {
+        setChecklistItems(prev => [...prev, ...newItems]);
+      }
+    }
   };
 
   const updatePlannedTask = async (id: string, updates: Partial<PlannedTask>) => {
@@ -470,6 +494,36 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
   const deletePlannedTask = async (id: string) => {
     await deleteDocument('planned_tasks', id);
     setPlannedTasks(prev => prev.filter(t => t.id !== id));
+  };
+
+  const addNewProduct = async (productName: string) => {
+    const id = `np-${Date.now()}`;
+    const newProd: NewProduct = {
+      id,
+      productName,
+      createdAt: new Date().toISOString()
+    };
+
+    try {
+      // 1. Persist Product
+      await upsertDoc('new_products', id, newProd);
+      setNewProducts(prev => [...prev, newProd]);
+
+      // 2. AUTO CHECKLIST GENERATION (Non-blocking if possible, but for reliability we await)
+      const newItems = await generateChecklistForTraining({
+        parentId: id,
+        checklistType: 'NewProduct',
+        key: 'New Product',
+        triggerDate: newProd.createdAt
+      });
+
+      if (newItems && newItems.length > 0) {
+        setChecklistItems(prev => [...prev, ...newItems]);
+      }
+    } catch (error) {
+      console.error('[MasterData] Failed to create new product or checklist', error);
+      throw error;
+    }
   };
 
   const errorIndex = useMemo(() => {
@@ -518,8 +572,9 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
       addCluster,
       addChecklistTemplate, updateChecklistTemplate, deleteChecklistTemplate,
       checklistTemplates, checklistItems, toggleChecklistItem, createChecklistForTraining,
-      taskMaster, plannedTasks, addTaskMasterEntry, updateTaskMasterEntry, deleteTaskMasterEntry,
+      taskMaster, plannedTasks, newProducts, addTaskMasterEntry, updateTaskMasterEntry, deleteTaskMasterEntry,
       addPlannedTask, updatePlannedTask, togglePlannedTaskCompletion, deletePlannedTask,
+      addNewProduct,
       baseData, finalData, edits, validationErrors, activeError,
       addEdit, bulkEdit, clearEdits, setActiveError, refreshTransactional: loadTransactionalData, errorIndex,
       patchRecord,

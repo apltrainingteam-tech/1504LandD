@@ -1,19 +1,22 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Save, Layers, User, Calendar } from 'lucide-react';
+import { Plus, Trash2, Save, Layers, User, Calendar, ClipboardList, Target } from 'lucide-react';
 import { useMasterData } from '../../../core/context/MasterDataContext';
-import { ChecklistTemplate, ChecklistTaskTemplate } from '../../../types/checklist';
+import { ChecklistTemplate, ChecklistTaskTemplate, ChecklistType } from '../../../types/checklist';
 import styles from '../MasterSettings.module.css';
 
 export const ChecklistSettings: React.FC = () => {
-  const { checklistTemplates, addChecklistTemplate, updateChecklistTemplate, deleteChecklistTemplate } = useMasterData();
+  const { checklistTemplates, addChecklistTemplate, updateChecklistTemplate } = useMasterData();
   const [editingTemplate, setEditingTemplate] = useState<ChecklistTemplate | null>(null);
+  const [activeType, setActiveType] = useState<ChecklistType>('Training');
 
   const trainingTypes = ['AP', 'IP', 'MIP', 'Refresher', 'Capsule', 'PreAP', 'GTG', 'HO', 'RTM'];
+  const productTypes = ['New Product']; // Can be extended
 
   const handleAddTemplate = (type: string) => {
     const newTemplate: ChecklistTemplate = {
-      id: `ct-${Date.now()}`,
-      trainingType: type,
+      id: `ct-${activeType}-${Date.now()}`,
+      checklistType: activeType,
+      key: type,
       tasks: []
     };
     setEditingTemplate(newTemplate);
@@ -60,22 +63,40 @@ export const ChecklistSettings: React.FC = () => {
     setEditingTemplate(null);
   };
 
+  const currentKeys = activeType === 'Training' ? trainingTypes : productTypes;
+
   return (
     <div className={styles.checklistSettings}>
+      {/* Type Toggle */}
+      <div className="flex gap-4 mb-24">
+        <button 
+          className={`btn ${activeType === 'Training' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => { setActiveType('Training'); setEditingTemplate(null); }}
+        >
+          <ClipboardList size={18} className="mr-2" /> Training Checklist
+        </button>
+        <button 
+          className={`btn ${activeType === 'NewProduct' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => { setActiveType('NewProduct'); setEditingTemplate(null); }}
+        >
+          <Target size={18} className="mr-2" /> New Product Checklist
+        </button>
+      </div>
+
       <div className={styles.panelHeader}>
-        <h3 className={styles.panelHeaderTitle}>Checklist Templates</h3>
+        <h3 className={styles.panelHeaderTitle}>{activeType === 'Training' ? 'Training' : 'New Product'} Templates</h3>
         <div className="flex gap-2">
-          {trainingTypes.map(type => (
+          {currentKeys.map(key => (
             <button 
-              key={type}
+              key={key}
               className="btn btn-secondary btn-sm"
               onClick={() => {
-                const existing = checklistTemplates.find(t => t.trainingType === type);
+                const existing = checklistTemplates.find(t => t.key === key && t.checklistType === activeType);
                 if (existing) setEditingTemplate(existing);
-                else handleAddTemplate(type);
+                else handleAddTemplate(key);
               }}
             >
-              {type}
+              {key}
             </button>
           ))}
         </div>
@@ -84,7 +105,7 @@ export const ChecklistSettings: React.FC = () => {
       {editingTemplate ? (
         <div className={`glass-panel mt-4 ${styles.templateEditor}`}>
           <div className="flex justify-between items-center mb-4">
-            <h4 className="text-lg font-bold">Editing Template: {editingTemplate.trainingType}</h4>
+            <h4 className="text-lg font-bold">Editing Template: {editingTemplate.key}</h4>
             <div className="flex gap-2">
               <button className="btn btn-secondary" onClick={() => setEditingTemplate(null)}>Cancel</button>
               <button className="btn btn-primary" onClick={handleSave}><Save size={16} className="mr-1" /> Save Template</button>
@@ -147,15 +168,17 @@ export const ChecklistSettings: React.FC = () => {
       ) : (
         <div className="p-48 text-center text-muted">
           <Layers size={48} className="mx-auto mb-12 opacity-20" />
-          <p>Select a Training Type above to configure its checklist template.</p>
+          <p>Select a {activeType === 'Training' ? 'Training Type' : 'Product Type'} above to configure its template.</p>
         </div>
       )}
 
       <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {checklistTemplates.map(t => (
+        {checklistTemplates
+          .filter(t => t.checklistType === activeType)
+          .map(t => (
           <div key={t.id} className="glass-panel p-16 cursor-pointer hover:border-primary transition-all" onClick={() => setEditingTemplate(t)}>
             <div className="flex justify-between items-center mb-8">
-              <span className="badge badge-primary">{t.trainingType}</span>
+              <span className="badge badge-primary">{t.key}</span>
               <span className="text-xs text-muted">{t.tasks.length} tasks</span>
             </div>
             <div className="text-sm text-muted">

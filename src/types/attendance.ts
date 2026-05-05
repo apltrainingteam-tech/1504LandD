@@ -184,3 +184,9 @@ export interface EligibilityRule {
     preAPOnlyIfInvited: boolean;
   };
 }
+
+export interface NewProduct {
+  id: string;
+  productName: string;
+  createdAt: string;
+}
