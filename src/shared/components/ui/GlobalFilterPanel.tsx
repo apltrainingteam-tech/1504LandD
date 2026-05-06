@@ -1,5 +1,5 @@
 import React, { useState, useCallback, memo } from 'react';
-import { X } from 'lucide-react';
+import { X, ChevronDown, ChevronUp, User } from 'lucide-react';
 import { GlobalFilters, INITIAL_FILTERS } from '../../../core/context/filterContext';
 import TrainerAvatar from './TrainerAvatar';
 import styles from './GlobalFilterPanel.module.css';
@@ -28,6 +28,7 @@ export const GlobalFilterPanel: React.FC<GlobalFilterPanelProps> = memo(({
   onClearAll,
 }) => {
   const [tempFilters, setTempFilters] = useState<GlobalFilters>(initialFilters);
+  const [isTrainerDropdownOpen, setIsTrainerDropdownOpen] = useState(false);
 
   const handleInputChange = useCallback((key: keyof GlobalFilters, value: string) => {
     setTempFilters(prev => ({ ...prev, [key]: value }));
@@ -120,41 +121,81 @@ export const GlobalFilterPanel: React.FC<GlobalFilterPanelProps> = memo(({
             </select>
           </div>
 
-          {/* Trainer Filter */}
+          {/* Trainer Filter - Custom Dropdown */}
           <div>
             <label className={styles.label}>
               Trainer
             </label>
             <div className={styles.customSelect}>
-              <select
-                id="global-filter-trainer"
-                name="trainer"
-                value={tempFilters.trainer}
-                onChange={(e) => handleInputChange('trainer', e.target.value)}
-                title="Select Trainer"
-                aria-label="Select Trainer"
-                className={`form-select ${styles.select}`}
+              <button 
+                className={styles.dropdownTrigger}
+                onClick={() => setIsTrainerDropdownOpen(!isTrainerDropdownOpen)}
+                type="button"
               >
-                <option value="" className={styles.option}>All Trainers</option>
-                {trainerOptions.map((trainer) => (
-                  <option key={trainer.id} value={trainer.id} className={styles.option}>
-                    {trainer.label}
-                  </option>
-                ))}
-              </select>
-              
-              {/* Selected Trainer Preview (Avatar + Name) */}
-              {tempFilters.trainer && (
-                <div className={styles.selectedTrainerPreview}>
-                  <TrainerAvatar 
-                    trainer={{
-                      id: tempFilters.trainer,
-                      name: trainerOptions.find(t => t.id === tempFilters.trainer)?.label.split(' (')[0] || tempFilters.trainer,
-                      avatarUrl: trainerOptions.find(t => t.id === tempFilters.trainer)?.avatarUrl
+                <div className="flex items-center gap-3">
+                  {tempFilters.trainer ? (
+                    <TrainerAvatar 
+                      trainer={{
+                        id: tempFilters.trainer,
+                        name: trainerOptions.find(t => t.id === tempFilters.trainer)?.label.split(' (')[0] || tempFilters.trainer,
+                        avatarUrl: trainerOptions.find(t => t.id === tempFilters.trainer)?.avatarUrl
+                      }}
+                      size={24}
+                    />
+                  ) : (
+                    <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                      <User size={14} />
+                    </div>
+                  )}
+                  <span className="font-medium">
+                    {tempFilters.trainer 
+                      ? trainerOptions.find(t => t.id === tempFilters.trainer)?.label 
+                      : 'All Trainers'}
+                  </span>
+                </div>
+                {isTrainerDropdownOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </button>
+
+              {isTrainerDropdownOpen && (
+                <div className={styles.dropdownMenu}>
+                  <button 
+                    className={`${styles.dropdownItem} ${!tempFilters.trainer ? styles.dropdownItemActive : ''}`}
+                    onClick={() => {
+                      handleInputChange('trainer', '');
+                      setIsTrainerDropdownOpen(false);
                     }}
-                    size={24}
-                    showName={true}
-                  />
+                  >
+                    <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                      <User size={16} />
+                    </div>
+                    <span className={styles.trainerName}>All Trainers</span>
+                  </button>
+
+                  {trainerOptions.map((trainer) => (
+                    <button 
+                      key={trainer.id}
+                      className={`${styles.dropdownItem} ${tempFilters.trainer === trainer.id ? styles.dropdownItemActive : ''}`}
+                      onClick={() => {
+                        handleInputChange('trainer', trainer.id);
+                        setIsTrainerDropdownOpen(false);
+                      }}
+                    >
+                      <TrainerAvatar 
+                        trainer={{
+                          id: trainer.id,
+                          name: trainer.label.split(' (')[0],
+                          avatarUrl: trainer.avatarUrl
+                        }}
+                        size={28}
+                      />
+                      <div className="flex flex-col">
+                        <span className={styles.trainerName}>{trainer.label.split(' (')[0]}</span>
+                        {trainer.label.includes('(') && (
+                          <span className={styles.trainerRole}>{trainer.label.match(/\(([^)]+)\)/)?.[1]}</span>
+                        )}
+                      </div>
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
