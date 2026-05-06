@@ -750,7 +750,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                   // Compute sub-groups if expanded
                   let subGroups: any[] = [];
                   if (viewBy === 'Cluster' && isExpanded) {
-                    const teams = groupData(g.records, 'Team', g.nominations, employees, masterTeams);
+                    const teams = groupData(g.records, 'Team', g.nominations, employees);
                     subGroups = rankGroups(teams, tab);
                   }
 

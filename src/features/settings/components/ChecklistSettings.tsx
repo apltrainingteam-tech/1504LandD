@@ -5,7 +5,7 @@ import { ChecklistTemplate, ChecklistTaskTemplate, ChecklistType } from '../../.
 import styles from '../MasterSettings.module.css';
 
 export const ChecklistSettings: React.FC = () => {
-  const { checklistTemplates, addChecklistTemplate, updateChecklistTemplate } = useMasterData();
+  const { checklistTemplates, addChecklistTemplate, updateChecklistTemplate, trainers } = useMasterData();
   const [editingTemplate, setEditingTemplate] = useState<ChecklistTemplate | null>(null);
   const [activeType, setActiveType] = useState<ChecklistType>('Training');
 
@@ -138,10 +138,21 @@ export const ChecklistSettings: React.FC = () => {
                       value={task.defaultAssignee}
                       onChange={e => handleUpdateTask(task.id, { defaultAssignee: e.target.value })}
                     >
-                      <option value="Trainer">Trainer</option>
-                      <option value="Admin">Admin</option>
-                      <option value="HR">HR</option>
-                      <option value="Gyanmitra">Gyanmitra</option>
+                      {activeType === 'NewProduct' ? (
+                        <>
+                          <option value="">Select Trainer</option>
+                          {trainers.filter(t => t.status === 'Active').map(t => (
+                            <option key={t.id} value={t.name}>{t.name}</option>
+                          ))}
+                        </>
+                      ) : (
+                        <>
+                          <option value="Trainer">Trainer</option>
+                          <option value="Admin">Admin</option>
+                          <option value="HR">HR</option>
+                          <option value="Gyanmitra">Gyanmitra</option>
+                        </>
+                      )}
                     </select>
                   </td>
                   <td className={styles.td}>

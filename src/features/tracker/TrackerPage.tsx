@@ -504,8 +504,11 @@ export const TrackerPage: React.FC = () => {
                       <td className={isCompleted ? styles.strikeText : ''}>{task.task || '—'}</td>
                       <td>
                         <div className={`${styles.trainerCell} ${isCompleted ? styles.strikeText : ''}`}>
-                          <TrainerAvatar trainer={trainer || { id: task.assignee, name: task.assignee }} size={26} />
-                          <span style={{ marginLeft: '4px' }}>{trainer?.name || task.assignee}</span>
+                          <TrainerAvatar 
+                            trainer={trainer || { id: task.assignee, name: task.assignee }} 
+                            size={26} 
+                            showName={true} 
+                          />
                         </div>
                       </td>
                       <td className={isCompleted ? styles.strikeText : ''}>{fmtDate(task.planDate)}</td>
@@ -570,7 +573,7 @@ const SessionChecklist: React.FC<{
   items: any[];
   onToggle: (id: string) => void;
 }> = ({ parentId, checklistType, keyVal, items, onToggle }) => {
-  const { createChecklistForTraining } = useMasterData();
+  const { createChecklistForTraining, trainers: masterTrainers } = useMasterData();
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [hasAttempted, setHasAttempted] = React.useState(false);
 
@@ -629,6 +632,8 @@ const SessionChecklist: React.FC<{
       <div className={styles.taskList}>
         {sortedItems.map(item => {
           const isOverdue = item.status === 'Pending' && new Date(item.dueDate) < new Date(new Date().setHours(0, 0, 0, 0));
+          const trainer = masterTrainers.find(t => t.name === item.assignee || t.id === item.assignee);
+          
           return (
             <div
               key={item.id}
@@ -644,7 +649,9 @@ const SessionChecklist: React.FC<{
                 <span className={styles.taskName}>{item.taskName}</span>
               </div>
               <div className={styles.taskMeta}>
-                <span className={styles.taskAssignee}><User size={12} /> {item.assignee}</span>
+                <span className={styles.taskAssignee}>
+                  <TrainerAvatar trainer={trainer || { id: item.assignee, name: item.assignee }} size={16} showName={true} />
+                </span>
                 <span className={styles.taskDue}><Calendar size={12} /> {new Date(item.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</span>
               </div>
             </div>

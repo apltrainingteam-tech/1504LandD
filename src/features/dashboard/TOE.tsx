@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { useGlobalFilters } from '../../core/context/GlobalFilterContext';
 import { getFiscalMonths, formatMonthLabel, isWithinFY } from '../../core/utils/fiscalYear';
-import { normalizeTrainingType, toProperCase } from '../../core/engines/normalizationEngine';
+import { normalizeTrainingType, toProperCase, normalizeForMatch } from '../../core/engines/normalizationEngine';
 import { useMasterData } from '../../core/context/MasterDataContext';
 import { useTOEStats } from '../../shared/hooks/computationHooks';
 import API_BASE from '../../config/api';
 import { ChevronDown, ChevronUp, Users, Presentation } from 'lucide-react';
+import TrainerAvatar from '../../shared/components/ui/TrainerAvatar';
 import styles from './TOE.module.css';
 
 interface TOEProps {
@@ -165,19 +166,11 @@ export const TOE: React.FC<TOEProps> = ({ employees, attendance, scores }) => {
               {!isCollapsed && (
                 <div className={styles.statsGrid}>
                   {stats.map(stat => {
-                    const baseUrl = API_BASE.replace('/api', '');
-                    const avatarUrl = stat.avatarUrl ? (stat.avatarUrl.startsWith('http') ? stat.avatarUrl : `${baseUrl}${stat.avatarUrl}`) : null;
-                    
+                    const trainerObj = masterTrainers.find(t => normalizeForMatch(t.name) === normalizeForMatch(stat.trainerName));
                     return (
                       <div key={stat.trainerName} className={styles.statCard}>
                         <div className={styles.trainerHeader}>
-                          <div className={styles.avatarBox}>
-                            {avatarUrl ? (
-                              <img src={avatarUrl} alt={stat.trainerName} className={styles.avatarImg} />
-                            ) : (
-                              <div className={styles.avatarFallback}>{stat.trainerName.charAt(0)}</div>
-                            )}
-                          </div>
+                          <TrainerAvatar trainer={trainerObj || { id: stat.trainerName, name: stat.trainerName }} size={40} />
                           <div className={styles.trainerTitle}>
                             <div className={styles.name}>{stat.trainerName}</div>
                             <div className={styles.fyBadge}>FY {selectedFY}</div>
@@ -229,9 +222,13 @@ export const TOE: React.FC<TOEProps> = ({ employees, attendance, scores }) => {
                     </td>
                   </tr>
                 ) : (
-                  trainers.map(trainer => (
-                    <tr key={trainer}>
-                      <td className={styles.stickyCol}>{trainer}</td>
+                  trainers.map(trainer => {
+                    const trainerObj = masterTrainers.find(t => normalizeForMatch(t.name) === normalizeForMatch(trainer));
+                    return (
+                      <tr key={trainer}>
+                        <td className={styles.stickyCol}>
+                          <TrainerAvatar trainer={trainerObj || { id: trainer, name: trainer }} size={24} showName={true} />
+                        </td>
                       {months.map(m => {
                         const cellValue = tableData[`${trainer}_${m}`];
                         return (
@@ -253,8 +250,9 @@ export const TOE: React.FC<TOEProps> = ({ employees, attendance, scores }) => {
                         );
                       })}
                     </tr>
-                  ))
-                )}
+                  );
+                })
+              )}
               </tbody>
             </table>
           </div>

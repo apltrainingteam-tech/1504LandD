@@ -58,7 +58,7 @@ export function scheduleIdle<T>(
   useIdleCallback: boolean = true
 ): () => void {
   let callbackId: number | null = null;
-  let timeoutId: NodeJS.Timeout | null = null;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
   const executeComputation = () => {
     try {

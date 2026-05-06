@@ -187,6 +187,7 @@ export function useTOEStats(
       batches: Set<string>;
       attendees: Set<string>;
       avatarUrl: string | null;
+      category: string;
     }>();
 
     attendance.forEach(a => {

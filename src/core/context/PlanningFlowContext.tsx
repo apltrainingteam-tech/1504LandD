@@ -129,10 +129,11 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
 
     // Trigger Checklist Generation immediately upon saving draft
     generateChecklistForTraining({
-      trainingId: draft.id,
-      trainingType: draft.trainingType,
+      parentId: draft.id,
+      checklistType: 'Training',
+      key: draft.trainingType,
       trainer: draft.trainer || 'Unassigned',
-      trainingDate: draft.startDate || new Date().toISOString()
+      triggerDate: draft.startDate || new Date().toISOString()
     }).catch(err => console.error('Checklist generation failed for draft', err));
   };
   const updateDraft = (id: string, updates: Partial<NominationDraft>) => {
@@ -288,10 +289,11 @@ export const PlanningFlowProvider: React.FC<{ children: ReactNode }> = ({ childr
 
       // Trigger Checklist Generation (idempotent)
       generateChecklistForTraining({
-        trainingId: batchId,
-        trainingType: draft.trainingType,
+        parentId: batchId,
+        checklistType: 'Training',
+        key: draft.trainingType,
         trainer: draft.trainer || 'Unassigned',
-        trainingDate: draft.startDate || new Date().toISOString()
+        triggerDate: draft.startDate || new Date().toISOString()
       }).catch(err => console.error('Checklist generation failed for batch', err));
 
     } catch (error) {
