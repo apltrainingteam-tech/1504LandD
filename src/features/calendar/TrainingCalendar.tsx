@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, X, AlertTriangle, Trash2, Calendar as CalIcon, Save, CheckCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, AlertTriangle, Calendar as CalIcon, Save } from 'lucide-react';
 import TrainerAvatar from '../../shared/components/ui/TrainerAvatar';
 import { FlowStepper } from '../../shared/components/ui/FlowStepper';
 import { getFiscalYearFromDate, parseFiscalYear, getCurrentFiscalYear } from '../../core/utils/fiscalYear';
@@ -20,7 +20,6 @@ export interface TeamBatchStatus {
   status: 'OPEN';
 }
 
-interface ChecklistItem { name: string; completed: boolean; }
 interface TrainingPlan {
   id: string;
   trainingType: string;
@@ -30,17 +29,7 @@ interface TrainingPlan {
   startDate: string;
   endDate: string;
   remarks?: string;
-  checklist: ChecklistItem[];
 }
-
-const CHECKLIST_RULES: Record<string, string[]> = {
-  IP: ["Database", "Bill"],
-  Capsule: ["Database"],
-  "Pre-AP": ["Database"],
-  AP: ["Booking", "Notice", "Database", "Bill"],
-  MIP: ["Booking", "Notice", "Database", "Bill"],
-  Refresher: ["Booking", "Notice", "Database", "Bill"]
-};
 
 type TrainingTab = 'IP' | 'AP' | 'MIP' | 'Capsule' | 'Refresher' | 'Pre-AP';
 
@@ -55,8 +44,7 @@ const getStatus = (plan: TrainingPlan) => {
   if (plan.status === 'Cancelled') return 'Cancelled';
   if (plan.status === 'Completed') return 'Completed';
   if (plan.status === 'Notified') return 'Notified';
-  if (plan.checklist.length === 0) return 'Planned';
-  return plan.checklist.every(c => c.completed) ? 'Completed' : 'Planned';
+  return 'Planned';
 };
 
 
@@ -68,14 +56,6 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
   const { trainers: masterTrainers, teams: masterTeams, refreshTransactional } = useMasterData();
   const { plans } = useCalendarData();
 
-  const resolveTrainerAvatar = (trainerId: string) => {
-    const trainer = masterTrainers.find(t => t.id === trainerId);
-    if (!trainer || !trainer.avatarUrl) return null;
-    if (trainer.avatarUrl.startsWith('http')) return trainer.avatarUrl;
-    // Resolve relative path using API_BASE
-    const base = API_BASE.replace('/api', '');
-    return `${base}${trainer.avatarUrl}`;
-  };
 
   const [tabState, setTabState] = useState<TrainingTab>('AP');
   const tab = globalFilters.trainingType !== 'ALL' ? globalFilters.trainingType as TrainingTab : tabState;
@@ -109,7 +89,6 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
 
   const handleFYChange = (newFY: string) => {
     setFilters({ fiscalYear: newFY });
-    setSelectedPlanId(null);
   };
 
   // Calendar State (Navigation)
@@ -141,7 +120,6 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [modalStart, setModalStart] = useState('');
   const [modalEnd, setModalEnd] = useState('');
-  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
 
   // PLANNING SOURCE OF TRUTH — driven by selectionSession, never by view filters or modal state
   const [selectedPlanningTeamIds, setSelectedPlanningTeamIds] = useState<string[]>([]);
@@ -281,8 +259,7 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
       trainer: formTrainer,
       startDate: modalStart,
       endDate: modalEnd,
-      remarks: formRemarks,
-      checklist: (CHECKLIST_RULES[tab] || []).map(name => ({ name, completed: false }))
+      remarks: formRemarks
     };
 
     // No local setPlans call. Rely on drafts -> useEffect synchronization
@@ -302,53 +279,7 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
     setShowCreateModal(false);
   };
 
-  const handleDeletePlan = (id: string) => {
-    if (!window.confirm("Delete this training plan?")) return;
-    const plan = plans.find(p => p.id === id);
-    if (plan) {
-      plan.teams.forEach((t: any) => removeConsumed(t.teamId, plan.trainer));
-      // Removing the draft will trigger the useMemo update
-      removeDraft(plan.id);
-    }
-    setSelectedPlanId(null);
-  };
 
-  const handleCancelPlan = async (trainingId: string) => {
-    const relatedDrafts = drafts.filter(d => d.trainingId === trainingId);
-    if (relatedDrafts.length === 0) return;
-    if (!window.confirm('This will cancel training and return employees to untrained pool')) return;
-
-    for (const draft of relatedDrafts) {
-      if (draft.status === 'COMPLETED' || draft.isCancelled) continue;
-      const result = await cancelDraft(draft.id);
-      if (!result.success) {
-        alert(result.reason || 'Cancel failed.');
-        return;
-      }
-    }
-  };
-
-  const handleScopeChange = async (batchId: string, teamIds: string[], action: 'ADD' | 'REMOVE') => {
-    // This function will be called by TeamScopeManager
-    // For now, we rely on the refetch props to keep UI in sync
-    console.log(`[ScopeChange] batch: ${batchId}, teams: ${teamIds}, action: ${action}`);
-  };
-
-  const selectedPlan = plans.find(p => p.id === selectedPlanId) || null;
-
-  const toggleChecklistItem = (itemIndex: number) => {
-    if (!selectedPlan) return;
-    const updatedPlans = plans.map(p => {
-      if (p.id === selectedPlan.id) {
-        const newChecklist = [...p.checklist];
-        newChecklist[itemIndex].completed = !newChecklist[itemIndex].completed;
-        return { ...p, checklist: newChecklist };
-      }
-      return p;
-    });
-    // setPlans(updatedPlans); // Local state 'setPlans' removed in global filter refactor.
-    // TODO: Implement persistence for checklist items in NominationDraft
-  };
 
 
 
@@ -485,15 +416,12 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
                   {visiblePlans.map(p => {
                     const status = getStatus(p);
                     const displayTeam = p.teams.map((t: any) => t.teamName).join(', ');
-                    const trainerObj = masterTrainers.find(mt => mt.id === p.trainer);
-                    const displayTrainer = trainerObj ? trainerObj.name : p.trainer;
 
 
                     return (
                       <div
                         key={p.id}
-                        onClick={(e) => { e.stopPropagation(); setSelectedPlanId(p.id); }}
-                        className={`${styles.planChip} ${status === 'Completed' ? styles.planChipCompleted : status === 'Notified' ? styles.planChipNotified : status === 'Cancelled' ? styles.planChipCancelled : styles.planChipPlanned}`}
+                        className={`${styles.planChip} ${status === 'Completed' ? styles.planChipCompleted : status === 'Notified' ? styles.planChipNotified : status === 'Cancelled' ? styles.planChipCancelled : styles.planChipPlanned} ${styles.planChipStatic}`}
                         title={status === 'Cancelled' ? 'This training was cancelled and excluded from analysis' : undefined}
                       >
                         <div className={styles.planChipContent}>
@@ -598,120 +526,6 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
         </div>
       )}
 
-      {/* RIGHT SLIDE PANEL */}
-      {selectedPlan && (
-        <div className={styles.detailPanel}>
-          <div className={styles.detailPanelHeader}>
-            <h2 className={styles.detailTitle}>
-              Training Details
-              {getStatus(selectedPlan) === 'Completed' && <span className={`badge ${styles.badgeCompleted} status-badge status-completed`}>Completed</span>}
-              {getStatus(selectedPlan) === 'Notified' && <span className={`badge ${styles.badgeNotified} status-badge status-notified`}>Notified</span>}
-              {getStatus(selectedPlan) === 'Planned' && <span className={`badge ${styles.badgePlanned} status-badge status-planned`}>Planned</span>}
-              {getStatus(selectedPlan) === 'Cancelled' && <span className={`badge ${styles.badgeCancelled} status-badge status-cancelled`} title="This training was cancelled and excluded from analysis">Cancelled</span>}
-            </h2>
-            <button className={`btn ${styles.detailCloseBtn}`} onClick={() => setSelectedPlanId(null)} title="Close Details" aria-label="Close Details"><X size={20} /></button>
-          </div>
-
-          <div className={styles.detailBody}>
-
-            {/* Context Details */}
-            <div className={styles.detailGrid}>
-              <div className={styles.detailField}>
-                <div className={styles.detailFieldLabel}>Training Type</div>
-                <div className={styles.detailFieldValue}>{selectedPlan.trainingType}</div>
-              </div>
-              <div className={styles.detailField}>
-                <div className={styles.detailFieldLabel}>Teams</div>
-                <div className={styles.teamScopeContainer}>
-                  <TeamScopeManager
-                    trainingId={selectedPlan.id}
-                    teams={selectedPlan.teams}
-                    onScopeChange={handleScopeChange}
-                    refetchCalendar={refreshTransactional}
-                    refetchNomination={loadNotificationHistory}
-                  />
-                </div>
-              </div>
-              <div className={styles.detailField}>
-                <div className={styles.detailFieldLabel}>Trainer</div>
-                <div className={styles.detailFieldValue}>
-                  <TrainerAvatar 
-                    trainer={masterTrainers.find(mt => mt.id === selectedPlan.trainer) || { id: selectedPlan.trainer, name: selectedPlan.trainer }} 
-                    size={32} 
-                    showName={true} 
-                  />
-                </div>
-              </div>
-              <div className={styles.detailField}>
-                <div className={styles.detailFieldLabel}>Dates</div>
-                <div className={styles.detailFieldValue}>{selectedPlan.startDate} {selectedPlan.startDate !== selectedPlan.endDate && ` to ${selectedPlan.endDate}`}</div>
-              </div>
-              {selectedPlan.remarks && (
-                <div className={styles.detailField}>
-                  <div className={styles.detailFieldLabel}>Remarks</div>
-                  <div className={styles.remarksBox}>{selectedPlan.remarks}</div>
-                </div>
-              )}
-            </div>
-
-            {hasConflict(selectedPlan.trainer, selectedPlan.startDate, selectedPlan.endDate, selectedPlan.id) && (
-              <div className={styles.conflictBanner}>
-                <AlertTriangle size={16} /> Trainer is assigned to another overlapping training.
-              </div>
-            )}
-
-            {/* Checklist */}
-            <div className={styles.checklistSection}>
-              <h3 className={styles.checklistTitle}>
-                <CheckCircle size={18} color="var(--accent-primary)" /> Execution Checklist
-              </h3>
-              <div className={styles.checklistItems}>
-                {selectedPlan.checklist.length === 0 ? (
-                  <div className={styles.checklistEmpty}>No checklist required for this type.</div>
-                ) : (
-                  selectedPlan.checklist.map((item: any, idx: number) => (
-                    <div
-                      key={item.name}
-                      onClick={() => toggleChecklistItem(idx)}
-                      className={styles.checklistItem}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={item.completed}
-                        readOnly
-                        title="Checklist Item"
-                        aria-label={`Checklist item: ${item.name}`}
-                        className={styles.checklistCheckbox}
-                      />
-                      <span className={`${styles.checklistLabel} ${item.completed ? styles.checklistLabelDone : styles.checklistLabelPending}`}>
-                        {item.name}
-                      </span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-          </div>
-
-          <div className={styles.detailFooter}>
-            {selectedPlan.status !== 'Completed' && selectedPlan.status !== 'Cancelled' && (
-              <button
-                className={`btn btn-secondary ${styles.cancelBtn}`}
-                onClick={() => handleCancelPlan(selectedPlan.id)}
-              >
-                Cancel Training
-              </button>
-            )}
-            <button
-              className={`btn ${styles.deleteBtn}`}
-              onClick={() => handleDeletePlan(selectedPlan.id)}
-            >
-              <Trash2 size={16} /> Delete Plan
-            </button>
-          </div>
-        </div>
-      )}
 
     </div>
   );
@@ -719,35 +533,6 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
 
 
 
-// --- Helper Component: TeamScopeManager ---
-// Note: destructive features (Reset/Lock) were removed in rollback be2a522.
-// This version focuses on listing teams currently in scope.
-const TeamScopeManager = ({ 
-  trainingId, 
-  teams, 
-  onScopeChange, 
-  refetchCalendar, 
-  refetchNomination 
-}: { 
-  trainingId: string; 
-  teams: TeamBatchStatus[]; 
-  onScopeChange: (bid: string, tids: string[], action: 'ADD' | 'REMOVE') => void;
-  refetchCalendar: () => void;
-  refetchNomination: () => void;
-}) => {
-  return (
-    <div className={styles.scopeManager}>
-      <div className={styles.scopeChips}>
-        {teams.map(t => (
-          <div key={t.teamId} className={`badge badge-outline ${styles.teamChipInline}`}>
-            {t.teamName}
-          </div>
-        ))}
-      </div>
-      {teams.length === 0 && <p className="text-muted text-xs">No teams assigned.</p>}
-    </div>
-  );
-};
 
 
 

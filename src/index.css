@@ -43,6 +43,9 @@
   --training-capsule: #d97706;
   --training-refresher: #64748b;
   --training-preap: #ea580c;
+  --sidebar-width: 240px;
+  --sidebar-collapsed-width: 72px;
+  --header-height: 64px;
 }
 
 /* Light theme is now the default - no separate class needed */
@@ -53,6 +56,10 @@
   padding: 0;
 }
 
+html {
+  overflow-x: hidden;
+}
+
 body {
   font-family: var(--font-family);
   font-size: 14px;
@@ -60,6 +67,7 @@ body {
   color: var(--text-primary);
   min-height: 100vh;
   margin: 0;
+  padding: 0;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -109,7 +117,7 @@ button {
   display: flex;
   min-height: 100vh;
   min-width: 0;
-  overflow-x: hidden;
+  overflow: visible;
 }
 
 /* Presentation Mode Overrides */
@@ -133,20 +141,22 @@ body.presentation-active .main-content {
 
 /* Sidebar */
 .sidebar {
-  width: 240px;
+  width: var(--sidebar-width);
   border-right: 1px solid #E4E8F0;
   padding: 24px;
   display: flex;
   flex-direction: column;
   background: #0F1C3F;
   z-index: 300;
-  position: relative;
+  position: sticky;
+  top: 0;
+  height: 100vh;
   transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s ease;
   overflow-y: auto;
 }
 
 .sidebar.collapsed {
-  width: 72px;
+  width: var(--sidebar-collapsed-width);
   padding: 24px 12px;
 }
 
@@ -356,13 +366,13 @@ body.presentation-active .main-content {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 0 24px 24px 24px;
+  padding: var(--header-height) 24px 24px 24px;
   background: #F0F4FF;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   min-width: 0;
-  height: 100vh;
-  overflow-y: auto;
   position: relative;
+  min-height: 100vh;
+  overflow: visible;
 }
 
 .app-container {
@@ -382,16 +392,24 @@ body.presentation-active .main-content {
   align-items: center;
   margin-bottom: 0;
   gap: 24px;
-  background: rgba(255, 255, 255, 0.95);
+  background: #FFFFFF;
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid #E4E8F0;
-  padding: 12px 24px;
-  margin: 0 -24px 0 -24px;
-  position: sticky;
+  padding: 0 24px;
+  height: var(--header-height);
+  margin: 0;
+  position: fixed;
   top: 0;
-  z-index: 1000;
+  right: 0;
+  left: var(--sidebar-width);
+  z-index: 2000;
   box-shadow: 0 4px 12px rgba(15, 28, 63, 0.05);
+  transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-collapsed .header {
+  left: var(--sidebar-collapsed-width);
 }
 
 /* Search Bar Styling */

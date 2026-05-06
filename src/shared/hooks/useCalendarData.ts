@@ -2,18 +2,11 @@ import { useMemo } from 'react';
 import { useGlobalFilters } from '../../core/context/GlobalFilterContext';
 import { useMasterData } from '../../core/context/MasterDataContext';
 import { usePlanningFlow } from '../../core/context/PlanningFlowContext';
-import { TrainingPlan, TrainingPlanStatus, NotificationRecord, NominationDraft } from '../../types/attendance';
+import { TrainingPlanStatus, NotificationRecord, NominationDraft } from '../../types/attendance';
 import { isWithinFY, parseFiscalYear } from '../../core/utils/fiscalYear';
 import { match } from '../../core/engines/normalizationEngine';
 
-const CHECKLIST_RULES: Record<string, string[]> = {
-  IP: ["Database", "Bill"],
-  Capsule: ["Database"],
-  "Pre-AP": ["Database"],
-  AP: ["Booking", "Notice", "Database", "Bill"],
-  MIP: ["Booking", "Notice", "Database", "Bill"],
-  Refresher: ["Booking", "Notice", "Database", "Bill"]
-};
+
 
 /**
  * useCalendarData
@@ -51,8 +44,7 @@ export const useCalendarData = () => {
           trainer,
           startDate: start,
           endDate: end,
-          teams: [],
-          checklist: (CHECKLIST_RULES[type] || []).map(name => ({ name, completed: false }))
+          teams: []
         });
       }
       const plan = plansMap.get(trainingId)!;
