@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, memo } from 'react';
 import {
   ChevronDown, ChevronRight, CheckCircle, XCircle, Clock,
   RotateCcw, TrendingUp, Users, AlertCircle, Filter,
@@ -15,7 +15,6 @@ import { buildChangeSet } from '../../core/engines/editEngine';
 import API_BASE from '../../config/api';
 import styles from './TrainingDataPage.module.css';
 import { useTrainingData } from '../../shared/hooks/useTrainingData';
-import { FlowStepper } from '../../shared/components/ui/FlowStepper';
 import { TRAINING_TEMPLATES, TEMPLATE_FIELD_MAP, RATING_FIELDS } from '../../core/constants/trainingTemplates';
 import { normalizeTrainingType, toProperCase } from '../../core/engines/normalizationEngine';
 import { TrainingScore } from '../../types/attendance';
@@ -46,14 +45,14 @@ const excelSerialToDate = (serial: number) => {
 };
 
 const fmtDate = (s?: string | number) => {
-  if (!s) return '—';
+  if (!s) return '-';
   let d: Date;
   if (isExcelSerial(s)) {
     d = excelSerialToDate(s as number);
   } else {
     d = new Date(s);
   }
-  return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  return isNaN(d.getTime()) ? '-' : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
 const monthLabel = (s?: string | number) => {
@@ -75,7 +74,7 @@ const AttToggle: React.FC<{
   onChange: (v: BatchAttStatus) => void;
 }> = ({ value, readOnly, onChange }) => {
   const opts: { key: BatchAttStatus; label: string; color: string }[] = [
-    { key: 'pending', label: '—', color: '#d97706' },
+    { key: 'pending', label: '-', color: '#d97706' },
     { key: 'present', label: '✓', color: '#059669' },
     { key: 'absent', label: '✗', color: 'var(--danger)' },
   ];
@@ -140,7 +139,7 @@ interface CandidateRowProps {
   templateColumns: string[];
 }
 
-const CandidateRow = React.memo<CandidateRowProps>(({
+const CandidateRow = memo<CandidateRowProps>(({
   candidate, employee, isSelected, buffered, isUpload, onUpdate, onToggleRow, index, isEditMode, templateColumns
 }) => {
   const curAtt = buffered?.attendance || candidate.attendance;
@@ -150,7 +149,7 @@ const CandidateRow = React.memo<CandidateRowProps>(({
   const isAttEdited = buffered?.attendance !== undefined && buffered.attendance !== candidate.attendance;
   const isVoidEdited = buffered?.isVoided !== undefined && buffered.isVoided !== candidate.isVoided;
 
-  const rs = STATUS_META[curAtt] ?? STATUS_META['pending']; // safe fallback — never undefined
+  const rs = STATUS_META[curAtt] ?? STATUS_META['pending'];
 
   return (
     <tr className={`${styles.tr} ${index % 2 !== 0 ? styles.trOdd : ''} ${isSelected ? styles.trSelected : ''} ${curIsVoided ? styles.trVoided : ''} ${isVoidEdited ? styles.editedRow : ''}`}>
@@ -165,10 +164,10 @@ const CandidateRow = React.memo<CandidateRowProps>(({
         />
       </td>
       <td className={`${styles.td} ${styles.tdEmpId} ${curIsVoided ? styles.strike : ''}`}>{candidate.empId}</td>
-      <td className={`${styles.td} ${styles.tdName} ${curIsVoided ? styles.strike : ''}`}>{toProperCase(employee?.name) || '—'}</td>
-      <td className={`${styles.td} ${styles.tdSecondary} ${curIsVoided ? styles.strike : ''}`}>{toProperCase(employee?.designation) || '—'}</td>
-      <td className={`${styles.td} ${styles.tdSecondary} ${curIsVoided ? styles.strike : ''}`}>{toProperCase(employee?.hq) || '—'}</td>
-      <td className={`${styles.td} ${styles.tdSecondary} ${curIsVoided ? styles.strike : ''}`}>{toProperCase(employee?.state) || '—'}</td>
+      <td className={`${styles.td} ${styles.tdName} ${curIsVoided ? styles.strike : ''}`}>{toProperCase(employee?.name) || '-'}</td>
+      <td className={`${styles.td} ${styles.tdSecondary} ${curIsVoided ? styles.strike : ''}`}>{toProperCase(employee?.designation) || '-'}</td>
+      <td className={`${styles.td} ${styles.tdSecondary} ${curIsVoided ? styles.strike : ''}`}>{toProperCase(employee?.hq) || '-'}</td>
+      <td className={`${styles.td} ${styles.tdSecondary} ${curIsVoided ? styles.strike : ''}`}>{toProperCase(employee?.state) || '-'}</td>
       
       {templateColumns.map(col => {
         const field = TEMPLATE_FIELD_MAP[col];
@@ -183,7 +182,7 @@ const CandidateRow = React.memo<CandidateRowProps>(({
             {isEditMode ? (
               <div className={styles.scoreCell}>
                 <input
-                  type="number" min={0} max={100} placeholder="—"
+                  type="number" min={0} max={100} placeholder="-"
                   value={val ?? ''}
                   onChange={e => {
                     const newScores = { ...combinedScores, [field]: e.target.value === '' ? null : parseFloat(e.target.value) };
@@ -195,7 +194,7 @@ const CandidateRow = React.memo<CandidateRowProps>(({
               </div>
             ) : (
               <div className={`${styles.scoreDisplay} ${curIsVoided ? styles.strike : ''}`}>
-                {val === null || val === undefined || val === '' ? '—'
+                {val === null || val === undefined || val === '' ? '-'
                   : (isNumeric && !isDateField && !isNotifiedField && !RATING_FIELDS.has(field)) ? `${Math.round(val)}%`
                   : isNumeric ? Math.round(val)
                   : val}
@@ -205,7 +204,7 @@ const CandidateRow = React.memo<CandidateRowProps>(({
         );
       })}
 
-      <td className={`${styles.td} ${isAttEdited ? styles.editedCell : ''}`} title={isAttEdited && STATUS_META[candidate.attendance] ? `${STATUS_META[candidate.attendance].label} → ${STATUS_META[curAtt]?.label}` : undefined}>
+      <td className={`${styles.td} ${isAttEdited ? styles.editedCell : ''}`}>
         <AttToggle value={curAtt} readOnly={isUpload} onChange={v => onUpdate(candidate.empId, { attendance: v })} />
       </td>
 
@@ -243,12 +242,11 @@ const BatchCard: React.FC<{
   onToggleRow: (batchId: string, empId: string) => void;
   onToggleBatch: (batchId: string, empIds: string[]) => void;
   isEditMode: boolean;
-}> = React.memo(({ batch, employees, resolveTrainer, resolveTrainerAvatar, resolveTeam, onUpdate, selectedIds, editBuffer, onToggleRow, onToggleBatch, isEditMode }) => {
+}> = memo(({ batch, employees, resolveTrainer, resolveTrainerAvatar, resolveTeam, onUpdate, selectedIds, editBuffer, onToggleRow, onToggleBatch, isEditMode }) => {
   const { trainers: masterTrainers } = useMasterData();
   const [open, setOpen] = useState(false);
   const m = useMemo(() => batchMetrics(batch.candidates), [batch.candidates]);
   const templateColumns = useMemo(() => TRAINING_TEMPLATES[normalizeTrainingType(batch.trainingType)] || ['Score'], [batch.trainingType]);
-  const sm = SOURCE_META[batch.source as keyof typeof SOURCE_META];
   const isUpload = batch.source === 'UPLOAD';
 
   const isBatchSelected = useMemo(() =>
@@ -269,61 +267,85 @@ const BatchCard: React.FC<{
         onClick={() => setOpen(o => !o)}
         className={`${styles.batchHeader} ${open ? styles.batchHeaderOpen : ''} ${isEditMode ? styles.editMode : styles.viewMode} ${batch.isVoided ? styles.batchVoided : ''}`}
       >
-        <div className={styles.batchPrimary}>
+        <div className={styles.colSelection}>
           <input
             type="checkbox"
             className={styles.checkbox}
-            style={{ marginRight: '10px' }}
             checked={isBatchSelected}
             onChange={(e) => { e.stopPropagation(); onToggleBatch(batch.id, batch.candidates.map((c: CandidateRecord) => c.empId)); }}
             disabled={!isEditMode}
+            title="Select all in batch"
             onClick={e => e.stopPropagation()}
           />
           {open ? <ChevronDown size={15} className={styles.chevron} />
             : <ChevronRight size={15} className={styles.chevron} />}
         </div>
-        <span className={`${styles.sourceBadge} ${sm.className}`}>
-          <sm.Icon size={12} />{sm.label}
-        </span>
-        {batch.isVoided && (
-          <span className={styles.voidBadge}>Voided</span>
-        )}
-        <span className={`${styles.typeBadge} ${
-          batch.trainingType.includes('IP') && !batch.trainingType.includes('Pre') ? styles.typeIP :
-          batch.trainingType.includes('AP') && !batch.trainingType.includes('Pre') ? styles.typeAP :
-          batch.trainingType.includes('MIP') ? styles.typeMIP :
-          batch.trainingType.includes('Capsule') ? styles.typeCapsule :
-          batch.trainingType.includes('Refresher') ? styles.typeRefresher :
-          batch.trainingType.includes('Pre-AP') ? styles.typePreAP : ''
-        }`}>
-          {batch.trainingType}
-        </span>
-        <div className={styles.batchDivider}>|</div>
-        <span className={styles.batchDate}>
-          {batch.startDate ? new Date(batch.startDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'No Date'}
-        </span>
-        <span className={styles.teamSubtext}>
-          • {batch.team}
-        </span>
-        {batch.trainer && (
-          <TrainerAvatar
-            trainer={masterTrainers.find((t: any) => t.id === batch.trainer) || { id: batch.trainer, name: batch.trainer }}
-            size={24}
-            showName={true}
-            className="ml-12"
-          />
-        )}
-        <div className={styles.spacer} />
-        <div className={styles.batchMetrics}>
-          <Pill label="Total" value={m.total} className={styles.textAccent} />
-          <Pill label="✓" value={m.present} className={styles.textSuccess} />
-          <Pill label="✗" value={m.absent} className={styles.textDanger} />
-          {m.attPct !== null && <Pill label="Att%" value={`${m.attPct}%`} className={m.attPct >= 80 ? styles.textSuccess : styles.textWarning} />}
-          {m.avgScore !== null && <Pill label="Score" value={`${m.avgScore}`} className={styles.textPrimary} />}
+
+        <div className={styles.colTeam}>
+          <div className={styles.teamHero}>
+            <span className={styles.teamSubtext}>
+              {batch.team}
+            </span>
+            {batch.isVoided && (
+              <span className={styles.voidBadge}>Voided</span>
+            )}
+          </div>
+        </div>
+
+        <div className={styles.colType}>
+          <span className={`${styles.typeBadge} ${
+            batch.trainingType.includes('IP') && !batch.trainingType.includes('Pre') ? styles.typeIP :
+            batch.trainingType.includes('AP') && !batch.trainingType.includes('Pre') ? styles.typeAP :
+            batch.trainingType.includes('MIP') ? styles.typeMIP :
+            batch.trainingType.includes('Capsule') ? styles.typeCapsule :
+            batch.trainingType.includes('Refresher') ? styles.typeRefresher :
+            batch.trainingType.includes('Pre-AP') ? styles.typePreAP : ''
+          }`}>
+            {batch.trainingType}
+          </span>
+        </div>
+
+        <div className={styles.colDate}>
+          <div className={styles.dateCell}>
+            <Calendar size={14} className={styles.dateIcon} />
+            <span className={styles.batchDate}>
+              {batch.startDate ? new Date(batch.startDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'No Date'}
+            </span>
+          </div>
+        </div>
+
+        <div className={styles.colTrainer}>
+          {batch.trainer && (() => {
+            const trainerObj = masterTrainers.find((t: any) => 
+              t.id?.toUpperCase() === batch.trainer?.toUpperCase() || 
+              t.name?.toLowerCase() === batch.trainer?.toLowerCase()
+            ) || { id: batch.trainer, name: batch.trainer };
+            return (
+              <div className={styles.trainerCell}>
+                <TrainerAvatar
+                  trainer={trainerObj}
+                  size={42}
+                  showName={false}
+                  className={styles.heroicAvatar}
+                />
+                <div className={styles.trainerMeta}>
+                  <div className={styles.trainerName}>{trainerObj.name}</div>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+
+        <div className={styles.colKpi}>
+          <div className={styles.metricBlock}>
+            <div className={styles.metricValue}>{m.total}</div>
+            <div className={styles.metricLabel}>Attendees</div>
+          </div>
         </div>
       </div>
-      {open && (
-        <div className={styles.tableContainer}>
+
+      <div className={`${styles.tableContainer} ${open ? styles.tableContainerOpen : ''}`}>
+        <div className={styles.tableWrapper}>
           <table className={styles.table}>
             <thead>
               <tr>
@@ -337,17 +359,12 @@ const BatchCard: React.FC<{
                     title="Select all in batch"
                   />
                 </th>
-                {/* Base Columns */}
                 {['Emp ID', 'Name', 'Designation', 'HQ', 'State'].map(h => (
                   <th key={h} className={styles.th}>{h}</th>
                 ))}
-
-                {/* Template-Driven Dynamic Columns */}
                 {templateColumns.map(h => (
                   <th key={h} className={styles.th}>{h}</th>
                 ))}
-
-                {/* Status Columns */}
                 <th className={styles.th}>Attendance</th>
                 <th className={styles.th}>Status</th>
               </tr>
@@ -374,7 +391,7 @@ const BatchCard: React.FC<{
             </tbody>
           </table>
         </div>
-      )}
+      </div>
     </div>
   );
 });
@@ -387,15 +404,11 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance, score
   const isSuperAdmin = user.role === 'super_admin' || (user.role as string) === 'SUPERADMIN';
 
   const { notificationRecords, drafts } = usePlanningFlow();
-  const { batches: allBatches, notificationBatches, uploadBatches } = useTrainingData(employees, attendance, notificationRecords, drafts, scores);
-
+  const { batches: allBatches } = useTrainingData(employees, attendance, notificationRecords, drafts, scores);
 
   const [showVoided, setShowVoided] = useState(false);
-
-  // ── Filters (Local sub-filters) ───────────────────────────────────────────
   const [filterTeam, setFilterTeam] = useState('');
   const [filterMonth, setFilterMonth] = useState('');
-  const [filterSource, setFilterSource] = useState<'' | 'NOTIFICATION' | 'UPLOAD'>('');
 
   const teamOptions = useMemo(() => [...new Set(allBatches.map(b => b.teamId).filter(Boolean))], [allBatches]);
   const monthOptions = useMemo(() =>
@@ -405,11 +418,9 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance, score
 
   const filtered = useMemo(() =>
     allBatches.filter(b => {
-      // Global filters (trainingType, trainer, fiscalYear) are already applied by useTrainingData
       if (!showVoided && b.isVoided) return false;
       if (filterTeam && b.teamId !== filterTeam) return false;
       if (filterMonth && b.startDate?.substring(0, 7) !== filterMonth) return false;
-      if (filterSource && b.source !== filterSource) return false;
       return true;
     }).map(b => {
       if (showVoided) return b;
@@ -418,9 +429,8 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance, score
         candidates: b.candidates.filter(c => !c.isVoided)
       };
     }).filter(b => b.candidates.length > 0 || (showVoided && b.isVoided)),
-    [allBatches, filterTeam, filterMonth, filterSource, showVoided]
+    [allBatches, filterTeam, filterMonth, showVoided]
   );
-
 
   const allFilteredCandidateKeys = useMemo(() =>
     filtered.flatMap(b => b.candidates.map((c: CandidateRecord) => `${b.id}::${c.empId}`)),
@@ -446,7 +456,7 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance, score
 
   const [saving, setSaving] = useState(false);
 
-  const { changeSet, summary } = useMemo(() => {
+  const { summary } = useMemo(() => {
     const cs = buildChangeSet(editBuffer, allBatches);
     const keys = Object.keys(cs);
     const tImpacted = new Set(keys.map(k => k.split('::')[0])).size;
@@ -461,14 +471,10 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance, score
     });
 
     return {
-      changeSet: cs,
       summary: {
         rows: keys.length,
         trainings: tImpacted,
         fields: attChanges + scoreChanges + voidChanges,
-        attendance: attChanges,
-        score: scoreChanges,
-        voided: voidChanges
       }
     };
   }, [editBuffer, allBatches]);
@@ -476,7 +482,7 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance, score
   const handleSave = async () => {
     if (Object.keys(editBuffer).length === 0) return;
     if (summary.rows > 100) {
-      if (!window.confirm(`⚠️ LARGE UPDATE WARNING: You are about to update ${summary.rows} records at once. Do you wish to proceed?`)) return;
+      if (!window.confirm(`LARGE UPDATE WARNING: You are about to update ${summary.rows} records. Proceed?`)) return;
     }
     setSaving(true);
     const result = await saveChanges(allBatches);
@@ -490,7 +496,7 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance, score
   };
 
   const handleUndo = async () => {
-    if (!window.confirm('Are you sure you want to revert the last save? This cannot be undone.')) return;
+    if (!window.confirm('Revert the last save? This cannot be undone.')) return;
     try {
       const response = await fetch(`${API_BASE}/training-data/rollback`, {
         method: 'POST',
@@ -509,7 +515,7 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance, score
   };
 
   const resolveTrainer = (id?: string) =>
-    masterTrainers.find(t => t.id === id)?.name || (id || '—');
+    masterTrainers.find(t => t.id === id)?.name || (id || '-');
 
   const resolveTrainerAvatar = (trainerId: string) => {
     const trainer = masterTrainers.find(t => t.id === trainerId);
@@ -520,25 +526,15 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance, score
   };
 
   const resolveTeam = (id?: string, fb?: string) =>
-    masterTeams.find(t => t.id === id)?.teamName || (fb || id || '—');
+    masterTeams.find(t => t.id === id)?.teamName || (fb || id || '-');
 
-  const allC = filtered.flatMap(b => b.candidates).filter(c => !c.isVoided);
-  const gTotal = allC.length;
-  const gPresent = allC.filter((c: CandidateRecord) => c.attendance === 'present').length;
-  const gAbsent = allC.filter((c: CandidateRecord) => c.attendance === 'absent').length;
-  const gPending = allC.filter((c: CandidateRecord) => c.attendance === 'pending').length;
-  const gAttPct = gPresent + gAbsent > 0 ? Math.round((gPresent / (gPresent + gAbsent)) * 100) : 0;
-  const gScores = allC.map((c: CandidateRecord) => parseFloat(c.score)).filter(n => !isNaN(n));
-  const gAvg = gScores.length > 0 ? Math.round(gScores.reduce((a, b) => a + b, 0) / gScores.length) : null;
-
-  const hasFilters = !!(filterTeam || filterMonth || filterSource);
+  const hasFilters = !!(filterTeam || filterMonth);
 
   if (allBatches.length === 0) {
     return (
       <div className={`animate-fade-in ${styles.page}`}>
         <h1 className={styles.title}>Training Data</h1>
         <p className={styles.subtitle}>Unified view of all uploaded attendance and planned training batches.</p>
-        <FlowStepper currentStep={2} />
         <div className={styles.emptyState}>
           <TrendingUp size={40} className={styles.emptyIcon} />
           <div className={styles.emptyTitle}>No data available for selected filters</div>
@@ -558,7 +554,7 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance, score
           <p className={styles.subtitle}>Unified view · {allBatches.length} batch{allBatches.length !== 1 ? 'es' : ''} total</p>
         </div>
         {isSuperAdmin && (
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div className={styles.pageActions}>
             {!isEditMode && (
               <button className={styles.btnUndo} onClick={handleUndo}>
                 <RotateCcw size={14} /> Undo Last Save
@@ -566,16 +562,15 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance, score
             )}
             <div className={styles.modeToggle}>
               <button className={`${styles.modeBtn} ${!isEditMode ? styles.modeBtnActive : ''}`} onClick={toggleEditMode}>
-                <Eye size={14} /> View Mode
+                <Eye size={14} /> View
               </button>
               <button className={`${styles.modeBtn} ${isEditMode ? styles.modeBtnActive : ''}`} onClick={toggleEditMode}>
-                <Edit2 size={14} /> Edit Mode
+                <Edit2 size={14} /> Edit
               </button>
             </div>
           </div>
         )}
       </div>
-      <FlowStepper currentStep={2} />
 
       {isEditMode && summary.rows > 0 && (
         <div className={styles.saveSummary}>
@@ -609,110 +604,54 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance, score
         </div>
       )}
 
-      <div className={styles.batchSummaryBar}>
-        <div className={styles.summaryItem}>
-          <div className={styles.summaryLabel}>Total</div>
-          <div className={`${styles.summaryValue} ${styles.valueTotal}`}>{gTotal}</div>
-        </div>
-        <div className={styles.summaryDivider}></div>
-        <div className={styles.summaryItem}>
-          <div className={styles.summaryLabel}>Present</div>
-          <div className={`${styles.summaryValue} ${styles.valuePresent}`}>
-            {gPresent} <span className={styles.attPercent} style={{ marginLeft: '6px', verticalAlign: 'baseline' }}>{gAttPct}%</span>
+      <div className={styles.stickyToolbar}>
+        <div className={styles.filterBar}>
+          <div className={styles.filterGroup}>
+            <Filter size={14} className={styles.filterIcon} />
+            <select value={filterTeam} onChange={e => setFilterTeam(e.target.value)} className={styles.select}>
+              <option value="">All Teams</option>
+              {teamOptions.map(id => <option key={id} value={id}>{resolveTeam(id)}</option>)}
+            </select>
+            <div className={styles.filterDivider} />
+            <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)} className={styles.select}>
+              <option value="">All Months</option>
+              {monthOptions.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
+            </select>
+            {hasFilters && (
+              <button onClick={() => { setFilterTeam(''); setFilterMonth(''); }} className={styles.clearBtn}>
+                Clear
+              </button>
+            )}
           </div>
+          <div className={styles.spacer} />
+          <label className={styles.voidControl}>
+            <input type="checkbox" checked={showVoided} onChange={e => setShowVoided(e.target.checked)} />
+            <span>Include Voided</span>
+          </label>
         </div>
-        <div className={styles.summaryDivider}></div>
-        <div className={styles.summaryItem}>
-          <div className={styles.summaryLabel}>Drop-off</div>
-          <div className={`${styles.summaryValue} ${gAbsent > 0 ? styles.valueDropOff : styles.valueMuted}`}>{gAbsent}</div>
-        </div>
-        <div className={styles.summaryDivider}></div>
-        <div className={styles.summaryItem}>
-          <div className={styles.summaryLabel}>Pending</div>
-          <div className={`${styles.summaryValue} ${gPending > 0 ? styles.valuePending : styles.valueMuted}`}>{gPending}</div>
-        </div>
-        <div className={styles.summaryDivider}></div>
-        <div className={styles.summaryItem}>
-          <div className={styles.summaryLabel}>Avg Score</div>
-          <div className={`${styles.summaryValue} ${gAvg !== null ? styles.valueTotal : styles.valueMuted}`}>
-            {gAvg !== null ? gAvg : '—'}
-          </div>
+
+        <div className={styles.selectionBar}>
+          <input
+            type="checkbox" className={styles.checkbox} checked={isAllSelected}
+            ref={el => { if (el) el.indeterminate = isSomeSelected; }}
+            onChange={selectAll} disabled={!isEditMode}
+          />
+          <span className={styles.selectionCount}>
+            {selectedIds.size > 0 ? <strong>{selectedIds.size} rows selected</strong> : <span>Select all filtered (<strong className={styles.countAccent}>{allFilteredCandidateKeys.length}</strong>)</span>}
+          </span>
+          {selectedIds.size > 0 && (
+            <div className={styles.bulkActions}>
+              <button className={styles.bulkBtn} onClick={() => applyBulkEdit('attendance', 'present')}><CheckCircle size={14} /> Mark Present</button>
+              <button className={styles.bulkBtn} onClick={() => applyBulkEdit('attendance', 'absent')}><XCircle size={14} /> Mark Absent</button>
+              <button className={styles.bulkBtn} onClick={() => {
+                const score = prompt('Enter score for selected rows (0-100):');
+                if (score !== null && score !== '') applyBulkEdit('score', score);
+              }}><TrendingUp size={14} /> Update Score</button>
+            </div>
+          )}
+          {selectedIds.size > 0 && <button className={styles.clearSelectionBtn} onClick={clearSelection}>Clear Selection</button>}
         </div>
       </div>
-
-      <div className={styles.filterBar}>
-        <Filter size={13} color="var(--text-secondary)" />
-        <div className={styles.sourceToggle}>
-          {[
-            { key: '', label: 'All' },
-            { key: 'NOTIFICATION', label: '📋 Planned' },
-            { key: 'UPLOAD', label: '⬆ Uploaded' },
-          ].map(o => (
-            <button key={o.key} onClick={() => setFilterSource(o.key as any)} className={`${styles.toggleBtn} ${filterSource === o.key ? styles.toggleBtnActive : ''}`}>
-              {o.label}
-            </button>
-          ))}
-        </div>
-        <select value={filterTeam} onChange={e => setFilterTeam(e.target.value)} className={styles.select}>
-          <option value="">All Teams</option>
-          {teamOptions.map(id => <option key={id} value={id}>{resolveTeam(id)}</option>)}
-        </select>
-        <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)} className={styles.select}>
-          <option value="">All Months</option>
-          {monthOptions.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
-        </select>
-        {hasFilters && <button onClick={() => { setFilterTeam(''); setFilterMonth(''); setFilterSource(''); }} className={styles.clearBtn}>Clear</button>}
-        <label className={styles.voidToggle}>
-          <input type="checkbox" checked={showVoided} onChange={e => setShowVoided(e.target.checked)} />
-          <span>Include Voided</span>
-        </label>
-      </div>
-
-      <div className={styles.selectionBar}>
-        <input
-          type="checkbox" className={styles.checkbox} checked={isAllSelected}
-          ref={el => { if (el) el.indeterminate = isSomeSelected; }}
-          onChange={selectAll} disabled={!isEditMode}
-        />
-        <span className={styles.selectionCount}>
-          {selectedIds.size > 0 ? <strong>{selectedIds.size} rows selected</strong> : <span>Select all filtered (<strong className={styles.countAccent}>{allFilteredCandidateKeys.length}</strong>)</span>}
-        </span>
-        {selectedIds.size > 0 && (
-          <div className={styles.bulkActions}>
-            <button className={styles.bulkBtn} onClick={() => applyBulkEdit('attendance', 'present')}><CheckCircle size={14} /> Mark Present</button>
-            <button className={styles.bulkBtn} onClick={() => applyBulkEdit('attendance', 'absent')}><XCircle size={14} /> Mark Absent</button>
-            <button className={styles.bulkBtn} onClick={() => {
-              const score = prompt('Enter score for selected rows (0-100):');
-              if (score !== null && score !== '') applyBulkEdit('score', score);
-            }}><TrendingUp size={14} /> Update Score</button>
-          </div>
-        )}
-        {selectedIds.size > 0 && <button className={styles.clearSelectionBtn} onClick={clearSelection}>Clear Selection</button>}
-      </div>
-
-      {filtered.length > 0 && (
-        <div style={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          gap: '12px',
-          padding: '0 24px 6px',
-          background: 'transparent',
-          position: 'sticky',
-          top: 'var(--header-height)',
-          zIndex: 10,
-          fontSize: '10px',
-          fontWeight: 700,
-          textTransform: 'uppercase',
-          letterSpacing: '0.08em',
-          color: '#8A9BC0'
-        }}>
-          <span style={{ minWidth: '36px', textAlign: 'center' }}>Total</span>
-          <span style={{ minWidth: '36px', textAlign: 'center' }}>Present</span>
-          <span style={{ minWidth: '36px', textAlign: 'center' }}>Drop-off</span>
-          <span style={{ minWidth: '36px', textAlign: 'center' }}>Att%</span>
-          <span style={{ minWidth: '36px', textAlign: 'center' }}>Score</span>
-        </div>
-      )}
 
       {filtered.length === 0 ? (
         <div className={styles.noResults}>No data available for selected filters</div>

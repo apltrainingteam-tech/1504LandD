@@ -22,14 +22,13 @@ const TrainerAvatar: React.FC<TrainerAvatarProps> = memo(({
   const baseUrl = API_BASE.replace('/api', '').replace(/\/$/, '');
   let rawUrl = trainer?.avatarUrl || null;
   
-  // Guard against old local absolute paths
-  if (rawUrl && (rawUrl.includes(':\\') || rawUrl.includes(':/') || rawUrl.includes('Users/'))) {
-    rawUrl = null;
-  }
-
   const avatarUrl = useMemo(() => {
     if (!rawUrl) return null;
-    if (rawUrl.startsWith('http')) return rawUrl;
+    if (rawUrl.startsWith('http') || rawUrl.startsWith('file://')) return rawUrl;
+    // Handle Windows absolute paths by converting to file:///
+    if (rawUrl.includes(':\\') || rawUrl.includes('Users/')) {
+       return `file:///${rawUrl.replace(/\\/g, '/')}`;
+    }
     const path = rawUrl.startsWith('/') ? rawUrl : `/${rawUrl}`;
     return `${baseUrl}${path}`;
   }, [rawUrl, baseUrl]);

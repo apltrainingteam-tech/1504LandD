@@ -129,15 +129,15 @@ const MasterDataContext = createContext<MasterDataContextType | undefined>(undef
 
 // Initial bootstrap data (Fallback if DB empty)
 const INITIAL_TRAINERS: Trainer[] = [
-  { id: "SUNIL", name: "Sunil", code: "SUN", category: "HO", status: "Active", avatarUrl: null },
-  { id: "RUTUJA", name: "Rutuja", code: "RUT", category: "HO", status: "Active", avatarUrl: null },
-  { id: "VIVEKANAND", name: "Vivekanand", code: "VIV", category: "HO", status: "Active", avatarUrl: null },
-  { id: "SULEENA", name: "Suleena", code: "SUL", category: "HO", status: "Active", avatarUrl: null },
-  { id: "ROMY", name: "Romy", code: "ROM", category: "HO", status: "Active", avatarUrl: null },
-  { id: "MEIRAJ", name: "Meiraj", code: "MEI", category: "HO", status: "Active", avatarUrl: null },
+  { id: "SUNIL", name: "Sunil", code: "SUN", category: "HO", status: "Active", avatarUrl: "C:\\Users\\sunils\\.gemini\antigravity\\brain\\4e2958f8-d96a-4e61-8be8-00d407b017e6\\trainer_sunil_1778065448523.png" },
+  { id: "RUTUJA", name: "Rutuja", code: "RUT", category: "HO", status: "Active", avatarUrl: "C:\\Users\\sunils\\.gemini\antigravity\\brain\\4e2958f8-d96a-4e61-8be8-00d407b017e6\\trainer_rutuja_1778065471914.png" },
+  { id: "VIVEKANAND", name: "Vivekanand", code: "VIV", category: "HO", status: "Active", avatarUrl: "C:\\Users\\sunils\\.gemini\antigravity\\brain\\4e2958f8-d96a-4e61-8be8-00d407b017e6\\trainer_vivekanand_1778065490464.png" },
+  { id: "SULEENA", name: "Suleena", code: "SUL", category: "HO", status: "Active", avatarUrl: "C:\\Users\\sunils\\.gemini\antigravity\\brain\\4e2958f8-d96a-4e61-8be8-00d407b017e6\\trainer_suleena_1778065514366.png" },
+  { id: "ROMY", name: "Romy", code: "ROM", category: "HO", status: "Active", avatarUrl: "C:\\Users\\sunils\\.gemini\antigravity\\brain\\4e2958f8-d96a-4e61-8be8-00d407b017e6\\trainer_romy_meiraj_1778065537955.png" },
+  { id: "MEIRAJ", name: "Meiraj", code: "MEI", category: "HO", status: "Active", avatarUrl: "C:\\Users\\sunils\\.gemini\antigravity\\brain\\4e2958f8-d96a-4e61-8be8-00d407b017e6\\trainer_romy_meiraj_1778065537955.png" },
   { id: "TEJAS", name: "Tejas", code: "TEJ", category: "HO", status: "Active", avatarUrl: null },
   { id: "PRAMOD", name: "Pramod", code: "PRA", category: "RTM", status: "Active", avatarUrl: null },
-  { id: "KAUSHIK", name: "Kaushik", code: "KAU", category: "RTM", status: "Active", avatarUrl: null },
+  { id: "KAUSHIK", name: "Kaushik", code: "KAU", category: "RTM", status: "Active", avatarUrl: "C:\\Users\\sunils\\.gemini\antigravity\\brain\\4e2958f8-d96a-4e61-8be8-00d407b017e6\\trainer_rtm_kaushik_1778065614461.png" },
   { id: "PRAYAS", name: "Prayas", code: "PRY", category: "RTM", status: "Active", avatarUrl: null },
   { id: "SREENATH", name: "Sreenath", code: "SRE", category: "RTM", status: "Active", avatarUrl: null }
 
