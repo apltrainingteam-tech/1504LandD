@@ -428,12 +428,19 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
                           <TrainerAvatar 
                             trainer={masterTrainers.find(mt => mt.id === p.trainer) || { id: p.trainer, name: p.trainer }} 
                             size={18} 
-                            showName={true}
+                            showName={false}
                             className={styles.planAvatar} 
                           />
-                          <div className={`${styles.planChipText} ${status === 'Cancelled' ? styles.planChipTextCancelled : ''}`}>
-                            <span className={styles.planType}>{p.trainingType}</span>
-                            <span className={styles.planTeam}>{displayTeam}</span>
+                          <div className={styles.planTextWrapper}>
+                            <div className={styles.planTopRow}>
+                              <span className={styles.planTrainerName}>
+                                {masterTrainers.find(mt => mt.id === p.trainer)?.name || p.trainer}
+                              </span>
+                              <span className={styles.planType}>{p.trainingType}</span>
+                            </div>
+                            <div className={styles.planBottomRow}>
+                              <span className={styles.planTeam}>{displayTeam}</span>
+                            </div>
                           </div>
                         </div>
                         <div className={`${styles.planDot} ${status === 'Completed' ? styles.planDotCompleted : status === 'Notified' ? styles.planDotNotified : status === 'Cancelled' ? styles.planDotCancelled : styles.planDotPlanned}`}></div>
