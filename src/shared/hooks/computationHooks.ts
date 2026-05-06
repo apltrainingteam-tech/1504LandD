@@ -201,11 +201,23 @@ export function useTOEStats(
       const type = normalizeTrainingType(a.trainingType);
       if (filters.trainingType !== 'ALL' && type !== activeType) return;
 
-      const rawTrainer = a.sessionTrainer || a.trainer || 'Unassigned';
+      const rawTrainer = a.sessionTrainer || a.trainer || a.trainerId || 'Unassigned';
       const trainerName = toProperCase(rawTrainer);
+      const rawTrainerId = a.trainerId || '';
 
-      // Global trainer filter
-      if (filters.trainer !== 'ALL' && toProperCase(filters.trainer) !== trainerName) return;
+      // Global trainer filter - Robust Matching (ID or Name)
+      if (filters.trainer !== 'ALL') {
+        const filterMT = masterTrainers.find(t => t.id === filters.trainer);
+        const filterNorm = normalizeForMatch(filters.trainer);
+        const recordNorm = normalizeForMatch(rawTrainer);
+        const idNorm = normalizeForMatch(rawTrainerId);
+        
+        const isMatch = recordNorm === filterNorm || 
+                        idNorm === filterNorm ||
+                        (filterMT && recordNorm === normalizeForMatch(filterMT.name));
+        
+        if (!isMatch) return;
+      }
       
       // Global team filter
       if (filters.team && a.teamId !== filters.team) return;

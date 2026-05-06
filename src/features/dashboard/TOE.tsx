@@ -76,19 +76,37 @@ export const TOE: React.FC<TOEProps> = ({ employees, attendance, scores }) => {
     // 1. Filter by Fiscal Year
     const fyAttendance = attendance.filter(a => isWithinFY(a.attendanceDate || a.date || a.month, selectedFY));
     
-    // 2. Filter by Global Training Type (or all if 'ALL')
-    const typeFiltered = filters.trainingType === 'ALL' 
-      ? fyAttendance 
-      : fyAttendance.filter(a => normalizeTrainingType(a.trainingType) === activeType);
+    // 2. Filter by Global Training Type and Trainer
+    const typeFiltered = fyAttendance.filter(a => {
+      const typeMatch = filters.trainingType === 'ALL' || normalizeTrainingType(a.trainingType) === activeType;
+      if (!typeMatch) return false;
 
-    const uniqueTrainers = [...new Set(typeFiltered.map(a => toProperCase(a.sessionTrainer || a.trainer)).filter(Boolean))].sort();
+      if (filters.trainer !== 'ALL') {
+        const rawTrainer = a.sessionTrainer || a.trainer || 'Unassigned';
+        const rawTrainerId = a.trainerId || '';
+        const filterMT = masterTrainers.find(t => t.id === filters.trainer);
+        const filterNorm = normalizeForMatch(filters.trainer);
+        const recordNorm = normalizeForMatch(rawTrainer);
+        const idNorm = normalizeForMatch(rawTrainerId);
+
+        return recordNorm === filterNorm || 
+               idNorm === filterNorm ||
+               (filterMT && recordNorm === normalizeForMatch(filterMT.name));
+      }
+      return true;
+    });
+
+    const uniqueTrainers = [...new Set(typeFiltered.map(a => 
+      toProperCase(a.sessionTrainer || a.trainer || a.trainerId) || 'Unassigned'
+    ))].sort();
 
     // 3. Batch/Session Grouping
     const batchesMap = new Map<string, { type: string, trainer: string, month: string, team: string, count: number }>();
 
     typeFiltered.forEach(a => {
       const type = normalizeTrainingType(a.trainingType);
-      const trainer = toProperCase(a.sessionTrainer || a.trainer || 'Unassigned');
+      const trainer = toProperCase(a.sessionTrainer || a.trainer || a.trainerId) || 'Unassigned';
+
       
       // Handle Date object or string safely
       const dateVal = a.attendanceDate || a.date || a.month;

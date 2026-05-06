@@ -192,7 +192,9 @@ export const normalizeTrainingRecord = (record: any) => {
     // STRING NORMALIZATION (For Logic)
     trainingType: normalizeString(record.trainingType),
     team: processTeamData(record.team || record.sessionTeam).normalized,
-    trainer: normalizeString(record.trainer || record.sessionTrainer || record.trainerName || record.trainerId || record.sessionTrainerId),
+    trainer: normalizeString(record.trainer || record.sessionTrainer || record.trainerName || record.trainerId || record.sessionTrainerId || 
+             Object.entries(record).find(([k]) => k.toLowerCase().includes('trainer'))?.[1] || ''),
+    trainerId: String(record.trainerId || record.sessionTrainerId || record.trainer || record.trainerName || '').trim(),
 
     // SAFE FALLBACKS / LABELS (For UI Display)
     trainingTypeLabel: formatTrainingType(record.trainingType).formatted,

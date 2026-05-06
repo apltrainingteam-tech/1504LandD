@@ -180,7 +180,10 @@ export function applyFilters(ds: UnifiedRecord[],
 
     // Global Trainer Filter Priority
     if (filter.trainer && filter.trainer !== 'ALL') {
-      if (r.attendance.trainerId !== filter.trainer) return false;
+      const rawTrainer = r.attendance.trainer || '';
+      const isMatch = normalizeForMatch(rawTrainer) === normalizeForMatch(filter.trainer) ||
+                      normalizeForMatch(r.attendance.trainerId) === normalizeForMatch(filter.trainer);
+      if (!isMatch) return false;
     }
 
     if (filter.trainers && filter.trainers.length > 0) {
@@ -471,7 +474,7 @@ export function calcTrainerStats(ds: UnifiedRecord[], masterTrainers: any[] = []
   
   // Single pass through all records
   for (const r of ds) {
-    const tid = r.attendance.trainerId || '—';
+    const tid = r.attendance.trainerId || r.attendance.trainer || '—';
     
     if (!m.has(tid)) {
       m.set(tid, { sessions: new Set(), trainees: new Set(), total: 0, totalAtt: 0, scoreSum: 0, scoreCount: 0 });
