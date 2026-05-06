@@ -37,17 +37,19 @@ export const PlannedTaskForm: React.FC<Props> = ({ onClose, onSubmit }) => {
 
   return (
     <div className={styles.modalBackdrop}>
-      <div className={`glass-panel ${styles.modal}`}>
+      <div className={styles.modal}>
         <div className={styles.modalHeader}>
           <h3 className={styles.modalTitle}>Add Planned Task</h3>
           <button className={styles.closeBtn} onClick={onClose}><X size={20} /></button>
         </div>
+        
         <div className={styles.modalBody}>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
+          {/* Row 1: Category | Type */}
+          <div className={styles.formGrid}>
+            <div className={styles.fieldGroup}>
               <label className={styles.fieldLabel}>Category *</label>
               <select 
-                className="form-input" 
+                className={styles.formInput} 
                 value={formData.category} 
                 onChange={e => setFormData({ ...formData, category: e.target.value, type: '', task: '', subtask: '' })}
               >
@@ -55,10 +57,11 @@ export const PlannedTaskForm: React.FC<Props> = ({ onClose, onSubmit }) => {
                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
-            <div>
+            
+            <div className={styles.fieldGroup}>
               <label className={styles.fieldLabel}>Type *</label>
               <select 
-                className="form-input" 
+                className={styles.formInput} 
                 value={formData.type} 
                 onChange={e => setFormData({ ...formData, type: e.target.value, task: '', subtask: '' })}
                 disabled={!formData.category}
@@ -69,11 +72,12 @@ export const PlannedTaskForm: React.FC<Props> = ({ onClose, onSubmit }) => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
+          {/* Row 2: Task | Subtask */}
+          <div className={styles.formGrid}>
+            <div className={styles.fieldGroup}>
               <label className={styles.fieldLabel}>Task (Optional)</label>
               <select 
-                className="form-input" 
+                className={styles.formInput} 
                 value={formData.task} 
                 onChange={e => setFormData({ ...formData, task: e.target.value, subtask: '' })}
                 disabled={tasks.length === 0}
@@ -82,10 +86,11 @@ export const PlannedTaskForm: React.FC<Props> = ({ onClose, onSubmit }) => {
                 {tasks.map(t => <option key={t} value={t!}>{t}</option>)}
               </select>
             </div>
-            <div>
+            
+            <div className={styles.fieldGroup}>
               <label className={styles.fieldLabel}>Subtask (Optional)</label>
               <select 
-                className="form-input" 
+                className={styles.formInput} 
                 value={formData.subtask} 
                 onChange={e => setFormData({ ...formData, subtask: e.target.value })}
                 disabled={subtasks.length === 0}
@@ -96,43 +101,56 @@ export const PlannedTaskForm: React.FC<Props> = ({ onClose, onSubmit }) => {
             </div>
           </div>
 
-          <div>
+          {/* Row 3: Assignee (Full Width) */}
+          <div className={styles.fieldGroup}>
             <label className={styles.fieldLabel}>Assignee *</label>
-            <select 
-              className="form-input" 
-              value={formData.assignee} 
-              onChange={e => setFormData({ ...formData, assignee: e.target.value })}
-            >
-              <option value="">Select Trainer</option>
-              {trainers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
+            <div className={styles.inputWithIcon}>
+              <User size={16} className={styles.inputIcon} />
+              <select 
+                className={styles.formInput} 
+                value={formData.assignee} 
+                onChange={e => setFormData({ ...formData, assignee: e.target.value })}
+              >
+                <option value="">Select Trainer</option>
+                {trainers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
+          {/* Row 4: Plan Date | Due Date */}
+          <div className={styles.formGrid}>
+            <div className={styles.fieldGroup}>
               <label className={styles.fieldLabel}>Plan Date *</label>
-              <input 
-                type="date" 
-                className="form-input" 
-                value={formData.planDate} 
-                onChange={e => setFormData({ ...formData, planDate: e.target.value })} 
-              />
+              <div className={styles.inputWithIcon}>
+                <CalendarIcon size={16} className={styles.inputIcon} />
+                <input 
+                  type="date" 
+                  className={styles.formInput} 
+                  value={formData.planDate} 
+                  onChange={e => setFormData({ ...formData, planDate: e.target.value })} 
+                />
+              </div>
             </div>
-            <div>
+            
+            <div className={styles.fieldGroup}>
               <label className={styles.fieldLabel}>Due Date *</label>
-              <input 
-                type="date" 
-                className="form-input" 
-                value={formData.dueDate} 
-                onChange={e => setFormData({ ...formData, dueDate: e.target.value })} 
-              />
+              <div className={styles.inputWithIcon}>
+                <CalendarIcon size={16} className={styles.inputIcon} />
+                <input 
+                  type="date" 
+                  className={styles.formInput} 
+                  value={formData.dueDate} 
+                  onChange={e => setFormData({ ...formData, dueDate: e.target.value })} 
+                />
+              </div>
             </div>
           </div>
 
-          <div>
+          {/* Row 5: Recurrence (Full Width) */}
+          <div className={styles.fieldGroup}>
             <label className={styles.fieldLabel}>Recurrence</label>
             <select 
-              className="form-input" 
+              className={styles.formInput} 
               value={formData.recurrence} 
               onChange={e => setFormData({ ...formData, recurrence: e.target.value as RecurrenceType })}
             >
@@ -143,9 +161,13 @@ export const PlannedTaskForm: React.FC<Props> = ({ onClose, onSubmit }) => {
             </select>
           </div>
         </div>
+
         <div className={styles.modalFooter}>
-          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleSave}><Save size={16} className="mr-2" /> Create Task</button>
+          <button className={styles.ghostBtn} onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={handleSave}>
+            <Save size={16} className="mr-2" /> 
+            Create Planned Task
+          </button>
         </div>
       </div>
     </div>
