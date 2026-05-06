@@ -35,7 +35,7 @@ import { PageTransition } from './shared/components/ui/PageTransition';
 import { SkeletonDashboard } from './shared/components/ui/SkeletonDashboard';
 import './index.css';
 
-const logoUrl = new URL('./assets/ajanta-pharma-logo.svg', import.meta.url).href;
+const logoUrl = new URL('./assets/ajanta-logo.png', import.meta.url).href;
 
 // Feature Pages
 import { ReportsAnalytics } from './features/dashboard/ReportsAnalytics';
@@ -268,11 +268,13 @@ const App = () => {
           onMouseLeave={() => setIsSidebarHovered(false)}
         >
         <div className="sidebar-logo" onClick={() => setView('reports')} style={{ cursor: 'pointer' }}>
-          <img
-            src={logoUrl}
-            alt="Ajanta Pharma logo"
-            className="brand-logo"
-          />
+          <div className="logo-card">
+            <img
+              src={logoUrl}
+              alt="Ajanta Pharma logo"
+              className="brand-logo"
+            />
+          </div>
           {!isSidebarCollapsed && (
             <button 
               className="pin-button"

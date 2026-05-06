@@ -195,21 +195,35 @@ body.presentation-active .main-content {
   color: #FFFFFF;
 }
 
+.logo-card {
+  background: #4f8df7;
+  padding: 3px 6px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
 .brand-logo {
   width: auto;
-  height: 40px;
+  height: 28px;
   max-width: 100%;
   object-fit: contain;
   display: block;
   filter: none !important;
   opacity: 1 !important;
   mix-blend-mode: normal !important;
-  transition: none !important;
+  transition: all 0.3s ease;
   image-rendering: auto;
 }
 
+.collapsed .logo-card {
+  padding: 2px 4px;
+}
+
 .collapsed .brand-logo {
-  display: none;
+  height: 20px;
 }
 
 .sidebar-nav {
