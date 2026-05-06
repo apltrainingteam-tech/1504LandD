@@ -1,6 +1,6 @@
 import React, { useState, useCallback, memo } from 'react';
 import { X } from 'lucide-react';
-import { GlobalFilters } from '../../../core/context/filterContext';
+import { GlobalFilters, INITIAL_FILTERS } from '../../../core/context/filterContext';
 import TrainerAvatar from './TrainerAvatar';
 import styles from './GlobalFilterPanel.module.css';
 
@@ -39,11 +39,7 @@ export const GlobalFilterPanel: React.FC<GlobalFilterPanelProps> = memo(({
   }, [tempFilters, onApply, onClose]);
 
   const handleClearAll = useCallback(() => {
-    const cleared: GlobalFilters = { 
-      cluster: '', team: '', trainer: '', month: '',
-      clusters: [], teams: [], trainers: [], trainerTypes: []
-    };
-    setTempFilters(cleared);
+    setTempFilters(INITIAL_FILTERS);
     onClearAll();
     onClose();
   }, [onClearAll, onClose]);

@@ -6,8 +6,7 @@ import { SRMSnapshot } from './components/SRMSnapshot';
 import { TSIPChart } from '../dashboard/components/TSIPChart';
 import { SRMTable } from './components/SRMTable';
 import { InsightsPanel } from '../dashboard/components/InsightsPanel';
-import { GlobalFilterPanel } from '../../shared/components/ui/GlobalFilterPanel';
-import { GlobalFilters, getActiveFilterCount } from '../../core/context/filterContext';
+import { GlobalFilters, getActiveFilterCount, INITIAL_FILTERS } from '../../core/context/filterContext';
 import { Employee } from '../../types/employee';
 import { Attendance, TrainingScore } from '../../types/attendance';
 import { scheduleIdle } from '../../core/utils/stagedComputation';
@@ -28,16 +27,15 @@ export const RecruitmentQuality: React.FC<RecruitmentQualityProps> = ({
   employees, attendance, scores, onFilter
 }) => {
   const { teams: masterTeams, trainers: masterTrainers, clusters: masterClusters } = useMasterData();
-  const [filters, setFilters] = useState<GlobalFilters>({ cluster: '', team: '', trainer: '', month: '' });
+  const [filters, setFilters] = useState<GlobalFilters>(INITIAL_FILTERS);
   const [viewMode, setViewMode] = useState<'srm' | 'cluster'>('srm');
   const [selectedCluster, setSelectedCluster] = useState<string | undefined>(undefined);
   const [renderStage, setRenderStage] = useState(0);
-  const [showGlobalFilters, setShowGlobalFilters] = useState(false);
   const FY_OPTIONS = getFiscalYears(2015);
   const [selectedFY, setSelectedFY] = useState<string>(FY_OPTIONS[0]);
 
   const activeFilterCount = getActiveFilterCount(filters);
-  const { allTeams, allTrainers } = useFilterOptions(employees, attendance, 'IP', masterTeams, masterTrainers);
+  const { allTeams, allTrainers } = useFilterOptions(employees, attendance, 'IP', masterTrainers);
   const allClusters = useMemo(() => masterClusters.map(c => c.name), [masterClusters]);
   const months = useMemo(() => {
     const m = new Set<string>();
@@ -76,20 +74,11 @@ export const RecruitmentQuality: React.FC<RecruitmentQualityProps> = ({
         </div>
         <TopRightControls
           fiscalOptions={FY_OPTIONS} selectedFY={selectedFY} onChangeFY={setSelectedFY}
-          onOpenGlobalFilters={() => setShowGlobalFilters(true)}
           onExport={() => alert('Export not available (UI placeholder)')}
           activeFilterCount={activeFilterCount}
         />
       </div>
 
-      {/* Filters */}
-      <GlobalFilterPanel
-        isOpen={showGlobalFilters} onClose={() => setShowGlobalFilters(false)}
-        onApply={(f) => { setFilters(f); setShowGlobalFilters(false); }}
-        initialFilters={filters} clusterOptions={allClusters}
-        teamOptions={allTeams} trainerOptions={allTrainers} monthOptions={months}
-        onClearAll={() => { setFilters({ cluster: '', team: '', trainer: '', month: '' }); setShowGlobalFilters(false); }}
-      />
 
       {/* Status */}
       {srmRecords.length === 0 ? (

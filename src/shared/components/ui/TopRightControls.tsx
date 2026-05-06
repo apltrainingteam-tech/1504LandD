@@ -35,15 +35,6 @@ export const TopRightControls: React.FC<TopRightControlsProps> = ({
         </div>
       )}
 
-      <button
-        className="btn btn-secondary"
-        title={activeFilterCount > 0 ? `Filters (${activeFilterCount})` : 'Filters'}
-        onClick={onOpenGlobalFilters}
-        style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-      >
-        <Filter size={16} />
-        {activeFilterCount > 0 && <span style={{ fontSize: 11, fontWeight: 700 }}>{activeFilterCount}</span>}
-      </button>
 
       <button className="btn btn-secondary" onClick={() => onExport?.()} title="Export">
         <Download size={16} />

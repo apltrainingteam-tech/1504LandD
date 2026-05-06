@@ -21,7 +21,7 @@ export interface FilterContextType {
   clearFilters: () => void;
 }
 
-const defaultFilters: GlobalFilters = {
+export const INITIAL_FILTERS: GlobalFilters = {
   cluster: '',
   team: '',
   trainer: '',
@@ -33,7 +33,7 @@ const defaultFilters: GlobalFilters = {
 };
 
 export const FilterContext = createContext<FilterContextType>({
-  filters: defaultFilters,
+  filters: INITIAL_FILTERS,
   setFilters: () => {},
   activeFilterCount: 0,
   clearFilters: () => {},

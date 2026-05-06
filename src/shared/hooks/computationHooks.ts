@@ -104,29 +104,36 @@ export function useMonthsFromData(unified: UnifiedRecord[]) {
  * Separate from main component to avoid inline mapping
  */
 export function useFilterOptions(
-  unified: UnifiedRecord[] = [],
+  data: (UnifiedRecord | Employee)[] = [],
   attendance: any[] = [], 
   trainingType?: string,
   masterTrainers: Trainer[] = [],
   selectedClusters: string[] = []
 ) {
   const allClusters = useMemo(() => {
-    const clusters = [...new Set(unified.map(r => r?.employee?.cluster).filter((c): c is string => Boolean(c)))].sort();
+    const clusters = [...new Set(data.map(r => {
+      if ('employee' in r) return r.employee?.cluster;
+      return r.cluster;
+    }).filter((c): c is string => Boolean(c)))].sort();
     console.log("[FilterHook] Derived Clusters:", clusters);
     return clusters;
-  }, [unified]);
+  }, [data]);
 
   const allTeams = useMemo(() => {
-    let filtered = unified;
+    let filtered = data;
     if (selectedClusters.length > 0) {
-      filtered = unified.filter(r => selectedClusters.includes(r?.employee?.cluster || ''));
+      filtered = data.filter(r => {
+        const cluster = 'employee' in r ? r.employee?.cluster : r.cluster;
+        return selectedClusters.includes(cluster || '');
+      });
     }
     
     // Build unique team list from data
     const teamMap = new Map<string, string>(); // id -> label
     filtered.forEach(r => {
-      const id = r?.employee?.teamId;
-      const label = r?.employee?.team;
+      const emp = 'employee' in r ? r.employee : r;
+      const id = emp?.teamId;
+      const label = emp?.team;
       if (id && label) {
         teamMap.set(id, label);
       }
@@ -135,7 +142,7 @@ export function useFilterOptions(
     return Array.from(teamMap.entries())
       .map(([id, label]) => ({ id, label }))
       .sort((a, b) => a.label.localeCompare(b.label));
-  }, [unified, selectedClusters]);
+  }, [data, selectedClusters]);
   
   const allTrainers = useMemo(() => {
     if (trainingType) {

@@ -8,8 +8,7 @@ import { useGapAnalysisData } from './hooks/useGapAnalysisData';
 import { KPIBox } from '../../shared/components/ui/KPIBox';
 import { InsightStrip } from '../../features/dashboard/components/InsightStrip';
 import TopRightControls from '../../shared/components/ui/TopRightControls';
-import { GlobalFilterPanel } from '../../shared/components/ui/GlobalFilterPanel';
-import { GlobalFilters, getActiveFilterCount } from '../../core/context/filterContext';
+import { GlobalFilters, getActiveFilterCount, INITIAL_FILTERS } from '../../core/context/filterContext';
 import { useFilterOptions } from '../../shared/hooks/computationHooks';
 import { useMasterData } from '../../core/context/MasterDataContext';
 import { GapAnalysisData } from '../../core/engines/gapEngine';
@@ -44,9 +43,8 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
   const [expanded, setExpanded] = useState(new Set<string>());
   const [zoneFilter, setZoneFilter] = useState<string>('');
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
-  const [pageFilters, setPageFilters] = useState<GlobalFilters>({ cluster: '', team: '', trainer: '', month: '' });
+  const [pageFilters, setPageFilters] = useState<GlobalFilters>(INITIAL_FILTERS);
   const activeFilterCount = getActiveFilterCount(pageFilters);
-  const [showGlobalFilters, setShowGlobalFilters] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: 'total' | 'mr90', direction: 'asc' | 'desc' }>({ key: 'total', direction: 'desc' });
 
   // Orchestrated Data
@@ -75,7 +73,7 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
   }, []);
 
   // dynamic lists for global filters
-  const { allTeams, allTrainers } = useFilterOptions(employees, attendance, tab as any, masterTeams, masterTrainers);
+  const { allTeams, allTrainers } = useFilterOptions(employees, attendance, tab as any, masterTrainers);
   const allClusters = useMemo(() => masterClusters.map(c => c.name), [masterClusters]);
   const months = useMemo(() => {
     const m = new Set<string>();
@@ -89,13 +87,10 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
   // Handlers for GlobalFilterPanel (page-scoped)
   const handleGlobalApply = (f: GlobalFilters) => {
     setPageFilters(f);
-    setShowGlobalFilters(false);
   };
 
   const handleGlobalClear = () => {
-    const cleared: GlobalFilters = { cluster: '', team: '', trainer: '', month: '' };
-    setPageFilters(cleared);
-    setShowGlobalFilters(false);
+    setPageFilters(INITIAL_FILTERS);
   };
 
   const sortedData = useMemo(() => {
@@ -281,7 +276,6 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
           <p className={styles.subtitle}>Untrained population requiring training</p>
         </div>
         <TopRightControls
-          onOpenGlobalFilters={() => setShowGlobalFilters(true)}
           onExport={() => alert('Export not available for Training Requirements (UI placeholder)')}
           activeFilterCount={activeFilterCount}
         />
@@ -309,17 +303,6 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
 
       {renderEmptyState()}
       {data.length > 0 && renderTable()}
-      <GlobalFilterPanel
-        isOpen={showGlobalFilters}
-        onClose={() => setShowGlobalFilters(false)}
-        onApply={handleGlobalApply}
-        initialFilters={pageFilters}
-        clusterOptions={allClusters}
-        teamOptions={allTeams}
-        trainerOptions={allTrainers}
-        monthOptions={months}
-        onClearAll={handleGlobalClear}
-      />
     </div>
   );
 };

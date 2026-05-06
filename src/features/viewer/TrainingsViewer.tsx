@@ -12,12 +12,12 @@ import { InsightStrip } from '../../features/dashboard/components/InsightStrip';
 import { formatDateForDisplay } from '../../core/utils/dateParser';
 import { displayScore } from '../../core/utils/scoreNormalizer';
 import TopRightControls from '../../shared/components/ui/TopRightControls';
-import { GlobalFilters, getActiveFilterCount } from '../../core/context/filterContext';
-import { GlobalFilterPanel } from '../../shared/components/ui/GlobalFilterPanel';
+import { GlobalFilters, getActiveFilterCount, INITIAL_FILTERS } from '../../core/context/filterContext';
 import { getFiscalYears, getFiscalYearFromDate } from '../../core/utils/fiscalYear';
 import { normalizeText } from '../../core/utils/textNormalizer';
 import { getSchema } from '../../core/constants/trainingSchemas';
 import { useFilterOptions } from '../../shared/hooks/computationHooks';
+import { normalizeTrainingType } from '../../core/engines/normalizationEngine';
 import { useMasterData } from '../../core/context/MasterDataContext';
 import styles from './TrainingsViewer.module.css';
 
@@ -52,9 +52,8 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
   const [selectedZone, setSelectedZone] = useState('All Zones');
   const FY_OPTIONS = getFiscalYears(2015);
   const [selectedFY, setSelectedFY] = useState<string>(FY_OPTIONS[0]);
-  const [pageFilters, setPageFilters] = useState<GlobalFilters>({ cluster: '', team: '', trainer: '', month: '' });
+  const [pageFilters, setPageFilters] = useState<GlobalFilters>(INITIAL_FILTERS);
   const activeFilterCount = getActiveFilterCount(pageFilters);
-  const [showGlobalFilters, setShowGlobalFilters] = useState(false);
 
   // Get unique zones
   const zones = useMemo(() => {
@@ -64,7 +63,7 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
 
   const { filtered, kpis } = useTrainingsViewerData(tab, employees, attendance, scores, selectedFY, selectedZone, pageFilters, search, masterTeams);
 
-  const { allTeams, allTrainers } = useFilterOptions(employees, attendance, tab, masterTeams, masterTrainers);
+  const { allTeams, allTrainers } = useFilterOptions(employees, attendance, tab, masterTrainers);
   const allClusters = useMemo(() => masterClusters.map(c => c.name), [masterClusters]);
   const months = useMemo(() => {
     const s = new Set<string>();
@@ -78,13 +77,10 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
   // Handlers for GlobalFilterPanel (page-scoped)
   const handleGlobalApply = (f: GlobalFilters) => {
     setPageFilters(f);
-    setShowGlobalFilters(false);
   };
 
   const handleGlobalClear = () => {
-    const cleared: GlobalFilters = { cluster: '', team: '', trainer: '', month: '' };
-    setPageFilters(cleared);
-    setShowGlobalFilters(false);
+    setPageFilters(INITIAL_FILTERS);
   };
 
   const schemaObj = getSchema(tab);
@@ -108,7 +104,6 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
           fiscalOptions={FY_OPTIONS}
           selectedFY={selectedFY}
           onChangeFY={(v) => setSelectedFY(v)}
-          onOpenGlobalFilters={() => setShowGlobalFilters(true)}
           onExport={() => alert('Export not implemented for Training Data (UI placeholder)')}
           activeFilterCount={activeFilterCount}
         />
@@ -201,17 +196,6 @@ export const TrainingsViewer: React.FC<TrainingsViewerProps> = ({ employees, att
           ))}
         </DataTable>
       </div>
-      <GlobalFilterPanel
-        isOpen={showGlobalFilters}
-        onClose={() => setShowGlobalFilters(false)}
-        onApply={handleGlobalApply}
-        initialFilters={pageFilters}
-        clusterOptions={allClusters}
-        teamOptions={allTeams}
-        trainerOptions={allTrainers}
-        monthOptions={months}
-        onClearAll={handleGlobalClear}
-      />
     </div>
   );
 };

@@ -18,10 +18,9 @@ import { TimeSeriesTable } from '../../features/dashboard/components/TimeSeriesT
 import { TrainerTable } from '../../features/dashboard/components/TrainerTable';
 import { DrilldownPanel } from '../../features/dashboard/components/DrilldownPanel';
 import { InsightStrip } from '../../features/dashboard/components/InsightStrip';
-import { GlobalFilterPanel } from '../../shared/components/ui/GlobalFilterPanel';
 import TrainerAvatar from '../../shared/components/ui/TrainerAvatar';
 import { ErrorPanel } from '../../shared/components/ui/ErrorPanel';
-import { GlobalFilters, getActiveFilterCount } from '../../core/context/filterContext';
+import { GlobalFilters, getActiveFilterCount, INITIAL_FILTERS } from '../../core/context/filterContext';
 
 import { APPerformanceMatrix } from './components/APPerformanceMatrix';
 import { MIPAttendanceMatrix, MIPPerformanceMatrix } from '../../features/dashboard/components/MIPDualMatrix';
@@ -68,12 +67,8 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
 
   const rawAttendance = finalData.trainingData;
 
-  const [pageFilters, setPageFilters] = useState<GlobalFilters>({ 
-    cluster: '', team: '', trainer: '', month: '',
-    clusters: [], teams: [], trainers: [], trainerTypes: []
-  });
+  const [pageFilters, setPageFilters] = useState<GlobalFilters>(INITIAL_FILTERS);
   const activeFilterCount = getActiveFilterCount(pageFilters);
-  const [showGlobalFilters, setShowGlobalFilters] = useState(false);
 
   const [tabState, setTabState] = useState<string>('IP');
   const tab = globalFilters.trainingType !== 'ALL' ? globalFilters.trainingType : tabState;
@@ -182,14 +177,10 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
       monthFrom: f.month,
       monthTo: f.month
     }));
-    setShowGlobalFilters(false);
   }, []);
 
   const handleGlobalClear = useCallback(() => {
-    setPageFilters({ 
-      cluster: '', team: '', trainer: '', month: '',
-      clusters: [], teams: [], trainers: [], trainerTypes: []
-    });
+    setPageFilters(INITIAL_FILTERS);
     setFilter({ monthFrom: '', monthTo: '', teams: [], clusters: [], trainer: '' });
   }, []);
 
@@ -424,14 +415,6 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
           <div className="v-divider mx-1" />
 
 
-          <button
-            className={`btn btn-secondary btn-filter ${activeFilterCount > 0 ? 'active' : ''}`}
-            onClick={() => setShowGlobalFilters(true)}
-            title="Open Filters"
-          >
-            <Filter size={16} />
-            {activeFilterCount > 0 && <span className="text-xs-bold min-w-16">{activeFilterCount}</span>}
-          </button>
           <button className="btn btn-secondary" onClick={handleExport} title="Export CSV"><Download size={16} /></button>
         </div>
       </div>
@@ -1001,17 +984,6 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
       )}
         </Fragment>
 
-      <GlobalFilterPanel
-        isOpen={showGlobalFilters}
-        onClose={() => setShowGlobalFilters(false)}
-        onApply={handleGlobalApply}
-        initialFilters={pageFilters}
-        clusterOptions={allClusters}
-        teamOptions={allTeams}
-        trainerOptions={allTrainers as any}
-        monthOptions={MONTHS}
-        onClearAll={handleGlobalClear}
-      />
     </div>
   );
 };
