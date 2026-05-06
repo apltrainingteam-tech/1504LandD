@@ -188,7 +188,7 @@ const CandidateRow = memo<CandidateRowProps>(({
       <td className={`${styles.td} ${styles.tdSecondary} ${curIsVoided ? styles.strike : ''}`}>{toProperCase(employee?.designation) || '-'}</td>
       <td className={`${styles.td} ${styles.tdSecondary} ${curIsVoided ? styles.strike : ''}`}>{toProperCase(employee?.hq) || '-'}</td>
       <td className={`${styles.td} ${styles.tdSecondary} ${curIsVoided ? styles.strike : ''}`}>{toProperCase(employee?.state) || '-'}</td>
-      
+
       {templateColumns.map(col => {
         const field = TEMPLATE_FIELD_MAP[col];
         const val = combinedScores[field];
@@ -216,8 +216,8 @@ const CandidateRow = memo<CandidateRowProps>(({
               <div className={`${styles.scoreDisplay} ${curIsVoided ? styles.strike : ''} ${getScoreColorClass(val, field)}`}>
                 {val === null || val === undefined || val === '' ? '-'
                   : (isNumeric && !isDateField && !isNotifiedField && !RATING_FIELDS.has(field)) ? `${Math.round(val)}%`
-                  : isNumeric ? Math.round(val)
-                  : val}
+                    : isNumeric ? Math.round(val)
+                      : val}
               </div>
             )}
           </td>
@@ -275,14 +275,13 @@ const BatchCard: React.FC<{
   );
 
   return (
-    <div className={`${styles.batchCard} ${
-      batch.trainingType.includes('IP') && !batch.trainingType.includes('Pre') ? styles.borderIP :
-      batch.trainingType.includes('AP') && !batch.trainingType.includes('Pre') ? styles.borderAP :
-      batch.trainingType.includes('MIP') ? styles.borderMIP :
-      batch.trainingType.includes('Capsule') ? styles.borderCapsule :
-      batch.trainingType.includes('Refresher') ? styles.borderRefresher :
-      batch.trainingType.includes('Pre-AP') ? styles.borderPreAP : ''
-    }`}>
+    <div className={`${styles.batchCard} ${batch.trainingType.includes('IP') && !batch.trainingType.includes('Pre') ? styles.borderIP :
+        batch.trainingType.includes('AP') && !batch.trainingType.includes('Pre') ? styles.borderAP :
+          batch.trainingType.includes('MIP') ? styles.borderMIP :
+            batch.trainingType.includes('Capsule') ? styles.borderCapsule :
+              batch.trainingType.includes('Refresher') ? styles.borderRefresher :
+                batch.trainingType.includes('Pre-AP') ? styles.borderPreAP : ''
+      }`}>
       <div
         onClick={() => setOpen(o => !o)}
         className={`${styles.batchHeader} ${open ? styles.batchHeaderOpen : ''} ${isEditMode ? styles.editMode : styles.viewMode} ${batch.isVoided ? styles.batchVoided : ''}`}
@@ -313,14 +312,13 @@ const BatchCard: React.FC<{
         </div>
 
         <div className={styles.colType}>
-          <span className={`${styles.typeBadge} ${
-            batch.trainingType.includes('IP') && !batch.trainingType.includes('Pre') ? styles.typeIP :
-            batch.trainingType.includes('AP') && !batch.trainingType.includes('Pre') ? styles.typeAP :
-            batch.trainingType.includes('MIP') ? styles.typeMIP :
-            batch.trainingType.includes('Capsule') ? styles.typeCapsule :
-            batch.trainingType.includes('Refresher') ? styles.typeRefresher :
-            batch.trainingType.includes('Pre-AP') ? styles.typePreAP : ''
-          }`}>
+          <span className={`${styles.typeBadge} ${batch.trainingType.includes('IP') && !batch.trainingType.includes('Pre') ? styles.typeIP :
+              batch.trainingType.includes('AP') && !batch.trainingType.includes('Pre') ? styles.typeAP :
+                batch.trainingType.includes('MIP') ? styles.typeMIP :
+                  batch.trainingType.includes('Capsule') ? styles.typeCapsule :
+                    batch.trainingType.includes('Refresher') ? styles.typeRefresher :
+                      batch.trainingType.includes('Pre-AP') ? styles.typePreAP : ''
+            }`}>
             {batch.trainingType}
           </span>
         </div>
@@ -336,8 +334,8 @@ const BatchCard: React.FC<{
 
         <div className={styles.colTrainer}>
           {batch.trainer && (() => {
-            const trainerObj = masterTrainers.find((t: any) => 
-              t.id?.toUpperCase() === batch.trainer?.toUpperCase() || 
+            const trainerObj = masterTrainers.find((t: any) =>
+              t.id?.toUpperCase() === batch.trainer?.toUpperCase() ||
               t.name?.toLowerCase() === batch.trainer?.toLowerCase()
             ) || { id: batch.trainer, name: batch.trainer };
             return (
@@ -386,8 +384,8 @@ const BatchCard: React.FC<{
                 {templateColumns.map(h => {
                   const isBseHeader = h === 'BSE';
                   return (
-                    <th 
-                      key={h} 
+                    <th
+                      key={h}
                       className={`${styles.th} ${styles.thScore} ${isBseHeader ? styles.thExpandable : ''}`}
                       onClick={() => isBseHeader && setIsBseExpanded(!isBseExpanded)}
                     >
