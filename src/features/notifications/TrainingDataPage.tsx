@@ -15,7 +15,7 @@ import { buildChangeSet } from '../../core/engines/editEngine';
 import API_BASE from '../../config/api';
 import styles from './TrainingDataPage.module.css';
 import { useTrainingData } from '../../shared/hooks/useTrainingData';
-import { TRAINING_TEMPLATES, TEMPLATE_FIELD_MAP, RATING_FIELDS } from '../../core/constants/trainingTemplates';
+import { TRAINING_TEMPLATES, TEMPLATE_FIELD_MAP, RATING_FIELDS, BSE_SUB_METRICS } from '../../core/constants/trainingTemplates';
 import { normalizeTrainingType, toProperCase } from '../../core/engines/normalizationEngine';
 import { TrainingScore } from '../../types/attendance';
 
@@ -95,7 +95,6 @@ const AttToggle: React.FC<{
   onChange: (v: BatchAttStatus) => void;
 }> = ({ value, readOnly, onChange }) => {
   const opts: { key: BatchAttStatus; label: string; color: string }[] = [
-    { key: 'pending', label: '-', color: '#d97706' },
     { key: 'present', label: '✓', color: '#059669' },
     { key: 'absent', label: '✗', color: 'var(--danger)' },
   ];
@@ -228,23 +227,6 @@ const CandidateRow = memo<CandidateRowProps>(({
       <td className={`${styles.td} ${isAttEdited ? styles.editedCell : ''}`}>
         <AttToggle value={curAtt} readOnly={isUpload} onChange={v => onUpdate(candidate.empId, { attendance: v })} />
       </td>
-
-      <td className={styles.td}>
-        {curIsVoided ? (
-          <span className={`${styles.statusBadge} ${styles.statusVoided}`}>
-            <XCircle size={10} />Voided
-          </span>
-        ) : (
-          <span className={`${styles.statusBadge} ${rs.className}`}>
-            <rs.Icon size={10} />{rs.label}
-          </span>
-        )}
-        {!curIsVoided && curAtt === 'absent' && (
-          <div className={styles.reNominate}>
-            <RotateCcw size={9} />Re-nominate
-          </div>
-        )}
-      </td>
     </tr>
   );
 });
@@ -267,7 +249,24 @@ const BatchCard: React.FC<{
   const { trainers: masterTrainers } = useMasterData();
   const [open, setOpen] = useState(false);
   const m = useMemo(() => batchMetrics(batch.candidates), [batch.candidates]);
-  const templateColumns = useMemo(() => TRAINING_TEMPLATES[normalizeTrainingType(batch.trainingType)] || ['Score'], [batch.trainingType]);
+  const [isBseExpanded, setIsBseExpanded] = useState(false);
+
+  const templateColumns = useMemo(() => {
+    const typeKey = normalizeTrainingType(batch.trainingType);
+    const base = TRAINING_TEMPLATES[typeKey] || ['Score'];
+    if (!isBseExpanded) return base;
+
+    // Inject sub-metrics after BSE
+    const result: string[] = [];
+    base.forEach(col => {
+      result.push(col);
+      if (col === 'BSE') {
+        result.push(...BSE_SUB_METRICS.map(m => m.label));
+      }
+    });
+    return result;
+  }, [batch.trainingType, isBseExpanded]);
+
   const isUpload = batch.source === 'UPLOAD';
 
   const isBatchSelected = useMemo(() =>
@@ -384,11 +383,33 @@ const BatchCard: React.FC<{
                   const headerClass = h === 'Emp ID' ? styles.thEmpId : h === 'Name' ? styles.thName : '';
                   return <th key={h} className={`${styles.th} ${headerClass}`}>{h}</th>;
                 })}
-                {templateColumns.map(h => (
-                  <th key={h} className={`${styles.th} ${styles.thScore}`}>{h}</th>
-                ))}
+                {templateColumns.map(h => {
+                  const isBseHeader = h === 'BSE';
+                  return (
+                    <th 
+                      key={h} 
+                      className={`${styles.th} ${styles.thScore} ${isBseHeader ? styles.thExpandable : ''}`}
+                      onClick={() => isBseHeader && setIsBseExpanded(!isBseExpanded)}
+                    >
+                      <div className={styles.thContent}>
+                        {h.includes(' ') ? (
+                          <div className={styles.stackedHeader}>
+                            {h.split(' ').map((word, i) => (
+                              <div key={i}>{word}</div>
+                            ))}
+                          </div>
+                        ) : h}
+                        {isBseHeader && (
+                          <span className={styles.expansionToggle}>
+                            <span className={styles.toggleIcon}>{isBseExpanded ? '▼' : '›'}</span>
+                            {!isBseExpanded && <span className={styles.toggleMeta}>(+7 metrics)</span>}
+                          </span>
+                        )}
+                      </div>
+                    </th>
+                  );
+                })}
                 <th className={styles.th}>Attendance</th>
-                <th className={styles.th}>Status</th>
               </tr>
             </thead>
             <tbody>

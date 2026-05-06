@@ -3,14 +3,7 @@ export const TRAINING_TEMPLATES: Record<string, string[]> = {
 
   AP: [
     'Knowledge',
-    'BSE',
-    'Grasping',
-    'Participation',
-    'Detailing & Presentation',
-    'Role Play',
-    'Punctuality',
-    'Grooming & Dress Code',
-    'Behaviour'
+    'BSE'
   ],
 
   PreAP: ['AP Date', 'Notified', 'Test Score'],
@@ -20,34 +13,6 @@ export const TRAINING_TEMPLATES: Record<string, string[]> = {
   Capsule: ['Score'],
 
   Refresher: ['Knowledge', 'Situation Handling', 'Presentation']
-};
-
-export const TEMPLATE_FIELD_MAP: Record<string, string> = {
-  'Detailing': 'detailing',
-  'Test Score': 'percent',
-  'Trainability Score': 'tScore',
-
-  'Knowledge': 'knowledge',
-  'BSE': 'bse',
-  'Grasping': 'grasping',
-  'Participation': 'participation',
-
-  'Detailing & Presentation': 'detailing',
-  'Role Play': 'rolePlay',
-  'Punctuality': 'punctuality',
-  'Grooming & Dress Code': 'grooming',
-  'Behaviour': 'behaviour',
-
-  'AP Date': 'apDate',
-  'Notified': 'notified',
-
-  'Science Score': 'scienceScore',
-  'Skill Score': 'skillScore',
-
-  'Situation Handling': 'situationHandling',
-  'Presentation': 'presentation',
-
-  'Score': 'score'
 };
 
 /**
@@ -65,5 +30,53 @@ export const RATING_FIELDS = new Set<string>([
   'behaviour',     // AP sub-score rating
   'notified',      // Notification count
   'apDate',        // Date field
+  'bse_prod',      // BSE: Product Knowledge
+  'bse_therapy',   // BSE: Therapy Knowledge
+  'bse_comp',      // BSE: Competitor Handling
+  'bse_va',        // BSE: Visual Aid Usage
+  'bse_obj',       // BSE: Objection Handling
 ]);
+
+export const BSE_SUB_METRICS = [
+  { label: 'Grasping', field: 'grasping' },
+  { label: 'Participation', field: 'participation' },
+  { label: 'Detailing & Presentation', field: 'detailing' },
+  { label: 'Role Play', field: 'rolePlay' },
+  { label: 'Punctuality', field: 'punctuality' },
+  { label: 'Grooming & Dress Code', field: 'grooming' },
+  { label: 'Behaviour', field: 'behaviour' },
+];
+
+export const TEMPLATE_FIELD_MAP: Record<string, string> = {
+  'Detailing': 'detailing',
+  'Test Score': 'percent',
+  'Trainability Score': 'tScore',
+
+  'Knowledge': 'knowledge',
+  'BSE': 'bse',
+  'Product Knowledge': 'bse_prod',
+  'Therapy Knowledge': 'bse_therapy',
+  'Competitor Handling': 'bse_comp',
+  'Visual Aid Usage': 'bse_va',
+  'Objection Handling': 'bse_obj',
+
+  'Grasping': 'grasping',
+  'Participation': 'participation',
+  'Detailing & Presentation': 'detailing',
+  'Role Play': 'rolePlay',
+  'Punctuality': 'punctuality',
+  'Grooming & Dress Code': 'grooming',
+  'Behaviour': 'behaviour',
+
+  'AP Date': 'apDate',
+  'Notified': 'notified',
+
+  'Science Score': 'scienceScore',
+  'Skill Score': 'skillScore',
+
+  'Situation Handling': 'situationHandling',
+  'Presentation': 'presentation',
+
+  'Score': 'score'
+};
 
