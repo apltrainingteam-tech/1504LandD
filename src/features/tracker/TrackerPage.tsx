@@ -473,10 +473,10 @@ export const TrackerPage: React.FC = () => {
                           <td><div className={styles.taskMainCell}>{task.task}</div></td>
                           <td>
                             <div className={`${styles.trainerCell} ${isCompleted ? styles.strikeText : ''}`}>
-                              <TrainerAvatar 
-                                trainer={trainer || { id: task.assignee, name: task.assignee }} 
-                                size={32} 
-                                showName={true} 
+                              <TrainerAvatar
+                                trainer={trainer || { id: task.assignee, name: task.assignee }}
+                                size={32}
+                                showName={true}
                               />
                             </div>
                           </td>
@@ -485,12 +485,11 @@ export const TrackerPage: React.FC = () => {
                             {fmtDate(task.dueDate)}
                           </td>
                           <td>
-                            <span className={`${styles.statusBadge} ${
-                              status === 'Delayed' ? styles.statusDelayed :
-                              status === 'In Progress' ? styles.statusInProgress :
-                              status === 'Completed' ? styles.statusCompleted :
-                              styles.statusNotStarted
-                            }`}>
+                            <span className={`${styles.statusBadge} ${status === 'Delayed' ? styles.statusDelayed :
+                                status === 'In Progress' ? styles.statusInProgress :
+                                  status === 'Completed' ? styles.statusCompleted :
+                                    styles.statusNotStarted
+                              }`}>
                               {status}
                             </span>
                           </td>
@@ -547,7 +546,7 @@ export const TrackerPage: React.FC = () => {
           <div className={styles.miniModal}>
             <h3>Add New Product</h3>
             <p className={styles.modalDesc}>Enter the product name to generate its operational checklist.</p>
-            
+
             <div className={styles.formGroup}>
               <label className={styles.fieldLabel}>Product Name</label>
               <input
@@ -566,8 +565,8 @@ export const TrackerPage: React.FC = () => {
             </div>
 
             <div className={styles.modalActions}>
-              <button 
-                className="btn btn-ghost" 
+              <button
+                className="btn btn-ghost"
                 onClick={() => {
                   setIsAddProductModalOpen(false);
                   setNewProductName('');
@@ -576,7 +575,7 @@ export const TrackerPage: React.FC = () => {
               >
                 Cancel
               </button>
-              <button 
+              <button
                 className="btn btn-primary"
                 onClick={handleSaveProduct}
                 disabled={!newProductName.trim() || isSavingProduct}
@@ -642,7 +641,7 @@ const SessionChecklist: React.FC<{
         </div>
       );
     }
-    
+
     if (hasAttempted) {
       return (
         <div className={styles.checklistEmpty}>
@@ -665,7 +664,7 @@ const SessionChecklist: React.FC<{
         {sortedItems.map(item => {
           const isOverdue = item.status === 'Pending' && new Date(item.dueDate) < new Date(new Date().setHours(0, 0, 0, 0));
           const trainer = masterTrainers.find(t => t.name === item.assignee || t.id === item.assignee);
-          
+
           return (
             <div
               key={item.id}
@@ -682,9 +681,9 @@ const SessionChecklist: React.FC<{
               </div>
               <div className={styles.taskMeta}>
                 <span className={styles.taskAssignee}>
-                  <TrainerAvatar 
-                    trainer={trainer || { id: item.assignee, name: item.assignee }} 
-                    size={28} 
+                  <TrainerAvatar
+                    trainer={trainer || { id: item.assignee, name: item.assignee }}
+                    size={28}
                     showName={true}
                     className={styles.checklistAssignee}
                   />
