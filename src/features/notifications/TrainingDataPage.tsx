@@ -66,6 +66,27 @@ const monthLabel = (s?: string | number) => {
   return isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
 };
 
+const getScoreColorClass = (val: number | string | null | undefined, field?: string) => {
+  if (val === null || val === undefined || val === '') return '';
+  const num = typeof val === 'number' ? val : parseFloat(String(val));
+  if (isNaN(num)) return '';
+
+  // Specialized Rating Logic (1-5 Scale)
+  if (field && RATING_FIELDS.has(field) && field !== 'tScore' && field !== 'notified' && field !== 'apDate') {
+    if (num >= 5) return styles.rating5;
+    if (num >= 4) return styles.rating4;
+    if (num >= 3) return styles.rating3;
+    if (num >= 2) return styles.rating2;
+    return styles.rating1;
+  }
+
+  // Standard Percentage Logic
+  if (num >= 90) return styles.scoreGreen;
+  if (num >= 75) return styles.scoreBlue;
+  if (num >= 60) return styles.scoreAmber;
+  return styles.scoreRed;
+};
+
 // ─── Attendance Toggle ─────────────────────────────────────────────────────────
 
 const AttToggle: React.FC<{
@@ -178,7 +199,7 @@ const CandidateRow = memo<CandidateRowProps>(({
         const isNotifiedField = col.toLowerCase().includes('notified');
 
         return (
-          <td key={col} className={`${styles.td} ${isEdited ? styles.editedCell : ''}`}>
+          <td key={col} className={`${styles.td} ${styles.tdScore} ${isEdited ? styles.editedCell : ''}`}>
             {isEditMode ? (
               <div className={styles.scoreCell}>
                 <input
@@ -188,12 +209,12 @@ const CandidateRow = memo<CandidateRowProps>(({
                     const newScores = { ...combinedScores, [field]: e.target.value === '' ? null : parseFloat(e.target.value) };
                     onUpdate(candidate.empId, { scores: newScores });
                   }}
-                  className={styles.scoreInput}
+                  className={`${styles.scoreInput} ${getScoreColorClass(val, field)}`}
                 />
                 {isNumeric && !isDateField && !isNotifiedField && <span className={styles.pctUnit}>%</span>}
               </div>
             ) : (
-              <div className={`${styles.scoreDisplay} ${curIsVoided ? styles.strike : ''}`}>
+              <div className={`${styles.scoreDisplay} ${curIsVoided ? styles.strike : ''} ${getScoreColorClass(val, field)}`}>
                 {val === null || val === undefined || val === '' ? '-'
                   : (isNumeric && !isDateField && !isNotifiedField && !RATING_FIELDS.has(field)) ? `${Math.round(val)}%`
                   : isNumeric ? Math.round(val)
@@ -359,11 +380,12 @@ const BatchCard: React.FC<{
                     title="Select all in batch"
                   />
                 </th>
-                {['Emp ID', 'Name', 'Designation', 'HQ', 'State'].map(h => (
-                  <th key={h} className={styles.th}>{h}</th>
-                ))}
+                {['Emp ID', 'Name', 'Designation', 'HQ', 'State'].map(h => {
+                  const headerClass = h === 'Emp ID' ? styles.thEmpId : h === 'Name' ? styles.thName : '';
+                  return <th key={h} className={`${styles.th} ${headerClass}`}>{h}</th>;
+                })}
                 {templateColumns.map(h => (
-                  <th key={h} className={styles.th}>{h}</th>
+                  <th key={h} className={`${styles.th} ${styles.thScore}`}>{h}</th>
                 ))}
                 <th className={styles.th}>Attendance</th>
                 <th className={styles.th}>Status</th>
