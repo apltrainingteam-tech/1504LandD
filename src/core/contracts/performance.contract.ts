@@ -12,29 +12,29 @@ export interface PerformanceDataset {
   rawUnified: any[];
   unified: any[];
   filteredData: any[];
-  
+
   // Domain Data
   ipData: any;
   ipRankData: any;
   rawTimelines: Map<string, any>;
   filteredTimelines: Map<string, any>;
-  
+
   // Attendance Matrices
   apAttData: any;
   mipAttData: any;
   refresherAttData: any;
   capsuleAttData: any;
-  
+
   // Performance Matrices
   apPerfData: any;
   mipPerfData: any;
   refresherPerfData: any;
   capsulePerfData: any;
-  
+
   // Eligibility & Metrics
   eligibilityResults: any[];
   gapMetrics: any;
-  
+
   // Orchestration & Analytics
   groups: any[];
   ranked: any[];
@@ -43,7 +43,7 @@ export interface PerformanceDataset {
   months: string[];
   timeSeries: any[];
   tabNoms: any[];
-  
+
   // KPIs
   ipKPI: any;
   apKPI: any;
