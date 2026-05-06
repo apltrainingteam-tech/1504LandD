@@ -1,5 +1,8 @@
 .page {
   padding: 24px;
+  max-width: 1480px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 .header {
@@ -11,216 +14,267 @@
 
 .title {
   margin: 0;
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 700;
+  color: #0F172A;
+  letter-spacing: -0.5px;
 }
 
 .subtitle {
-  color: var(--text-secondary);
-  margin: 8px 0 0 0;
+  color: #64748B;
+  margin: 4px 0 0 0;
   font-size: 13px;
-}
-
-.tabs {
-  margin-bottom: 16px;
-  display: flex;
-  gap: 8px;
-  background: #FFFFFF;
-  padding: 4px;
-  border-radius: 12px;
-  width: fit-content;
-  border: 1px solid #E4E8F0;
-}
-
-.tab {
-  padding: 8px 24px;
-  border: none;
-  background: none;
-  cursor: pointer;
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 12px;
-  color: #8A9BC0;
-  transition: all 0.2s;
-}
-
-.tabActive {
-  background: #4F8EF7;
-  color: white;
-}
-
-.selectionBanner {
-  background: #4F8EF7;
-  color: white;
-  padding: 16px 24px;
-  border-radius: 8px;
-  margin-bottom: 24px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.selectionText {
-  font-size: 15px;
-}
-
-.selectionBtn {
-  background: white;
-  color: #4F8EF7;
-  font-weight: 600;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.filterRow {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.zoneFilter {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: #FFFFFF;
-  padding: 6px 12px;
-  border-radius: 8px;
-  border: 1px solid #E4E8F0;
-}
-
-.zoneSelect {
-  border: none;
-  background: transparent;
-  font-size: 12px;
-  font-weight: 600;
-  color: #0F1C3F;
-  cursor: pointer;
-}
-
-.emptyState {
-  padding: 64px;
-  text-align: center;
-  color: #8A9BC0;
-  background: #FFFFFF;
-  border-radius: 12px;
-  border: 1px dashed #E4E8F0;
-}
-
-.emptyIcon {
-  font-size: 40px;
-  margin-bottom: 16px;
-}
-
-.emptyTitle {
-  font-size: 18px;
-  font-weight: 600;
-  margin-bottom: 8px;
 }
 
 .tableCard {
   padding: 0;
   overflow: hidden;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(15, 23, 42, 0.05);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03), 0 10px 24px rgba(15, 23, 42, 0.04);
+}
+
+.tableScrollWrapper {
+  overflow-x: auto;
+  position: relative;
 }
 
 .table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-variant-numeric: tabular-nums;
 }
 
-.th {
-  background: #F7F9FF;
-  padding: 12px;
-  font-size: 9px;
-  font-weight: 700;
+.table thead th {
+  background: #0F172A;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #8A9BC0;
-  border-bottom: 1px solid #F4F6FC;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.6);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  text-align: left;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 20;
 }
 
-.thInteractive {
-  cursor: pointer;
-  -webkit-user-select: none;
-  user-select: none;
+.thSticky {
+  position: sticky;
+  left: 0;
+  z-index: 25;
+  min-width: 180px;
 }
 
-.thInteractive:hover {
-  background: rgba(0,0,0,0.04);
+.thStickyTotal {
+  position: sticky;
+  left: 180px;
+  z-index: 25;
 }
 
-.trCluster {
-  background: rgba(0,0,0,0.04);
+.table thead th.thSticky, 
+.table thead th.thStickyTotal {
+  background: #0F172A;
 }
+
+.thCheck { width: 40px; min-width: 40px; }
 
 .td {
-  padding: 12px;
-  border-bottom: 1px solid var(--border-color);
+  padding: 7px 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+  font-size: 13px;
+  color: #334155;
+  transition: background 180ms ease;
 }
 
-.indent0 { padding-left: 12px; }
-.indent1 { padding-left: 36px; }
+.tdCenter { text-align: center; }
 
-.tdCenter {
-  text-align: center;
+/* TOTAL Column Anchor */
+.tdTotal {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0F172A;
+  background: rgba(59, 130, 246, 0.025) !important;
+  border-right: 1px solid rgba(148, 163, 184, 0.08);
+  min-width: 80px;
 }
 
-.expandBtn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.thTotal {
+  min-width: 100px;
 }
 
-.checkbox {
-  cursor: pointer;
-  margin-left: 12px;
+/* Sticky styles for body cells - must match row background for continuity */
+tr .thSticky, tr .thStickyTotal {
+  background: #FFFFFF;
+  z-index: 10;
 }
 
-.teamNameCell {
+.trCluster .thSticky, 
+.trCluster .thStickyTotal {
+  background: rgba(15, 23, 42, 0.03);
+}
+
+.trTeam:hover td {
+  background: rgba(15, 23, 42, 0.02);
+}
+
+.trTeam:hover .tdTotal {
+  background: rgba(59, 130, 246, 0.05) !important;
+}
+
+/* Hierarchy: Cluster vs Team */
+.trCluster {
+  background: rgba(15, 23, 42, 0.03);
+}
+
+.trCluster td {
+  border-top: 1px solid rgba(15, 23, 42, 0.04);
+}
+
+.tdClusterName {
+  font-weight: 700;
+  color: #0F172A;
+  font-size: 13px;
+}
+
+.tdTeamName {
+  padding-left: 32px;
+  color: #475569;
   font-weight: 400;
 }
 
-.teamNameCluster {
-  font-weight: 700;
+/* Custom indicator for team name instead of ↳ in JSX text to allow clean alignment */
+.tdTeamName span::before {
+  content: '↳';
+  margin-right: 8px;
+  color: #94A3B8;
+  font-weight: 400;
 }
 
-.teamNameIndented {
-  color: var(--accent-primary);
+/* Semantic Coloring */
+.totalHigh { color: #B45309 !important; }
+.totalLow { color: #047857 !important; }
+.totalNormal { color: #0F172A !important; }
+
+.agingDanger { color: #EF4444; font-weight: 600; }
+.agingWarning { color: #F59E0B; font-weight: 600; }
+.agingSuccess { color: #10B981; }
+
+/* Interactive Controls */
+.expandBtn {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94A3B8;
+  border-radius: 4px;
+  transition: all 180ms cubic-bezier(0.4, 0, 0.2, 1);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.expandBtn:hover {
+  background: rgba(15, 23, 42, 0.05);
+  color: #0F172A;
+}
+
+.expanded {
+  transform: rotate(90deg);
+}
+
+.tdCheckCell {
+  padding: 0 0 0 10px;
+  width: 40px;
+}
+
+.checkbox {
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+  accent-color: #4F8EF7;
 }
 
 .batchCountCell {
   font-weight: 600;
-  color: var(--accent-secondary);
+  color: #6366F1;
+  background: rgba(99, 102, 241, 0.02);
 }
 
-.valCell {
-  font-weight: 400;
+.selectionBanner {
+  background: #0F172A;
+  color: #F8FAFC;
+  padding: 12px 24px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.valCellBold {
+.selectionText {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.selectionBtn {
+  background: #4F8EF7;
+  color: white;
   font-weight: 600;
+  border: none;
+  padding: 6px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 13px;
+}
+
+.selectionBtn:hover {
+  background: #3B82F6;
+  transform: translateY(-1px);
+}
+
+.zoneFilter {
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .zoneFilterLabel {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #94A3B8;
+  letter-spacing: 0.05em;
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+.zoneSelect {
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
   font-size: 13px;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: #0F172A;
+  background: #FFFFFF;
+  cursor: pointer;
 }
 
-.thCheck {
-  width: 40px;
+.emptyState {
+  padding: 48px;
+  text-align: center;
+  color: #64748B;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 14px;
+  border: 1px dashed rgba(15, 23, 42, 0.1);
 }
-
-.agingDanger { color: var(--danger); font-weight: 600; }
-.agingWarning { color: var(--warning); font-weight: 600; }
-.agingSuccess { color: var(--success); }
-.agingNormal { color: inherit; }

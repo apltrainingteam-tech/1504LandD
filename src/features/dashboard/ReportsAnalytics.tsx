@@ -210,7 +210,8 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
     mipKPI = null,
     refresherKPI = null,
     capsuleKPI = null,
-    preApKPI = null
+    preApKPI = null,
+    overviewSummary = []
   } = usePerformanceData({
     tab, selectedFY, filter, viewBy, tsMode, pageMode,
     employees, attendance, scores, nominations
@@ -350,6 +351,92 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
       <div className="skeleton-matrix-box" />
     </div>
   );
+
+  if (pageMode === 'overview') {
+    const TYPE_CONFIG: Record<string, { accent: string; label: string }> = {
+      IP:        { accent: '#3B82F6', label: 'Induction Program' },
+      AP:        { accent: '#10B981', label: 'Advanced Program' },
+      MIP:       { accent: '#F59E0B', label: 'Management Induction' },
+      Refresher: { accent: '#8B5CF6', label: 'Refresher Training' },
+      Capsule:   { accent: '#06B6D4', label: 'Capsule Training' },
+      'Pre-AP':  { accent: '#6366F1', label: 'Pre-Advanced Program' },
+    };
+
+    const totalBatches    = overviewSummary.reduce((acc: number, curr: any) => acc + curr.batches, 0);
+    const totalCandidates = overviewSummary.reduce((acc: number, curr: any) => acc + curr.candidates, 0);
+
+    return (
+      <div className="ov-page animate-fade-in">
+
+        {/* ── PAGE HEADER ─────────────────────────────────── */}
+        <div className="ov-header">
+          <div>
+            <h1 className="ov-heading">Executive Training Summary</h1>
+            <p className="ov-subheading">High-level training volume and coverage overview</p>
+          </div>
+        </div>
+
+        {/* ── TOTAL IMPACT STRIP ──────────────────────────── */}
+        <div className="ov-section-label">ORGANIZATION IMPACT</div>
+        <div className="ov-impact-strip">
+          <div className="ov-impact-block ov-impact-blue">
+            <div className="ov-impact-value">{totalBatches}</div>
+            <div className="ov-impact-label">Total Training Batches</div>
+          </div>
+          <div className="ov-impact-divider" />
+          <div className="ov-impact-block ov-impact-emerald">
+            <div className="ov-impact-value">{totalCandidates}</div>
+            <div className="ov-impact-label">Total Candidates Attended</div>
+          </div>
+        </div>
+
+        {/* ── TRAINING TYPE CARDS ─────────────────────────── */}
+        <div className="ov-grid">
+          {overviewSummary.map((item: any, idx: number) => {
+            const cfg = TYPE_CONFIG[item.type] || { accent: '#94A3B8', label: item.type };
+            return (
+              <motion.div
+                key={item.type}
+                className="ov-card"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: idx * 0.04 }}
+                style={{ '--card-accent': cfg.accent } as React.CSSProperties}
+              >
+                {/* Left accent bar */}
+                <div className="ov-card-accent" />
+
+                {/* Card body */}
+                <div className="ov-card-body">
+                  {/* Top row */}
+                  <div className="ov-card-top">
+                    <div>
+                      <div className="ov-card-type">{item.type}</div>
+                      <div className="ov-card-label">{cfg.label}</div>
+                    </div>
+                  </div>
+
+                  {/* Metrics */}
+                  <div className="ov-card-metrics">
+                    <div className="ov-metric">
+                      <div className="ov-metric-value">{item.batches}</div>
+                      <div className="ov-metric-label">Batches</div>
+                    </div>
+                    <div className="ov-metric-divider" />
+                    <div className="ov-metric">
+                      <div className="ov-metric-value">{item.candidates}</div>
+                      <div className="ov-metric-label">Candidates</div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in">

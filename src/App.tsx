@@ -342,44 +342,6 @@ const App = () => {
           </div>
         </header>
 
-        <div className="shell-kpi-row mt-4">
-          <div
-            className={`shell-kpi-card kpi-employees cursor-pointer ${view === 'employees' ? 'active' : ''}`}
-            onClick={() => setView('employees')}
-            title="Go to Employee Master"
-          >
-            <div className="shell-kpi-label">Employees</div>
-            <div className="shell-kpi-value">
-              {view === 'employees' && empFiltersActive
-                ? <>{filteredEmps.length} <span className="shell-kpi-sub">/ {emps.length}</span></>
-                : emps.length}
-            </div>
-            <div className="shell-kpi-detail">
-              <span className="shell-kpi-dot"></span> All divisions
-            </div>
-          </div>
-          <div className="shell-kpi-card kpi-attendance">
-            <div className="shell-kpi-label">Attendance</div>
-            <div className="shell-kpi-value">{att.length}</div>
-            <div className="shell-kpi-detail">
-              <span className="shell-kpi-dot"></span> 87.3% rate
-            </div>
-          </div>
-          <div className="shell-kpi-card kpi-scores">
-            <div className="shell-kpi-label">Scores</div>
-            <div className="shell-kpi-value">{scs.length}</div>
-            <div className="shell-kpi-detail">
-              <span className="shell-kpi-dot"></span> Pending upload
-            </div>
-          </div>
-          <div className="shell-kpi-card kpi-nominations">
-            <div className="shell-kpi-label">Nominations</div>
-            <div className="shell-kpi-value">{noms.length}</div>
-            <div className="shell-kpi-detail">
-              <span className="shell-kpi-dot"></span> No active cycle
-            </div>
-          </div>
-        </div>
         <PageTransition pageKey={view}>
           {renderView()}
         </PageTransition>

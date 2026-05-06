@@ -179,90 +179,97 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
     return styles.agingSuccess;
   };
 
+  const getTotalStyle = (val: number) => {
+    if (val > 10) return styles.totalHigh;
+    if (val > 0 && val <= 3) return styles.totalLow;
+    return styles.totalNormal;
+  };
+
   const renderTable = () => {
     return (
       <div className={`glass-panel ${styles.tableCard}`}>
-        <table className={`data-table ${styles.table}`}>
-          <thead>
-            <tr>
-              <th className={styles.thCheck}></th>
-              <th>Cluster / Team</th>
-              <th 
-                className={`${styles.thInteractive} ${styles.tdCenter}`}
-                onClick={() => handleSort('total')}
-              >
-                Total {renderSortIndicator('total')}
-              </th>
-              <th className={styles.tdCenter}>MR</th>
-              <th 
-                className={`${styles.thInteractive} ${styles.tdCenter}`}
-                onClick={() => handleSort('mr90')}
-              >
-                MR &gt;90 {renderSortIndicator('mr90')}
-              </th>
-              <th className={styles.tdCenter}>FLM</th>
-              <th className={styles.tdCenter}>FLM &gt;90</th>
-              <th className={styles.tdCenter}>SLM</th>
-              <th className={styles.tdCenter}>SLM &gt;90</th>
-              <th className={styles.tdCenter} title="Ceil(Total / 40)">Batches</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedData.map((row: GapAnalysisData, index: number) => {
-              const isCluster = row.team === '';
-              const isExpanded = expanded.has(row.cluster);
-              const indent = isCluster ? 0 : 20;
-
-              if (!isCluster && !isExpanded) return null;
-
-              return (
-                <tr 
-                  key={index} 
-                  className={isCluster ? styles.trCluster : ''}
+        <div className={styles.tableScrollWrapper}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th className={styles.thCheck}></th>
+                <th className={styles.thSticky}>Cluster / Team</th>
+                <th 
+                  className={`${styles.thInteractive} ${styles.tdCenter} ${styles.thTotal} ${styles.thStickyTotal}`}
+                  onClick={() => handleSort('total')}
                 >
-                  <td className={styles.td}>
-                    {isCluster ? (
-                      <button
-                        onClick={() => toggleExpanded(row.cluster)}
-                        className={styles.expandBtn}
-                      >
-                        {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                      </button>
-                    ) : (
-                      <input 
-                        type="checkbox" 
-                        checked={selectedTeams.includes(row.teamId || '')}
-                        onChange={() => toggleTeamSelection(row.teamId || '')}
-                        className={styles.checkbox}
-                        title={`Select ${row.team}`}
-                        aria-label={`Select ${row.team}`}
-                      />
-                    )}
-                  </td>
-                  <td 
-                    className={`${styles.td} ${isCluster ? styles.indent0 : styles.indent1}`}
+                  Total {renderSortIndicator('total')}
+                </th>
+                <th className={styles.tdCenter}>MR</th>
+                <th 
+                  className={`${styles.thInteractive} ${styles.tdCenter}`}
+                  onClick={() => handleSort('mr90')}
+                >
+                  MR &gt;90 {renderSortIndicator('mr90')}
+                </th>
+                <th className={styles.tdCenter}>FLM</th>
+                <th className={styles.tdCenter}>FLM &gt;90</th>
+                <th className={styles.tdCenter}>SLM</th>
+                <th className={styles.tdCenter}>SLM &gt;90</th>
+                <th className={styles.tdCenter} title="Ceil(Total / 40)">Batches</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedData.map((row: GapAnalysisData, index: number) => {
+                const isCluster = row.team === '';
+                const isExpanded = expanded.has(row.cluster);
+
+                if (!isCluster && !isExpanded) return null;
+
+                const totalValue = row.untrained || 0;
+
+                return (
+                  <tr 
+                    key={index} 
+                    className={`${isCluster ? styles.trCluster : styles.trTeam} ${selectedTeams.includes(row.teamId || '') ? styles.trSelected : ''}`}
                   >
-                    <span className={`${isCluster ? styles.teamNameCluster : styles.teamNameCell} ${!isCluster ? styles.teamNameIndented : ''}`}>
-                      {isCluster ? row.cluster : `↳ ${row.team}`}
-                    </span>
-                  </td>
-                  <td className={`${styles.td} ${styles.tdCenter} ${styles.valCellBold}`}>{row.untrained}</td>
-                  
-                  <td className={`${styles.td} ${styles.tdCenter} ${styles.valCell}`}>{row.mrUntrained || '-'}</td>
-                  <td className={`${styles.td} ${styles.tdCenter} ${getAgingClass(row.mrOver90)}`}>{row.mrOver90 || '-'}</td>
-                  
-                  <td className={`${styles.td} ${styles.tdCenter} ${styles.valCell}`}>{row.flmUntrained || '-'}</td>
-                  <td className={`${styles.td} ${styles.tdCenter} ${getAgingClass(row.flmOver90)}`}>{row.flmOver90 || '-'}</td>
-                  
-                  <td className={`${styles.td} ${styles.tdCenter} ${styles.valCell}`}>{row.slmUntrained || '-'}</td>
-                  <td className={`${styles.td} ${styles.tdCenter} ${getAgingClass(row.slmOver90)}`}>{row.slmOver90 || '-'}</td>
-                  
-                  <td className={`${styles.td} ${styles.tdCenter} ${styles.batchCountCell}`}>{Math.ceil((row.untrained || 0) / 40)}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                    <td className={styles.tdCheckCell}>
+                      {isCluster ? (
+                        <button
+                          onClick={() => toggleExpanded(row.cluster)}
+                          className={`${styles.expandBtn} ${isExpanded ? styles.expanded : ''}`}
+                        >
+                          <ChevronRight size={14} strokeWidth={2.5} />
+                        </button>
+                      ) : (
+                        <input 
+                          type="checkbox" 
+                          checked={selectedTeams.includes(row.teamId || '')}
+                          onChange={() => toggleTeamSelection(row.teamId || '')}
+                          className={styles.checkbox}
+                        />
+                      )}
+                    </td>
+                    <td className={`${styles.td} ${styles.thSticky} ${isCluster ? styles.tdClusterName : styles.tdTeamName}`}>
+                      <span>
+                        {isCluster ? row.cluster : row.team}
+                      </span>
+                    </td>
+                    <td className={`${styles.td} ${styles.tdCenter} ${styles.tdTotal} ${styles.thStickyTotal} ${getTotalStyle(totalValue)}`}>
+                      {totalValue}
+                    </td>
+                    
+                    <td className={`${styles.td} ${styles.tdCenter} ${styles.valCell}`}>{row.mrUntrained || '-'}</td>
+                    <td className={`${styles.td} ${styles.tdCenter} ${getAgingClass(row.mrOver90)}`}>{row.mrOver90 || '-'}</td>
+                    
+                    <td className={`${styles.td} ${styles.tdCenter} ${styles.valCell}`}>{row.flmUntrained || '-'}</td>
+                    <td className={`${styles.td} ${styles.tdCenter} ${getAgingClass(row.flmOver90)}`}>{row.flmOver90 || '-'}</td>
+                    
+                    <td className={`${styles.td} ${styles.tdCenter} ${styles.valCell}`}>{row.slmUntrained || '-'}</td>
+                    <td className={`${styles.td} ${styles.tdCenter} ${getAgingClass(row.slmOver90)}`}>{row.slmOver90 || '-'}</td>
+                    
+                    <td className={`${styles.td} ${styles.tdCenter} ${styles.batchCountCell}`}>{Math.ceil(totalValue / 40)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     );
   };

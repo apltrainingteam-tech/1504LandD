@@ -173,7 +173,49 @@ export const usePerformanceData = ({
   const months = useMonthsFromData(unified);
   const timeSeries = useTimeSeries(groups, months, tab, tsMode);
 
+  // --- GLOBAL FILTERED DATA FOR OVERVIEW ---
+  const globalFilteredUnified = useMemo(() => {
+    if (!attendance.length) return [];
+    
+    // 1. Build unified dataset for ALL types
+    const globalRawUnified = buildUnifiedDataset(employees, normalizedAttendance, scores, nominations, [], masterTeams);
+    
+    // 2. Apply all global filters (FY, Cluster, Team, Trainer)
+    return applyFilters(globalRawUnified, filter, masterTeams)
+      .filter(row => isWithinFY((row.attendance as any).attendanceDate || (row.attendance as any).notificationDate, selectedFY));
+  }, [attendance, employees, normalizedAttendance, scores, nominations, masterTeams, filter, selectedFY]);
+
   // 7. Final Output Construction (Handling early exit states gracefully)
+  const overviewSummary = useMemo(() => {
+    const summary: Record<string, { batches: Set<string>; candidates: Set<string> }> = {};
+    const types = ['IP', 'AP', 'MIP', 'Refresher', 'Capsule', 'Pre-AP'];
+    
+    types.forEach(t => {
+      summary[t] = { batches: new Set(), candidates: new Set() };
+    });
+
+    globalFilteredUnified.forEach(row => {
+      const a = row.attendance;
+      const type = normalizeTrainingType(a.trainingType);
+      if (!summary[type]) {
+        summary[type] = { batches: new Set(), candidates: new Set() };
+      }
+      
+      const batchId = `${type}::${a.attendanceDate}::${a.trainerId || a.trainer || 'unknown'}`;
+      summary[type].batches.add(batchId);
+      
+      if (a.attendanceStatus === 'Present' || !a.attendanceStatus) {
+        summary[type].candidates.add(a.employeeId);
+      }
+    });
+
+    return types.map(t => ({
+      type: t,
+      batches: summary[t].batches.size,
+      candidates: summary[t].candidates.size
+    }));
+  }, [globalFilteredUnified]);
+
   const isEmpty = !attendance.length;
 
   if (isEmpty) {
@@ -210,6 +252,7 @@ export const usePerformanceData = ({
       refresherKPI: null,
       capsuleKPI: null,
       preApKPI: null,
+      overviewSummary: [],
       resolutionLevel
     };
   }
@@ -247,6 +290,7 @@ export const usePerformanceData = ({
     refresherKPI: refresherData.refresherKPI,
     capsuleKPI: capsuleData.capsuleKPI,
     preApKPI: apData.preApKPI,
+    overviewSummary,
     resolutionLevel
   };
 };
