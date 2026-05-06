@@ -29,11 +29,11 @@
 .tableCard {
   padding: 0;
   overflow: hidden;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.72);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.78);
   backdrop-filter: blur(8px);
   border: 1px solid rgba(15, 23, 42, 0.05);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03), 0 10px 24px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
 }
 
 .tableScrollWrapper {
@@ -50,12 +50,12 @@
 
 .table thead th {
   background: #0F172A;
-  padding: 8px 12px;
+  padding: 6px 12px;
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.55);
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   text-align: left;
   white-space: nowrap;
@@ -102,6 +102,8 @@
   background: rgba(59, 130, 246, 0.025) !important;
   border-right: 1px solid rgba(148, 163, 184, 0.08);
   min-width: 80px;
+  line-height: 1;
+  vertical-align: middle;
 }
 
 .thTotal {
@@ -119,12 +121,16 @@ tr .thSticky, tr .thStickyTotal {
   background: rgba(15, 23, 42, 0.03);
 }
 
+.trTeam:nth-child(even) td {
+  background: rgba(248, 250, 252, 0.35);
+}
+
 .trTeam:hover td {
-  background: rgba(15, 23, 42, 0.02);
+  background: rgba(15, 23, 42, 0.015);
 }
 
 .trTeam:hover .tdTotal {
-  background: rgba(59, 130, 246, 0.05) !important;
+  background: rgba(59, 130, 246, 0.045) !important;
 }
 
 /* Hierarchy: Cluster vs Team */
@@ -146,6 +152,7 @@ tr .thSticky, tr .thStickyTotal {
   padding-left: 32px;
   color: #475569;
   font-weight: 400;
+  vertical-align: middle;
 }
 
 /* Custom indicator for team name instead of ↳ in JSX text to allow clean alignment */
@@ -154,6 +161,7 @@ tr .thSticky, tr .thStickyTotal {
   margin-right: 8px;
   color: #94A3B8;
   font-weight: 400;
+  opacity: 0.6;
 }
 
 /* Semantic Coloring */
@@ -205,6 +213,16 @@ tr .thSticky, tr .thStickyTotal {
   font-weight: 600;
   color: #6366F1;
   background: rgba(99, 102, 241, 0.02);
+  vertical-align: middle;
+}
+
+.valCell {
+  vertical-align: middle;
+}
+
+.valCell:empty::before,
+.valCell:contains("-") {
+  opacity: 0.45;
 }
 
 .selectionBanner {

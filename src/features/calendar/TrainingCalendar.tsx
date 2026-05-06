@@ -309,8 +309,11 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
     return filteredPlans.filter(p => dateStr >= p.startDate && dateStr <= p.endDate);
   };
 
+  // Hover state for popover
+  const [hoveredDate, setHoveredDate] = useState<string | null>(null);
+
   return (
-    <div className={styles.page} onMouseUp={handleMouseUp} onMouseLeave={() => setIsDragging(false)}>
+    <div className={styles.page} onMouseUp={handleMouseUp} onMouseLeave={() => { setIsDragging(false); setHoveredDate(null); }}>
 
       {/* HEADER */}
       <div className={styles.header}>
@@ -319,10 +322,38 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
           <p className={styles.pageSubtitle}>Plan and monitor training activities</p>
         </div>
       </div>
-      <FlowStepper currentStep={0} />
+      {/* UNIFIED ACTION TOOLBAR */}
+      <div className={styles.actionToolbar}>
+        <div className={styles.monthSelector}>
+          <button onClick={() => changeMonth(-1)} className={styles.monthNavBtn}><ChevronLeft size={16} /></button>
+          <div className={styles.currentMonth}>
+            {currentDate.toLocaleString('default', { month: 'short', year: 'numeric' })}
+          </div>
+          <button onClick={() => changeMonth(1)} className={styles.monthNavBtn}><ChevronRight size={16} /></button>
+        </div>
 
-      {/* TABS REMOVED - Driven by GlobalFilterContext */}
+        <div className={styles.stepperWrapper}>
+          <FlowStepper currentStep={0} />
+        </div>
 
+        <div className={styles.filterGroup}>
+          <select value={filterTeam} onChange={e => setFilterTeam(e.target.value)} className={styles.filterSelect} title="Filter by Team" aria-label="Filter by Team">
+            <option value="">All Teams</option>
+            {masterTeams.filter(t => t.status === 'Active').sort((a, b) => safeSort(a.teamName, b.teamName)).map(t => (
+              <option key={t.id} value={t.id}>{t.teamName}</option>
+            ))}
+          </select>
+
+          <select value={filterTrainer} onChange={e => setFilterTrainer(e.target.value)} className={styles.filterSelect} title="Filter by Trainer" aria-label="Filter by Trainer">
+            <option value="">All Trainers</option>
+            {masterTrainers.filter(t => t.status === 'Active').sort((a, b) => safeSort(a.name, b.name)).map(t => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* PLANNING BANNER */}
       {hasPlanningContext && (
         <div className={styles.planningBanner}>
           <div className={styles.planningBannerContent}>
@@ -352,37 +383,8 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
         </div>
       )}
 
-      {/* FILTER BAR & MONTH CONTROLS */}
-      <div className={styles.filterBar}>
-        <span className={styles.filterLabel}>View:</span>
-        <select value={filterTeam} onChange={e => setFilterTeam(e.target.value)} className={`form-input ${styles.filterSelect}`} title="Filter by Team" aria-label="Filter by Team">
-          <option value="">All Teams</option>
-          {masterTeams.filter(t => t.status === 'Active').sort((a, b) => safeSort(a.teamName, b.teamName)).map(t => (
-            <option key={t.id} value={t.id}>{t.teamName}</option>
-          ))}
-        </select>
-
-        <select value={filterTrainer} onChange={e => setFilterTrainer(e.target.value)} className={`form-input ${styles.filterSelect}`} title="Filter by Trainer" aria-label="Filter by Trainer">
-          <option value="">All Trainers</option>
-          {masterTrainers.filter(t => t.status === 'Active').sort((a, b) => safeSort(a.name, b.name)).map(t => (
-            <option key={t.id} value={t.id}>{t.name} ({t.category})</option>
-          ))}
-
-        </select>
-
-        <div className={styles.filterSpacer}></div>
-
-        <div className={styles.monthNav}>
-          <button onClick={() => changeMonth(-1)} title="Previous Month" aria-label="Previous Month" className={styles.monthNavBtn}><ChevronLeft size={18} /></button>
-          <span className={styles.monthLabel}>
-            {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
-          </span>
-          <button onClick={() => changeMonth(1)} title="Next Month" aria-label="Next Month" className={styles.monthNavBtn}><ChevronRight size={18} /></button>
-        </div>
-      </div>
-
       {/* CALENDAR GRID */}
-      <div className={`glass-panel ${styles.calendarPanel}`}>
+      <div className={styles.calendarPanel}>
         <div className={styles.dayHeaders}>
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
             <div key={day} className={styles.dayHeader}>{day}</div>
@@ -397,6 +399,7 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
             const isSelected = isDateInDragRange(dateStr);
             const dayPlans = getPlansForDate(dateStr);
             const isToday = formatDateStr(new Date()) === dateStr;
+            const isWeekend = date.getDay() === 0 || date.getDay() === 6;
 
             const visiblePlans = dayPlans.slice(0, 3);
             const extraCount = dayPlans.length - 3;
@@ -405,11 +408,23 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
               <div
                 key={dateStr}
                 onMouseDown={() => handleMouseDown(dateStr)}
-                onMouseEnter={() => handleMouseEnter(dateStr)}
-                className={`${styles.dayCell} ${isSelected ? styles.dayCellSelected : styles.dayCellDefault} ${isToday ? styles.dayCellToday : ''}`}
+                onMouseEnter={() => { handleMouseEnter(dateStr); setHoveredDate(dateStr); }}
+                onMouseLeave={() => setHoveredDate(null)}
+                className={`
+                  ${styles.dayCell} 
+                  ${isSelected ? styles.dayCellSelected : styles.dayCellDefault} 
+                  ${isToday ? styles.dayCellToday : ''}
+                  ${isWeekend ? styles.dayCellWeekend : ''}
+                `}
               >
-                <div className={`${styles.dayNumber} ${isToday ? styles.dayNumberToday : styles.dayNumberDefault}`}>
-                  {date.getDate()}
+                <div className={styles.dayTop}>
+                  <div className={`
+                    ${styles.dayNumber} 
+                    ${isToday ? styles.dayNumberToday : ''}
+                    ${isWeekend ? styles.dayNumberWeekend : ''}
+                  `}>
+                    {date.getDate()}
+                  </div>
                 </div>
 
                 <div className={styles.planList}>
@@ -417,33 +432,23 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
                     const status = getStatus(p);
                     const displayTeam = p.teams.map((t: any) => t.teamName).join(', ');
 
-
                     return (
                       <div
                         key={p.id}
-                        className={`${styles.planChip} ${status === 'Completed' ? styles.planChipCompleted : status === 'Notified' ? styles.planChipNotified : status === 'Cancelled' ? styles.planChipCancelled : styles.planChipPlanned} ${styles.planChipStatic}`}
-                        title={status === 'Cancelled' ? 'This training was cancelled and excluded from analysis' : undefined}
+                        className={`${styles.planCard} ${styles[`type-${p.trainingType}`]} ${styles[`status-${status}`]}`}
                       >
-                        <div className={styles.planChipContent}>
+                        <div className={styles.cardMain}>
                           <TrainerAvatar 
                             trainer={masterTrainers.find(mt => mt.id === p.trainer) || { id: p.trainer, name: p.trainer }} 
-                            size={18} 
+                            size={16} 
                             showName={false}
-                            className={styles.planAvatar} 
                           />
-                          <div className={styles.planTextWrapper}>
-                            <div className={styles.planTopRow}>
-                              <span className={styles.planTrainerName}>
-                                {masterTrainers.find(mt => mt.id === p.trainer)?.name || p.trainer}
-                              </span>
-                              <span className={styles.planType}>{p.trainingType}</span>
-                            </div>
-                            <div className={styles.planBottomRow}>
-                              <span className={styles.planTeam}>{displayTeam}</span>
-                            </div>
+                          <div className={styles.cardInfo}>
+                            <div className={styles.cardTrainer}>{masterTrainers.find(mt => mt.id === p.trainer)?.name || p.trainer}</div>
+                            <div className={styles.cardTeam}>{displayTeam}</div>
                           </div>
                         </div>
-                        <div className={`${styles.planDot} ${status === 'Completed' ? styles.planDotCompleted : status === 'Notified' ? styles.planDotNotified : status === 'Cancelled' ? styles.planDotCancelled : styles.planDotPlanned}`}></div>
+                        <div className={styles.cardBadge}>{p.trainingType}</div>
                       </div>
                     );
                   })}
@@ -454,6 +459,40 @@ export const TrainingCalendar = ({ employees, attendance }: { employees: Employe
                     </div>
                   )}
                 </div>
+
+                {/* HOVER POPOVER PANEL */}
+                {hoveredDate === dateStr && dayPlans.length > 0 && (
+                  <div className={styles.hoverPanel}>
+                    <div className={styles.hoverPanelHeader}>
+                      {date.toLocaleDateString('default', { day: 'numeric', month: 'short' })} • {dayPlans.length} Activities
+                    </div>
+                    <div className={styles.hoverPanelList}>
+                      {dayPlans.map(p => {
+                        const status = getStatus(p);
+                        const displayTeam = p.teams.map((t: any) => t.teamName).join(', ');
+                        return (
+                          <div
+                            key={p.id}
+                            className={`${styles.planCard} ${styles.popoverCard} ${styles[`type-${p.trainingType}`]} ${styles[`status-${status}`]}`}
+                          >
+                            <div className={styles.cardMain}>
+                              <TrainerAvatar 
+                                trainer={masterTrainers.find(mt => mt.id === p.trainer) || { id: p.trainer, name: p.trainer }} 
+                                size={20} 
+                                showName={false}
+                              />
+                              <div className={styles.cardInfo}>
+                                <div className={styles.cardTrainer}>{masterTrainers.find(mt => mt.id === p.trainer)?.name || p.trainer}</div>
+                                <div className={styles.cardTeam}>{displayTeam}</div>
+                              </div>
+                            </div>
+                            <div className={styles.cardBadge}>{p.trainingType}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
