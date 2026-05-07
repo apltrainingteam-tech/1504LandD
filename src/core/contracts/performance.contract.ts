@@ -47,7 +47,7 @@ export interface PerformanceDataset {
   // KPIs
   executiveKPIs: any;
   apExecutiveKPIs: any;
-  mipKPI: any;
+  mipExecutiveKPIs: any;
   refresherKPI: any;
   capsuleKPI: any;
   overviewSummary: any[];

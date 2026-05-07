@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
-import { buildMIPAttendanceMatrix, getMIPPerformanceAggregates } from '../../../core/engines/mipEngine';
-import { calcMIP } from '../../../core/engines/reportEngine';
+import { buildMIPAttendanceMatrix, getMIPPerformanceAggregates, calcMIPExecutiveKPIs } from '../../../core/engines/mipEngine';
 
 export const useMIPData = (filteredTimelines: Map<string, any>, months: string[], activeNT: string, unified: any[]) => {
   const mipAttData = useMemo(() => {
@@ -13,10 +12,10 @@ export const useMIPData = (filteredTimelines: Map<string, any>, months: string[]
     return getMIPPerformanceAggregates(filteredTimelines, months);
   }, [activeNT, filteredTimelines, months]);
 
-  const mipKPI = useMemo(() => {
+  const mipExecutiveKPIs = useMemo(() => {
     if (activeNT !== 'MIP') return null;
-    return calcMIP(unified);
-  }, [unified, activeNT]);
+    return calcMIPExecutiveKPIs(filteredTimelines, months);
+  }, [filteredTimelines, months, activeNT]);
 
-  return { mipAttData, mipPerfData, mipKPI };
+  return { mipAttData, mipPerfData, mipExecutiveKPIs };
 };

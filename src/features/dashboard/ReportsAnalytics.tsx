@@ -104,21 +104,48 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
     });
   }, [tab, subView]);
 
-  const renderPerformanceCell = (data: any, keyVal: string) => {
-    if (!data || data.total === 0) return <td key={keyVal} className="td-empty">—</td>;
-    return (
-      <td key={keyVal} className="td-center" title={`>90%: ${data.elite}\n75–90%: ${data.high}\n50–75%: ${data.medium}\n<50%: ${data.low}`}>
-        <div className="performance-cell-container">
-          <span className="performance-elite">{data.elite}</span>
-          <span className="performance-sep">/</span>
-          <span className="performance-high">{data.high}</span>
-          <span className="performance-sep">/</span>
-          <span className="performance-med">{data.medium}</span>
-          <span className="performance-sep">/</span>
-          <span className="performance-low">{data.low}</span>
-        </div>
-      </td>
-    );
+  const renderPerformanceCell = (data: any, keyVal: string, tabType: string = 'IP') => {
+    if (!data || (tabType === 'IP' ? data.total === 0 : data.count === 0)) return <td key={keyVal} className="td-empty">—</td>;
+
+    if (tabType === 'IP') {
+      return (
+        <td key={keyVal} className="td-center" title={`>90%: ${data.elite}\n75–90%: ${data.high}\n50–75%: ${data.medium}\n<50%: ${data.low}`}>
+          <div className="performance-cell-container">
+            <span className="performance-elite">{data.elite}</span>
+            <span className="performance-sep">/</span>
+            <span className="performance-high">{data.high}</span>
+            <span className="performance-sep">/</span>
+            <span className="performance-med">{data.medium}</span>
+            <span className="performance-sep">/</span>
+            <span className="performance-low">{data.low}</span>
+          </div>
+        </td>
+      );
+    }
+
+    if (tabType === 'AP') {
+      return (
+        <td key={keyVal} className="td-center">
+          <div className="flex flex-col items-center gap-0.5">
+            <div className={`text-xs-bold ${flagClass(flagScore(data.avgKnowledge))}`} style={{ background: 'transparent', padding: 0 }}>K: {Math.round(data.avgKnowledge)}</div>
+            <div className={`text-xs-bold ${flagClass(flagScore(data.avgBSE))}`} style={{ background: 'transparent', padding: 0 }}>B: {Math.round(data.avgBSE)}</div>
+          </div>
+        </td>
+      );
+    }
+
+    if (tabType === 'MIP') {
+      return (
+        <td key={keyVal} className="td-center">
+          <div className="flex flex-col items-center gap-0.5">
+            <div className={`text-xs-bold ${flagClass(flagScore(data.avgScience))}`} style={{ background: 'transparent', padding: 0 }}>Sci: {Math.round(data.avgScience)}</div>
+            <div className={`text-xs-bold ${flagClass(flagScore(data.avgSkill))}`} style={{ background: 'transparent', padding: 0 }}>Skl: {Math.round(data.avgSkill)}</div>
+          </div>
+        </td>
+      );
+    }
+
+    return <td key={keyVal} />;
   };
 
   const getPercent = (part: number, total: number) => {
@@ -141,8 +168,8 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
         setSubView('ip_matrix');
       }
     } else if (tab === 'AP') {
-      if (!['ap_performance', 'grouped', 'gap', 'timeseries', 'trainer', 'drilldown'].includes(subView)) {
-        setSubView('grouped');
+      if (!['ap_performance', 'gap', 'timeseries', 'trainer', 'drilldown'].includes(subView)) {
+        setSubView('ap_performance');
       }
     } else if (tab === 'MIP') {
       if (!['mip_attendance', 'mip_performance', 'timeseries', 'trainer', 'drilldown', 'gap'].includes(subView)) {
@@ -207,7 +234,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
     ipRankData = null,
     executiveKPIs = null,
     apExecutiveKPIs = null,
-    mipKPI = null,
+    mipExecutiveKPIs = null,
     refresherKPI = null,
     capsuleKPI = null,
     overviewSummary = []
@@ -486,9 +513,13 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
             </Fragment>
           ) : (
             <Fragment>
-              <button className={`btn ${subView === 'grouped' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('grouped')} title={tab === 'AP' ? "Attendance Funnel" : "Rankings"}><Table size={16} /></button>
+              <button className={`btn ${subView === (tab === 'AP' ? 'ap_performance' : 'grouped') ? 'btn-primary' : 'btn-secondary'}`} 
+                onClick={() => setSubView(tab === 'AP' ? 'ap_performance' : 'grouped')} 
+                title={tab === 'AP' ? "Performance Matrix" : "Rankings"}>
+                <Table size={16} />
+              </button>
               {tab === 'AP' && (
-                <button className={`btn ${subView === 'ap_performance' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('ap_performance')} title="Performance Analytics"><TrendingUp size={16} /></button>
+                <button className={`btn ${subView === 'ap_performance' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('ap_performance')} title="Performance Matrix"><TrendingUp size={16} /></button>
               )}
               <button className={`btn ${subView === 'timeseries' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('timeseries')} title="Time Series"><Calendar size={16} /></button>
               {tab !== 'AP' && (
@@ -681,28 +712,94 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                     </div>
                   </Fragment>
                 )}
-                {tab === 'AP' && subView === 'ap_performance' && apPerfData && (
+
+                {tab === 'MIP' && mipExecutiveKPIs && (
                   <Fragment>
-                    <KPIBox title="Total Attended" value={apPerfData.globalKPIs.totalAttended} icon={Zap} />
-                    <KPIBox title="Total Candidates" value={apPerfData.globalKPIs.uniqueCandidates} color="var(--accent-primary)" />
-                    <KPIBox title="Avg Knowledge" value={(apPerfData.globalKPIs.avgKnowledge || 0).toFixed(1)} color="var(--success)" badge={apPerfData.globalKPIs.avgKnowledge > 0 ? <span className={`badge ${flagClass(flagScore(apPerfData.globalKPIs.avgKnowledge))}`}>K</span> : undefined} />
-                    <KPIBox title="Avg BSE" value={(apPerfData.globalKPIs.avgBSE || 0).toFixed(1)} color="var(--warning)" badge={apPerfData.globalKPIs.avgBSE > 0 ? <span className={`badge ${flagClass(flagScore(apPerfData.globalKPIs.avgBSE))}`}>B</span> : undefined} />
-                    <KPIBox title="Weakest Parameter" value={apPerfData.globalKPIs.lowestParameter} color="var(--danger)" icon={AlertCircle} />
-                  </Fragment>
-                )}
-                {tab === 'MIP' && subView === 'mip_attendance' && mipAttendanceData && (
-                  <Fragment>
-                    <KPIBox title="Total Notified (FY)" value={mipAttendanceData.globalKPIs.totalNotified} icon={Zap} />
-                    <KPIBox title="Total Attended (FY)" value={mipAttendanceData.globalKPIs.totalAttended} color="var(--success)" icon={CheckCircle2} />
-                    <KPIBox title="Attendance %" value={`${mipAttendanceData.globalKPIs.attendancePercent.toFixed(1)}%`} color="var(--accent-primary)" />
-                  </Fragment>
-                )}
-                {tab === 'MIP' && subView === 'mip_performance' && mipPerfData && (
-                  <Fragment>
-                    <KPIBox title="Total Attended" value={mipPerfData.globalKPIs.totalAttended} icon={Zap} />
-                    <KPIBox title="Avg Science" value={(mipPerfData.globalKPIs.avgScience || 0).toFixed(1)} color="var(--success)" badge={mipPerfData.globalKPIs.avgScience > 0 ? <span className={`badge ${flagClass(flagScore(mipPerfData.globalKPIs.avgScience))}`}>Sci</span> : undefined} />
-                    <KPIBox title="Avg Skill" value={(mipPerfData.globalKPIs.avgSkill || 0).toFixed(1)} color="var(--warning)" badge={mipPerfData.globalKPIs.avgSkill > 0 ? <span className={`badge ${flagClass(flagScore(mipPerfData.globalKPIs.avgSkill))}`}>Skl</span> : undefined} />
-                    <KPIBox title="High Performers" value={`${(mipPerfData.globalKPIs.highPerformersPct || 0).toFixed(1)}%`} color="var(--accent-primary)" icon={Trophy} />
+                    {/* CARD 1: HIGHEST PARTICIPATION */}
+                    <div className="glass-panel" style={{ padding: '16px' }}>
+                      <div style={{ color: '#64748b', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
+                        Highest Team Participation
+                      </div>
+                      <div style={{ background: '#fff', padding: '12px', borderRadius: '6px', border: '1px solid rgba(0,0,0,0.05)' }}>
+                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>{mipExecutiveKPIs.highestTeam.name}</div>
+                        <div style={{ fontSize: '24px', fontWeight: 800, color: '#6366f1', margin: '4px 0' }}>{mipExecutiveKPIs.highestTeam.total} <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 500 }}>Candidates</span></div>
+                        
+                        <div style={{ marginTop: '12px', borderTop: '1px solid #f1f5f9', paddingTop: '8px' }}>
+                          <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Bifurcation</div>
+                          <div className="flex flex-col gap-1">
+                            <div className="flex justify-between" style={{ fontSize: '11px', color: '#475569' }}>
+                              <span>DM:</span>
+                              <span style={{ fontWeight: 700 }}>{mipExecutiveKPIs.highestTeam.bifurcation.dm}</span>
+                            </div>
+                            <div className="flex justify-between" style={{ fontSize: '11px', color: '#475569' }}>
+                              <span>RSM:</span>
+                              <span style={{ fontWeight: 700 }}>{mipExecutiveKPIs.highestTeam.bifurcation.rsm}</span>
+                            </div>
+                            <div className="flex justify-between" style={{ fontSize: '11px', color: '#475569' }}>
+                              <span>DSM:</span>
+                              <span style={{ fontWeight: 700 }}>{mipExecutiveKPIs.highestTeam.bifurcation.dsm}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* CARD 2: LOWEST PARTICIPATION */}
+                    <div className="glass-panel" style={{ padding: '16px' }}>
+                      <div style={{ color: '#64748b', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
+                        Lowest Team Participation
+                      </div>
+                      <div style={{ background: '#fff', padding: '12px', borderRadius: '6px', border: '1px solid rgba(0,0,0,0.05)' }}>
+                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>{mipExecutiveKPIs.lowestTeam.name}</div>
+                        <div style={{ fontSize: '24px', fontWeight: 800, color: '#f59e0b', margin: '4px 0' }}>{mipExecutiveKPIs.lowestTeam.total} <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 500 }}>Candidates</span></div>
+                        
+                        <div style={{ marginTop: '12px', borderTop: '1px solid #f1f5f9', paddingTop: '8px' }}>
+                          <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Bifurcation</div>
+                          <div className="flex flex-col gap-1">
+                            <div className="flex justify-between" style={{ fontSize: '11px', color: '#475569' }}>
+                              <span>DM:</span>
+                              <span style={{ fontWeight: 700 }}>{mipExecutiveKPIs.lowestTeam.bifurcation.dm}</span>
+                            </div>
+                            <div className="flex justify-between" style={{ fontSize: '11px', color: '#475569' }}>
+                              <span>RSM:</span>
+                              <span style={{ fontWeight: 700 }}>{mipExecutiveKPIs.lowestTeam.bifurcation.rsm}</span>
+                            </div>
+                            <div className="flex justify-between" style={{ fontSize: '11px', color: '#475569' }}>
+                              <span>DSM:</span>
+                              <span style={{ fontWeight: 700 }}>{mipExecutiveKPIs.lowestTeam.bifurcation.dsm}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* CARD 3: TOTAL MANAGERS ATTENDED */}
+                    <div className="glass-panel" style={{ padding: '16px' }}>
+                      <div style={{ color: '#64748b', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
+                        Total Managers Attended
+                      </div>
+                      <div style={{ background: '#fff', padding: '12px', borderRadius: '6px', border: '1px solid rgba(0,0,0,0.05)' }}>
+                        <div style={{ fontSize: '24px', fontWeight: 800, color: '#8b5cf6', margin: '4px 0' }}>{mipExecutiveKPIs.totalManagers.total} <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 500 }}>Managers</span></div>
+                        
+                        <div style={{ marginTop: '12px', borderTop: '1px solid #f1f5f9', paddingTop: '8px' }}>
+                          <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Bifurcation</div>
+                          <div className="flex flex-col gap-1">
+                            <div className="flex justify-between" style={{ fontSize: '11px', color: '#475569' }}>
+                              <span>DM:</span>
+                              <span style={{ fontWeight: 700 }}>{mipExecutiveKPIs.totalManagers.bifurcation.dm}</span>
+                            </div>
+                            <div className="flex justify-between" style={{ fontSize: '11px', color: '#475569' }}>
+                              <span>RSM:</span>
+                              <span style={{ fontWeight: 700 }}>{mipExecutiveKPIs.totalManagers.bifurcation.rsm}</span>
+                            </div>
+                            <div className="flex justify-between" style={{ fontSize: '11px', color: '#475569' }}>
+                              <span>DSM:</span>
+                              <span style={{ fontWeight: 700 }}>{mipExecutiveKPIs.totalManagers.bifurcation.dsm}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </Fragment>
                 )}
                 {tab === 'Refresher' && subView === 'refresher_attendance' && refresherAttData && (
@@ -746,7 +843,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
 
 
       {/* Top / Bottom 3 */}
-      {subView === 'grouped' && tab !== 'IP' && tab !== 'AP' && ranked.length > 3 && (
+      {subView === 'grouped' && tab !== 'IP' && tab !== 'AP' && tab !== 'MIP' && ranked.length > 3 && (
         <div className="grid-2 mb-24">
           <div className="glass-panel p-20 rank-card-success">
             <div className="flex-center mb-4 text-success-bold uppercase"><Trophy size={18} className="mr-2" />Top Performance</div>
@@ -759,19 +856,17 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
         </div>
       )}
 
-      {/* --- NORMAL MODE SUBVIEWS --- */}
-      <Fragment>
-
-      {subView === 'ip_matrix' && ipData && (
-        matrixStage === 'loading' ? (
-          <MatrixSkeleton />
-        ) : (
+      {/* --- MATRIX ENGINE --- */}
+      {((subView === 'ip_matrix' && tab === 'IP') || 
+        (subView === 'ap_performance' && tab === 'AP') || 
+        (subView === 'mip_performance' && tab === 'MIP')) && (
+        (tab === 'IP' ? ipData : (tab === 'AP' ? apPerfData : mipPerfData)) && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
           >
-            <div className="glass-panel overflow-hidden">
+            <div className="glass-panel overflow-hidden mb-24">
               <div className="card-header">
                 <h3 className="text-lg m-0">Cluster → Team → Month Matrix Engine</h3>
               </div>
@@ -782,15 +877,35 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                       <th className="w-40"></th>
                       <th>Cluster / Team</th>
                       <th className="td-center">Total</th>
-                      <th className="td-center">Elite %</th>
-                      <th className="td-center">High %</th>
-                      <th className="td-center">Medium %</th>
-                      <th className="td-center">Low %</th>
+                      {tab === 'IP' && (
+                        <Fragment>
+                          <th className="td-center">Elite %</th>
+                          <th className="td-center">High %</th>
+                          <th className="td-center">Medium %</th>
+                          <th className="td-center">Low %</th>
+                        </Fragment>
+                      )}
+                      {tab === 'AP' && (
+                        <Fragment>
+                          <th className="td-center">Average Test Score</th>
+                          <th className="td-center">Average BSE Score</th>
+                        </Fragment>
+                      )}
+                      {tab === 'MIP' && (
+                        <Fragment>
+                          <th className="td-center">Avg Science Score</th>
+                          <th className="td-center">Avg Skill Score</th>
+                        </Fragment>
+                      )}
                       {MONTHS.map(mo => <th key={mo} className="td-center min-w-90">{formatMonthLabel(mo)}</th>)}
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.entries(ipData.clusterMonthMap).map(([cluster, cData]: [string, any]) => (
+                    {Object.entries(
+                      tab === 'IP' ? ipData.clusterMonthMap : 
+                      tab === 'AP' ? apPerfData.clusterMap : 
+                      mipPerfData.clusterMap
+                    ).map(([cluster, cData]: [string, any]) => (
                       <Fragment key={cluster}>
                         <tr className="row-group-header">
                           <td onClick={() => toggleExpand(cluster)} className="cursor-pointer">
@@ -798,22 +913,62 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                           </td>
                           <td className="font-bold">{cluster}</td>
                           <td className="td-center">{cData.total}</td>
-                          {renderSummaryPercent(cData.elite, cData.total, 10, 'text-success-bold')}
-                          {renderSummaryPercent(cData.high, cData.total, 30, 'text-success-bold')}
-                          {renderSummaryPercent(cData.medium, cData.total)}
-                          {renderSummaryPercent(cData.low, cData.total, 30, 'text-danger-bold')}
-                          {MONTHS.map(mo => renderPerformanceCell(cData.months[mo], `${cluster}_${mo}`))}
+                          
+                          {tab === 'IP' && (
+                            <Fragment>
+                              {renderSummaryPercent(cData.elite, cData.total, 10, 'text-success-bold')}
+                              {renderSummaryPercent(cData.high, cData.total, 30, 'text-success-bold')}
+                              {renderSummaryPercent(cData.medium, cData.total)}
+                              {renderSummaryPercent(cData.low, cData.total, 30, 'text-danger-bold')}
+                            </Fragment>
+                          )}
+                          {tab === 'AP' && (
+                            <Fragment>
+                              <td className="td-center font-bold">{(cData.avgKnowledge || 0).toFixed(1)}%</td>
+                              <td className="td-center font-bold">{(cData.avgBSE || 0).toFixed(1)}%</td>
+                            </Fragment>
+                          )}
+                          {tab === 'MIP' && (
+                            <Fragment>
+                              <td className="td-center font-bold">{(cData.avgScience || 0).toFixed(1)}%</td>
+                              <td className="td-center font-bold">{(cData.avgSkill || 0).toFixed(1)}%</td>
+                            </Fragment>
+                          )}
+
+                          {MONTHS.map(mo => renderPerformanceCell(cData.months[mo], `${cluster}_${mo}`, tab))}
                         </tr>
-                        {expanded.has(cluster) && Object.entries(ipData.teamMonthMap[cluster] || {}).map(([team, tData]: [string, any]) => (
+                        {expanded.has(cluster) && Object.entries(
+                          (tab === 'IP' ? ipData.teamMonthMap[cluster] : 
+                           (tab === 'AP' ? apPerfData.clusterMap[cluster].teams : 
+                            mipPerfData.clusterMap[cluster].teams)) || {}
+                        ).map(([team, tData]: [string, any]) => (
                           <tr key={team} className="row-child">
                             <td />
                             <td className="pl-24">{team}</td>
                             <td className="td-center">{tData.total}</td>
-                            {renderSummaryPercent(tData.elite, tData.total)}
-                            {renderSummaryPercent(tData.high, tData.total)}
-                            {renderSummaryPercent(tData.medium, tData.total)}
-                            {renderSummaryPercent(tData.low, tData.total)}
-                            {MONTHS.map(mo => renderPerformanceCell(tData.months[mo], `${team}_${mo}`))}
+                            
+                            {tab === 'IP' && (
+                              <Fragment>
+                                {renderSummaryPercent(tData.elite, tData.total)}
+                                {renderSummaryPercent(tData.high, tData.total)}
+                                {renderSummaryPercent(tData.medium, tData.total)}
+                                {renderSummaryPercent(tData.low, tData.total)}
+                              </Fragment>
+                            )}
+                            {tab === 'AP' && (
+                              <Fragment>
+                                <td className="td-center font-bold">{(tData.avgKnowledge || 0).toFixed(1)}%</td>
+                                <td className="td-center font-bold">{(tData.avgBSE || 0).toFixed(1)}%</td>
+                              </Fragment>
+                            )}
+                            {tab === 'MIP' && (
+                              <Fragment>
+                                <td className="td-center font-bold">{(tData.avgScience || 0).toFixed(1)}%</td>
+                                <td className="td-center font-bold">{(tData.avgSkill || 0).toFixed(1)}%</td>
+                              </Fragment>
+                            )}
+
+                            {MONTHS.map(mo => renderPerformanceCell(tData.months[mo], `${team}_${mo}`, tab))}
                           </tr>
                         ))}
                       </Fragment>
@@ -886,7 +1041,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
       )}
 
       {/* --- UNIVERSAL REPORTING VIEWS --- */}
-      {subView === 'grouped' && tab !== 'IP' && (
+      {subView === 'grouped' && tab !== 'IP' && tab !== 'AP' && tab !== 'MIP' && (
         <div className="glass-panel overflow-hidden">
           <div className="card-header flex-between">
             <h3 className="text-lg m-0">{tab === 'AP' || tab === 'MIP' || tab === 'Refresher' || tab === 'Capsule' ? 'Attendance Funnel' : 'Performance Rankings'}</h3>
@@ -1079,88 +1234,6 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
           </DataTable>
         </div>
       )}
-
-      {(subView === 'ap_performance' || subView === 'mip_performance') && (
-        <div className="glass-panel p-20">
-          <div className="card-header mb-20"><h3 className="text-lg m-0">{tab} Performance Analytics</h3></div>
-          <div className="grid-3 mb-24">
-            <KPIBox 
-              title="Avg Assessment" 
-              value={(tab === 'AP' 
-                ? (apPerfData ? (apPerfData.globalKPIs.avgKnowledge + apPerfData.globalKPIs.avgBSE) / 2 : 0)
-                : tab === 'MIP'
-                ? (mipPerfData ? (mipPerfData.globalKPIs.avgScience + mipPerfData.globalKPIs.avgSkill) / 2 : 0)
-                : 0)?.toFixed(1)} 
-              icon={Zap} 
-            />
-            <KPIBox title="High Performers" value={`${(tab === 'AP' ? apPerfData?.globalKPIs.highPerformersPct : tab === 'MIP' ? mipPerfData?.globalKPIs.highPerformersPct : 0)?.toFixed(1)}%`} color="var(--success)" icon={Trophy} />
-            <KPIBox title="Total Assessed" value={tab === 'AP' ? apPerfData?.globalKPIs.totalAttended : tab === 'MIP' ? mipPerfData?.globalKPIs.totalAttended : 0} color="var(--accent-primary)" />
-          </div>
-          <div className="overflow-x-auto">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>{viewBy === 'Cluster' ? 'Cluster' : 'Team'}</th>
-                  <th className="td-center">Participants</th>
-                  <th className="td-center">Avg Score</th>
-                  <th className="td-center">Performance Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries((tab === 'AP' ? apPerfData?.clusterMap : tab === 'MIP' ? mipPerfData?.clusterMap : {}) || {}).map(([cluster, cData]: [string, any]) => {
-                  const isExpanded = expanded.has(cluster);
-                  
-                  // Compute cluster avg
-                  let cTotal = 0;
-                  let cScoreSum = 0;
-                  Object.values(cData.months).forEach((m: any) => {
-                    cTotal += m.count;
-                    cScoreSum += (tab === 'AP' ? (m.avgKnowledge + m.avgBSE) / 2 : (m.avgScience + m.avgSkill) / 2) * m.count;
-                  });
-                  const cAvg = cTotal > 0 ? cScoreSum / cTotal : 0;
-
-                  return (
-                    <Fragment key={cluster}>
-                      <tr className="row-group-header">
-                        <td onClick={() => toggleExpand(cluster)} className="cursor-pointer">
-                          {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                          <span className="font-bold ml-2">{cluster}</span>
-                        </td>
-                        <td className="td-center font-mono">{cTotal}</td>
-                        <td className="td-center font-bold">{cAvg.toFixed(1)}</td>
-                        <td>
-                          <ProgressBar width={cAvg} colorClass={flagClass(flagScore(cAvg))} />
-                        </td>
-                      </tr>
-                      {isExpanded && Object.entries(cData.teams).map(([team, tData]: [string, any]) => {
-                        let tTotal = 0;
-                        let tScoreSum = 0;
-                        Object.values(tData.months).forEach((m: any) => {
-                          tTotal += m.count;
-                          tScoreSum += (tab === 'AP' ? (m.avgKnowledge + m.avgBSE) / 2 : (m.avgScience + m.avgSkill) / 2) * m.count;
-                        });
-                        const tAvg = tTotal > 0 ? tScoreSum / tTotal : 0;
-
-                        return (
-                          <tr key={team} className="row-child">
-                            <td className="pl-32 text-muted italic">{team}</td>
-                            <td className="td-center font-mono">{tTotal}</td>
-                            <td className="td-center">{tAvg.toFixed(1)}</td>
-                            <td>
-                              <ProgressBar width={tAvg} colorClass={flagClass(flagScore(tAvg))} />
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-        </Fragment>
 
     </div>
   );

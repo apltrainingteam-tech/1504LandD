@@ -17,6 +17,7 @@ export type EmployeeEventTimeline = {
   name: string;
   team: string; 
   cluster: string;
+  designation: string;
   notifications: Array<{ date: string; month: string }>;
   attendances: Array<{ date: string; month: string; status: 'Present' | 'Absent'; trainerId?: string; scores: Record<string, number | null> }>;
 };
@@ -73,11 +74,17 @@ export interface APMonthCell {
 export interface APTeamRow {
   team: string;
   cluster: string;
+  total: number;
+  avgKnowledge: number;
+  avgBSE: number;
   months: Record<string, APMonthCell>;
 }
 
 export interface APClusterRow {
   cluster: string;
+  total: number;
+  avgKnowledge: number;
+  avgBSE: number;
   months: Record<string, APMonthCell>;
   teams: Record<string, APTeamRow>;
 }
@@ -107,19 +114,20 @@ export const buildEmployeeTimelines = (
   const map = new Map<string, EmployeeEventTimeline>();
   const teamMap = Object.fromEntries(masterTeams.map(t => [t.id, t]));
 
-  const getTimeline = (empId: string, empName: string, teamRaw: string | undefined): EmployeeEventTimeline => {
+  const getTimeline = (empId: string, empName: string, teamRaw: string | undefined, designationRaw: string | undefined): EmployeeEventTimeline => {
     if (!map.has(empId)) {
       const team = normalizeText(teamRaw || 'Unknown');
       const teamId = getTeamId(team, masterTeams);
       const cluster = teamId ? (teamMap[teamId]?.cluster || 'Unmapped') : 'Unmapped';
-      map.set(empId, { employeeId: empId, name: empName || 'Unknown', team, cluster, notifications: [], attendances: [] });
+      const designation = designationRaw || 'Unknown';
+      map.set(empId, { employeeId: empId, name: empName || 'Unknown', team, cluster, designation, notifications: [], attendances: [] });
     }
     return map.get(empId)!;
   };
 
   nominations.forEach(n => {
     if (normalizeTrainingType(n.trainingType) !== targetType) return;
-    const t = getTimeline(n.employeeId, n.name, n.team);
+    const t = getTimeline(n.employeeId, n.name, n.team, n.designation);
     t.notifications.push({
       date: n.notificationDate || '',
       month: n.month || (n.notificationDate ? n.notificationDate.substring(0, 7) : '')
@@ -130,7 +138,7 @@ export const buildEmployeeTimelines = (
     const aType = normalizeTrainingType(a.trainingType);
     if (aType !== targetType) return;
     
-    const t = getTimeline(a.employeeId, (a as any).name || 'Unknown', a.team);
+    const t = getTimeline(a.employeeId, (a as any).name || 'Unknown', a.team, a.designation);
     // Join scores: match by employeeId + normalized trainingType
     const sc = scores.find(s =>
       s.employeeId === a.employeeId &&
@@ -309,8 +317,17 @@ export const getAPPerformanceAggregates = (
     if (DUMMY_TEAMS.has(timeline.team) || DUMMY_TEAMS.has(timeline.cluster)) continue;
     const cluster = timeline.cluster;
     const team = timeline.team;
-    if (!clusterMap[cluster]) clusterMap[cluster] = { cluster, months: {}, teams: {} };
-    if (!clusterMap[cluster].teams[team]) clusterMap[cluster].teams[team] = { team, cluster, months: {} };
+
+    if (!clusterMap[cluster]) clusterMap[cluster] = { cluster, total: 0, avgKnowledge: 0, avgBSE: 0, months: {}, teams: {} };
+    if (!clusterMap[cluster].teams[team]) clusterMap[cluster].teams[team] = { team, cluster, total: 0, avgKnowledge: 0, avgBSE: 0, months: {} };
+
+    const cNode = clusterMap[cluster];
+    const tNode = cNode.teams[team];
+
+    // Candidate-level counters
+    let candidateKSum = 0; let candidateKCount = 0;
+    let candidateBSESum = 0; let candidateBSECount = 0;
+    let hasParticipated = false;
 
     for (const att of timeline.attendances) {
       if (att.status !== 'Present') continue;
@@ -321,46 +338,71 @@ export const getAPPerformanceAggregates = (
       if (!clusterMap[cluster].teams[team].months[month]) clusterMap[cluster].teams[team].months[month] = { avgKnowledge: 0, avgBSE: 0, count: 0 };
 
       totalAttended++;
-      uniqueCandidateIds.add(timeline.employeeId);
+      hasParticipated = true;
 
-      let kValRaw = att.scores['knowledge'] ?? att.scores['knowledgeScore'] ?? att.scores['percent'] ?? att.scores['testScore'] ?? att.scores['Score'] ?? att.scores['test'];
-      let kVal = normalizeScore(kValRaw);
-      let hasKnowledge = kVal !== null;
-      if (hasKnowledge) { globalKnowledgeSum += kVal as number; globalKnowledgeCount++; }
+      // Knowledge extraction (Test Score)
+      const kValRaw = att.scores['knowledge'];
+      const kVal = normalizeScore(kValRaw);
+      let hasKnowledge = false;
+      if (kVal !== null && kVal > 0) { 
+        candidateKSum += kVal; candidateKCount++; hasKnowledge = true; 
+        globalKnowledgeSum += kVal; globalKnowledgeCount++;
+      }
 
-      let bseVal = normalizeScore(att.scores['bse'] ?? att.scores['BSE'] ?? att.scores['bseScore']);
+      // BSE extraction (Direct Percentage Score)
+      const bseValRaw = att.scores['bse'];
+      const bseVal = normalizeScore(bseValRaw);
       let hasBse = false;
-      if (bseVal === null || bseVal === 0) {
-        const bseKeys = [
-          'grasping', 'participation', 'detailing', 'rolePlay', 
-          'punctuality', 'grooming', 'behaviour', 'english', 
-          'localLanguage', 'involvement', 'effort', 'confidence',
-          'situationHandling', 'situation'
-        ];
-        let bseSum = 0; let bseCount = 0;
+      if (bseVal !== null && bseVal > 0) { 
+        candidateBSESum += bseVal; candidateBSECount++; hasBse = true; 
+        globalBSESum += bseVal; globalBSECount++;
+      }
+
+      // Parameter extraction for Weakest Parameter KPI only
+      const bseKeys = ['grasping', 'detailing', 'participation', 'rolePlay', 'punctuality', 'grooming', 'behaviour'];
+      if (att.scores) {
         for (const k of bseKeys) {
           const valRaw = att.scores[k];
-          // Strictly ignore blanks, nulls, dashes, and zeros as they typically represent "not evaluated"
-          if (valRaw == null || valRaw === 0 || String(valRaw).trim() === "" || String(valRaw) === "-" || String(valRaw) === "0") continue;
-          
           const val = normalizeScore(valRaw);
           if (val !== null && val > 0) { 
-            bseSum += val; 
-            bseCount++; 
             if (bseParamTotals[k]) { bseParamTotals[k].sum += val; bseParamTotals[k].count++; } 
           }
         }
-        if (bseCount > 0) bseVal = bseSum / bseCount;
       }
-      if (bseVal !== null && bseVal > 0) { globalBSESum += bseVal; globalBSECount++; hasBse = true; }
 
       const cMonth: any = clusterMap[cluster].months[month];
       const tMonth: any = clusterMap[cluster].teams[team].months[month];
+      
       if (!cMonth._kSum && cMonth._kSum !== 0) { cMonth._kSum = 0; cMonth._kCount = 0; cMonth._bseSum = 0; cMonth._bseCount = 0; }
       if (!tMonth._kSum && tMonth._kSum !== 0) { tMonth._kSum = 0; tMonth._kCount = 0; tMonth._bseSum = 0; tMonth._bseCount = 0; }
-      if (hasKnowledge) { cMonth._kSum += kVal; cMonth._kCount++; tMonth._kSum += kVal; tMonth._kCount++; }
+      
+      if (hasKnowledge && kVal !== null) { cMonth._kSum += kVal; cMonth._kCount++; tMonth._kSum += kVal; tMonth._kCount++; }
       if (hasBse && bseVal !== null) { cMonth._bseSum += bseVal; cMonth._bseCount++; tMonth._bseSum += bseVal; tMonth._bseCount++; }
       cMonth.count++; tMonth.count++;
+    }
+
+    if (hasParticipated) {
+      if (!uniqueCandidateIds.has(timeline.employeeId)) {
+        uniqueCandidateIds.add(timeline.employeeId);
+        cNode.total++;
+        tNode.total++;
+      }
+      
+      if (candidateKCount > 0) {
+        const avgK = candidateKSum / candidateKCount;
+        if (!(cNode as any)._kSum) { (cNode as any)._kSum = 0; (cNode as any)._kCount = 0; }
+        if (!(tNode as any)._kSum) { (tNode as any)._kSum = 0; (tNode as any)._kCount = 0; }
+        (cNode as any)._kSum += avgK; (cNode as any)._kCount++;
+        (tNode as any)._kSum += avgK; (tNode as any)._kCount++;
+      }
+
+      if (candidateBSECount > 0) {
+        const avgBSE = candidateBSESum / candidateBSECount;
+        if (!(cNode as any)._bseSum) { (cNode as any)._bseSum = 0; (cNode as any)._bseCount = 0; }
+        if (!(tNode as any)._bseSum) { (tNode as any)._bseSum = 0; (tNode as any)._bseCount = 0; }
+        (cNode as any)._bseSum += avgBSE; (cNode as any)._bseCount++;
+        (tNode as any)._bseSum += avgBSE; (tNode as any)._bseCount++;
+      }
     }
   }
 
@@ -375,7 +417,7 @@ export const getAPPerformanceAggregates = (
       
       const scores = Object.values(att.scores)
         .map(v => normalizeScore(v))
-        .filter((v): v is number => v !== null) as number[];
+        .filter((v): v is number => v !== null && v > 0) as number[];
       if (scores.length > 0) {
         candidateAvgSum += (scores.reduce((s, v) => s + v, 0) / scores.length);
         candidateAvgCount++;
@@ -387,8 +429,20 @@ export const getAPPerformanceAggregates = (
   }
 
   for (const c of Object.values(clusterMap)) {
-    for (const m of Object.values(c.months) as any[]) { m.avgKnowledge = m._kCount > 0 ? (m._kSum / m._kCount) : 0; m.avgBSE = m._bseCount > 0 ? (m._bseSum / m._bseCount) : 0; }
-    for (const t of Object.values(c.teams)) { for (const m of Object.values(t.months) as any[]) { m.avgKnowledge = m._kCount > 0 ? (m._kSum / m._kCount) : 0; m.avgBSE = m._bseCount > 0 ? (m._bseSum / m._bseCount) : 0; } }
+    for (const m of Object.values(c.months) as any[]) { 
+      m.avgKnowledge = m._kCount > 0 ? (m._kSum / m._kCount) : 0; 
+      m.avgBSE = m._bseCount > 0 ? (m._bseSum / m._bseCount) : 0; 
+    }
+    for (const t of Object.values(c.teams)) { 
+      for (const m of Object.values(t.months) as any[]) { 
+        m.avgKnowledge = m._kCount > 0 ? (m._kSum / m._kCount) : 0; 
+        m.avgBSE = m._bseCount > 0 ? (m._bseSum / m._bseCount) : 0; 
+      }
+      t.avgKnowledge = (t as any)._kCount > 0 ? ((t as any)._kSum / (t as any)._kCount) : 0;
+      t.avgBSE = (t as any)._bseCount > 0 ? ((t as any)._bseSum / (t as any)._bseCount) : 0;
+    }
+    c.avgKnowledge = (c as any)._kCount > 0 ? ((c as any)._kSum / (c as any)._kCount) : 0;
+    c.avgBSE = (c as any)._bseCount > 0 ? ((c as any)._bseSum / (c as any)._bseCount) : 0;
   }
 
   let lowestParam = 'None'; let lowestParamScore = 1000;

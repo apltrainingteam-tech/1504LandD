@@ -1,13 +1,11 @@
-/**
- * MIP Engine
- * ⚠️ DO NOT IMPORT IN COMPONENTS — USE HOOKS ONLY
- */
-import { EmployeeEventTimeline } from './apEngine';
+import { Attendance, TrainingNomination, TrainingScore, TrainingType } from '../../types/attendance';
+import { Team } from '../context/MasterDataContext';
+import { normalizeTrainingType } from './normalizationEngine';
+import { normalizeText } from '../utils/textNormalizer';
 import { normalizeScore } from '../utils/scoreNormalizer';
+import { EmployeeEventTimeline } from './apEngine';
 
-// ─── TYPES & INTERFACES ──────────────────────────────────────────────────────
-
-export interface MIPCellSummary {
+export interface MIPAttendanceCell {
   notified: number;
   attended: number;
 }
@@ -15,7 +13,7 @@ export interface MIPCellSummary {
 export interface MIPMonthMapNode {
   totalNotified: number;
   totalAttended: number;
-  months: Record<string, MIPCellSummary>;
+  months: Record<string, MIPAttendanceCell>;
 }
 
 export interface MIPAttendanceAggregates {
@@ -33,7 +31,7 @@ export interface MIPCandidatePerformance {
   skill: number | null;
 }
 
-export interface MIPPerformanceMonthCell {
+export interface MIPPerformanceCell {
   avgScience: number;
   avgSkill: number;
   count: number;
@@ -42,12 +40,18 @@ export interface MIPPerformanceMonthCell {
 export interface MIPPerformanceTeamRow {
   team: string;
   cluster: string;
-  months: Record<string, MIPPerformanceMonthCell>;
+  total: number;
+  avgScience: number;
+  avgSkill: number;
+  months: Record<string, MIPPerformanceCell>;
 }
 
 export interface MIPPerformanceClusterRow {
   cluster: string;
-  months: Record<string, MIPPerformanceMonthCell>;
+  total: number;
+  avgScience: number;
+  avgSkill: number;
+  months: Record<string, MIPPerformanceCell>;
   teams: Record<string, MIPPerformanceTeamRow>;
 }
 
@@ -57,6 +61,7 @@ export interface MIPPerformanceAggregates {
     totalAttended: number;
     avgScience: number;
     avgSkill: number;
+    uniqueCandidates: number;
     highPerformersPct: number;
   };
 }
@@ -111,14 +116,18 @@ export const getMIPPerformanceAggregates = (
   let globalSkillSum = 0;
   let globalSkillCount = 0;
   let totalAttended = 0;
+  const uniqueCandidateIds = new Set<string>();
 
   for (const timeline of timelines.values()) {
     if (DUMMY_TEAMS.has(timeline.team) || DUMMY_TEAMS.has(timeline.cluster)) continue;
     const cluster = timeline.cluster;
     const team = timeline.team;
 
-    if (!clusterMap[cluster]) clusterMap[cluster] = { cluster, months: {}, teams: {} };
-    if (!clusterMap[cluster].teams[team]) clusterMap[cluster].teams[team] = { team, cluster, months: {} };
+    if (!clusterMap[cluster]) clusterMap[cluster] = { cluster, total: 0, avgScience: 0, avgSkill: 0, months: {}, teams: {} };
+    if (!clusterMap[cluster].teams[team]) clusterMap[cluster].teams[team] = { team, cluster, total: 0, avgScience: 0, avgSkill: 0, months: {} };
+
+    const cNode = clusterMap[cluster];
+    const tNode = cNode.teams[team];
 
     for (const att of timeline.attendances) {
       if (att.status !== 'Present') continue;
@@ -129,6 +138,11 @@ export const getMIPPerformanceAggregates = (
       if (!clusterMap[cluster].teams[team].months[month]) clusterMap[cluster].teams[team].months[month] = { avgScience: 0, avgSkill: 0, count: 0 };
 
       totalAttended++;
+      if (!uniqueCandidateIds.has(timeline.employeeId)) {
+        uniqueCandidateIds.add(timeline.employeeId);
+        cNode.total++;
+        tNode.total++;
+      }
 
       const sVal = normalizeScore(att.scores['scienceScore']);
       const kVal = normalizeScore(att.scores['skillScore']);
@@ -138,16 +152,23 @@ export const getMIPPerformanceAggregates = (
 
       if (!cMonth._sSum && cMonth._sSum !== 0) { cMonth._sSum = 0; cMonth._sCount = 0; cMonth._kSum = 0; cMonth._kCount = 0; }
       if (!tMonth._sSum && tMonth._sSum !== 0) { tMonth._sSum = 0; tMonth._sCount = 0; tMonth._kSum = 0; tMonth._kCount = 0; }
+      
+      if (!(cNode as any)._sSum) { (cNode as any)._sSum = 0; (cNode as any)._sCount = 0; (cNode as any)._kSum = 0; (cNode as any)._kCount = 0; }
+      if (!(tNode as any)._sSum) { (tNode as any)._sSum = 0; (tNode as any)._sCount = 0; (tNode as any)._kSum = 0; (tNode as any)._kCount = 0; }
 
       if (sVal !== null) {
         globalScienceSum += sVal; globalScienceCount++;
         cMonth._sSum += sVal; cMonth._sCount++;
         tMonth._sSum += sVal; tMonth._sCount++;
+        (cNode as any)._sSum += sVal; (cNode as any)._sCount++;
+        (tNode as any)._sSum += sVal; (tNode as any)._sCount++;
       }
       if (kVal !== null) {
         globalSkillSum += kVal; globalSkillCount++;
         cMonth._kSum += kVal; cMonth._kCount++;
         tMonth._kSum += kVal; tMonth._kCount++;
+        (cNode as any)._kSum += kVal; (cNode as any)._kCount++;
+        (tNode as any)._kSum += kVal; (tNode as any)._kCount++;
       }
 
       cMonth.count++;
@@ -156,11 +177,9 @@ export const getMIPPerformanceAggregates = (
   }
 
   let highPerformersCount = 0;
-  const uniqueIds = new Set<string>();
   for (const timeline of timelines.values()) {
     let candidateAvgSum = 0;
     let candidateAvgCount = 0;
-    let hasAttended = false;
     for (const att of timeline.attendances) {
       if (att.status !== 'Present') continue;
       const month = att.month;
@@ -176,26 +195,28 @@ export const getMIPPerformanceAggregates = (
       if (sessionCount > 0) {
         candidateAvgSum += (sessionSum / sessionCount);
         candidateAvgCount++;
-        hasAttended = true;
       }
     }
-    if (hasAttended) uniqueIds.add(timeline.employeeId);
     if (candidateAvgCount > 0 && (candidateAvgSum / candidateAvgCount) >= 80) {
       highPerformersCount++;
     }
   }
 
   for (const c of Object.values(clusterMap)) {
-    for (const m of Object.values(c.months) as any[]) {
-      m.avgScience = m._sCount > 0 ? (m._sSum / m._sCount) : 0;
-      m.avgSkill = m._kCount > 0 ? (m._kSum / m._kCount) : 0;
+    for (const m of Object.values(c.months) as any[]) { 
+      m.avgScience = m._sCount > 0 ? (m._sSum / m._sCount) : 0; 
+      m.avgSkill = m._kCount > 0 ? (m._kSum / m._kCount) : 0; 
     }
-    for (const t of Object.values(c.teams)) {
-      for (const m of Object.values(t.months) as any[]) {
-        m.avgScience = m._sCount > 0 ? (m._sSum / m._sCount) : 0;
-        m.avgSkill = m._kCount > 0 ? (m._kSum / m._kCount) : 0;
+    for (const t of Object.values(c.teams)) { 
+      for (const m of Object.values(t.months) as any[]) { 
+        m.avgScience = m._sCount > 0 ? (m._sSum / m._sCount) : 0; 
+        m.avgSkill = m._kCount > 0 ? (m._kSum / m._kCount) : 0; 
       }
+      t.avgScience = (t as any)._sCount > 0 ? ((t as any)._sSum / (t as any)._sCount) : 0;
+      t.avgSkill = (t as any)._kCount > 0 ? ((t as any)._kSum / (t as any)._kCount) : 0;
     }
+    c.avgScience = (c as any)._sCount > 0 ? ((c as any)._sSum / (c as any)._sCount) : 0;
+    c.avgSkill = (c as any)._kCount > 0 ? ((c as any)._kSum / (c as any)._kCount) : 0;
   }
 
   return {
@@ -204,7 +225,8 @@ export const getMIPPerformanceAggregates = (
       totalAttended,
       avgScience: globalScienceCount > 0 ? globalScienceSum / globalScienceCount : 0,
       avgSkill: globalSkillCount > 0 ? globalSkillSum / globalSkillCount : 0,
-      highPerformersPct: uniqueIds.size > 0 ? (highPerformersCount / uniqueIds.size) * 100 : 0
+      uniqueCandidates: uniqueCandidateIds.size,
+      highPerformersPct: uniqueCandidateIds.size > 0 ? (highPerformersCount / uniqueCandidateIds.size) * 100 : 0
     }
   };
 };
@@ -234,3 +256,81 @@ export function getMIPDrilldownList(
   return results;
 }
 
+export interface RoleBifurcation {
+  dm: number;
+  rsm: number;
+  dsm: number;
+}
+
+export interface MIPExecutiveKPIs {
+  highestTeam: { name: string; total: number; bifurcation: RoleBifurcation };
+  lowestTeam: { name: string; total: number; bifurcation: RoleBifurcation };
+  totalManagers: { total: number; bifurcation: RoleBifurcation };
+}
+
+const categorizeMIPRole = (desig: string): 'dm' | 'rsm' | 'dsm' => {
+  const d = (desig || '').toUpperCase();
+  if (d.includes('DSM')) return 'dsm';
+  if (d.includes('RSM') || d.includes('SLM') || d.includes('RM') || d.includes('ZSM') || d.includes('REGIONAL')) return 'rsm';
+  // Default to DM for all other FLM/Manager roles in MIP context
+  return 'dm';
+};
+
+export const calcMIPExecutiveKPIs = (
+  timelines: Map<string, EmployeeEventTimeline>,
+  fyMonths: string[]
+): MIPExecutiveKPIs | null => {
+  const teamStats = new Map<string, { 
+    uniqueCandidates: Set<string>; 
+    bifurcation: RoleBifurcation 
+  }>();
+
+  const globalBifurcation: RoleBifurcation = { dm: 0, rsm: 0, dsm: 0 };
+  const globalCandidates = new Set<string>();
+
+  const DUMMY_TEAMS = new Set(['Team A', '—', 'Unknown Team', 'Unknown', 'Unknown Team']);
+
+  for (const timeline of timelines.values()) {
+    if (!timeline.team || DUMMY_TEAMS.has(timeline.team)) continue;
+
+    const attendedPresent = timeline.attendances.some(a => a.status === 'Present' && fyMonths.includes(a.month));
+    if (!attendedPresent) continue;
+
+    if (!teamStats.has(timeline.team)) {
+      teamStats.set(timeline.team, { 
+        uniqueCandidates: new Set(), 
+        bifurcation: { dm: 0, rsm: 0, dsm: 0 } 
+      });
+    }
+
+    const stats = teamStats.get(timeline.team)!;
+    const role = categorizeMIPRole(timeline.designation);
+
+    if (!stats.uniqueCandidates.has(timeline.employeeId)) {
+      stats.uniqueCandidates.add(timeline.employeeId);
+      stats.bifurcation[role]++;
+    }
+
+    if (!globalCandidates.has(timeline.employeeId)) {
+      globalCandidates.add(timeline.employeeId);
+      globalBifurcation[role]++;
+    }
+  }
+
+  const teams = Array.from(teamStats.entries()).map(([name, s]) => ({
+    name,
+    total: s.uniqueCandidates.size,
+    bifurcation: s.bifurcation
+  })).sort((a, b) => b.total - a.total);
+
+  if (teams.length === 0) return null;
+
+  return {
+    highestTeam: teams[0],
+    lowestTeam: teams[teams.length - 1],
+    totalManagers: {
+      total: globalCandidates.size,
+      bifurcation: globalBifurcation
+    }
+  };
+};

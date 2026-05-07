@@ -292,24 +292,7 @@ export function calcAP(recs: UnifiedRecord[], noms: TrainingNomination[]) {
 }
 
 // ─── MIP ENGINE ────────────────────────────────────────────────────────────
-export function calcMIP(recs: UnifiedRecord[]) {
-  const isPresent = (r: UnifiedRecord) => {
-    const s = String(r.attendance.attendanceStatus || '').trim().toLowerCase();
-    return (s === '' || s === 'present') && !r.attendance.isVoided;
-  };
-  const p = recs.filter(isPresent);
-
-  let sS = 0, cS = 0, sK = 0, cK = 0;
-  p.forEach(r => {
-    if (r.score?.scores) {
-      const sc = r.score.scores['scienceScore'];
-      const sk = r.score.scores['skillScore'];
-      if (sc != null) { sS += safe(sc); cS++; }
-      if (sk != null) { sK += safe(sk); cK++; }
-    }
-  });
-  return { count: p.length, avgSci: cS > 0 ? sS / cS : 0, avgSkl: cK > 0 ? sK / cK : 0 };
-}
+// Legacy MIP engine removed
 
 // ─── REFRESHER ENGINE ──────────────────────────────────────────────────────
 export function calcRefresher(recs: UnifiedRecord[]) {
@@ -425,7 +408,7 @@ export function buildTimeSeries(
         // Calculate metrics based on tab type
         if (tab === 'IP') cells[mo] = 0; // Legacy calcIP removed
         else if (tab === 'AP') cells[mo] = calcAP(monthRecs, g.nominations).composite;
-        else if (tab === 'MIP') { const m = calcMIP(monthRecs); cells[mo] = (m.avgSci + m.avgSkl) / 2; }
+        else if (tab === 'MIP') cells[mo] = 0; // Legacy calcMIP removed
         else if (tab === 'Refresher') cells[mo] = calcRefresher(monthRecs).overallAvg;
         else cells[mo] = calcCapsule(monthRecs).avgScore;
       }
