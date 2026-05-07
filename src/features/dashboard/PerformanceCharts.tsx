@@ -7,6 +7,7 @@ import { Attendance, TrainingScore, TrainingNomination, Demographics } from '../
 import { useMasterData } from '../../core/context/MasterDataContext';
 import { usePerformanceData } from './hooks/usePerformanceData';
 import { useGlobalFilters } from '../../core/context/GlobalFilterContext';
+import { sortClusters } from '../../core/engines/normalizationEngine';
 
 import styles from './PerformanceCharts.module.css';
 
@@ -91,8 +92,9 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
     masterClusters.forEach(c => {
       if (!map[c.name]) map[c.name] = new Set();
     });
+    const sortedClusters = sortClusters(Object.keys(map));
     return Object.fromEntries(
-      Object.entries(map).map(([k, v]) => [k, Array.from(v)])
+      sortedClusters.map(k => [k, Array.from(map[k]).sort()])
     );
   }, [masterTeams, masterClusters]);
 

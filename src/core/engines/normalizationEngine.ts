@@ -6,9 +6,30 @@
  * and consistent before hitting the MasterDataContext or UI components.
  */
 
-/**
- * Normalizes a string for logic comparisons (lowercase, no spaces)
- */
+export const CLUSTER_ORDER = [
+  "Cardiac",
+  "Derma",
+  "Max",
+  "Ophthal",
+  "Gynaec",
+  "Nephro",
+  "Dental",
+  "MIS"
+];
+
+const ABBREVIATIONS = new Set([
+  'CDC', 'DTF', 'HO', 'RTM', 'RSM', 'DSM', 'ABM', 'RBM', 'NSM', 'ZBM', 'KAM', 'MDO', 'TO', 'TM', 'IP', 'AP', 'MIP', 'MIS'
+]);
+
+export const sortClusters = (clusters: string[]): string[] => {
+  const orderMap = new Map(CLUSTER_ORDER.map((c, i) => [c.toLowerCase(), i]));
+  return [...clusters].sort((a, b) => {
+    const idxA = orderMap.has(a.toLowerCase()) ? orderMap.get(a.toLowerCase())! : 999;
+    const idxB = orderMap.has(b.toLowerCase()) ? orderMap.get(b.toLowerCase())! : 999;
+    return idxA - idxB || a.localeCompare(b);
+  });
+};
+
 /**
  * Normalizes a string for logic comparisons (lowercase, no spaces)
  */
@@ -39,28 +60,40 @@ const TEAM_EXCLUSION_RULES = new Set([
 
 /**
  * Formats a string to Proper Case (Capitalize each word)
+ * while preserving approved abbreviations.
  */
-export const toProperCase = (str: string | undefined | null): string => {
-  if (!str) return "";
-  return str
-    .toLowerCase()
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+export const formatDisplayText = (val: string | undefined | null): string => {
+  if (!val) return "";
+  
+  return val
+    .trim()
+    .split(/\s+/)
+    .map(word => {
+      // Handle hyphenated words like HO-TRAINER
+      if (word.includes('-')) {
+        return word.split('-').map(part => formatDisplayText(part)).join('-');
+      }
+
+      const upper = word.toUpperCase();
+      if (ABBREVIATIONS.has(upper)) return upper;
+      
+      // Default Proper Case
+      // We force everything to lowercase after the first char to handle all-caps inputs like "REDEXIS"
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
     .join(' ');
 };
+
+export const toProperCase = (str: string | undefined | null): string => formatDisplayText(str);
 
 /**
  * Team Case Formatting Engine
  */
 export const formatTeamName = (teamName: string): { formatted: string, isException: boolean } => {
-  const exceptions = ['CDC', 'DTF'];
-  const upper = teamName.toUpperCase().trim();
+  const formatted = formatDisplayText(teamName);
+  const isException = ABBREVIATIONS.has(teamName.toUpperCase().trim());
 
-  if (exceptions.includes(upper)) {
-    return { formatted: upper, isException: true };
-  }
-
-  return { formatted: toProperCase(teamName), isException: false };
+  return { formatted, isException };
 };
 
 /**

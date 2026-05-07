@@ -4,6 +4,7 @@ import { formatMonthLabel } from '../../../core/utils/fiscalYear';
 import { RefresherAttendanceAggregates, getRefresherDrilldownList } from '../../../core/engines/refresherEngine';
 import { RefresherPerformanceAggregates, RefresherCandidatePerformance } from '../../../core/engines/refresherEngine';
 import { EmployeeEventTimeline } from '../../../core/engines/apEngine';
+import { sortClusters } from '../../../core/engines/normalizationEngine';
 import styles from './RefresherDualMatrix.module.css';
 
 const getScoreColor = (val: number | null) => {
@@ -183,7 +184,7 @@ export const RefresherAttendanceMatrix: React.FC<{ data: RefresherAttendanceAggr
             </tr>
           </thead>
           <tbody>
-            {Object.keys(data.clusterMonthMap).sort().map(clusterName => {
+            {sortClusters(Object.keys(data.clusterMonthMap)).map(clusterName => {
               const clusterData = data.clusterMonthMap[clusterName];
               const isOpen = expanded.has(clusterName);
 
@@ -270,7 +271,7 @@ export const RefresherPerformanceMatrix: React.FC<{ data: RefresherPerformanceAg
             </tr>
           </thead>
           <tbody>
-            {Object.keys(data.clusterMap).sort().map(clusterName => {
+            {sortClusters(Object.keys(data.clusterMap)).map(clusterName => {
               const clusterData = data.clusterMap[clusterName];
               const isOpen = expanded.has(clusterName);
 

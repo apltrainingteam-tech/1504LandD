@@ -24,7 +24,7 @@ import { DataEdit } from '../contracts/edit.contract';
 import { applyEdits } from '../engines/editEngine';
 import { validateTrainingData, validateNominationData, validateEmployeeData } from '../engines/validationEngine';
 import { Employee } from '../../types/employee';
-import { normalizeDataset, normalizeEmployeeRecord, processTeamData } from '../engines/normalizationEngine';
+import { normalizeDataset, normalizeEmployeeRecord, processTeamData, sortClusters } from '../engines/normalizationEngine';
 import { ChecklistTemplate, ChecklistItem, ChecklistTaskTemplate } from '../../types/checklist';
 import { TaskMasterEntry, PlannedTask, RecurrenceType } from '../../types/task';
 
@@ -144,13 +144,14 @@ const INITIAL_TRAINERS: Trainer[] = [
 ];
 
 const INITIAL_CLUSTERS: Cluster[] = [
-  { id: "CARDIAC", name: "CARDIAC" },
-  { id: "OPHTHAL", name: "OPHTHAL" },
-  { id: "DERMA", name: "DERMA" },
+  { id: "CARDIAC", name: "Cardiac" },
+  { id: "DERMA", name: "Derma" },
   { id: "MAX", name: "MAX" },
-  { id: "NEPHRO", name: "NEPHRO" },
-  { id: "GYNAEC", name: "GYNAEC" },
-  { id: "DENTAL", name: "DENTAL" }
+  { id: "OPHTHAL", name: "Ophthal" },
+  { id: "GYNAEC", name: "Gynaec" },
+  { id: "NEPHRO", name: "Nephro" },
+  { id: "DENTAL", name: "Dental" },
+  { id: "MIS", name: "MIS" }
 ];
 
 const INITIAL_TEAMS: Team[] = [
@@ -222,7 +223,12 @@ export const MasterDataProvider: React.FC<{ children: ReactNode }> = ({ children
 
       setTrainers(sanitizedTrainers.length > 0 ? sanitizedTrainers : INITIAL_TRAINERS);
       setTeams(normalizedTeams.length > 0 ? normalizedTeams : INITIAL_TEAMS);
-      setClusters(cBD.length > 0 ? cBD as Cluster[] : INITIAL_CLUSTERS);
+      const rawClusters = (cBD.length > 0 ? cBD : INITIAL_CLUSTERS) as Cluster[];
+      const sortedClusterNames = sortClusters(rawClusters.map(c => c.name));
+      const sortedClusters = sortedClusterNames.map(name => 
+        rawClusters.find(c => c.name.toLowerCase() === name.toLowerCase())!
+      ).filter(Boolean);
+      setClusters(sortedClusters);
       setEligibilityRules(rulesBD as EligibilityRule[]);
       setChecklistTemplates(checklistTemplatesBD as ChecklistTemplate[]);
       setTaskMaster(taskMasterBD as TaskMasterEntry[]);

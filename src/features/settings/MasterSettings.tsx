@@ -3,6 +3,7 @@ import { Plus, Edit2, Trash2, Save, X, Settings, Users, Layers, Upload, Loader2,
 import { useMasterData, Trainer, Team, Cluster } from '../../core/context/MasterDataContext';
 import { useAvatarUpload } from '../uploads/hooks/useAvatarUpload';
 import { AvatarUpload } from '../uploads/components/AvatarUpload';
+import { sortClusters } from '../../core/engines/normalizationEngine';
 import API_BASE from '../../config/api';
 import styles from './MasterSettings.module.css';
 import { ChecklistSettings } from './components/ChecklistSettings';
@@ -305,9 +306,14 @@ const MasterModal = ({ config, onClose, onSubmit, clusters, existingTrainers, ex
               <div>
                 <label className={styles.fieldLabel}>Cluster</label>
                 <select className="form-input" value={formData.cluster} onChange={e => setFormData({ ...formData, cluster: e.target.value })} title="Select Cluster" aria-label="Select Cluster">
-                  {clusters.map((c: Cluster) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
+                  {(() => {
+                    const sortedNames = sortClusters(clusters.map((c: Cluster) => c.name));
+                    return sortedNames.map(name => {
+                      const c = clusters.find((cl: Cluster) => cl.name === name);
+                      if (!c) return null;
+                      return <option key={c.id} value={c.id}>{c.name}</option>;
+                    });
+                  })()}
                 </select>
               </div>
             </>

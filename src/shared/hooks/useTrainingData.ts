@@ -4,7 +4,7 @@ import { useMasterData } from '../../core/context/MasterDataContext';
 import { Attendance, TrainingBatch, NotificationRecord, NominationDraft, TrainingScore } from '../../types/attendance';
 import { Employee } from '../../types/employee';
 import { isWithinFY } from '../../core/utils/fiscalYear';
-import { normalizeTrainingType, match } from '../../core/engines/normalizationEngine';
+import { normalizeTrainingType, match, formatDisplayText } from '../../core/engines/normalizationEngine';
 
 /**
  * useTrainingData
@@ -50,7 +50,7 @@ export const useTrainingData = (
         trainingType: normalizeTrainingType(String(first.trainingType)),
         team: (() => {
           const uniqueTeams = [...new Set(rows.map(r => r.team || r.teamId).filter(Boolean))];
-          return uniqueTeams.length === 1 ? String(uniqueTeams[0]) : `${uniqueTeams.length} Teams`;
+          return uniqueTeams.length === 1 ? formatDisplayText(String(uniqueTeams[0])) : `${uniqueTeams.length} ${formatDisplayText("Teams")}`;
         })(),
         teamId: '', 
         trainer: first.trainerId || '',

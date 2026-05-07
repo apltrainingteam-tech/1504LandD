@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { calculateClusterMetrics, calculateTeamMetrics, calculateMonthlyTrend } from '../../../core/utils/srmCalculations';
 import { getDiagnosis } from '../../../core/utils/srmInsights';
+import { formatDisplayText } from '../../../core/engines/normalizationEngine';
 import styles from './SRMTable.module.css';
 
 interface SRMTableProps {
@@ -111,7 +112,7 @@ export const SRMTable: React.FC<SRMTableProps> = ({ records, mode, clusterFilter
                 <td className={styles.tdRank}>
                   <span className={styles.rankBadge}>#{m.rank}</span>
                 </td>
-                <td className={styles.tdName}>{m.cluster || m.team}</td>
+                <td className={styles.tdName}>{formatDisplayText(m.cluster || m.team)}</td>
                 <td className={styles.tdCount}>{m.count}</td>
                 <td className={styles.tdRight}>{m.avgTS}</td>
                 <td className={styles.tdRight}>{m.avgIP}</td>

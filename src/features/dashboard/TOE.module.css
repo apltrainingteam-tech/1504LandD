@@ -81,7 +81,6 @@
   font-weight: 800;
   color: #1E293B;
   margin: 0;
-  text-transform: uppercase;
   letter-spacing: 0.1em;
 }
 
@@ -212,7 +211,6 @@
   color: #FFFFFF;
   font-weight: 700;
   font-size: 11px;
-  text-transform: uppercase;
   letter-spacing: 0.08em;
   vertical-align: middle;
 }

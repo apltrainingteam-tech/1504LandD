@@ -2522,9 +2522,7 @@ h3 {
   font-weight: 700;
 }
 
-.uppercase {
-  letter-spacing: 0.04em;
-}
+/* Text Utilities */
 
 .text-muted {
   color: #64748B;
@@ -2745,7 +2743,6 @@ h3 {
 .metric-label {
   color: #64748B;
   font-weight: 600;
-  text-transform: uppercase;
   letter-spacing: 0.02em;
   font-size: 10px;
 }

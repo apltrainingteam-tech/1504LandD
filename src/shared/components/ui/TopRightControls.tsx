@@ -24,7 +24,7 @@ export const TopRightControls: React.FC<TopRightControlsProps> = ({
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
       {fiscalOptions.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>FISCAL YEAR</label>
+          <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>FISCAL YEAR</label>
           <select
             value={selectedFY}
             onChange={(e) => onChangeFY?.(e.target.value)}

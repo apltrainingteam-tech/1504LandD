@@ -30,6 +30,7 @@ import { CapsuleAttendanceMatrix, CapsulePerformanceMatrix } from '../../feature
 import { flagScore, flagClass, flagLabel } from '../../core/utils/scoreNormalizer';
 import { useFilterOptions } from '../../shared/hooks/computationHooks';
 import { useMasterData } from '../../core/context/MasterDataContext';
+import { CLUSTER_ORDER, sortClusters, formatDisplayText } from '../../core/engines/normalizationEngine';
 import { PerformanceCharts } from './PerformanceCharts';
 import { TOE } from './TOE';
 import { usePerformanceData } from './hooks/usePerformanceData';
@@ -608,22 +609,22 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                     />
                     <KPISplitCard 
                       title="Elite Performance Distribution"
-                      leftLabel="Highest Elite"
+                      leftLabel={formatDisplayText("Highest Elite")}
                       leftValue={`${executiveKPIs.highestElite.elitePct.toFixed(1)}%`}
-                      leftSubValue={executiveKPIs.highestElite.name}
-                      rightLabel="Lowest Elite"
+                      leftSubValue={formatDisplayText(executiveKPIs.highestElite.name)}
+                      rightLabel={formatDisplayText("Lowest Elite")}
                       rightValue={`${executiveKPIs.lowestElite.elitePct.toFixed(1)}%`}
-                      rightSubValue={executiveKPIs.lowestElite.name}
+                      rightSubValue={formatDisplayText(executiveKPIs.lowestElite.name)}
                       icon={Layers}
                     />
                     <KPISplitCard 
                       title="Low Performance Distribution"
-                      leftLabel="Lowest Low"
+                      leftLabel={formatDisplayText("Lowest Low")}
                       leftValue={`${executiveKPIs.lowestLow.lowPct.toFixed(1)}%`}
-                      leftSubValue={executiveKPIs.lowestLow.name}
-                      rightLabel="Highest Low"
+                      leftSubValue={formatDisplayText(executiveKPIs.lowestLow.name)}
+                      rightLabel={formatDisplayText("Highest Low")}
                       rightValue={`${executiveKPIs.highestLow.lowPct.toFixed(1)}%`}
-                      rightSubValue={executiveKPIs.highestLow.name}
+                      rightSubValue={formatDisplayText(executiveKPIs.highestLow.name)}
                       icon={Layers}
                     />
                   </Fragment>
@@ -633,32 +634,32 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                   <Fragment>
                     <KPISplitCard 
                       title="Training Volume Distribution"
-                      leftLabel="Highest Batches"
+                      leftLabel={formatDisplayText("Highest Batches")}
                       leftValue={apExecutiveKPIs.highestBatches.batches}
-                      leftSubValue={apExecutiveKPIs.highestBatches.name}
-                      rightLabel="Highest Candidates"
+                      leftSubValue={formatDisplayText(apExecutiveKPIs.highestBatches.name)}
+                      rightLabel={formatDisplayText("Highest Candidates")}
                       rightValue={apExecutiveKPIs.highestCandidates.candidates}
-                      rightSubValue={apExecutiveKPIs.highestCandidates.name}
+                      rightSubValue={formatDisplayText(apExecutiveKPIs.highestCandidates.name)}
                       icon={BookOpen}
                     />
                     <KPISplitCard 
                       title="Test Score Distribution"
-                      leftLabel="Highest Score"
+                      leftLabel={formatDisplayText("Highest Score")}
                       leftValue={`${apExecutiveKPIs.highestTest.score.toFixed(1)}%`}
-                      leftSubValue={apExecutiveKPIs.highestTest.name}
-                      rightLabel="Lowest Score"
+                      leftSubValue={formatDisplayText(apExecutiveKPIs.highestTest.name)}
+                      rightLabel={formatDisplayText("Lowest Score")}
                       rightValue={`${apExecutiveKPIs.lowestTest.score.toFixed(1)}%`}
-                      rightSubValue={apExecutiveKPIs.lowestTest.name}
+                      rightSubValue={formatDisplayText(apExecutiveKPIs.lowestTest.name)}
                       icon={GraduationCap}
                     />
                     <KPISplitCard 
                       title="BSE Score Distribution"
-                      leftLabel="Highest Score"
+                      leftLabel={formatDisplayText("Highest Score")}
                       leftValue={`${apExecutiveKPIs.highestBSE.score.toFixed(1)}%`}
-                      leftSubValue={apExecutiveKPIs.highestBSE.name}
-                      rightLabel="Lowest Score"
+                      leftSubValue={formatDisplayText(apExecutiveKPIs.highestBSE.name)}
+                      rightLabel={formatDisplayText("Lowest Score")}
                       rightValue={`${apExecutiveKPIs.lowestBSE.score.toFixed(1)}%`}
-                      rightSubValue={apExecutiveKPIs.lowestBSE.name}
+                      rightSubValue={formatDisplayText(apExecutiveKPIs.lowestBSE.name)}
                       icon={Activity}
                     />
                   </Fragment>
@@ -668,24 +669,28 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                   <Fragment>
                     <KPISplitCard 
                       title="Participation Distribution"
-                      leftLabel="Highest Team"
-                      leftValue={mipExecutiveKPIs.highestTeam.total}
-                      leftSubValue={
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                          <div style={{ fontWeight: 600 }}>{mipExecutiveKPIs.highestTeam.name}</div>
-                          <div style={{ fontSize: '10px', color: '#94A3B8' }}>
-                            DM: {mipExecutiveKPIs.highestTeam.bifurcation.dm} | RSM: {mipExecutiveKPIs.highestTeam.bifurcation.rsm} | DSM: {mipExecutiveKPIs.highestTeam.bifurcation.dsm}
-                          </div>
+                      leftLabel={formatDisplayText("Highest Team")}
+                      leftValue={
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
+                          <span style={{ fontSize: '48px', fontWeight: 600, color: '#0F172A' }}>{mipExecutiveKPIs.highestTeam.total}</span>
+                          <span style={{ fontSize: '26px', fontWeight: 500, color: '#64748B' }}>{formatDisplayText(mipExecutiveKPIs.highestTeam.name)}</span>
                         </div>
                       }
-                      rightLabel="Lowest Team"
-                      rightValue={mipExecutiveKPIs.lowestTeam.total}
+                      leftSubValue={
+                        <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, letterSpacing: '0.02em' }}>
+                          DM: {mipExecutiveKPIs.highestTeam.bifurcation.dm} | RSM: {mipExecutiveKPIs.highestTeam.bifurcation.rsm} | DSM: {mipExecutiveKPIs.highestTeam.bifurcation.dsm}
+                        </div>
+                      }
+                      rightLabel={formatDisplayText("Lowest Team")}
+                      rightValue={
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
+                          <span style={{ fontSize: '48px', fontWeight: 600, color: '#0F172A' }}>{mipExecutiveKPIs.lowestTeam.total}</span>
+                          <span style={{ fontSize: '26px', fontWeight: 500, color: '#64748B' }}>{formatDisplayText(mipExecutiveKPIs.lowestTeam.name)}</span>
+                        </div>
+                      }
                       rightSubValue={
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                          <div style={{ fontWeight: 600 }}>{mipExecutiveKPIs.lowestTeam.name}</div>
-                          <div style={{ fontSize: '10px', color: '#94A3B8' }}>
-                            DM: {mipExecutiveKPIs.lowestTeam.bifurcation.dm} | RSM: {mipExecutiveKPIs.lowestTeam.bifurcation.rsm} | DSM: {mipExecutiveKPIs.lowestTeam.bifurcation.dsm}
-                          </div>
+                        <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, letterSpacing: '0.02em' }}>
+                          DM: {mipExecutiveKPIs.lowestTeam.bifurcation.dm} | RSM: {mipExecutiveKPIs.lowestTeam.bifurcation.rsm} | DSM: {mipExecutiveKPIs.lowestTeam.bifurcation.dsm}
                         </div>
                       }
                       icon={Users}
@@ -827,17 +832,16 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.entries(
-                      tab === 'IP' ? ipData.clusterMonthMap : 
-                      tab === 'AP' ? apPerfData.clusterMap : 
-                      mipPerfData.clusterMap
-                    ).map(([cluster, cData]: [string, any]) => (
+                    {(() => {
+                      const clusterDataMap = tab === 'IP' ? ipData.clusterMonthMap : tab === 'AP' ? apPerfData.clusterMap : mipPerfData.clusterMap;
+                      return sortClusters(Object.keys(clusterDataMap)).map(cluster => ({ cluster, cData: clusterDataMap[cluster] }));
+                    })().map(({ cluster, cData }) => (
                       <Fragment key={cluster}>
                         <tr className="row-group-header">
                           <td onClick={() => toggleExpand(cluster)} className="cursor-pointer">
                             {expanded.has(cluster) ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                           </td>
-                          <td className="font-bold">{cluster}</td>
+                          <td className="font-bold">{formatDisplayText(cluster)}</td>
                           <td className="td-center">{cData.total}</td>
                           
                           {tab === 'IP' && (
@@ -915,7 +919,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
         >
           <div className="glass-panel overflow-hidden">
             <div className="card-header flex-between">
-              <h3 className="text-lg m-0">IP Team Competition Ranking Matrix</h3>
+              <h3 className="text-lg m-0">{formatDisplayText('IP Team Competition Ranking Matrix')}</h3>
               <div className="text-xs text-muted italic">Sorted by Cluster → Overall Rank (Most Recent Month)</div>
             </div>
             <div className="overflow-x-auto">
@@ -932,12 +936,17 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                 </thead>
                 <tbody>
                    {Object.entries(ipRankData.teams)
-                    .sort(([, a]: [string, any], [, b]: [string, any]) => a.cluster.localeCompare(b.cluster))
+                    .sort(([, a]: [string, any], [, b]: [string, any]) => {
+                      const orderMap = new Map(CLUSTER_ORDER.map((c, i) => [c.toLowerCase(), i]));
+                      const idxA = orderMap.get(a.cluster.toLowerCase()) ?? 999;
+                      const idxB = orderMap.get(b.cluster.toLowerCase()) ?? 999;
+                      return idxA - idxB || a.cluster.localeCompare(b.cluster);
+                    })
                     .map(([team, tData]: [string, any], idx) => (
                       <tr key={team}>
                         <td className="text-muted">{idx + 1}</td>
-                        <td className="font-bold">{team}</td>
-                        <td><span className="badge badge-secondary">{tData.cluster}</span></td>
+                        <td className="font-bold">{formatDisplayText(team)}</td>
+                        <td><span className="badge badge-secondary">{formatDisplayText(tData.cluster)}</span></td>
                         {MONTHS.map(mo => {
                           const mData = tData.months[mo];
                           if (!mData) return <td key={mo} className="td-center text-muted">—</td>;
@@ -986,7 +995,12 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {ranked.map((g: any, idx) => {
+                {(() => {
+                  if (viewBy !== 'Cluster') return ranked;
+                  const names = ranked.map((r: any) => r.key);
+                  const sortedNames = sortClusters(names);
+                  return sortedNames.map(name => ranked.find((r: any) => r.key === name)!).filter(Boolean);
+                })().map((g: any, idx) => {
                   const isExpanded = expanded.has(g.key);
                   
                   // Compute sub-groups if expanded
@@ -1005,7 +1019,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                           </td>
                         )}
                         <td>#{g.rank}</td>
-                        <td className="font-bold">{g.key}</td>
+                        <td className="font-bold">{formatDisplayText(g.key)}</td>
                         <td className="td-center font-mono">{g.total}</td>
                         <td className="td-center font-bold">{g.metric.toFixed(1)}</td>
                         <td>
@@ -1017,7 +1031,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                         <tr key={sg.key} className="row-child">
                           <td />
                           <td className="text-muted td-center">—</td>
-                          <td className="pl-24 text-muted">{sg.key}</td>
+                          <td className="pl-24 text-muted">{formatDisplayText(sg.key)}</td>
                           <td className="td-center font-mono">{sg.total}</td>
                           <td className="td-center font-bold">{sg.metric.toFixed(1)}</td>
                           <td>

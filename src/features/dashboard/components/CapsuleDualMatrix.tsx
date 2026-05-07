@@ -4,6 +4,7 @@ import { formatMonthLabel } from '../../../core/utils/fiscalYear';
 import { CapsuleAttendanceAggregates, getCapsuleAttendanceDrilldown, CapsuleCandidateAttendance } from '../../../core/engines/capsuleEngine';
 import { CapsulePerformanceAggregates, getCapsulePerformanceDrilldown, CapsuleCandidatePerformance } from '../../../core/engines/capsuleEngine';
 import { EmployeeEventTimeline } from '../../../core/engines/apEngine';
+import { sortClusters } from '../../../core/engines/normalizationEngine';
 import styles from './CapsuleDualMatrix.module.css';
 
 const getScoreColor = (val: number | null) => {
@@ -144,7 +145,7 @@ export const CapsuleAttendanceMatrix: React.FC<{ data: CapsuleAttendanceAggregat
             </tr>
           </thead>
           <tbody>
-            {Object.keys(data.clusterMonthMap).sort().map(clusterName => {
+            {sortClusters(Object.keys(data.clusterMonthMap)).map(clusterName => {
               const clusterData = data.clusterMonthMap[clusterName];
               const isOpen = expanded.has(clusterName);
 
@@ -231,7 +232,7 @@ export const CapsulePerformanceMatrix: React.FC<{ data: CapsulePerformanceAggreg
             </tr>
           </thead>
           <tbody>
-            {Object.keys(data.clusterMap).sort().map(clusterName => {
+            {sortClusters(Object.keys(data.clusterMap)).map(clusterName => {
               const clusterData = data.clusterMap[clusterName];
               const isOpen = expanded.has(clusterName);
 

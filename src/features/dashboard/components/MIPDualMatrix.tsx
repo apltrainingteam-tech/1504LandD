@@ -4,6 +4,7 @@ import { formatMonthLabel } from '../../../core/utils/fiscalYear';
 import { MIPAttendanceAggregates, getMIPDrilldownList } from '../../../core/engines/mipEngine';
 import { MIPPerformanceAggregates, MIPCandidatePerformance } from '../../../core/engines/mipEngine';
 import { EmployeeEventTimeline } from '../../../core/engines/apEngine';
+import { sortClusters } from '../../../core/engines/normalizationEngine';
 import styles from './MIPDualMatrix.module.css';
 
 const getScoreColor = (val: number | null) => {
@@ -151,7 +152,7 @@ export const MIPAttendanceMatrix: React.FC<{ data: MIPAttendanceAggregates, fyMo
             </tr>
           </thead>
           <tbody>
-            {Object.keys(data.clusterMonthMap).sort().map(clusterName => {
+            {sortClusters(Object.keys(data.clusterMonthMap)).map(clusterName => {
               const clusterData = data.clusterMonthMap[clusterName];
               const isOpen = expanded.has(clusterName);
 
@@ -238,7 +239,7 @@ export const MIPPerformanceMatrix: React.FC<{ data: MIPPerformanceAggregates, fy
             </tr>
           </thead>
           <tbody>
-            {Object.keys(data.clusterMap).sort().map(clusterName => {
+            {sortClusters(Object.keys(data.clusterMap)).map(clusterName => {
               const clusterData = data.clusterMap[clusterName];
               const isOpen = expanded.has(clusterName);
 

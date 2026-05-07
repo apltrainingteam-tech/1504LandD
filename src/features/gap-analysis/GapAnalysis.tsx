@@ -11,6 +11,7 @@ import TopRightControls from '../../shared/components/ui/TopRightControls';
 import { GlobalFilters, getActiveFilterCount, INITIAL_FILTERS } from '../../core/context/filterContext';
 import { useFilterOptions } from '../../shared/hooks/computationHooks';
 import { useMasterData } from '../../core/context/MasterDataContext';
+import { sortClusters, CLUSTER_ORDER, formatDisplayText } from '../../core/engines/normalizationEngine';
 import { GapAnalysisData } from '../../core/engines/gapEngine';
 import { useGlobalFilters } from '../../core/context/GlobalFilterContext';
 import styles from './GapAnalysis.module.css';
@@ -106,7 +107,17 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
     clusters.sort((a, b) => {
       const valA = getValue(a);
       const valB = getValue(b);
-      return sortConfig.direction === 'desc' ? valB - valA : valA - valB;
+      
+      // If a metric sort is active and values are different, use that
+      if (sortConfig.key !== null && valA !== valB) {
+        return sortConfig.direction === 'desc' ? valB - valA : valA - valB;
+      }
+
+      // Default/Fallback to Cluster Order
+      const orderMap = new Map(CLUSTER_ORDER.map((c, i) => [c.toLowerCase(), i]));
+      const idxA = orderMap.get(a.cluster.toLowerCase()) ?? 999;
+      const idxB = orderMap.get(b.cluster.toLowerCase()) ?? 999;
+      return idxA - idxB || a.cluster.localeCompare(b.cluster);
     });
 
     const finalData: GapAnalysisData[] = [];
@@ -247,7 +258,7 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
                     </td>
                     <td className={`${styles.td} ${styles.thSticky} ${isCluster ? styles.tdClusterName : styles.tdTeamName}`}>
                       <span>
-                        {isCluster ? row.cluster : row.team}
+                        {isCluster ? formatDisplayText(row.cluster) : formatDisplayText(row.team)}
                       </span>
                     </td>
                     <td className={`${styles.td} ${styles.tdCenter} ${styles.tdTotal} ${styles.thStickyTotal} ${getTotalStyle(totalValue)}`}>

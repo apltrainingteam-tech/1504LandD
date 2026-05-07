@@ -3,6 +3,7 @@ import { ChevronRight, ChevronDown, X } from 'lucide-react';
 import { formatMonthLabel } from '../../../core/utils/fiscalYear';
 import { APPerformanceAggregates, APCandidatePerformance, getAPDrilldownList } from '../../../core/engines/apEngine';
 import { EmployeeEventTimeline } from '../../../core/engines/apEngine';
+import { sortClusters } from '../../../core/engines/normalizationEngine';
 import styles from './APPerformanceMatrix.module.css';
 
 const SCORE_THRESHOLDS = {
@@ -193,7 +194,7 @@ export const APPerformanceMatrix: React.FC<APPerformanceMatrixProps> = ({ data, 
             </tr>
           </thead>
           <tbody>
-            {Object.keys(data.clusterMap).sort().map(clusterName => {
+            {sortClusters(Object.keys(data.clusterMap)).map(clusterName => {
               const clusterData = data.clusterMap[clusterName];
               const isOpen = expanded.has(clusterName);
 

@@ -22,7 +22,6 @@
   color: #FFFFFF;
   font-size: 11px;
   font-weight: 800;
-  text-transform: uppercase;
   letter-spacing: 0.1em;
   margin: 0;
 }
@@ -79,7 +78,6 @@
   font-size: 13px;
   font-weight: 800;
   color: #0F1C3F;
-  text-transform: uppercase;
   letter-spacing: 0.02em;
   flex: 1;
 }

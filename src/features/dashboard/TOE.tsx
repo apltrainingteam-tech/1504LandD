@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useGlobalFilters } from '../../core/context/GlobalFilterContext';
 import { getFiscalMonths, formatMonthLabel, isWithinFY } from '../../core/utils/fiscalYear';
-import { normalizeTrainingType, toProperCase, normalizeForMatch } from '../../core/engines/normalizationEngine';
+import { normalizeTrainingType, toProperCase, normalizeForMatch, formatDisplayText } from '../../core/engines/normalizationEngine';
 import { useMasterData } from '../../core/context/MasterDataContext';
 import { useTOEStats } from '../../shared/hooks/computationHooks';
 import API_BASE from '../../config/api';
@@ -187,7 +187,7 @@ export const TOE: React.FC<TOEProps> = ({ employees, attendance, scores }) => {
                   {stats.map(stat => {
                     const trainerObj = masterTrainers.find(t => normalizeForMatch(t.name) === normalizeForMatch(stat.trainerName));
                     return (
-                      <div key={stat.trainerName} className={styles.statCard} title={stat.trainerName}>
+                      <div key={stat.trainerName} className={styles.statCard} title={formatDisplayText(stat.trainerName)}>
                         <div className={styles.tileContent}>
                           <TrainerAvatar trainer={trainerObj || { id: stat.trainerName, name: stat.trainerName }} size={32} />
                           <div className={styles.metricsWrapper}>
@@ -253,7 +253,7 @@ export const TOE: React.FC<TOEProps> = ({ employees, attendance, scores }) => {
                                 ) : (
                                   <div className={styles.teamList}>
                                     {cellValue.split('\n').map((item, i) => (
-                                      <span key={i} className={styles.teamEntry}>{item}</span>
+                                      <span key={i} className={styles.teamEntry}>{formatDisplayText(item)}</span>
                                     ))}
                                   </div>
                                 )}

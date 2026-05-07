@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { DrilldownNode } from '../../../types/reports';
 import { flagScore, flagClass, displayScore } from '../../../core/utils/scoreNormalizer';
 import { ChevronRight, ChevronDown, MapPin, Users, User } from 'lucide-react';
+import { sortClusters, formatDisplayText } from '../../../core/engines/normalizationEngine';
 
 interface DrilldownPanelProps {
   nodes: DrilldownNode[];
@@ -11,6 +12,12 @@ interface DrilldownPanelProps {
 export const DrilldownPanel: React.FC<DrilldownPanelProps> = ({ nodes, tab }) => {
   const [openClusters, setOpenClusters] = useState(new Set<string>());
   const [openTeams, setOpenTeams] = useState(new Set<string>());
+
+  const sortedNodes = React.useMemo(() => {
+    const names = nodes.map(n => n.label);
+    const sorted = sortClusters(names);
+    return sorted.map(name => nodes.find(n => n.label === name)!).filter(Boolean);
+  }, [nodes]);
 
   const toggleCluster = (key: string) => {
     const next = new Set(openClusters);
@@ -30,7 +37,7 @@ export const DrilldownPanel: React.FC<DrilldownPanelProps> = ({ nodes, tab }) =>
 
   return (
     <div style={{ fontFamily: 'inherit', fontSize: '13px' }}>
-      {nodes.map(cluster => {
+      {sortedNodes.map(cluster => {
         const clusterOpen = openClusters.has(cluster.key);
         const clusterFlag = flagScore(cluster.metric);
         return (
@@ -42,7 +49,7 @@ export const DrilldownPanel: React.FC<DrilldownPanelProps> = ({ nodes, tab }) =>
             >
               {clusterOpen ? <ChevronDown size={16} color="var(--accent-primary)" /> : <ChevronRight size={16} />}
               <MapPin size={16} color="var(--accent-primary)" />
-              <span style={{ fontWeight: 700, flex: 1 }}>{cluster.label}</span>
+              <span style={{ fontWeight: 700, flex: 1 }}>{formatDisplayText(cluster.label)}</span>
               <span className="text-muted" style={{ fontSize: '12px' }}>{cluster.count} trained</span>
               {cluster.metric > 0 && (
                 <span className={`badge ${flagClass(clusterFlag)}`} style={{ fontWeight: 700 }}>
@@ -63,7 +70,7 @@ export const DrilldownPanel: React.FC<DrilldownPanelProps> = ({ nodes, tab }) =>
                   >
                     {teamOpen ? <ChevronDown size={14} color="var(--accent-secondary)" /> : <ChevronRight size={14} />}
                     <Users size={14} color="var(--accent-secondary)" />
-                    <span style={{ fontWeight: 600, flex: 1 }}>{team.label}</span>
+                    <span style={{ fontWeight: 600, flex: 1 }}>{formatDisplayText(team.label)}</span>
                     <span className="text-muted" style={{ fontSize: '12px' }}>{team.count} trained</span>
                     {team.metric > 0 && (
                       <span className={`badge ${flagClass(teamFlag)}`}>
@@ -80,7 +87,7 @@ export const DrilldownPanel: React.FC<DrilldownPanelProps> = ({ nodes, tab }) =>
                       <div key={i} style={{ marginLeft: '24px', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 16px', borderLeft: '2px solid rgba(34,45,104,0.2)', background: 'rgba(255,255,255,0.01)', borderRadius: '0 6px 6px 0' }}>
                         <User size={12} color="var(--text-muted)" />
                         <span style={{ fontWeight: 600, fontSize: '12px', minWidth: '80px' }}>{r.employee.employeeId}</span>
-                        <span style={{ flex: 1 }}>{r.employee.name}</span>
+                        <span style={{ flex: 1 }}>{formatDisplayText(r.employee.name)}</span>
                         <span className="text-muted" style={{ fontSize: '11px' }}>{r.attendance.attendanceDate}</span>
                         {r.score?.scores && (
                           <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent-primary)' }}>

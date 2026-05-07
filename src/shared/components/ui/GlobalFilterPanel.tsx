@@ -4,6 +4,8 @@ import { GlobalFilters, INITIAL_FILTERS } from '../../../core/context/filterCont
 import TrainerAvatar from './TrainerAvatar';
 import styles from './GlobalFilterPanel.module.css';
 
+import { sortClusters, formatDisplayText } from '../../../core/engines/normalizationEngine';
+
 interface GlobalFilterPanelProps {
   isOpen: boolean;
   onClose: () => void;
@@ -90,9 +92,9 @@ export const GlobalFilterPanel: React.FC<GlobalFilterPanelProps> = memo(({
               className={`form-select ${styles.select}`}
             >
               <option value="" className={styles.option}>All Clusters</option>
-              {clusterOptions.map((cluster) => (
+              {sortClusters(clusterOptions).map((cluster) => (
                 <option key={cluster} value={cluster} className={styles.option}>
-                  {cluster}
+                  {formatDisplayText(cluster)}
                 </option>
               ))}
             </select>
@@ -115,7 +117,7 @@ export const GlobalFilterPanel: React.FC<GlobalFilterPanelProps> = memo(({
               <option value="" className={styles.option}>All Teams</option>
               {teamOptions.map((team) => (
                 <option key={team.id} value={team.id} className={styles.option}>
-                  {team.label}
+                  {formatDisplayText(team.label)}
                 </option>
               ))}
             </select>

@@ -89,7 +89,6 @@
   font-size: 10px;
   font-weight: 600;
   color: #8A9BC0;
-  text-transform: uppercase;
   letter-spacing: 0.07em;
   margin-bottom: 4px;
 }
@@ -234,7 +233,6 @@
 }
 
 .sectionLabel {
-  text-transform: uppercase;
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 1.5px;

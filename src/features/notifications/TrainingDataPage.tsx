@@ -16,7 +16,7 @@ import API_BASE from '../../config/api';
 import styles from './TrainingDataPage.module.css';
 import { useTrainingData } from '../../shared/hooks/useTrainingData';
 import { TRAINING_TEMPLATES, TEMPLATE_FIELD_MAP, RATING_FIELDS, BSE_SUB_METRICS } from '../../core/constants/trainingTemplates';
-import { normalizeTrainingType, toProperCase } from '../../core/engines/normalizationEngine';
+import { normalizeTrainingType, toProperCase, formatDisplayText } from '../../core/engines/normalizationEngine';
 import { TrainingScore } from '../../types/attendance';
 
 interface Props {
@@ -650,7 +650,7 @@ export const TrainingDataPage: React.FC<Props> = ({ employees, attendance, score
           <div className={styles.filterGroup}>
             <Filter size={14} className={styles.filterIcon} />
             <select value={filterTeam} onChange={e => setFilterTeam(e.target.value)} className={styles.select}>
-              <option value="">All Teams</option>
+              <option value="">{formatDisplayText("All Teams")}</option>
               {teamOptions.map(id => <option key={id} value={id}>{resolveTeam(id)}</option>)}
             </select>
             <div className={styles.filterDivider} />

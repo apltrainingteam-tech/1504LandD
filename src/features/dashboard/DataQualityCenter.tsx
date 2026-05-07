@@ -3,6 +3,7 @@ import { Search, Database, ListChecks, ClipboardList, Users, AlertTriangle, Edit
 import { useMasterData } from '../../core/context/MasterDataContext';
 import { createUpdateEdit } from '../../core/engines/editEngine';
 import { getClosestMatch } from '../../core/utils/stringMatch';
+import { formatDisplayText } from '../../core/engines/normalizationEngine';
 import styles from './DataQualityCenter.module.css';
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
@@ -164,10 +165,10 @@ const ActiveInspector: React.FC = () => {
       <tr key={recordId || idx} className={rowErrors.length > 0 ? styles.highlightedRow : ''}>
         {activeModule === 'trainingData' && (<>
           <td className={styles.editableCell} onClick={() => handleCellEdit(recordId, 'employeeId', row.employeeId)}>{row.employeeId}</td>
-          <td>{row.name || '—'}</td>
-          <td>{row.trainingType}</td>
+          <td>{formatDisplayText(row.name)}</td>
+          <td>{formatDisplayText(row.trainingType)}</td>
           <td className={styles.editableCell} onClick={() => handleCellEdit(recordId, 'team', row.team)}>
-            {row.team}
+            {formatDisplayText(row.team)}
             <button className={styles.bulkFixBtn} onClick={e => { e.stopPropagation(); handleBulkFix('team', row.team); }} title="Bulk fix"><Edit3 size={10} /></button>
           </td>
           <td>{row.attendanceDate}</td>
@@ -175,16 +176,16 @@ const ActiveInspector: React.FC = () => {
         </>)}
         {activeModule === 'nomination' && (<>
           <td className={styles.editableCell} onClick={() => handleCellEdit(recordId, 'employeeId', row.employeeId)}>{row.employeeId}</td>
-          <td>{row.name}</td>
-          <td>{row.trainingType}</td>
-          <td className={styles.editableCell} onClick={() => handleCellEdit(recordId, 'team', row.team)}>{row.team}</td>
+          <td>{formatDisplayText(row.name)}</td>
+          <td>{formatDisplayText(row.trainingType)}</td>
+          <td className={styles.editableCell} onClick={() => handleCellEdit(recordId, 'team', row.team)}>{formatDisplayText(row.team)}</td>
           <td>{row.month}</td>
         </>)}
         {activeModule === 'employee' && (<>
           <td className={styles.editableCell} onClick={() => handleCellEdit(recordId, 'employeeId', row.employeeId)}>{row.employeeId}</td>
-          <td>{row.name}</td>
-          <td>{row.designation}</td>
-          <td className={styles.editableCell} onClick={() => handleCellEdit(recordId, 'team', row.team)}>{row.team}</td>
+          <td>{formatDisplayText(row.name)}</td>
+          <td>{formatDisplayText(row.designation)}</td>
+          <td className={styles.editableCell} onClick={() => handleCellEdit(recordId, 'team', row.team)}>{formatDisplayText(row.team)}</td>
           <td>{row.hq}</td>
         </>)}
         <td className={styles.issuesTd}>
@@ -260,7 +261,7 @@ const ActiveInspector: React.FC = () => {
               <div className={styles.tableToolbar}>
                 <div className="flex-center gap-4">
                   <Database size={16} className="text-muted" />
-                  <span className="font-bold text-xs uppercase">{activeModule}</span>
+                  <span className="font-bold text-xs">{formatDisplayText(activeModule)}</span>
                   <span className="text-xs text-muted">{results.length} rows</span>
                 </div>
               </div>

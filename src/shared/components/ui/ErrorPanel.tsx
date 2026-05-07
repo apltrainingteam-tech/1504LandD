@@ -45,7 +45,7 @@ export const ErrorPanel: React.FC = () => {
       <div className={styles.content}>
         {activeError && (
           <div className={styles.activeErrorDetail}>
-            <div className="text-xs-bold mb-4 uppercase text-danger">Active Troubleshooting</div>
+            <div className="text-xs-bold mb-4 text-danger">Active Troubleshooting</div>
             <div className="text-sm mb-8">
               <strong>{activeError.field}:</strong> <span className="text-muted">{String(activeError.value)}</span>
             </div>
