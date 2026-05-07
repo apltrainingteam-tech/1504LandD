@@ -6,7 +6,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 16px;
-  margin-bottom: 24px;
+  margin-bottom: 12px;
 }
 
 .chartGrid {
@@ -19,10 +19,10 @@
   background: #FFFFFF;
   border: 1px solid #E4E8F0;
   border-radius: 12px;
-  padding: 24px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  min-height: 400px;
+  min-height: 320px;
   box-shadow: none;
 }
 
@@ -38,7 +38,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 24px;
+  margin-bottom: 12px;
 }
 
 .chartTitle {
@@ -57,7 +57,7 @@
 .chartContainer {
   flex: 1;
   width: 100%;
-  min-height: 300px;
+  min-height: 250px;
 }
 
 /* KPI Cards */
@@ -144,7 +144,7 @@
 .subViewNav {
   display: flex;
   gap: 8px;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
   background: #FAFBFF;
   padding: 4px;
   border-radius: 12px;
@@ -190,19 +190,19 @@
 }
 
 .vizWrapper {
-  height: 350px;
+  height: 300px;
   width: 100%;
 }
 
 .vizWrapperFixed {
   width: 100%;
-  height: 350px;
+  height: 300px;
   position: relative;
   display: block;
 }
 
 .vizWrapperTall {
-  height: 400px;
+  height: 320px;
   width: 100%;
 }
 
@@ -224,7 +224,7 @@
   grid-template-columns: 0.3fr 0.4fr 0.3fr;
   gap: 32px;
   align-items: start;
-  margin-bottom: 24px;
+  margin-bottom: 12px;
 }
 
 .controlSection {
@@ -381,11 +381,11 @@
 .contextBar {
   background: rgba(255, 255, 255, 0.02);
   border-radius: 12px;
-  padding: 12px 20px;
+  padding: 8px 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 12px;
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 

@@ -467,30 +467,28 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
   }
 
   return (
-    <div className="animate-fade-in">
-      {/* Page Identity */}
-      <div className="mb-24">
-        <h1 className="text-2xl font-bold m-0">
-          {pageMode === 'performance-insights' ? 'Performance Insights' : 'Overview'}
-        </h1>
-        <p className="text-subtitle">
-          {pageMode === 'performance-insights'
-            ? 'Detailed training performance analysis and rankings'
-            : 'Training performance snapshot and trends'}
-        </p>
-      </div>
+    <div className="animate-fade-in" style={{ paddingTop: '24px' }}>
+      {/* Header Row: Title + Controls */}
+      <div className="performance-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', position: 'relative', zIndex: 5, overflow: 'visible', marginBottom: '64px' }}>
+        <div>
+          <h1 className="text-2xl font-bold m-0" style={{ color: '#1e293b' }}>
+            {pageMode === 'performance-insights' ? 'Performance Insights' : 'Overview'}
+          </h1>
+          <p className="text-subtitle m-0" style={{ marginTop: '4px' }}>
+            {pageMode === 'performance-insights'
+              ? 'Detailed training performance analysis and rankings'
+              : 'Training performance snapshot and trends'}
+          </p>
+        </div>
 
-      {/* Controls Header */}
-      <div className="header mb-20">
-        <div className="flex"></div>
-        <div className="flex-center gap-2">
-          {/* Executive View Switcher */}
-          <div className="flex-center gap-1 bg-glass-dark p-1 rounded-lg">
-            {/* 1. TABLE VIEW (All Types) */}
+        <div className="flex-center gap-4">
+          {/* Segmented View Switcher */}
+          <div className="flex gap-1 bg-glass-dark p-1 rounded-full border border-white/5" style={{ overflow: 'visible' }}>
+            {/* 1. TABLE VIEW */}
             <button 
-              className={`btn btn-sm ${
+              className={`flex-center gap-2 rounded-full text-xs font-bold transition-all ${
                 (subView === 'ip_matrix' || subView === 'ap_performance' || subView === 'mip_performance' || subView === 'grouped' || subView === 'refresher_performance' || subView === 'capsule_performance') 
-                ? 'btn-primary' : 'btn-secondary'
+                ? 'bg-white text-primary shadow-sm' : 'text-muted hover:text-white'
               }`}
               onClick={() => {
                 if (tab === 'IP') setSubView('ip_matrix');
@@ -500,53 +498,75 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                 else if (tab === 'Capsule') setSubView('capsule_performance');
                 else setSubView('grouped');
               }}
-              title="Matrix Table View"
+              style={{ border: 'none', padding: '6px 16px', minWidth: '80px' }}
             >
-              <Table size={14} className="mr-1" /> Table
+              <Table size={14} /> Table
             </button>
 
             {/* 2. RANK VIEW (IP Only) */}
             {tab === 'IP' && (
               <button 
-                className={`btn btn-sm ${subView === 'ip_team_rank' ? 'btn-primary' : 'btn-secondary'}`}
+                className={`flex-center gap-2 rounded-full text-xs font-bold transition-all ${
+                  subView === 'ip_team_rank' ? 'bg-white text-primary shadow-sm' : 'text-muted hover:text-white'
+                }`}
                 onClick={() => setSubView('ip_team_rank')}
-                title="Performance Ranking"
+                style={{ border: 'none', padding: '6px 16px', minWidth: '80px' }}
               >
-                <Trophy size={14} className="mr-1" /> Rank
+                <Trophy size={14} /> Rank
               </button>
             )}
 
             {/* 3. CHART VIEW (IP, AP, MIP) */}
             {['IP', 'AP', 'MIP'].includes(tab) && (
               <button 
-                className={`btn btn-sm ${subView === 'performance_charts' ? 'btn-primary' : 'btn-secondary'}`}
+                className={`flex-center gap-2 rounded-full text-xs font-bold transition-all ${
+                  subView === 'performance_charts' ? 'bg-white text-primary shadow-sm' : 'text-muted hover:text-white'
+                }`}
                 onClick={() => setSubView('performance_charts')}
-                title="Visual Analytics"
+                style={{ border: 'none', padding: '6px 16px', minWidth: '80px' }}
               >
-                <BarChart3 size={14} className="mr-1" /> Chart
+                <BarChart3 size={14} /> Chart
               </button>
             )}
 
-            {/* Special Case: Attendance Funnels for Refresher/Capsule */}
+            {/* Attendance Funnel (Refresher/Capsule) */}
             {(tab === 'Refresher' || tab === 'Capsule') && (
               <button 
-                className={`btn btn-sm ${
+                className={`flex-center gap-2 rounded-full text-xs font-bold transition-all ${
                   (subView === 'refresher_attendance' || subView === 'capsule_attendance') 
-                  ? 'btn-primary' : 'btn-secondary'
+                  ? 'bg-white text-primary shadow-sm' : 'text-muted hover:text-white'
                 }`}
                 onClick={() => {
                   if (tab === 'Refresher') setSubView('refresher_attendance');
                   else setSubView('capsule_attendance');
                 }}
-                title="Attendance Funnel"
+                style={{ border: 'none', padding: '6px 16px', minWidth: '100px' }}
               >
-                <Users size={14} className="mr-1" /> Attendance
+                <Users size={14} /> Attendance
               </button>
             )}
           </div>
 
-          <div className="v-divider mx-1" />
-          <button className="btn btn-secondary" onClick={handleExport} title="Export CSV"><Download size={16} /></button>
+          <button 
+            className="flex-center" 
+            style={{ 
+              height: '32px', 
+              width: '32px', 
+              padding: 0, 
+              borderRadius: '50%', 
+              border: 'none', 
+              background: 'transparent',
+              color: '#94a3b8',
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }} 
+            onMouseOver={(e) => e.currentTarget.style.color = '#6366f1'}
+            onMouseOut={(e) => e.currentTarget.style.color = '#94a3b8'}
+            onClick={handleExport} 
+            title="Export CSV"
+          >
+            <Download size={16} />
+          </button>
         </div>
       </div>
 
@@ -564,7 +584,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, ease: 'easeOut' }}
         >
-          <div className="dashboard-grid mb-24">
+          <div className="performance-cards-grid dashboard-grid gap-8 mb-12 items-stretch" style={{ position: 'relative', zIndex: 1, height: 'auto' }}>
             {subView === 'gap' ? (
               <Fragment>
                 <KPIBox title="Eligible Cohort" value={gapMetrics.eligibleCount} icon={ShieldCheck} />
@@ -576,15 +596,15 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                 {tab === 'IP' && executiveKPIs && (
                   <Fragment>
                     {/* CARD 1: ELITE CANDIDATES */}
-                    <div className="glass-panel" style={{ padding: '16px', background: 'var(--indigo-light, rgba(99, 102, 241, 0.04))', borderLeft: '4px solid #6366f1' }}>
-                      <div style={{ color: '#64748b', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+                    <div className="h-full" style={{ padding: '20px', background: '#fff', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 4px 15px -3px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column' }}>
+                      <div style={{ color: '#94a3b8', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
                         Elite Candidates
                       </div>
-                      <div style={{ fontSize: '32px', fontWeight: 800, color: '#1e293b', lineHeight: 1 }}>
+                      <div style={{ fontSize: '28px', fontWeight: 600, color: '#0f172a', lineHeight: 1, letterSpacing: '-0.02em' }}>
                         {executiveKPIs.eliteCount.toLocaleString()}
                       </div>
-                      <div style={{ fontSize: '13px', color: '#64748b', marginTop: '10px' }}>
-                        <span style={{ fontWeight: 700, color: '#6366f1' }}>{executiveKPIs.eliteRatio.toFixed(1)}%</span> of Total Candidates
+                      <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 500, marginTop: '8px', letterSpacing: '0.01em' }}>
+                        <span style={{ fontWeight: 600, color: '#4f46e5' }}>{executiveKPIs.eliteRatio.toFixed(1)}%</span> of Total Candidates
                       </div>
                     </div>
 
@@ -730,86 +750,90 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
                 {tab === 'MIP' && mipExecutiveKPIs && (
                   <Fragment>
                     {/* CARD 1: HIGHEST PARTICIPATION */}
-                    <div className="glass-panel" style={{ padding: '16px' }}>
-                      <div style={{ color: '#64748b', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
-                        Highest Team Participation
+                    <div className="h-full" style={{ padding: '20px', background: '#fff', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 4px 15px -3px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column' }}>
+                      <div style={{ color: '#94a3b8', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
+                        Highest team participation
                       </div>
-                      <div style={{ background: '#fff', padding: '12px', borderRadius: '6px', border: '1px solid rgba(0,0,0,0.05)' }}>
-                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>{mipExecutiveKPIs.highestTeam.name}</div>
-                        <div style={{ fontSize: '24px', fontWeight: 800, color: '#6366f1', margin: '4px 0' }}>{mipExecutiveKPIs.highestTeam.total} <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 500 }}>Candidates</span></div>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ fontSize: '20px', fontWeight: 600, color: '#0f172a', lineHeight: 1.2, marginBottom: '4px', letterSpacing: '-0.02em' }}>{mipExecutiveKPIs.highestTeam.name}</div>
+                        <div style={{ fontSize: '15px', fontWeight: 600, color: '#4f46e5', marginBottom: '8px' }}>{mipExecutiveKPIs.highestTeam.total} <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 500, letterSpacing: '0.01em' }}>Candidates</span></div>
                         
-                        <div style={{ marginTop: '12px', borderTop: '1px solid #f1f5f9', paddingTop: '8px' }}>
-                          <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Bifurcation</div>
-                          <div className="flex flex-col gap-1">
-                            <div className="flex justify-between" style={{ fontSize: '11px', color: '#475569' }}>
-                              <span>DM:</span>
-                              <span style={{ fontWeight: 700 }}>{mipExecutiveKPIs.highestTeam.bifurcation.dm}</span>
-                            </div>
-                            <div className="flex justify-between" style={{ fontSize: '11px', color: '#475569' }}>
-                              <span>RSM:</span>
-                              <span style={{ fontWeight: 700 }}>{mipExecutiveKPIs.highestTeam.bifurcation.rsm}</span>
-                            </div>
-                            <div className="flex justify-between" style={{ fontSize: '11px', color: '#475569' }}>
-                              <span>DSM:</span>
-                              <span style={{ fontWeight: 700 }}>{mipExecutiveKPIs.highestTeam.bifurcation.dsm}</span>
-                            </div>
+                        <div style={{ height: '1px', background: '#cbd5e1', width: '100%', marginBottom: '12px' }} />
+                        
+                        <div>
+                          <div className="flex gap-6" style={{ marginTop: '4px' }}>
+                             <div className="flex items-center" style={{ gap: '8px' }}>
+                               <span style={{ color: '#94a3b8', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>DM</span>
+                               <span style={{ fontWeight: 600, color: '#475569', fontSize: '13px' }}>{mipExecutiveKPIs.highestTeam.bifurcation.dm}</span>
+                             </div>
+                             <div className="flex items-center" style={{ gap: '8px' }}>
+                               <span style={{ color: '#94a3b8', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>RSM</span>
+                               <span style={{ fontWeight: 600, color: '#475569', fontSize: '13px' }}>{mipExecutiveKPIs.highestTeam.bifurcation.rsm}</span>
+                             </div>
+                             <div className="flex items-center" style={{ gap: '8px' }}>
+                               <span style={{ color: '#94a3b8', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>DSM</span>
+                               <span style={{ fontWeight: 600, color: '#475569', fontSize: '13px' }}>{mipExecutiveKPIs.highestTeam.bifurcation.dsm}</span>
+                             </div>
                           </div>
                         </div>
                       </div>
                     </div>
 
                     {/* CARD 2: LOWEST PARTICIPATION */}
-                    <div className="glass-panel" style={{ padding: '16px' }}>
-                      <div style={{ color: '#64748b', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
-                        Lowest Team Participation
+                    <div className="h-full" style={{ padding: '20px', background: '#fff', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 4px 15px -3px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column' }}>
+                      <div style={{ color: '#94a3b8', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
+                        Lowest team participation
                       </div>
-                      <div style={{ background: '#fff', padding: '12px', borderRadius: '6px', border: '1px solid rgba(0,0,0,0.05)' }}>
-                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>{mipExecutiveKPIs.lowestTeam.name}</div>
-                        <div style={{ fontSize: '24px', fontWeight: 800, color: '#f59e0b', margin: '4px 0' }}>{mipExecutiveKPIs.lowestTeam.total} <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 500 }}>Candidates</span></div>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ fontSize: '20px', fontWeight: 600, color: '#0f172a', lineHeight: 1.2, marginBottom: '4px', letterSpacing: '-0.02em' }}>{mipExecutiveKPIs.lowestTeam.name}</div>
+                        <div style={{ fontSize: '15px', fontWeight: 600, color: '#f59e0b', marginBottom: '8px' }}>{mipExecutiveKPIs.lowestTeam.total} <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 500, letterSpacing: '0.01em' }}>Candidates</span></div>
                         
-                        <div style={{ marginTop: '12px', borderTop: '1px solid #f1f5f9', paddingTop: '8px' }}>
-                          <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Bifurcation</div>
-                          <div className="flex flex-col gap-1">
-                            <div className="flex justify-between" style={{ fontSize: '11px', color: '#475569' }}>
-                              <span>DM:</span>
-                              <span style={{ fontWeight: 700 }}>{mipExecutiveKPIs.lowestTeam.bifurcation.dm}</span>
-                            </div>
-                            <div className="flex justify-between" style={{ fontSize: '11px', color: '#475569' }}>
-                              <span>RSM:</span>
-                              <span style={{ fontWeight: 700 }}>{mipExecutiveKPIs.lowestTeam.bifurcation.rsm}</span>
-                            </div>
-                            <div className="flex justify-between" style={{ fontSize: '11px', color: '#475569' }}>
-                              <span>DSM:</span>
-                              <span style={{ fontWeight: 700 }}>{mipExecutiveKPIs.lowestTeam.bifurcation.dsm}</span>
-                            </div>
+                        <div style={{ height: '1px', background: '#cbd5e1', width: '100%', marginBottom: '12px' }} />
+                        
+                        <div>
+                          <div className="flex gap-6" style={{ marginTop: '4px' }}>
+                             <div className="flex items-center" style={{ gap: '8px' }}>
+                               <span style={{ color: '#94a3b8', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>DM</span>
+                               <span style={{ fontWeight: 600, color: '#475569', fontSize: '13px' }}>{mipExecutiveKPIs.lowestTeam.bifurcation.dm}</span>
+                             </div>
+                             <div className="flex items-center" style={{ gap: '8px' }}>
+                               <span style={{ color: '#94a3b8', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>RSM</span>
+                               <span style={{ fontWeight: 600, color: '#475569', fontSize: '13px' }}>{mipExecutiveKPIs.lowestTeam.bifurcation.rsm}</span>
+                             </div>
+                             <div className="flex items-center" style={{ gap: '8px' }}>
+                               <span style={{ color: '#94a3b8', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>DSM</span>
+                               <span style={{ fontWeight: 600, color: '#475569', fontSize: '13px' }}>{mipExecutiveKPIs.lowestTeam.bifurcation.dsm}</span>
+                             </div>
                           </div>
                         </div>
                       </div>
                     </div>
 
                     {/* CARD 3: TOTAL MANAGERS ATTENDED */}
-                    <div className="glass-panel" style={{ padding: '16px' }}>
-                      <div style={{ color: '#64748b', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
-                        Total Managers Attended
+                    <div className="h-full" style={{ padding: '20px', background: '#fff', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 4px 15px -3px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column' }}>
+                      <div style={{ color: '#94a3b8', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
+                        Total managers attended
                       </div>
-                      <div style={{ background: '#fff', padding: '12px', borderRadius: '6px', border: '1px solid rgba(0,0,0,0.05)' }}>
-                        <div style={{ fontSize: '24px', fontWeight: 800, color: '#8b5cf6', margin: '4px 0' }}>{mipExecutiveKPIs.totalManagers.total} <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 500 }}>Managers</span></div>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ fontSize: '28px', fontWeight: 600, color: '#7c3aed', lineHeight: 1.1, marginBottom: '4px', letterSpacing: '-0.02em' }}>{mipExecutiveKPIs.totalManagers.total}</div>
+                        <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.04em' }}>Total Managers</div>
                         
-                        <div style={{ marginTop: '12px', borderTop: '1px solid #f1f5f9', paddingTop: '8px' }}>
-                          <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Bifurcation</div>
-                          <div className="flex flex-col gap-1">
-                            <div className="flex justify-between" style={{ fontSize: '11px', color: '#475569' }}>
-                              <span>DM:</span>
-                              <span style={{ fontWeight: 700 }}>{mipExecutiveKPIs.totalManagers.bifurcation.dm}</span>
-                            </div>
-                            <div className="flex justify-between" style={{ fontSize: '11px', color: '#475569' }}>
-                              <span>RSM:</span>
-                              <span style={{ fontWeight: 700 }}>{mipExecutiveKPIs.totalManagers.bifurcation.rsm}</span>
-                            </div>
-                            <div className="flex justify-between" style={{ fontSize: '11px', color: '#475569' }}>
-                              <span>DSM:</span>
-                              <span style={{ fontWeight: 700 }}>{mipExecutiveKPIs.totalManagers.bifurcation.dsm}</span>
-                            </div>
+                        <div style={{ height: '1px', background: '#cbd5e1', width: '100%', marginBottom: '12px' }} />
+                        
+                        <div>
+                          <div className="flex gap-6" style={{ marginTop: '4px' }}>
+                             <div className="flex items-center" style={{ gap: '8px' }}>
+                               <span style={{ color: '#94a3b8', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>DM</span>
+                               <span style={{ fontWeight: 600, color: '#475569', fontSize: '13px' }}>{mipExecutiveKPIs.totalManagers.bifurcation.dm}</span>
+                             </div>
+                             <div className="flex items-center" style={{ gap: '8px' }}>
+                               <span style={{ color: '#94a3b8', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>RSM</span>
+                               <span style={{ fontWeight: 600, color: '#475569', fontSize: '13px' }}>{mipExecutiveKPIs.totalManagers.bifurcation.rsm}</span>
+                             </div>
+                             <div className="flex items-center" style={{ gap: '8px' }}>
+                               <span style={{ color: '#94a3b8', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>DSM</span>
+                               <span style={{ fontWeight: 600, color: '#475569', fontSize: '13px' }}>{mipExecutiveKPIs.totalManagers.bifurcation.dsm}</span>
+                             </div>
                           </div>
                         </div>
                       </div>
@@ -858,7 +882,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
 
       {/* Top / Bottom 3 */}
       {subView === 'grouped' && tab !== 'IP' && tab !== 'AP' && tab !== 'MIP' && ranked.length > 3 && (
-        <div className="grid-2 mb-24">
+        <div className="grid-2 mb-12">
           <div className="glass-panel p-20 rank-card-success">
             <div className="flex-center mb-4 text-success-bold uppercase"><Trophy size={18} className="mr-2" />Top Performance</div>
             {ranked.slice(0, 3).map(g => <div key={g.key} className="rank-item">#{g.rank} <strong>{g.key}</strong> — {g.metric.toFixed(1)}</div>)}

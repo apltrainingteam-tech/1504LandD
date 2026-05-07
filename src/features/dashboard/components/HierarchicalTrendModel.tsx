@@ -25,7 +25,7 @@ export const HierarchicalTrendModel: React.FC<HierarchicalTrendModelProps> = ({
   const hasData = rawUnified && rawUnified.length > 0;
 
   return (
-    <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #E4E8F0', borderRadius: '12px', height: '520px', padding: '16px', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #E4E8F0', borderRadius: '12px', height: '420px', padding: '12px', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)', display: 'flex', flexDirection: 'column' }}>
       {/* CHART TYPE TOGGLE */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
         <button 
