@@ -5,7 +5,7 @@ import { normalizeTrainingType, toProperCase, normalizeForMatch, formatDisplayTe
 import { useMasterData } from '../../core/context/MasterDataContext';
 import { useTOEStats } from '../../shared/hooks/computationHooks';
 import API_BASE from '../../config/api';
-import { ChevronDown, ChevronUp, Users, Presentation } from 'lucide-react';
+import { ChevronDown, ChevronUp, ChevronRight, Users, Presentation } from 'lucide-react';
 import TrainerAvatar from '../../shared/components/ui/TrainerAvatar';
 import styles from './TOE.module.css';
 
@@ -239,8 +239,8 @@ export const TOE: React.FC<TOEProps> = ({ employees, attendance, scores }) => {
                     const trainerObj = masterTrainers.find(t => normalizeForMatch(t.name) === normalizeForMatch(trainer));
                     return (
                       <tr key={trainer}>
-                        <td className={styles.stickyCol}>
-                          <TrainerAvatar trainer={trainerObj || { id: trainer, name: trainer }} size={24} showName={true} />
+                        <td className={styles.stickyCol} title={formatDisplayText(trainer)}>
+                          <TrainerAvatar trainer={trainerObj || { id: trainer, name: trainer }} size={32} showName={false} />
                         </td>
                       {months.map(m => {
                         const cellValue = tableData[`${trainer}_${m}`];
