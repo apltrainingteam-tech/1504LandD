@@ -482,56 +482,68 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
       <div className="header mb-20">
         <div className="flex"></div>
         <div className="flex-center gap-2">
-          {pageMode === 'performance-insights' && (
-            <div className="flex-center gap-2 mr-2">
-              <button className="btn btn-primary" title="Tables View"><Table size={16} /></button>
-              <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-charts')} title="Switch to Charts"><BarChart3 size={16} /></button>
-              <div className="v-divider mx-1" />
-            </div>
-          )}
-          {tab === 'IP' ? (
-            <Fragment>
-              <button className={`btn ${subView === 'ip_matrix' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('ip_matrix')} title="Matrix View"><Table size={16} /></button>
-              <button className={`btn ${subView === 'ip_team_rank' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('ip_team_rank')} title="Team Rank Matrix"><Trophy size={16} /></button>
-              <button className={`btn ${subView === 'timeseries' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('timeseries')} title="Time Series"><Calendar size={16} /></button>
-              <button className={`btn ${subView === 'trainer' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('trainer')} title="Trainer Analytics"><GraduationCap size={16} /></button>
-            </Fragment>
-          ) : tab === 'MIP' ? (
-            <Fragment>
-              <button className={`btn ${subView === 'mip_attendance' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('mip_attendance')} title="Attendance Funnel"><Table size={16} /></button>
-              <button className={`btn ${subView === 'mip_performance' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('mip_performance')} title="Performance Analytics"><TrendingUp size={16} /></button>
-            </Fragment>
-          ) : tab === 'Refresher' ? (
-            <Fragment>
-              <button className={`btn ${subView === 'refresher_attendance' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('refresher_attendance')} title="Attendance Matrix"><Table size={16} /></button>
-              <button className={`btn ${subView === 'refresher_performance' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('refresher_performance')} title="Performance Analytics"><TrendingUp size={16} /></button>
-            </Fragment>
-          ) : tab === 'Capsule' ? (
-            <Fragment>
-              <button className={`btn ${subView === 'capsule_attendance' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('capsule_attendance')} title="Attendance Matrix"><Table size={16} /></button>
-              <button className={`btn ${subView === 'capsule_performance' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('capsule_performance')} title="Performance Analytics"><TrendingUp size={16} /></button>
-            </Fragment>
-          ) : (
-            <Fragment>
-              <button className={`btn ${subView === (tab === 'AP' ? 'ap_performance' : 'grouped') ? 'btn-primary' : 'btn-secondary'}`} 
-                onClick={() => setSubView(tab === 'AP' ? 'ap_performance' : 'grouped')} 
-                title={tab === 'AP' ? "Performance Matrix" : "Rankings"}>
-                <Table size={16} />
+          {/* Executive View Switcher */}
+          <div className="flex-center gap-1 bg-glass-dark p-1 rounded-lg">
+            {/* 1. TABLE VIEW (All Types) */}
+            <button 
+              className={`btn btn-sm ${
+                (subView === 'ip_matrix' || subView === 'ap_performance' || subView === 'mip_performance' || subView === 'grouped' || subView === 'refresher_performance' || subView === 'capsule_performance') 
+                ? 'btn-primary' : 'btn-secondary'
+              }`}
+              onClick={() => {
+                if (tab === 'IP') setSubView('ip_matrix');
+                else if (tab === 'AP') setSubView('ap_performance');
+                else if (tab === 'MIP') setSubView('mip_performance');
+                else if (tab === 'Refresher') setSubView('refresher_performance');
+                else if (tab === 'Capsule') setSubView('capsule_performance');
+                else setSubView('grouped');
+              }}
+              title="Matrix Table View"
+            >
+              <Table size={14} className="mr-1" /> Table
+            </button>
+
+            {/* 2. RANK VIEW (IP Only) */}
+            {tab === 'IP' && (
+              <button 
+                className={`btn btn-sm ${subView === 'ip_team_rank' ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setSubView('ip_team_rank')}
+                title="Performance Ranking"
+              >
+                <Trophy size={14} className="mr-1" /> Rank
               </button>
-              {tab === 'AP' && (
-                <button className={`btn ${subView === 'ap_performance' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('ap_performance')} title="Performance Matrix"><TrendingUp size={16} /></button>
-              )}
-              <button className={`btn ${subView === 'timeseries' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('timeseries')} title="Time Series"><Calendar size={16} /></button>
-              {tab !== 'AP' && (
-                <button className={`btn ${subView === 'trainer' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('trainer')} title="Trainer Analytics"><GraduationCap size={16} /></button>
-              )}
-              <button className={`btn ${subView === 'drilldown' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('drilldown')} title="Drill-Down"><ChartNetwork size={16} /></button>
-            </Fragment>
-          )}
-          <button className={`btn ${subView === 'gap' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSubView('gap')} title="Gap Analysis"><AlertTriangle size={16} /></button>
+            )}
+
+            {/* 3. CHART VIEW (IP, AP, MIP) */}
+            {['IP', 'AP', 'MIP'].includes(tab) && (
+              <button 
+                className="btn btn-sm btn-secondary"
+                onClick={() => onNavigate?.('performance-charts')}
+                title="Visual Analytics"
+              >
+                <BarChart3 size={14} className="mr-1" /> Chart
+              </button>
+            )}
+
+            {/* Special Case: Attendance Funnels for Refresher/Capsule */}
+            {(tab === 'Refresher' || tab === 'Capsule') && (
+              <button 
+                className={`btn btn-sm ${
+                  (subView === 'refresher_attendance' || subView === 'capsule_attendance') 
+                  ? 'btn-primary' : 'btn-secondary'
+                }`}
+                onClick={() => {
+                  if (tab === 'Refresher') setSubView('refresher_attendance');
+                  else setSubView('capsule_attendance');
+                }}
+                title="Attendance Funnel"
+              >
+                <Users size={14} className="mr-1" /> Attendance
+              </button>
+            )}
+          </div>
+
           <div className="v-divider mx-1" />
-
-
           <button className="btn btn-secondary" onClick={handleExport} title="Export CSV"><Download size={16} /></button>
         </div>
       </div>
@@ -1111,129 +1123,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
         </div>
       )}
 
-      {subView === 'timeseries' && (
-        <div className="glass-panel p-20">
-          <div className="card-header mb-20"><h3 className="text-lg m-0">Longitudinal Performance Trends</h3></div>
-          <div className="overflow-x-auto">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Time Period</th>
-                  {Object.keys(timeSeries[0]?.cells || {}).map(k => <th key={k} className="td-center">{k}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {timeSeries.map((r: any) => (
-                  <tr key={r.label}>
-                    <td className="font-bold">{r.label}</td>
-                    {Object.entries(r.cells).map(([k, v]: [string, any]) => (
-                      <td key={k} className="td-center">
-                        <span className={`badge ${flagClass(flagScore(v))}`}>{v.toFixed(1)}</span>
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-                {timeSeries.length === 0 && (
-                  <tr><td colSpan={5} className="td-center py-40 text-muted">No time series data found</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
 
-      {subView === 'trainer' && (
-        <div className="glass-panel p-20">
-          <div className="card-header mb-20"><h3 className="text-lg m-0">Trainer Performance Index</h3></div>
-          <DataTable headers={['Trainer', 'Sessions', 'Avg Score', 'Index']}>
-            {trainerStats.map((t: any) => (
-              <tr key={t.trainerId}>
-                <td className="font-bold">
-                  <TrainerAvatar 
-                    trainer={{
-                      id: t.trainerId,
-                      name: t.trainerId,
-                      avatarUrl: t.avatarUrl
-                    }}
-                    size={28}
-                    showName={true}
-                  />
-                </td>
-                <td className="font-mono">{t.trainingsConducted}</td>
-                <td className="font-bold">{t.avgScore.toFixed(1)}</td>
-                <td>
-                  <ProgressBar width={t.avgScore} colorClass="bg-primary" />
-                </td>
-              </tr>
-            ))}
-            {trainerStats.length === 0 && (
-              <tr><td colSpan={4} className="td-center py-40 text-muted">No trainer data found</td></tr>
-            )}
-          </DataTable>
-        </div>
-      )}
-
-      {subView === 'gap' && (
-        <div className="glass-panel p-20">
-          <div className="card-header mb-20"><h3 className="text-lg m-0">Training Gap Analysis</h3></div>
-          <div className="grid-3 mb-24">
-            <KPIBox title="Eligible Personnel" value={gapMetrics.eligibleCount} icon={Users} />
-            <KPIBox title="Trained Personnel" value={gapMetrics.trainedCount} color="var(--success)" icon={CheckCircle2} />
-            <KPIBox title="Coverage %" value={`${gapMetrics.coveragePercent.toFixed(1)}%`} color="var(--accent-primary)" />
-          </div>
-          <div className="overflow-x-auto">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Category</th>
-                  <th className="td-center">Eligible</th>
-                  <th className="td-center">Trained</th>
-                  <th className="td-center">Gap</th>
-                  <th className="td-center">Coverage</th>
-                </tr>
-              </thead>
-              <tbody>
-                {gapDetails.map((d: any) => (
-                  <tr key={d.name}>
-                    <td className="font-bold">{d.name}</td>
-                    <td className="td-center">{d.eligible}</td>
-                    <td className="td-center">{d.trained}</td>
-                    <td className="td-center text-danger-bold">{d.gap}</td>
-                    <td className="td-center">
-                      <span className={`badge ${d.coverage >= 80 ? 'badge-success' : d.coverage >= 50 ? 'badge-warning' : 'badge-danger'}`}>
-                        {d.coverage.toFixed(1)}%
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-                {gapDetails.length === 0 && (
-                  <tr><td colSpan={5} className="td-center py-40 text-muted">No gap analysis data available</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {subView === 'drilldown' && (
-        <div className="glass-panel p-20">
-          <div className="card-header mb-20"><h3 className="text-lg m-0">Hierarchical Drill-Down</h3></div>
-          <div className="text-muted italic mb-20">Interactive cluster/team path analysis currently in visual beta.</div>
-          <DataTable headers={['Hierarchy Node', 'Parent', 'Metric', 'Status']}>
-            {drilldownNodes.slice(0, 50).map((node: any) => (
-              <tr key={node.id}>
-                <td className="font-bold">{node.label}</td>
-                <td className="text-muted">{node.parentId || '—'}</td>
-                <td className="font-mono">{node.value.toFixed(1)}</td>
-                <td><span className={`badge ${flagClass(flagScore(node.value))}`}>Stable</span></td>
-              </tr>
-            ))}
-            {drilldownNodes.length === 0 && (
-              <tr><td colSpan={4} className="td-center py-40 text-muted">No hierarchy data available</td></tr>
-            )}
-          </DataTable>
-        </div>
-      )}
 
     </div>
   );
