@@ -3,7 +3,8 @@ import { motion } from 'framer-motion';
 
 import {
   Table, Calendar, GraduationCap, AlertTriangle, ChevronRight, ChevronDown,
-  Trophy, Zap, ShieldCheck, CheckCircle2, ChartNetwork, Download, Filter, X, ListOrdered, BarChart3, TrendingUp, AlertCircle, Users, Bug, Search as SearchIcon
+  Trophy, Zap, ShieldCheck, CheckCircle2, ChartNetwork, Download, Filter, X, ListOrdered, BarChart3, TrendingUp, AlertCircle, Users, Bug, Search as SearchIcon,
+  Activity, Star, Layers, Briefcase, BookOpen, Award
 } from 'lucide-react';
 
 import { Employee } from '../../types/employee';
@@ -12,7 +13,7 @@ import { ViewByOption, GroupedData, ReportFilter } from '../../types/reports';
 import { exportToCSV, groupData, rankGroups } from '../../core/engines/reportEngine';
 import { FISCAL_YEARS, getCurrentFYString, getFiscalYears, formatMonthLabel } from '../../core/utils/fiscalYear';
 import { scheduleIdle } from '../../core/utils/stagedComputation';
-import { KPIBox } from '../../shared/components/ui/KPIBox';
+import { KPIBox, KPISplitCard } from '../../shared/components/ui/KPIBox';
 import { DataTable } from '../../shared/components/ui/DataTable';
 import { TimeSeriesTable } from '../../features/dashboard/components/TimeSeriesTable';
 import { TrainerTable } from '../../features/dashboard/components/TrainerTable';
@@ -112,7 +113,7 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
     if (tabType === 'IP') {
       return (
         <td key={keyVal} className="td-center" title={`>90%: ${data.elite}\n75–90%: ${data.high}\n50–75%: ${data.medium}\n<50%: ${data.low}`}>
-          <div className="performance-cell-container">
+          <div className="performance-cell-container tabular-nums">
             <span className="performance-elite">{data.elite}</span>
             <span className="performance-sep">/</span>
             <span className="performance-high">{data.high}</span>
@@ -128,9 +129,15 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
     if (tabType === 'AP') {
       return (
         <td key={keyVal} className="td-center">
-          <div className="flex flex-col items-center gap-0.5">
-            <div className={`text-xs-bold ${flagClass(flagScore(data.avgKnowledge))}`} style={{ background: 'transparent', padding: 0 }}>K: {Math.round(data.avgKnowledge)}</div>
-            <div className={`text-xs-bold ${flagClass(flagScore(data.avgBSE))}`} style={{ background: 'transparent', padding: 0 }}>B: {Math.round(data.avgBSE)}</div>
+          <div className="flex flex-col items-center gap-0.5 tabular-nums" style={{ minWidth: '80px' }}>
+            <div className="metric-row">
+              <span className="metric-label">K</span>
+              <span className={`metric-value ${flagClass(flagScore(data.avgKnowledge))}`}>{Math.round(data.avgKnowledge)}%</span>
+            </div>
+            <div className="metric-row">
+              <span className="metric-label">B</span>
+              <span className={`metric-value ${flagClass(flagScore(data.avgBSE))}`}>{Math.round(data.avgBSE)}%</span>
+            </div>
           </div>
         </td>
       );
@@ -139,9 +146,15 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
     if (tabType === 'MIP') {
       return (
         <td key={keyVal} className="td-center">
-          <div className="flex flex-col items-center gap-0.5">
-            <div className={`text-xs-bold ${flagClass(flagScore(data.avgScience))}`} style={{ background: 'transparent', padding: 0 }}>Sci: {Math.round(data.avgScience)}</div>
-            <div className={`text-xs-bold ${flagClass(flagScore(data.avgSkill))}`} style={{ background: 'transparent', padding: 0 }}>Skl: {Math.round(data.avgSkill)}</div>
+          <div className="flex flex-col items-center gap-0.5 tabular-nums" style={{ minWidth: '80px' }}>
+            <div className="metric-row">
+              <span className="metric-label">Sci</span>
+              <span className={`metric-value ${flagClass(flagScore(data.avgScience))}`}>{Math.round(data.avgScience)}</span>
+            </div>
+            <div className="metric-row">
+              <span className="metric-label">Skl</span>
+              <span className={`metric-value ${flagClass(flagScore(data.avgSkill))}`}>{Math.round(data.avgSkill)}</span>
+            </div>
           </div>
         </td>
       );
@@ -425,38 +438,16 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
             return (
               <motion.div
                 key={item.type}
-                className="ov-card"
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.25, delay: idx * 0.04 }}
-                style={{ '--card-accent': cfg.accent } as React.CSSProperties}
               >
-                {/* Left accent bar */}
-                <div className="ov-card-accent" />
-
-                {/* Card body */}
-                <div className="ov-card-body">
-                  {/* Top row */}
-                  <div className="ov-card-top">
-                    <div>
-                      <div className="ov-card-type">{item.type}</div>
-                      <div className="ov-card-label">{cfg.label}</div>
-                    </div>
-                  </div>
-
-                  {/* Metrics */}
-                  <div className="ov-card-metrics">
-                    <div className="ov-metric">
-                      <div className="ov-metric-value">{item.batches}</div>
-                      <div className="ov-metric-label">Batches</div>
-                    </div>
-                    <div className="ov-metric-divider" />
-                    <div className="ov-metric">
-                      <div className="ov-metric-value">{item.candidates}</div>
-                      <div className="ov-metric-label">Candidates</div>
-                    </div>
-                  </div>
-                </div>
+                <KPIBox 
+                  title={item.type} 
+                  value={item.batches} 
+                  subValue={`${item.candidates} Candidates`} 
+                  badge={<span style={{fontSize: '11px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase'}}>{cfg.label}</span>}
+                />
               </motion.div>
             );
           })}
@@ -588,287 +579,184 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
             {subView === 'gap' ? (
               <Fragment>
                 <KPIBox title="Eligible Cohort" value={gapMetrics.eligibleCount} icon={ShieldCheck} />
-                <KPIBox title="Trained Volume" value={gapMetrics.trainedCount} color="var(--success)" icon={CheckCircle2} />
-                <KPIBox title="Training Gap" value={gapMetrics.gapCount} color="var(--danger)" icon={AlertTriangle} subValue={`${((gapMetrics.gapCount / (gapMetrics.eligibleCount || 1)) * 100).toFixed(1)}% untrained`} />
+                <KPISplitCard 
+                  title="Training Progress"
+                  leftLabel="Trained"
+                  leftValue={gapMetrics.trainedCount}
+                  leftSubValue={<span style={{ color: 'var(--success)', fontWeight: 600 }}>{((gapMetrics.trainedCount / (gapMetrics.eligibleCount || 1)) * 100).toFixed(1)}%</span>}
+                  rightLabel="Gap"
+                  rightValue={gapMetrics.gapCount}
+                  rightSubValue={<span style={{ color: 'var(--danger)', fontWeight: 600 }}>{((gapMetrics.gapCount / (gapMetrics.eligibleCount || 1)) * 100).toFixed(1)}%</span>}
+                  icon={Activity}
+                />
               </Fragment>
             ) : (
               <Fragment>
                 {tab === 'IP' && executiveKPIs && (
                   <Fragment>
-                    {/* CARD 1: ELITE CANDIDATES */}
-                    <div className="h-full" style={{ padding: '20px', background: '#fff', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 4px 15px -3px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column' }}>
-                      <div style={{ color: '#94a3b8', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
-                        Elite Candidates
-                      </div>
-                      <div style={{ fontSize: '28px', fontWeight: 600, color: '#0f172a', lineHeight: 1, letterSpacing: '-0.02em' }}>
-                        {executiveKPIs.eliteCount.toLocaleString()}
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 500, marginTop: '8px', letterSpacing: '0.01em' }}>
-                        <span style={{ fontWeight: 600, color: '#4f46e5' }}>{executiveKPIs.eliteRatio.toFixed(1)}%</span> of Total Candidates
-                      </div>
-                    </div>
-
-                    {/* CARD 2: LOW CANDIDATES */}
-                    <div className="glass-panel" style={{ padding: '16px', background: 'var(--amber-light, rgba(245, 158, 11, 0.04))', borderLeft: '4px solid #f59e0b' }}>
-                      <div style={{ color: '#64748b', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
-                        Low Candidates
-                      </div>
-                      <div style={{ fontSize: '32px', fontWeight: 800, color: '#1e293b', lineHeight: 1 }}>
-                        {executiveKPIs.lowCount.toLocaleString()}
-                      </div>
-                      <div style={{ fontSize: '13px', color: '#64748b', marginTop: '10px' }}>
-                        <span style={{ fontWeight: 700, color: '#f59e0b' }}>{executiveKPIs.lowRatio.toFixed(1)}%</span> of Total Candidates
-                      </div>
-                    </div>
-
-                    {/* CARD 3: ELITE DISTRIBUTION */}
-                    <div className="glass-panel" style={{ padding: '16px' }}>
-                      <div style={{ color: '#64748b', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
-                        Elite Distribution
-                      </div>
-                      <div className="flex gap-1" style={{ background: 'rgba(0,0,0,0.05)', padding: '2px', borderRadius: '6px' }}>
-                        <div style={{ flex: 1, background: '#fff', padding: '8px 12px', borderRadius: '4px' }}>
-                          <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Highest Elite</div>
-                          <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b', margin: '2px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={executiveKPIs.highestElite.name}>
-                            {executiveKPIs.highestElite.name}
-                          </div>
-                          <div style={{ fontSize: '18px', fontWeight: 800, color: '#6366f1' }}>{executiveKPIs.highestElite.elitePct.toFixed(1)}%</div>
-                        </div>
-                        <div style={{ flex: 1, background: '#fff', padding: '8px 12px', borderRadius: '4px', textAlign: 'right' }}>
-                          <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Lowest Elite</div>
-                          <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b', margin: '2px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={executiveKPIs.lowestElite.name}>
-                            {executiveKPIs.lowestElite.name}
-                          </div>
-                          <div style={{ fontSize: '18px', fontWeight: 800, color: '#6366f1' }}>{executiveKPIs.lowestElite.elitePct.toFixed(1)}%</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* CARD 4: LOW DISTRIBUTION */}
-                    <div className="glass-panel" style={{ padding: '16px' }}>
-                      <div style={{ color: '#64748b', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
-                        Low Distribution
-                      </div>
-                      <div className="flex gap-1" style={{ background: 'rgba(0,0,0,0.05)', padding: '2px', borderRadius: '6px' }}>
-                        <div style={{ flex: 1, background: '#fff', padding: '8px 12px', borderRadius: '4px' }}>
-                          <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Lowest Low</div>
-                          <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b', margin: '2px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={executiveKPIs.lowestLow.name}>
-                            {executiveKPIs.lowestLow.name}
-                          </div>
-                          <div style={{ fontSize: '18px', fontWeight: 800, color: '#f59e0b' }}>{executiveKPIs.lowestLow.lowPct.toFixed(1)}%</div>
-                        </div>
-                        <div style={{ flex: 1, background: '#fff', padding: '8px 12px', borderRadius: '4px', textAlign: 'right' }}>
-                          <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Highest Low</div>
-                          <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b', margin: '2px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={executiveKPIs.highestLow.name}>
-                            {executiveKPIs.highestLow.name}
-                          </div>
-                          <div style={{ fontSize: '18px', fontWeight: 800, color: '#f59e0b' }}>{executiveKPIs.highestLow.lowPct.toFixed(1)}%</div>
-                        </div>
-                      </div>
-                    </div>
+                    <KPIBox 
+                      title="Elite Candidates" 
+                      value={executiveKPIs.eliteCount.toLocaleString()} 
+                      subValue={<><span style={{ fontWeight: 600, color: '#4F8EF7' }}>{executiveKPIs.eliteRatio.toFixed(1)}%</span> of Total</>} 
+                      icon={Star}
+                    />
+                    <KPIBox 
+                      title="Low Candidates" 
+                      value={executiveKPIs.lowCount.toLocaleString()} 
+                      subValue={<><span style={{ fontWeight: 600, color: '#F59E0B' }}>{executiveKPIs.lowRatio.toFixed(1)}%</span> of Total</>} 
+                      icon={AlertCircle}
+                    />
+                    <KPISplitCard 
+                      title="Elite Performance Distribution"
+                      leftLabel="Highest Elite"
+                      leftValue={`${executiveKPIs.highestElite.elitePct.toFixed(1)}%`}
+                      leftSubValue={executiveKPIs.highestElite.name}
+                      rightLabel="Lowest Elite"
+                      rightValue={`${executiveKPIs.lowestElite.elitePct.toFixed(1)}%`}
+                      rightSubValue={executiveKPIs.lowestElite.name}
+                      icon={Layers}
+                    />
+                    <KPISplitCard 
+                      title="Low Performance Distribution"
+                      leftLabel="Lowest Low"
+                      leftValue={`${executiveKPIs.lowestLow.lowPct.toFixed(1)}%`}
+                      leftSubValue={executiveKPIs.lowestLow.name}
+                      rightLabel="Highest Low"
+                      rightValue={`${executiveKPIs.highestLow.lowPct.toFixed(1)}%`}
+                      rightSubValue={executiveKPIs.highestLow.name}
+                      icon={Layers}
+                    />
                   </Fragment>
                 )}
+
                 {tab === 'AP' && apExecutiveKPIs && (
                   <Fragment>
-                    {/* CARD 1: TRAINING VOLUME */}
-                    <div className="glass-panel" style={{ padding: '16px' }}>
-                      <div style={{ color: '#64748b', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
-                        Training Volume
-                      </div>
-                      <div className="flex gap-1" style={{ background: 'rgba(0,0,0,0.05)', padding: '2px', borderRadius: '6px' }}>
-                        <div style={{ flex: 1, background: '#fff', padding: '8px 12px', borderRadius: '4px' }}>
-                          <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Highest Batches</div>
-                          <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b', margin: '2px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={apExecutiveKPIs.highestBatches.name}>
-                            {apExecutiveKPIs.highestBatches.name}
-                          </div>
-                          <div style={{ fontSize: '18px', fontWeight: 800, color: '#6366f1' }}>
-                            {apExecutiveKPIs.highestBatches.batches} <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 500 }}>Batches</span>
-                          </div>
-                          <div style={{ fontSize: '11px', color: '#64748b' }}>{apExecutiveKPIs.highestBatches.candidates} Candidates</div>
-                        </div>
-                        <div style={{ flex: 1, background: '#fff', padding: '8px 12px', borderRadius: '4px', textAlign: 'right' }}>
-                          <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Highest Candidates</div>
-                          <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b', margin: '2px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={apExecutiveKPIs.highestCandidates.name}>
-                            {apExecutiveKPIs.highestCandidates.name}
-                          </div>
-                          <div style={{ fontSize: '18px', fontWeight: 800, color: '#6366f1' }}>
-                            {apExecutiveKPIs.highestCandidates.candidates} <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 500 }}>Candidates</span>
-                          </div>
-                          <div style={{ fontSize: '11px', color: '#64748b' }}>{apExecutiveKPIs.highestCandidates.batches} Batches</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* CARD 2: TEST SCORE DISTRIBUTION */}
-                    <div className="glass-panel" style={{ padding: '16px' }}>
-                      <div style={{ color: '#64748b', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
-                        Test Score Distribution
-                      </div>
-                      <div className="flex gap-1" style={{ background: 'rgba(0,0,0,0.05)', padding: '2px', borderRadius: '6px' }}>
-                        <div style={{ flex: 1, background: '#fff', padding: '8px 12px', borderRadius: '4px' }}>
-                          <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Highest Test Score</div>
-                          <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b', margin: '2px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={apExecutiveKPIs.highestTest.name}>
-                            {apExecutiveKPIs.highestTest.name}
-                          </div>
-                          <div style={{ fontSize: '18px', fontWeight: 800, color: '#6366f1' }}>{apExecutiveKPIs.highestTest.score.toFixed(1)}%</div>
-                        </div>
-                        <div style={{ flex: 1, background: '#fff', padding: '8px 12px', borderRadius: '4px', textAlign: 'right' }}>
-                          <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Lowest Test Score</div>
-                          <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b', margin: '2px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={apExecutiveKPIs.lowestTest.name}>
-                            {apExecutiveKPIs.lowestTest.name}
-                          </div>
-                          <div style={{ fontSize: '18px', fontWeight: 800, color: '#6366f1' }}>{apExecutiveKPIs.lowestTest.score.toFixed(1)}%</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* CARD 3: BSE SCORE DISTRIBUTION */}
-                    <div className="glass-panel" style={{ padding: '16px' }}>
-                      <div style={{ color: '#64748b', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
-                        BSE Score Distribution
-                      </div>
-                      <div className="flex gap-1" style={{ background: 'rgba(0,0,0,0.05)', padding: '2px', borderRadius: '6px' }}>
-                        <div style={{ flex: 1, background: '#fff', padding: '8px 12px', borderRadius: '4px' }}>
-                          <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Highest BSE Score</div>
-                          <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b', margin: '2px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={apExecutiveKPIs.highestBSE.name}>
-                            {apExecutiveKPIs.highestBSE.name}
-                          </div>
-                          <div style={{ fontSize: '18px', fontWeight: 800, color: '#6366f1' }}>{apExecutiveKPIs.highestBSE.score.toFixed(1)}%</div>
-                        </div>
-                        <div style={{ flex: 1, background: '#fff', padding: '8px 12px', borderRadius: '4px', textAlign: 'right' }}>
-                          <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Lowest BSE Score</div>
-                          <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b', margin: '2px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={apExecutiveKPIs.lowestBSE.name}>
-                            {apExecutiveKPIs.lowestBSE.name}
-                          </div>
-                          <div style={{ fontSize: '18px', fontWeight: 800, color: '#6366f1' }}>{apExecutiveKPIs.lowestBSE.score.toFixed(1)}%</div>
-                        </div>
-                      </div>
-                    </div>
+                    <KPISplitCard 
+                      title="Training Volume Distribution"
+                      leftLabel="Highest Batches"
+                      leftValue={apExecutiveKPIs.highestBatches.batches}
+                      leftSubValue={apExecutiveKPIs.highestBatches.name}
+                      rightLabel="Highest Candidates"
+                      rightValue={apExecutiveKPIs.highestCandidates.candidates}
+                      rightSubValue={apExecutiveKPIs.highestCandidates.name}
+                      icon={BookOpen}
+                    />
+                    <KPISplitCard 
+                      title="Test Score Distribution"
+                      leftLabel="Highest Score"
+                      leftValue={`${apExecutiveKPIs.highestTest.score.toFixed(1)}%`}
+                      leftSubValue={apExecutiveKPIs.highestTest.name}
+                      rightLabel="Lowest Score"
+                      rightValue={`${apExecutiveKPIs.lowestTest.score.toFixed(1)}%`}
+                      rightSubValue={apExecutiveKPIs.lowestTest.name}
+                      icon={GraduationCap}
+                    />
+                    <KPISplitCard 
+                      title="BSE Score Distribution"
+                      leftLabel="Highest Score"
+                      leftValue={`${apExecutiveKPIs.highestBSE.score.toFixed(1)}%`}
+                      leftSubValue={apExecutiveKPIs.highestBSE.name}
+                      rightLabel="Lowest Score"
+                      rightValue={`${apExecutiveKPIs.lowestBSE.score.toFixed(1)}%`}
+                      rightSubValue={apExecutiveKPIs.lowestBSE.name}
+                      icon={Activity}
+                    />
                   </Fragment>
                 )}
 
                 {tab === 'MIP' && mipExecutiveKPIs && (
                   <Fragment>
-                    {/* CARD 1: HIGHEST PARTICIPATION */}
-                    <div className="h-full" style={{ padding: '20px', background: '#fff', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 4px 15px -3px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column' }}>
-                      <div style={{ color: '#94a3b8', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
-                        Highest team participation
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ fontSize: '20px', fontWeight: 600, color: '#0f172a', lineHeight: 1.2, marginBottom: '4px', letterSpacing: '-0.02em' }}>{mipExecutiveKPIs.highestTeam.name}</div>
-                        <div style={{ fontSize: '15px', fontWeight: 600, color: '#4f46e5', marginBottom: '8px' }}>{mipExecutiveKPIs.highestTeam.total} <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 500, letterSpacing: '0.01em' }}>Candidates</span></div>
-                        
-                        <div style={{ height: '1px', background: '#cbd5e1', width: '100%', marginBottom: '12px' }} />
-                        
-                        <div>
-                          <div className="flex gap-6" style={{ marginTop: '4px' }}>
-                             <div className="flex items-center" style={{ gap: '8px' }}>
-                               <span style={{ color: '#94a3b8', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>DM</span>
-                               <span style={{ fontWeight: 600, color: '#475569', fontSize: '13px' }}>{mipExecutiveKPIs.highestTeam.bifurcation.dm}</span>
-                             </div>
-                             <div className="flex items-center" style={{ gap: '8px' }}>
-                               <span style={{ color: '#94a3b8', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>RSM</span>
-                               <span style={{ fontWeight: 600, color: '#475569', fontSize: '13px' }}>{mipExecutiveKPIs.highestTeam.bifurcation.rsm}</span>
-                             </div>
-                             <div className="flex items-center" style={{ gap: '8px' }}>
-                               <span style={{ color: '#94a3b8', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>DSM</span>
-                               <span style={{ fontWeight: 600, color: '#475569', fontSize: '13px' }}>{mipExecutiveKPIs.highestTeam.bifurcation.dsm}</span>
-                             </div>
+                    <KPISplitCard 
+                      title="Participation Distribution"
+                      leftLabel="Highest Team"
+                      leftValue={mipExecutiveKPIs.highestTeam.total}
+                      leftSubValue={
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <div style={{ fontWeight: 600 }}>{mipExecutiveKPIs.highestTeam.name}</div>
+                          <div style={{ fontSize: '10px', color: '#94A3B8' }}>
+                            DM: {mipExecutiveKPIs.highestTeam.bifurcation.dm} | RSM: {mipExecutiveKPIs.highestTeam.bifurcation.rsm} | DSM: {mipExecutiveKPIs.highestTeam.bifurcation.dsm}
                           </div>
                         </div>
-                      </div>
-                    </div>
-
-                    {/* CARD 2: LOWEST PARTICIPATION */}
-                    <div className="h-full" style={{ padding: '20px', background: '#fff', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 4px 15px -3px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column' }}>
-                      <div style={{ color: '#94a3b8', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
-                        Lowest team participation
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ fontSize: '20px', fontWeight: 600, color: '#0f172a', lineHeight: 1.2, marginBottom: '4px', letterSpacing: '-0.02em' }}>{mipExecutiveKPIs.lowestTeam.name}</div>
-                        <div style={{ fontSize: '15px', fontWeight: 600, color: '#f59e0b', marginBottom: '8px' }}>{mipExecutiveKPIs.lowestTeam.total} <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 500, letterSpacing: '0.01em' }}>Candidates</span></div>
-                        
-                        <div style={{ height: '1px', background: '#cbd5e1', width: '100%', marginBottom: '12px' }} />
-                        
-                        <div>
-                          <div className="flex gap-6" style={{ marginTop: '4px' }}>
-                             <div className="flex items-center" style={{ gap: '8px' }}>
-                               <span style={{ color: '#94a3b8', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>DM</span>
-                               <span style={{ fontWeight: 600, color: '#475569', fontSize: '13px' }}>{mipExecutiveKPIs.lowestTeam.bifurcation.dm}</span>
-                             </div>
-                             <div className="flex items-center" style={{ gap: '8px' }}>
-                               <span style={{ color: '#94a3b8', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>RSM</span>
-                               <span style={{ fontWeight: 600, color: '#475569', fontSize: '13px' }}>{mipExecutiveKPIs.lowestTeam.bifurcation.rsm}</span>
-                             </div>
-                             <div className="flex items-center" style={{ gap: '8px' }}>
-                               <span style={{ color: '#94a3b8', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>DSM</span>
-                               <span style={{ fontWeight: 600, color: '#475569', fontSize: '13px' }}>{mipExecutiveKPIs.lowestTeam.bifurcation.dsm}</span>
-                             </div>
+                      }
+                      rightLabel="Lowest Team"
+                      rightValue={mipExecutiveKPIs.lowestTeam.total}
+                      rightSubValue={
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <div style={{ fontWeight: 600 }}>{mipExecutiveKPIs.lowestTeam.name}</div>
+                          <div style={{ fontSize: '10px', color: '#94A3B8' }}>
+                            DM: {mipExecutiveKPIs.lowestTeam.bifurcation.dm} | RSM: {mipExecutiveKPIs.lowestTeam.bifurcation.rsm} | DSM: {mipExecutiveKPIs.lowestTeam.bifurcation.dsm}
                           </div>
                         </div>
-                      </div>
-                    </div>
-
-                    {/* CARD 3: TOTAL MANAGERS ATTENDED */}
-                    <div className="h-full" style={{ padding: '20px', background: '#fff', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 4px 15px -3px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column' }}>
-                      <div style={{ color: '#94a3b8', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
-                        Total managers attended
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ fontSize: '28px', fontWeight: 600, color: '#7c3aed', lineHeight: 1.1, marginBottom: '4px', letterSpacing: '-0.02em' }}>{mipExecutiveKPIs.totalManagers.total}</div>
-                        <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.04em' }}>Total Managers</div>
-                        
-                        <div style={{ height: '1px', background: '#cbd5e1', width: '100%', marginBottom: '12px' }} />
-                        
-                        <div>
-                          <div className="flex gap-6" style={{ marginTop: '4px' }}>
-                             <div className="flex items-center" style={{ gap: '8px' }}>
-                               <span style={{ color: '#94a3b8', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>DM</span>
-                               <span style={{ fontWeight: 600, color: '#475569', fontSize: '13px' }}>{mipExecutiveKPIs.totalManagers.bifurcation.dm}</span>
-                             </div>
-                             <div className="flex items-center" style={{ gap: '8px' }}>
-                               <span style={{ color: '#94a3b8', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>RSM</span>
-                               <span style={{ fontWeight: 600, color: '#475569', fontSize: '13px' }}>{mipExecutiveKPIs.totalManagers.bifurcation.rsm}</span>
-                             </div>
-                             <div className="flex items-center" style={{ gap: '8px' }}>
-                               <span style={{ color: '#94a3b8', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>DSM</span>
-                               <span style={{ fontWeight: 600, color: '#475569', fontSize: '13px' }}>{mipExecutiveKPIs.totalManagers.bifurcation.dsm}</span>
-                             </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                      }
+                      icon={Users}
+                    />
+                    <KPIBox 
+                      title="Total Managers Attended" 
+                      value={mipExecutiveKPIs.totalManagers.total} 
+                      subValue="Total Combined"
+                      badge={<span style={{fontSize: '11px', color: '#64748B', fontWeight: 600}}>DM: {mipExecutiveKPIs.totalManagers.bifurcation.dm} | RSM: {mipExecutiveKPIs.totalManagers.bifurcation.rsm} | DSM: {mipExecutiveKPIs.totalManagers.bifurcation.dsm}</span>}
+                      icon={Briefcase}
+                    />
                   </Fragment>
                 )}
+
                 {tab === 'Refresher' && subView === 'refresher_attendance' && refresherAttData && (
                   <Fragment>
-                    <KPIBox title="Total Notified (FY)" value={refresherAttData.globalKPIs.totalNotified} icon={Zap} />
-                    <KPIBox title="Total Attended (FY)" value={refresherAttData.globalKPIs.totalAttended} color="var(--success)" icon={CheckCircle2} />
-                    <KPIBox title="Attendance %" value={`${refresherAttData.globalKPIs.attendancePercent.toFixed(1)}%`} color="var(--accent-primary)" />
+                    <KPISplitCard 
+                      title="Attendance Funnel"
+                      leftLabel="Notified"
+                      leftValue={refresherAttData.globalKPIs.totalNotified}
+                      rightLabel="Attended"
+                      rightValue={refresherAttData.globalKPIs.totalAttended}
+                      icon={Zap}
+                    />
+                    <KPIBox title="Attendance %" value={`${refresherAttData.globalKPIs.attendancePercent.toFixed(1)}%`} color="var(--accent-primary)" icon={CheckCircle2} />
                   </Fragment>
                 )}
                 {tab === 'Refresher' && subView === 'refresher_performance' && refresherPerfData && (
                   <Fragment>
                     <KPIBox title="Total Attended" value={refresherPerfData.globalKPIs.totalAttended} icon={Zap} />
-                    <KPIBox title="Avg Science" value={(refresherPerfData.globalKPIs.avgScience || 0).toFixed(1)} color="var(--success)" badge={refresherPerfData.globalKPIs.avgScience > 0 ? <span className={`badge ${flagClass(flagScore(refresherPerfData.globalKPIs.avgScience))}`}>Sci</span> : undefined} />
-                    <KPIBox title="Avg Skill" value={(refresherPerfData.globalKPIs.avgSkill || 0).toFixed(1)} color="var(--warning)" badge={refresherPerfData.globalKPIs.avgSkill > 0 ? <span className={`badge ${flagClass(flagScore(refresherPerfData.globalKPIs.avgSkill))}`}>Skl</span> : undefined} />
+                    <KPISplitCard 
+                      title="Average Performance"
+                      leftLabel="Science"
+                      leftValue={(refresherPerfData.globalKPIs.avgScience || 0).toFixed(1)}
+                      leftSubValue={refresherPerfData.globalKPIs.avgScience > 0 ? <span className={`badge ${flagClass(flagScore(refresherPerfData.globalKPIs.avgScience))}`}>Rating</span> : undefined}
+                      rightLabel="Skill"
+                      rightValue={(refresherPerfData.globalKPIs.avgSkill || 0).toFixed(1)}
+                      rightSubValue={refresherPerfData.globalKPIs.avgSkill > 0 ? <span className={`badge ${flagClass(flagScore(refresherPerfData.globalKPIs.avgSkill))}`}>Rating</span> : undefined}
+                      icon={Award}
+                    />
                     <KPIBox title="High Performers" value={`${(refresherPerfData.globalKPIs.highPerformersPct || 0).toFixed(1)}%`} color="var(--accent-primary)" icon={Trophy} />
                   </Fragment>
                 )}
                 {tab === 'Capsule' && subView === 'capsule_attendance' && capsuleAttData && (
                   <Fragment>
-                    <KPIBox title="Total Notified (FY)" value={capsuleAttData.globalKPIs.totalNotified} icon={Zap} />
-                    <KPIBox title="Total Attended (FY)" value={capsuleAttData.globalKPIs.totalAttended} color="var(--success)" icon={CheckCircle2} />
-                    <KPIBox title="Attendance %" value={`${capsuleAttData.globalKPIs.attendancePercent.toFixed(1)}%`} color="var(--accent-primary)" />
+                    <KPISplitCard 
+                      title="Attendance Funnel"
+                      leftLabel="Notified"
+                      leftValue={capsuleAttData.globalKPIs.totalNotified}
+                      rightLabel="Attended"
+                      rightValue={capsuleAttData.globalKPIs.totalAttended}
+                      icon={Zap}
+                    />
+                    <KPIBox title="Attendance %" value={`${capsuleAttData.globalKPIs.attendancePercent.toFixed(1)}%`} color="var(--accent-primary)" icon={CheckCircle2} />
                   </Fragment>
                 )}
                 {tab === 'Capsule' && subView === 'capsule_performance' && capsulePerfData && (
                   <Fragment>
-                    <KPIBox title="Total Attended" value={capsulePerfData.globalKPIs.totalAttended} icon={Zap} />
-                    <KPIBox title="Avg Score" value={(capsulePerfData.globalKPIs.avgScore || 0).toFixed(1)} color="var(--success)" badge={capsulePerfData.globalKPIs.avgScore > 0 ? <span className={`badge ${flagClass(flagScore(capsulePerfData.globalKPIs.avgScore))}`}>Score</span> : undefined} />
+                    <KPISplitCard 
+                      title="Performance Summary"
+                      leftLabel="Total Attended"
+                      leftValue={capsulePerfData.globalKPIs.totalAttended}
+                      rightLabel="Avg Score"
+                      rightValue={(capsulePerfData.globalKPIs.avgScore || 0).toFixed(1)}
+                      rightSubValue={capsulePerfData.globalKPIs.avgScore > 0 ? <span className={`badge ${flagClass(flagScore(capsulePerfData.globalKPIs.avgScore))}`}>Score</span> : undefined}
+                      icon={GraduationCap}
+                    />
                     <KPIBox title="High Performers" value={`${(capsulePerfData.globalKPIs.highPerformersPct || 0).toFixed(1)}%`} color="var(--accent-primary)" icon={Trophy} />
                   </Fragment>
                 )}
+
 
               </Fragment>
             )}

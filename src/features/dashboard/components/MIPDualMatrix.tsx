@@ -167,7 +167,7 @@ export const MIPAttendanceMatrix: React.FC<{ data: MIPAttendanceAggregates, fyMo
                       if (!cell || (!cell.notified && !cell.attended)) return <td key={mo} className={styles.cellEmpty}>—</td>;
                       const pct = cell.notified > 0 ? Math.round((cell.attended / cell.notified) * 100) : 0;
                       return (
-                        <td key={mo} className={styles.cellActive}>
+                        <td key={mo} className={`${styles.cellActive} tabular-nums`}>
                           <span className={`${styles.tdCenterBold} ${styles.valStrong}`}>{cell.attended}</span>
                           <span className={styles.valMuted}>/</span>
                           <span className={styles.tdCenterBold}>{cell.notified}</span>
@@ -190,7 +190,7 @@ export const MIPAttendanceMatrix: React.FC<{ data: MIPAttendanceAggregates, fyMo
                           if (!cell || (!cell.notified && !cell.attended)) return <td key={mo} className={styles.cellEmpty}>—</td>;
                           const pct = cell.notified > 0 ? Math.round((cell.attended / cell.notified) * 100) : 0;
                           return (
-                            <td key={mo} className={styles.cellInteractive} onClick={() => setDrillTarget({ cluster: clusterName, team: teamName, month: mo })}>
+                            <td key={mo} className={`${styles.cellInteractive} tabular-nums`} onClick={() => setDrillTarget({ cluster: clusterName, team: teamName, month: mo })}>
                               <div className={`glass-panel ${styles.drillCard} ${getSciSkillBgClass(pct)}`}>
                                 <span className={`${styles.tdCenterBold} ${styles.valStrong}`}>{cell.attended}</span>
                                 <span className={styles.valMuted}>/</span>
@@ -252,10 +252,15 @@ export const MIPPerformanceMatrix: React.FC<{ data: MIPPerformanceAggregates, fy
                       if (!cell || cell.count === 0) return <td key={mo} className={styles.cellEmpty}>—</td>;
                       const avg = (cell.avgScience + cell.avgSkill) / 2;
                       return (
-                        <td key={mo} className={styles.cellActive}>
-                          <div className={styles.scoreRow}>
-                            <div className={`${styles.scoreValue} ${getScoreColor(avg)}`}>
-                              Score: {Math.round(avg)}
+                        <td key={mo} className={`${styles.cellActive} tabular-nums`}>
+                          <div className={`${styles.scoreRow} tabular-nums`}>
+                            <div className="metric-row">
+                              <span className="metric-label">Sci</span>
+                              <span className={`metric-value ${getScoreColor(cell.avgScience)}`}>{Math.round(cell.avgScience)}</span>
+                            </div>
+                            <div className="metric-row">
+                              <span className="metric-label">Skl</span>
+                              <span className={`metric-value ${getScoreColor(cell.avgSkill)}`}>{Math.round(cell.avgSkill)}</span>
                             </div>
                           </div>
                         </td>
@@ -274,10 +279,15 @@ export const MIPPerformanceMatrix: React.FC<{ data: MIPPerformanceAggregates, fy
                           if (!cell || cell.count === 0) return <td key={mo} className={styles.cellEmpty}>—</td>;
                           const avg = (cell.avgScience + cell.avgSkill) / 2;
                           return (
-                            <td key={mo} className={styles.cellInteractive} onClick={() => setDrillTarget({ cluster: clusterName, team: teamName, month: mo })}>
+                            <td key={mo} className={`${styles.cellInteractive} tabular-nums`} onClick={() => setDrillTarget({ cluster: clusterName, team: teamName, month: mo })}>
                               <div className={`glass-panel ${styles.drillCard} ${getSciSkillBgClass(avg)}`}>
-                                <div className={`${styles.drillCardScore} ${getScoreColor(avg)}`}>
-                                  Score: {Math.round(avg)}
+                                <div className="metric-row">
+                                  <span className="metric-label">Sci</span>
+                                  <span className={`metric-value ${getScoreColor(cell.avgScience)}`}>{Math.round(cell.avgScience)}</span>
+                                </div>
+                                <div className="metric-row">
+                                  <span className="metric-label">Skl</span>
+                                  <span className={`metric-value ${getScoreColor(cell.avgSkill)}`}>{Math.round(cell.avgSkill)}</span>
                                 </div>
                               </div>
                             </td>

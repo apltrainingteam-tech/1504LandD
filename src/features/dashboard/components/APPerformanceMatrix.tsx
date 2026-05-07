@@ -66,17 +66,17 @@ const APDrilldownModal: React.FC<APDrilldownModalProps> = ({ cluster, team, mont
         <div className={styles.statsBar}>
           <div className={styles.statItem}>
             <span className={styles.statLabel}>Total Candidates</span>
-            <span className={styles.statValue}>{totalAttendees}</span>
+            <span className={`${styles.statValue} tabular-nums`}>{totalAttendees}</span>
           </div>
           <div className={styles.divider}></div>
           <div className={styles.statItem}>
             <span className={styles.statLabel}>Avg Knowledge</span>
-            <span className={`${styles.statValue} ${getColorClass(avgK, 'knowledge')}`}>{avgK ? avgK.toFixed(1) : '—'}</span>
+            <span className={`${styles.statValue} ${getColorClass(avgK, 'knowledge')} tabular-nums`}>{avgK ? avgK.toFixed(1) : '—'}</span>
           </div>
           <div className={styles.divider}></div>
           <div className={styles.statItem}>
             <span className={styles.statLabel}>Avg BSE</span>
-            <span className={`${styles.statValue} ${getColorClass(avgBse, 'bse')}`}>{avgBse ? avgBse.toFixed(1) : '—'}</span>
+            <span className={`${styles.statValue} ${getColorClass(avgBse, 'bse')} tabular-nums`}>{avgBse ? avgBse.toFixed(1) : '—'}</span>
           </div>
         </div>
 
@@ -208,11 +208,14 @@ export const APPerformanceMatrix: React.FC<APPerformanceMatrixProps> = ({ data, 
 
                       return (
                         <td key={mo} className={styles.monthCell}>
-                          <div className={styles.monthCellInner}>
-                            <div className={styles.scoreRow}>
-                              <span className={getColorClass(cell.avgKnowledge, 'knowledge')}>K: {cell.avgKnowledge ? Math.round(cell.avgKnowledge) : '—'}</span>
-                              <span className={styles.scoreDivider}>|</span>
-                              <span className={getColorClass(cell.avgBSE, 'bse')}>BSE: {cell.avgBSE ? cell.avgBSE.toFixed(1) : '—'}</span>
+                          <div className={`${styles.monthCellInner} tabular-nums`}>
+                            <div className="metric-row">
+                              <span className="metric-label">K</span>
+                              <span className={`metric-value ${getColorClass(cell.avgKnowledge, 'knowledge')}`}>{cell.avgKnowledge ? Math.round(cell.avgKnowledge) : '—'}%</span>
+                            </div>
+                            <div className="metric-row">
+                              <span className="metric-label">BSE</span>
+                              <span className={`metric-value ${getColorClass(cell.avgBSE, 'bse')}`}>{cell.avgBSE ? cell.avgBSE.toFixed(1) : '—'}</span>
                             </div>
                             <div className={styles.countBadge}>N={cell.count}</div>
                           </div>
@@ -233,11 +236,14 @@ export const APPerformanceMatrix: React.FC<APPerformanceMatrixProps> = ({ data, 
 
                           return (
                             <td key={mo} className={styles.drillCell} onClick={() => setDrillTarget({ cluster: clusterName, team: teamName, month: mo })}>
-                              <div className={`glass-panel ${styles.drillCard} ${getBgClass(cell.avgKnowledge, 'knowledge')}`}>
-                                <div className={styles.drillScoreRow}>
-                                  <span className={getColorClass(cell.avgKnowledge, 'knowledge')}>K: {cell.avgKnowledge ? Math.round(cell.avgKnowledge) : '—'}</span>
-                                  <span className={styles.scoreDivider}>|</span>
-                                  <span className={getColorClass(cell.avgBSE, 'bse')}>BSE: {cell.avgBSE ? cell.avgBSE.toFixed(1) : '—'}</span>
+                              <div className={`glass-panel ${styles.drillCard} ${getBgClass(cell.avgKnowledge, 'knowledge')} tabular-nums`}>
+                                <div className="metric-row">
+                                  <span className="metric-label">K</span>
+                                  <span className={`metric-value ${getColorClass(cell.avgKnowledge, 'knowledge')}`}>{cell.avgKnowledge ? Math.round(cell.avgKnowledge) : '—'}%</span>
+                                </div>
+                                <div className="metric-row">
+                                  <span className="metric-label">BSE</span>
+                                  <span className={`metric-value ${getColorClass(cell.avgBSE, 'bse')}`}>{cell.avgBSE ? cell.avgBSE.toFixed(1) : '—'}</span>
                                 </div>
                               </div>
                             </td>

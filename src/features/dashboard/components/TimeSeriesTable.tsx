@@ -62,7 +62,7 @@ export const TimeSeriesTable: React.FC<TimeSeriesTableProps> = memo(({ rows, mon
                   return (
                     <td key={mo} style={{ padding: '8px 12px', textAlign: 'center', background: flag === 'green' ? 'rgba(16,185,129,0.08)' : flag === 'amber' ? 'rgba(245,158,11,0.08)' : flag === 'red' ? 'rgba(239,68,68,0.08)' : 'transparent' }}>
                       {val != null ? (
-                        <span style={{ fontWeight: 600, color: flag === 'green' ? 'var(--success)' : flag === 'amber' ? 'var(--warning)' : flag === 'red' ? 'var(--danger)' : 'var(--text-primary)' }}>
+                        <span className={`tabular-nums`} style={{ fontWeight: 600, color: flag === 'green' ? 'var(--success)' : flag === 'amber' ? 'var(--warning)' : flag === 'red' ? 'var(--danger)' : 'var(--text-primary)' }}>
                           {mode === 'score' ? displayScore(val) : val}
                           {mode === 'score' && flag && <span style={{ fontSize: '10px', marginLeft: '4px' }}>{flag === 'green' ? '●' : flag === 'amber' ? '●' : '●'}</span>}
                         </span>
