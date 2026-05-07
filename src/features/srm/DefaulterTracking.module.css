@@ -1,112 +1,299 @@
 .page {
-  padding: 24px;
+  padding: 32px;
+  background: #F8FAFC;
+  min-height: 100vh;
 }
 
 .header {
   margin-bottom: 24px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
 }
 
 .title {
-  font-size: 32px;
-  font-weight: 700;
-  margin-bottom: 8px;
+  font-size: 28px;
+  font-weight: 800;
+  color: #0F172A;
+  margin-bottom: 4px;
   display: flex;
   align-items: center;
   gap: 12px;
+  letter-spacing: -0.02em;
 }
 
 .subtitle {
-  color: var(--text-secondary);
-  margin-bottom: 16px;
+  color: #64748B;
+  font-size: 14px;
 }
 
 .statsRow {
   display: flex;
   gap: 16px;
-  margin-bottom: 24px;
+  margin-bottom: 32px;
 }
 
 .statCard {
   flex: 1;
+  background: white;
   padding: 20px;
+  border-radius: 12px;
+  border: 1px solid #E2E8F0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
 
 .statLabel {
-  font-size: 14px;
-  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748B;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .statValue {
-  font-size: 28px;
-  font-weight: 700;
+  font-size: 24px;
+  font-weight: 800;
+  color: #0F172A;
 }
 
-.criticalText { color: var(--danger); }
-.warningText { color: var(--warning); }
-.successText { color: var(--success); }
+.criticalText { color: #EF4444; }
+.warningText { color: #F59E0B; }
 
-.tableContainer {
-  margin-top: 24px;
+.mainContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.tableHeader {
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border-color);
+/* Cluster Container */
+.clusterContainer {
+  background: #F1F5F9;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.2s;
+}
+
+.unassignedCluster {
+  background: #FFF7ED;
+  border-color: #FED7AA;
+}
+
+.clusterHeader {
+  padding: 16px 24px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  cursor: pointer;
+  background: rgba(255,255,255,0.5);
 }
 
-.tableTitle {
-  font-size: 18px;
+.headerActive {
+  background: rgba(255,255,255,0.8);
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+
+.headerInfo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.clusterName {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1E293B;
+}
+
+.headerMetrics {
+  display: flex;
+  gap: 24px;
+}
+
+.hMetric {
+  font-size: 13px;
+  color: #64748B;
+}
+
+.hMetric strong {
+  color: #1E293B;
+}
+
+/* Team Card */
+.clusterContent {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.teamCard {
+  background: white;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.teamHeader {
+  padding: 12px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  background: #FFFFFF;
+  transition: background 0.2s;
+}
+
+.teamHeader:hover {
+  background: #F8FAFC;
+}
+
+.teamHeaderOpen {
+  background: #F8FAFC;
+  border-bottom: 1px solid #F1F5F9;
+}
+
+.teamBasic {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.teamName {
+  font-size: 14px;
   font-weight: 600;
+  color: #334155;
 }
 
-.badge {
-  padding: 4px 10px;
-  border-radius: 999px;
+.teamMetrics {
+  display: flex;
+  gap: 20px;
+}
+
+.tMetric {
   font-size: 12px;
-  font-weight: 600;
+  color: #64748B;
 }
 
-.badgeCritical {
-  background: rgba(239, 68, 68, 0.1);
-  color: var(--danger);
-  border: 1px solid rgba(239, 68, 68, 0.2);
+.tMetric span {
+  color: #94A3B8;
+  margin-right: 4px;
 }
 
-.badgeWarning {
-  background: rgba(245, 158, 11, 0.1);
-  color: var(--warning);
-  border: 1px solid rgba(245, 158, 11, 0.2);
+/* Matrix Table */
+.matrixContainer {
+  background: #FFFFFF;
 }
 
-.badgeCompliant {
-  background: rgba(16, 185, 129, 0.1);
-  color: var(--success);
-  border: 1px solid rgba(16, 185, 129, 0.2);
+.matrixWrapper {
+  overflow-x: auto;
 }
 
-.countCircle {
+.matrixTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.matrixTable th {
+  position: sticky;
+  top: 0;
+  background: #F8FAFC;
+  padding: 10px 20px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748B;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 2px solid #E2E8F0;
+  z-index: 10;
+}
+
+.matrixRow {
+  transition: background 0.2s;
+}
+
+.matrixRow:hover {
+  background: #F1F5F9;
+}
+
+.matrixRow td {
+  padding: 12px 20px;
+  border-bottom: 1px solid #F1F5F9;
+  font-size: 13px;
+  color: #334155;
+  vertical-align: middle;
+}
+
+.tdEmpId { font-family: monospace; font-size: 12px; color: #64748B; }
+.tdName { font-weight: 600; color: #0F172A; }
+.tdSecondary { color: #64748B; font-size: 12px; }
+.tdDate { font-family: monospace; font-size: 11px; color: #64748B; }
+
+/* Utilities */
+.chevron {
+  transition: transform 0.2s;
+  color: #94A3B8;
+}
+
+.rotate {
+  transform: rotate(180deg);
+  color: #6366F1;
+}
+
+.riskBadge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.riskCritical {
+  background: #FEE2E2;
+  color: #EF4444;
+}
+
+.riskWarning {
+  background: #FEF3C7;
+  color: #D97706;
+}
+
+.notifiedList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.notifiedDate {
+  background: #F1F5F9;
+  color: #475569;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.dqAlert {
+  background: #F59E0B;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: var(--bg-secondary);
-  font-size: 12px;
-  font-weight: 600;
+  gap: 4px;
+  text-transform: uppercase;
 }
 
 .emptyState {
-  padding: 80px;
+  padding: 100px;
+  background: white;
+  border-radius: 12px;
   text-align: center;
-  color: var(--text-secondary);
+  color: #94A3B8;
+  font-style: italic;
+  border: 1px dashed #E2E8F0;
 }

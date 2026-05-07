@@ -163,11 +163,11 @@ export const uploadTrainingDataStrict = async (
         // ─── ACCEPT UNLINKED ROWS ───
         // If employee not in master, we still accept the row (as per new rules)
         // We tag it as 'unlinked' for UI identification
+        const unlinkedId = `unlinked_${norm(row.name)}_${norm(row.team)}`.replace(/\s+/g, '_');
         activeEmployees++; 
         finalValidRows.push({
           ...row,
-          // Ensure we have a primary ID for the record (fallback to Aadhaar or Mobile)
-          employeeId: row.employeeId || row.aadhaarNumber || row.mobileNumber,
+          employeeId: row.employeeId || unlinkedId,
           _masterStatus: 'unlinked',
           _isUnlinked: true
         });

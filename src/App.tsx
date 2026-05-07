@@ -116,8 +116,7 @@ const sidebarSections: SidebarSection[] = [
   {
     title: "STRATEGY",
     items: [
-      { label: "SRM Dashboard", view: "srm", icon: Target },
-      { label: "Defaulter Tracking", view: "defaulters", icon: ShieldAlert }
+      { label: "SRM Dashboard", view: "srm", icon: Target }
     ]
   },
   {
