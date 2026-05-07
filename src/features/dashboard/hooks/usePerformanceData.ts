@@ -154,7 +154,7 @@ export const usePerformanceData = ({
   }, [unified, tabNoms, masterTeams, activeNT, scores]);
 
   // 6. Domain Sub-hooks (MUST be called unconditionally)
-  const ipData = useIPData(unified, MONTHS, activeNT);
+  const ipData = useIPData(unified, MONTHS, activeNT, effectiveViewBy);
   const apData = useAPData(activeTimelines, MONTHS, activeNT, unified, tabNoms);
   const mipData = useMIPData(activeTimelines, MONTHS, activeNT, unified);
   const refresherData = useRefresherData(activeTimelines, MONTHS, activeNT, unified);
@@ -246,12 +246,11 @@ export const usePerformanceData = ({
       months: [],
       timeSeries: [],
       tabNoms: [],
-      ipKPI: null,
-      apKPI: null,
+      executiveKPIs: null,
+      apExecutiveKPIs: null,
       mipKPI: null,
       refresherKPI: null,
       capsuleKPI: null,
-      preApKPI: null,
       overviewSummary: [],
       resolutionLevel
     };
@@ -284,12 +283,11 @@ export const usePerformanceData = ({
     months,
     timeSeries,
     tabNoms,
-    ipKPI: ipData.ipKPI,
-    apKPI: apData.apKPI,
+    executiveKPIs: ipData.executiveKPIs,
+    apExecutiveKPIs: apData.apExecutiveKPIs,
     mipKPI: mipData.mipKPI,
     refresherKPI: refresherData.refresherKPI,
     capsuleKPI: capsuleData.capsuleKPI,
-    preApKPI: apData.preApKPI,
     overviewSummary,
     resolutionLevel
   };

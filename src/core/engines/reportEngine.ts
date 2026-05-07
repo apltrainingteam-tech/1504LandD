@@ -258,35 +258,7 @@ export function groupData(
 }
 
 // ─── IP ENGINE ─────────────────────────────────────────────────────────────
-export function calcIP(recs: UnifiedRecord[]) {
-  const isPresent = (r: UnifiedRecord) => {
-    const s = String(r.attendance.attendanceStatus || '').trim().toLowerCase();
-    return (s === '' || s === 'present') && !r.attendance.isVoided;
-  };
-  const p = recs.filter(isPresent);
 
-  let h = 0, med = 0, l = 0;
-  p.forEach(r => {
-    const scoreValues = extractScores(r.score?.scores, 'IP');
-    const s = scoreValues.length > 0 ? scoreValues.reduce((a, b) => a + b, 0) / scoreValues.length : null;
-
-    if (s !== null) {
-      if (s >= 75) h++;
-      else if (s >= 50) med++;
-      else l++;
-    }
-    // else: skip missing scores instead of counting as 'low'
-  });
-  const t = h + med + l;
-  return {
-    total: t,
-    high: h,
-    medium: med,
-    low: l,
-    weighted: t > 0 ? ((h * 95) + (med * 75) + (l * 40)) / t : 0, // Adjusted midpoints for realism
-    highPct: t > 0 ? (h / t) * 100 : 0
-  };
-}
 
 // ─── AP ENGINE ─────────────────────────────────────────────────────────────
 export function calcAP(recs: UnifiedRecord[], noms: TrainingNomination[]) {
@@ -451,7 +423,7 @@ export function buildTimeSeries(
         cells[mo] = presentCount;
       } else {
         // Calculate metrics based on tab type
-        if (tab === 'IP') cells[mo] = calcIP(monthRecs).weighted;
+        if (tab === 'IP') cells[mo] = 0; // Legacy calcIP removed
         else if (tab === 'AP') cells[mo] = calcAP(monthRecs, g.nominations).composite;
         else if (tab === 'MIP') { const m = calcMIP(monthRecs); cells[mo] = (m.avgSci + m.avgSkl) / 2; }
         else if (tab === 'Refresher') cells[mo] = calcRefresher(monthRecs).overallAvg;
@@ -610,7 +582,7 @@ export function exportToCSV(rows: Record<string, any>[], filename: string = 'rep
 export function getPrimaryMetricRaw(recs: UnifiedRecord[], tab: string): number {
   if (recs.length === 0) return 0;
   
-  if (tab === 'IP') return calcIP(recs).weighted;
+  if (tab === 'IP') return 0; // Legacy calcIP removed
   
   const present = recs.filter(r => {
     const s = String(r.attendance.attendanceStatus || '').trim().toLowerCase();

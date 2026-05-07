@@ -1,10 +1,9 @@
 import { useMemo } from 'react';
-import { buildIPAggregates, buildIPMonthlyTeamRanks } from '../../../core/engines/ipEngine';
+import { buildIPAggregates, buildIPMonthlyTeamRanks, calcExecutiveKPIs } from '../../../core/engines/ipEngine';
 import { globalComputationCaches } from '../../../core/utils/computationCache';
-import { calcIP } from '../../../core/engines/reportEngine';
 import { useGlobalFilters } from '../../../core/context/GlobalFilterContext';
 
-export const useIPData = (unified: any[], months: string[], activeNT: string) => {
+export const useIPData = (unified: any[], months: string[], activeNT: string, viewBy: string) => {
   const { filters } = useGlobalFilters();
 
   const ipData = useMemo(() => {
@@ -21,10 +20,10 @@ export const useIPData = (unified: any[], months: string[], activeNT: string) =>
     return buildIPMonthlyTeamRanks(unified, months);
   }, [unified, months, activeNT]);
 
-  const ipKPI = useMemo(() => {
+  const executiveKPIs = useMemo(() => {
     if (activeNT !== 'IP') return null;
-    return calcIP(unified);
-  }, [unified, activeNT]);
+    return calcExecutiveKPIs(unified, viewBy);
+  }, [unified, activeNT, viewBy]);
 
-  return { ipData, ipRankData, ipKPI };
+  return { ipData, ipRankData, executiveKPIs };
 };

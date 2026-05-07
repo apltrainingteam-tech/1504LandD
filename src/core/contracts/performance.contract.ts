@@ -45,12 +45,11 @@ export interface PerformanceDataset {
   tabNoms: any[];
 
   // KPIs
-  ipKPI: any;
-  apKPI: any;
+  executiveKPIs: any;
+  apExecutiveKPIs: any;
   mipKPI: any;
   refresherKPI: any;
   capsuleKPI: any;
-  preApKPI: any;
   overviewSummary: any[];
   isDebugMode?: boolean;
 }

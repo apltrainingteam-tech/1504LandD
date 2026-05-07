@@ -134,50 +134,67 @@ export const buildIPAggregates = (ds: UnifiedRecord[]): IPAggregates => {
     else if (bucket === 'LOW') { teamMonthMap[cluster][team].low++; teamMonthMap[cluster][team].months[month].low++; }
   });
 
-  // KPI Calculations
-  const totalCandidates = dedupedRecords.length;
-  let gE = 0, gH = 0, gM = 0, gL = 0;
-  dedupedRecords.forEach(r => {
-    if (r.bucket === 'ELITE') gE++;
-    else if (r.bucket === 'HIGH') gH++;
-    else if (r.bucket === 'MEDIUM') gM++;
-    else gL++;
-  });
-  
-  const hPct = totalCandidates > 0 ? ((gE + gH) / totalCandidates) * 100 : 0;
-  const mPct = totalCandidates > 0 ? (gM / totalCandidates) * 100 : 0;
-  const lPct = totalCandidates > 0 ? (gL / totalCandidates) * 100 : 0;
-  const gScore = calculateWeightedScore(gE, gH, gM, gL, totalCandidates);
-
   return {
     clusterMonthMap,
     teamMonthMap,
     recordsCount: records.length,
-    globalKPIs: {
-      totalCandidates,
-      elitePct: totalCandidates > 0 ? (gE / totalCandidates) * 100 : 0,
-      highPct: totalCandidates > 0 ? (gH / totalCandidates) * 100 : 0,
-      medPct: totalCandidates > 0 ? (gM / totalCandidates) * 100 : 0,
-      lowPct: totalCandidates > 0 ? (gL / totalCandidates) * 100 : 0,
-      weightedScore: gScore,
-      bestTeam: Object.keys(teamMonthMap).length > 0 
-        ? Object.entries(teamMonthMap).reduce((best, [cluster, teams]) => {
-            const teamScores = Object.entries(teams).map(([name, data]) => ({ name, score: calculateWeightedScore(data.elite, data.high, data.medium, data.low, data.total) }));
-            const localBest = teamScores.sort((a, b) => b.score - a.score)[0];
-            return !best || localBest.score > best.score ? localBest : best;
-          }, null as any)?.name || '—' 
-        : '—', 
-      worstTeam: Object.keys(teamMonthMap).length > 0 
-        ? Object.entries(teamMonthMap).reduce((worst, [cluster, teams]) => {
-            const teamScores = Object.entries(teams).map(([name, data]) => ({ name, score: calculateWeightedScore(data.elite, data.high, data.medium, data.low, data.total) }));
-            const localWorst = teamScores.sort((a, b) => a.score - b.score)[0];
-            return !worst || localWorst.score < worst.score ? localWorst : worst;
-          }, null as any)?.name || '—' 
-        : '—',
-    },
     penaltyEnabled: IP_CONFIG.penaltyEnabled
   };
 };
+
+export function calcExecutiveKPIs(ds: UnifiedRecord[], viewBy: string = 'Team') {
+  const records = normalizeToIPRecords(ds);
+  
+  const dedupMap = new Map<string, IPRecord>();
+  records.forEach(r => {
+    const key = `${r.employeeId}_${r.month}`;
+    dedupMap.set(key, r);
+  });
+  const dedupedRecords = Array.from(dedupMap.values());
+  const totalCandidates = dedupedRecords.length;
+
+  if (totalCandidates === 0) return null;
+
+  const eliteCount = dedupedRecords.filter(r => r.bucket === 'ELITE').length;
+  const lowCount = dedupedRecords.filter(r => r.bucket === 'LOW').length;
+
+  // Group by entity (Team or Cluster) for distribution cards
+  const entityMap = new Map<string, { total: number; elite: number; low: number }>();
+  dedupedRecords.forEach(r => {
+    const key = viewBy === 'Cluster' ? r.cluster : r.team;
+    if (!key || key === '—' || key === 'Others') return;
+    
+    if (!entityMap.has(key)) entityMap.set(key, { total: 0, elite: 0, low: 0 });
+    const stats = entityMap.get(key)!;
+    stats.total++;
+    if (r.bucket === 'ELITE') stats.elite++;
+    if (r.bucket === 'LOW') stats.low++;
+  });
+
+  const entities = Array.from(entityMap.entries()).map(([name, stats]) => ({
+    name,
+    elitePct: (stats.elite / stats.total) * 100,
+    lowPct: (stats.low / stats.total) * 100,
+    eliteCount: stats.elite,
+    lowCount: stats.low,
+    total: stats.total
+  })).filter(e => e.total >= 1); // Allow all entities that have data
+
+  const sortedByElite = [...entities].sort((a, b) => b.elitePct - a.elitePct);
+  const sortedByLow = [...entities].sort((a, b) => b.lowPct - a.lowPct);
+
+  return {
+    totalCandidates,
+    eliteCount,
+    eliteRatio: (eliteCount / totalCandidates) * 100,
+    lowCount,
+    lowRatio: (lowCount / totalCandidates) * 100,
+    highestElite: sortedByElite[0] || { name: '—', elitePct: 0, eliteCount: 0 },
+    lowestElite: sortedByElite[sortedByElite.length - 1] || { name: '—', elitePct: 0, eliteCount: 0 },
+    highestLow: sortedByLow[0] || { name: '—', lowPct: 0, lowCount: 0 },
+    lowestLow: sortedByLow[sortedByLow.length - 1] || { name: '—', lowPct: 0, lowCount: 0 }
+  };
+}
 
 
 

@@ -328,15 +328,23 @@ export const getAPPerformanceAggregates = (
       let hasKnowledge = kVal !== null;
       if (hasKnowledge) { globalKnowledgeSum += kVal as number; globalKnowledgeCount++; }
 
-      let bseVal = typeof att.scores['bse'] === 'number' ? att.scores['bse'] : null;
+      let bseVal = normalizeScore(att.scores['bse'] ?? att.scores['BSE'] ?? att.scores['bseScore']);
       let hasBse = false;
-      if (bseVal === null) {
-        const bseKeys = ['grasping', 'participation', 'detailing', 'rolePlay', 'punctuality', 'grooming', 'behaviour'];
+      if (bseVal === null || bseVal === 0) {
+        const bseKeys = [
+          'grasping', 'participation', 'detailing', 'rolePlay', 
+          'punctuality', 'grooming', 'behaviour', 'english', 
+          'localLanguage', 'involvement', 'effort', 'confidence',
+          'situationHandling', 'situation'
+        ];
         let bseSum = 0; let bseCount = 0;
         for (const k of bseKeys) {
           const valRaw = att.scores[k];
+          // Strictly ignore blanks, nulls, dashes, and zeros as they typically represent "not evaluated"
+          if (valRaw == null || valRaw === 0 || String(valRaw).trim() === "" || String(valRaw) === "-" || String(valRaw) === "0") continue;
+          
           const val = normalizeScore(valRaw);
-          if (val !== null) { 
+          if (val !== null && val > 0) { 
             bseSum += val; 
             bseCount++; 
             if (bseParamTotals[k]) { bseParamTotals[k].sum += val; bseParamTotals[k].count++; } 
@@ -344,7 +352,7 @@ export const getAPPerformanceAggregates = (
         }
         if (bseCount > 0) bseVal = bseSum / bseCount;
       }
-      if (bseVal !== null) { globalBSESum += bseVal; globalBSECount++; hasBse = true; }
+      if (bseVal !== null && bseVal > 0) { globalBSESum += bseVal; globalBSECount++; hasBse = true; }
 
       const cMonth: any = clusterMap[cluster].months[month];
       const tMonth: any = clusterMap[cluster].teams[team].months[month];
@@ -446,6 +454,117 @@ export function getAPDrilldownList(
 }
 
 
+export interface APExecutiveKPIs {
+  highestBatches: { name: string; batches: number; candidates: number };
+  highestCandidates: { name: string; batches: number; candidates: number };
+  highestTest: { name: string; score: number };
+  lowestTest: { name: string; score: number };
+  highestBSE: { name: string; score: number };
+  lowestBSE: { name: string; score: number };
+}
 
+export const calcAPExecutiveKPIs = (
+  timelines: Map<string, EmployeeEventTimeline>,
+  fyMonths: string[]
+): APExecutiveKPIs | null => {
+  const teamStats = new Map<string, { 
+    batchIds: Set<string>; 
+    candidates: Set<string>; 
+    testSum: number; 
+    testCount: number; 
+    bseSum: number; 
+    bseCount: number 
+  }>();
 
+  const DUMMY_TEAMS = new Set(['Team A', '—', 'Unknown Team', 'Unknown', 'Unknown Team']);
 
+  for (const timeline of timelines.values()) {
+    if (!timeline.team || DUMMY_TEAMS.has(timeline.team)) continue;
+    
+    if (!teamStats.has(timeline.team)) {
+      teamStats.set(timeline.team, { 
+        batchIds: new Set(), 
+        candidates: new Set(), 
+        testSum: 0, 
+        testCount: 0, 
+        bseSum: 0, 
+        bseCount: 0 
+      });
+    }
+    const stats = teamStats.get(timeline.team)!;
+
+    // Process attendances for batches and candidates
+    timeline.attendances.forEach(a => {
+      if (!fyMonths.includes(a.month)) return;
+      if (a.status !== 'Present') return;
+
+      // Batch definition: Date + Trainer
+      const batchId = `${a.date}::${a.trainerId || 'unknown'}`;
+      stats.batchIds.add(batchId);
+      stats.candidates.add(timeline.employeeId);
+
+      // Test Score (Knowledge)
+      const kValRaw = a.scores['knowledge'] ?? a.scores['knowledgeScore'] ?? a.scores['percent'] ?? a.scores['testScore'] ?? a.scores['Score'] ?? a.scores['test'];
+      const kVal = normalizeScore(kValRaw);
+      if (kVal !== null) {
+        stats.testSum += kVal;
+        stats.testCount++;
+      }
+
+      // BSE Score
+      let bseVal = normalizeScore(a.scores['bse'] ?? a.scores['BSE'] ?? a.scores['bseScore']);
+      
+      if (bseVal === null || bseVal === 0) {
+        const bseKeys = [
+          'grasping', 'participation', 'detailing', 'rolePlay', 
+          'punctuality', 'grooming', 'behaviour', 'english', 
+          'localLanguage', 'involvement', 'effort', 'confidence',
+          'situationHandling', 'situation'
+        ];
+        let bSum = 0; 
+        let bCount = 0;
+        for (const k of bseKeys) {
+          const valRaw = a.scores[k];
+          // Strictly ignore blanks, nulls, dashes, and zeros as they typically represent "not evaluated"
+          if (valRaw == null || valRaw === 0 || String(valRaw).trim() === "" || String(valRaw) === "-" || String(valRaw) === "0") continue;
+          
+          const val = normalizeScore(valRaw);
+          if (val !== null && val > 0) { 
+            bSum += val; 
+            bCount++; 
+          }
+        }
+        if (bCount > 0) bseVal = bSum / bCount;
+      }
+
+      if (bseVal !== null && bseVal > 0) {
+        stats.bseSum += bseVal;
+        stats.bseCount++;
+      }
+    });
+  }
+
+  const teams = Array.from(teamStats.entries()).map(([name, s]) => ({
+    name,
+    batches: s.batchIds.size,
+    candidates: s.candidates.size,
+    avgTest: s.testCount > 0 ? s.testSum / s.testCount : 0,
+    avgBSE: s.bseCount > 0 ? s.bseSum / s.bseCount : 0
+  })).filter(t => t.batches > 0 || t.avgTest > 0 || t.avgBSE > 0);
+
+  if (teams.length === 0) return null;
+
+  const sortedByBatches = [...teams].sort((a, b) => b.batches - a.batches);
+  const sortedByCandidates = [...teams].sort((a, b) => b.candidates - a.candidates);
+  const sortedByTest = [...teams].filter(t => t.avgTest > 0).sort((a, b) => b.avgTest - a.avgTest);
+  const sortedByBSE = [...teams].filter(t => t.avgBSE > 0).sort((a, b) => b.avgBSE - a.avgBSE);
+
+  return {
+    highestBatches: sortedByBatches[0] ? { name: sortedByBatches[0].name, batches: sortedByBatches[0].batches, candidates: sortedByBatches[0].candidates } : { name: '—', batches: 0, candidates: 0 },
+    highestCandidates: sortedByCandidates[0] ? { name: sortedByCandidates[0].name, batches: sortedByCandidates[0].batches, candidates: sortedByCandidates[0].candidates } : { name: '—', batches: 0, candidates: 0 },
+    highestTest: sortedByTest[0] ? { name: sortedByTest[0].name, score: sortedByTest[0].avgTest } : { name: '—', score: 0 },
+    lowestTest: sortedByTest[sortedByTest.length - 1] ? { name: sortedByTest[sortedByTest.length - 1].name, score: sortedByTest[sortedByTest.length - 1].avgTest } : { name: '—', score: 0 },
+    highestBSE: sortedByBSE[0] ? { name: sortedByBSE[0].name, score: sortedByBSE[0].avgBSE } : { name: '—', score: 0 },
+    lowestBSE: sortedByBSE[sortedByBSE.length - 1] ? { name: sortedByBSE[sortedByBSE.length - 1].name, score: sortedByBSE[sortedByBSE.length - 1].avgBSE } : { name: '—', score: 0 },
+  };
+}

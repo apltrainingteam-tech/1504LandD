@@ -103,16 +103,6 @@ export interface IPAggregates {
   clusterMonthMap: Record<string, IPMonthMapNode>;
   teamMonthMap: Record<string, Record<string, IPMonthMapNode>>;
   recordsCount: number;
-  globalKPIs: {
-    totalCandidates: number;
-    elitePct: number;
-    highPct: number;
-    medPct: number;
-    lowPct: number;
-    weightedScore: number;
-    bestTeam: string;
-    worstTeam: string;
-  };
   penaltyEnabled: boolean;
 }
 

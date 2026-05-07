@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
-import { buildAPMonthlyMatrix, getAPPerformanceAggregates } from '../../../core/engines/apEngine';
-import { calcAP, calcPreAP } from '../../../core/engines/reportEngine';
+import { buildAPMonthlyMatrix, getAPPerformanceAggregates, calcAPExecutiveKPIs } from '../../../core/engines/apEngine';
 import { globalComputationCaches } from '../../../core/utils/computationCache';
 
 export const useAPData = (filteredTimelines: Map<string, any>, months: string[], activeNT: string, unified: any[], tabNoms: any[]) => {
@@ -14,15 +13,10 @@ export const useAPData = (filteredTimelines: Map<string, any>, months: string[],
     return getAPPerformanceAggregates(filteredTimelines, months);
   }, [activeNT, filteredTimelines, months]);
 
-  const apKPI = useMemo(() => {
+  const apExecutiveKPIs = useMemo(() => {
     if (activeNT !== 'AP') return null;
-    return calcAP(unified, tabNoms);
-  }, [unified, tabNoms, activeNT]);
+    return calcAPExecutiveKPIs(filteredTimelines, months);
+  }, [filteredTimelines, months, activeNT]);
 
-  const preApKPI = useMemo(() => {
-    if (activeNT !== 'Pre_AP') return null;
-    return calcPreAP(unified, tabNoms);
-  }, [unified, tabNoms, activeNT]);
-
-  return { apAttData, apPerfData, apKPI, preApKPI };
+  return { apAttData, apPerfData, apExecutiveKPIs };
 };
