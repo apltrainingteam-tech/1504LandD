@@ -2520,7 +2520,9 @@ h3 {
 .opacity-50 { opacity: 0.5; }
 .opacity-75 { opacity: 0.75; }
 .cursor-pointer { cursor: pointer; }
+.rounded-full { border-radius: 9999px; }
 .overflow-hidden { overflow: hidden; }
+.flex-shrink-0 { flex-shrink: 0; }
 /* Metric Micro-Layout */
 .metric-row {
   display: flex;

@@ -65,6 +65,10 @@ export const TOE: React.FC<TOEProps> = ({ employees, attendance, scores }) => {
       const cat = s.category === 'RTM' ? 'RTM' : 'HO';
       groups[cat].push(s);
     });
+    // Sort by Sessions (trainingsConducted) descending
+    Object.keys(groups).forEach(key => {
+      groups[key].sort((a, b) => b.trainingsConducted - a.trainingsConducted);
+    });
     return groups;
   }, [toeStats]);
 
@@ -170,43 +174,34 @@ export const TOE: React.FC<TOEProps> = ({ employees, attendance, scores }) => {
 
           return (
             <div key={group} className={styles.groupSection}>
-              <div 
-                className={styles.groupHeader} 
-                onClick={() => toggleGroup(group)}
-              >
-                <div className={styles.groupTitle}>
-                  <span className={styles.groupLabel}>{group} Trainers</span>
-                  <span className={styles.groupCount}>({stats.length})</span>
+                <div className={styles.groupHeader} onClick={() => toggleGroup(group)}>
+                  <span className={styles.groupTitle}>{group} Trainers</span>
+                  <span className={styles.groupCount}>{stats.length}</span>
+                  <span style={{ marginLeft: '8px', display: 'flex', color: '#94A3B8' }}>
+                    {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                  </span>
                 </div>
-                {isCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
-              </div>
 
               {!isCollapsed && (
                 <div className={styles.statsGrid}>
                   {stats.map(stat => {
                     const trainerObj = masterTrainers.find(t => normalizeForMatch(t.name) === normalizeForMatch(stat.trainerName));
                     return (
-                      <div key={stat.trainerName} className={styles.statCard}>
-                        <div className={styles.trainerHeader}>
-                          <TrainerAvatar trainer={trainerObj || { id: stat.trainerName, name: stat.trainerName }} size={40} />
-                          <div className={styles.trainerTitle}>
-                            <div className={styles.name}>{stat.trainerName}</div>
-                            <div className={styles.fyBadge}>FY {selectedFY}</div>
-                          </div>
-                        </div>
-                        <div className={styles.metricsWrapper}>
-                          <div className={styles.metricBlock}>
-                            <div className={styles.iconBox}><Presentation size={12} /></div>
-                            <div className={styles.metricInfo}>
-                              <div className={styles.value}>{stat.trainingsConducted}</div>
-                              <div className={styles.label}>Sessions</div>
+                      <div key={stat.trainerName} className={styles.statCard} title={stat.trainerName}>
+                        <div className={styles.tileContent}>
+                          <TrainerAvatar trainer={trainerObj || { id: stat.trainerName, name: stat.trainerName }} size={32} />
+                          <div className={styles.metricsWrapper}>
+                            <div className={styles.metricBlock}>
+                              <div className={styles.metricInfo}>
+                                <div className={styles.primaryValue}>{stat.trainingsConducted}</div>
+                                <div className={styles.label}>Sessions</div>
+                              </div>
                             </div>
-                          </div>
-                          <div className={styles.metricBlock}>
-                            <div className={styles.iconBox}><Users size={12} /></div>
-                            <div className={styles.metricInfo}>
-                              <div className={styles.value}>{stat.candidatesTrained}</div>
-                              <div className={styles.label}>Trained</div>
+                            <div className={styles.metricBlock}>
+                              <div className={styles.metricInfo}>
+                                <div className={styles.sessionsValue}>{stat.candidatesTrained}</div>
+                                <div className={styles.label}>Trained</div>
+                              </div>
                             </div>
                           </div>
                         </div>
