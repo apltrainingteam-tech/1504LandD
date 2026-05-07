@@ -104,50 +104,8 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
   return (
     <div className={`${styles.chartsContainer} animate-fade-in`}>
       {/* View navigation removed for integrated architecture */}
-      <div className="flex-between mb-20">
-        <div className={styles.subViewNav}>
-          <button className={`${styles.subViewBtn} ${styles.subViewBtnActive}`}><TrendingUp size={14} /> Hierarchical Trend Model</button>
-        </div>
+      {/* Action layers removed for streamlined executive dashboard */}
 
-        <div className="flex-center gap-2">
-          <button className={`btn ${presentationMode ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setPresentationMode(!presentationMode)} title="Presentation Mode">
-            <TrendingUp size={16} /> {presentationMode ? 'Exit Presentation' : 'Present'}
-          </button>
-        </div>
-      </div>
-
-      {/* QUICK SCENARIO BUTTONS */}
-      {!presentationMode && (
-        <div className="flex gap-3 mb-24 overflow-x-auto pb-2 px-2 no-scrollbar">
-          <motion.button whileHover={{ y: -2 }} whileTap={{ scale: 0.98 }} onClick={handleClearAll} className={styles.scenarioBtn}>
-            <Users size={14} /> Full Snapshot
-          </motion.button>
-          <motion.button 
-            whileHover={{ y: -2 }} 
-            whileTap={{ scale: 0.98 }} 
-            onClick={() => {
-              // Scenario: Only show teams with Elite members
-              const topTeamId = ranked.filter(r => r.score > 80).map(r => masterTeams.find(t => t.teamName === r.name)?.id).filter(Boolean)[0];
-              if (topTeamId) setGlobalFilters({ team: topTeamId, cluster: null });
-            }} 
-            className={styles.scenarioBtn}
-          >
-            <Trophy size={14} className="text-success" /> Elite Squads
-          </motion.button>
-          <motion.button 
-            whileHover={{ y: -2 }} 
-            whileTap={{ scale: 0.98 }} 
-            onClick={() => {
-              // Scenario: Only show teams with significant gaps
-              const lowTeamId = ranked.filter(r => r.score < 60).map(r => masterTeams.find(t => t.teamName === r.name)?.id).filter(Boolean)[0];
-              if (lowTeamId) setGlobalFilters({ team: lowTeamId, cluster: null });
-            }} 
-            className={styles.scenarioBtn}
-          >
-            <AlertTriangle size={14} className="text-danger" /> Risk Focus
-          </motion.button>
-        </div>
-      )}
 
       <div className="flex h-full gap-4"> 
         {/* LEFT PANEL */} 
