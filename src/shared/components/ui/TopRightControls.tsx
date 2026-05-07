@@ -1,5 +1,5 @@
 import React from 'react';
-import { Filter, Download } from 'lucide-react';
+import { Filter, Download, ShieldAlert } from 'lucide-react';
 // TopRightControls is UI-only; active filter count should be provided by the page
 
 interface TopRightControlsProps {
@@ -8,7 +8,9 @@ interface TopRightControlsProps {
   onChangeFY?: (fy: string) => void;
   onOpenGlobalFilters?: () => void;
   onExport?: () => void;
+  onSwitchDefaulter?: () => void;
   activeFilterCount?: number;
+  extraControls?: React.ReactNode;
 }
 
 export const TopRightControls: React.FC<TopRightControlsProps> = ({
@@ -17,7 +19,9 @@ export const TopRightControls: React.FC<TopRightControlsProps> = ({
   onChangeFY,
   onOpenGlobalFilters,
   onExport,
+  onSwitchDefaulter,
   activeFilterCount = 0,
+  extraControls
 }) => {
 
   return (
@@ -35,6 +39,13 @@ export const TopRightControls: React.FC<TopRightControlsProps> = ({
         </div>
       )}
 
+      {extraControls}
+
+      {onSwitchDefaulter && (
+        <button className="btn btn-secondary" onClick={() => onSwitchDefaulter()} title="View Defaulters">
+          <ShieldAlert size={16} />
+        </button>
+      )}
 
       <button className="btn btn-secondary" onClick={() => onExport?.()} title="Export">
         <Download size={16} />

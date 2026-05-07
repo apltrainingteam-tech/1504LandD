@@ -295,6 +295,7 @@ export const GapAnalysis: React.FC<GapAnalysisProps> = ({ employees, attendance,
         </div>
         <TopRightControls
           onExport={() => alert('Export not available for Training Requirements (UI placeholder)')}
+          onSwitchDefaulter={() => onNavigate?.('defaulters')}
           activeFilterCount={activeFilterCount}
         />
       </div>
