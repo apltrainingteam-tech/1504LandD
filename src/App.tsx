@@ -65,7 +65,7 @@ import { Attendance, TrainingScore, TrainingNomination, Demographics as DemoType
 import { useAppData } from './shared/hooks/useAppData';
 import { getCurrentUser } from './core/context/userContext';
 
-type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'nominations' | 'notification' | 'training-data' | 'gap-analysis' | 'performance-tables' | 'performance-charts' | 'performance' | 'srm' | 'defaulters' | 'calendar' | 'master-settings' | 'data-quality' | 'toe' | 'tracker';
+type ViewMode = 'employees' | 'demographics' | 'attendance' | 'trainings' | 'reports' | 'nominations' | 'notification' | 'training-data' | 'gap-analysis' | 'performance-tables' | 'performance' | 'srm' | 'defaulters' | 'calendar' | 'master-settings' | 'data-quality' | 'toe' | 'tracker';
 interface SidebarItem {
   label: string;
   view: string;
@@ -109,8 +109,7 @@ const sidebarSections: SidebarSection[] = [
   {
     title: "PERFORMANCE",
     items: [
-      { label: "Performance Tables", view: "performance-tables", icon: FileText },
-      { label: "Performance Charts", view: "performance-charts", icon: BarChart3 },
+      { label: "Performance Insights", view: "performance-tables", icon: FileText },
       { label: "TOE", view: "toe", icon: Target }
     ]
   },
@@ -183,9 +182,6 @@ const App = () => {
       case 'performance-tables':
       case 'performance': return (
         <ReportsAnalytics employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} pageMode="performance-insights" onNavigate={setView} />
-      );
-      case 'performance-charts': return (
-        <PerformanceCharts employees={emps} attendance={att} scores={scs} nominations={noms} demographics={demos} onNavigate={setView} />
       );
       case 'toe': return (
         <TOE employees={emps} attendance={att} scores={scs} />

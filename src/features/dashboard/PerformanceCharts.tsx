@@ -103,19 +103,13 @@ export const PerformanceCharts: React.FC<PerformanceChartsProps> = ({
 
   return (
     <div className={`${styles.chartsContainer} animate-fade-in`}>
-      <div className="mb-24">
-        <h1 className="text-2xl font-bold m-0">Performance Insights</h1>
-        <p className="text-subtitle">Analysis for {tab} Training • {selectedFY}</p>
-      </div>
-
+      {/* View navigation removed for integrated architecture */}
       <div className="flex-between mb-20">
         <div className={styles.subViewNav}>
           <button className={`${styles.subViewBtn} ${styles.subViewBtnActive}`}><TrendingUp size={14} /> Hierarchical Trend Model</button>
         </div>
 
         <div className="flex-center gap-2">
-          <button className="btn btn-secondary" onClick={() => onNavigate?.('performance-tables')} title="Switch to Tables"><Table size={16} /></button>
-          <div className="v-divider mx-1" />
           <button className={`btn ${presentationMode ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setPresentationMode(!presentationMode)} title="Presentation Mode">
             <TrendingUp size={16} /> {presentationMode ? 'Exit Presentation' : 'Present'}
           </button>

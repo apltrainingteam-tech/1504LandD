@@ -29,6 +29,8 @@ import { CapsuleAttendanceMatrix, CapsulePerformanceMatrix } from '../../feature
 import { flagScore, flagClass, flagLabel } from '../../core/utils/scoreNormalizer';
 import { useFilterOptions } from '../../shared/hooks/computationHooks';
 import { useMasterData } from '../../core/context/MasterDataContext';
+import { PerformanceCharts } from './PerformanceCharts';
+import { TOE } from './TOE';
 import { usePerformanceData } from './hooks/usePerformanceData';
 import { ProgressBar } from '../../shared/components/ui/ProgressBar';
 
@@ -47,7 +49,7 @@ interface ReportsAnalyticsProps {
   onNavigate?: (view: any) => void;
 }
 
-type SubView = 'grouped' | 'timeseries' | 'trainer' | 'drilldown' | 'gap' | 'ip_matrix' | 'ip_cluster_rank' | 'ip_team_rank' | 'ap_performance' | 'mip_attendance' | 'mip_performance' | 'refresher_attendance' | 'refresher_performance' | 'capsule_attendance' | 'capsule_performance';
+type SubView = 'grouped' | 'timeseries' | 'trainer' | 'drilldown' | 'gap' | 'ip_matrix' | 'ip_cluster_rank' | 'ip_team_rank' | 'ap_performance' | 'mip_attendance' | 'mip_performance' | 'refresher_attendance' | 'refresher_performance' | 'capsule_attendance' | 'capsule_performance' | 'performance_charts';
 
 import { useGlobalFilters } from '../../core/context/GlobalFilterContext';
 
@@ -164,15 +166,15 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
 
   useEffect(() => {
     if (tab === 'IP') {
-      if (!['ip_matrix', 'gap', 'timeseries', 'trainer', 'ip_team_rank'].includes(subView)) {
+      if (!['ip_matrix', 'ip_team_rank', 'performance_charts'].includes(subView)) {
         setSubView('ip_matrix');
       }
     } else if (tab === 'AP') {
-      if (!['ap_performance', 'gap', 'timeseries', 'trainer', 'drilldown'].includes(subView)) {
+      if (!['ap_performance', 'performance_charts', 'gap', 'timeseries', 'trainer', 'drilldown'].includes(subView)) {
         setSubView('ap_performance');
       }
     } else if (tab === 'MIP') {
-      if (!['mip_attendance', 'mip_performance', 'timeseries', 'trainer', 'drilldown', 'gap'].includes(subView)) {
+      if (!['mip_attendance', 'mip_performance', 'performance_charts', 'timeseries', 'trainer', 'drilldown', 'gap'].includes(subView)) {
         setSubView('mip_performance');
       }
     } else if (tab === 'Refresher') {
@@ -517,8 +519,8 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
             {/* 3. CHART VIEW (IP, AP, MIP) */}
             {['IP', 'AP', 'MIP'].includes(tab) && (
               <button 
-                className="btn btn-sm btn-secondary"
-                onClick={() => onNavigate?.('performance-charts')}
+                className={`btn btn-sm ${subView === 'performance_charts' ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setSubView('performance_charts')}
                 title="Visual Analytics"
               >
                 <BarChart3 size={14} className="mr-1" /> Chart
@@ -1125,6 +1127,16 @@ const ReportsAnalyticsComponent: React.FC<ReportsAnalyticsProps> = ({
 
 
 
+      {subView === 'performance_charts' && (
+        <PerformanceCharts 
+          employees={employees}
+          attendance={attendance}
+          scores={scores}
+          nominations={nominations}
+          demographics={demographics}
+          onNavigate={onNavigate}
+        />
+      )}
     </div>
   );
 };
